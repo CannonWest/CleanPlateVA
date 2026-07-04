@@ -30,6 +30,43 @@ async function fetchJSON(path, forceRefresh) {
     }
 }
 
+// ── checklist decoding (data-contract v1) ───────────────────────────────
+// Detail files carry the food-code checklist compacted: each row is
+// [item, disposition, flags(, override)] with flags a bitmask
+// (1 compliant | 2 violation | 4 cos | 8 repeat | 16 sentinel), and the
+// per-item category/standard text factored out into data/standards.json.
+// Decoding expands rows back to the object shape the renderers expect.
+// An override ({c, t}) carries the rare row whose text differs from the
+// shared vocabulary.
+
+let standardsPromise = null;
+function getStandards() {
+    if (!standardsPromise) {
+        standardsPromise = fetch('data/standards.json')
+            .then((r) => (r.ok ? r.json() : {}))
+            .catch(() => ({}));
+    }
+    return standardsPromise;
+}
+
+function decodeChecklist(rows, standards) {
+    if (!Array.isArray(rows) || !rows.length || !Array.isArray(rows[0])) return rows;
+    return rows.map(([item, disposition, flags, override]) => {
+        const std = (item != null && standards[String(item)]) || {};
+        return {
+            item,
+            disposition,
+            category: override?.c ?? std.category ?? '',
+            standard_text: override?.t ?? std.text ?? '',
+            compliant: !!(flags & 1),
+            violation: !!(flags & 2),
+            cos: !!(flags & 4),
+            repeat: !!(flags & 8),
+            is_sentinel: !!(flags & 16),
+        };
+    });
+}
+
 const api = {
     /** The full mapped facility roster for the map view. */
     getFoodFacilities(forceRefresh = false) {
@@ -37,8 +74,17 @@ const api = {
     },
 
     /** One facility + its full (pre-merged) inspection history. */
-    getFoodFacilityDetail(permitID) {
-        return fetchJSON(`data/facility/${encodeURIComponent(permitID)}.json`);
+    async getFoodFacilityDetail(permitID) {
+        const [data, standards] = await Promise.all([
+            fetchJSON(`data/facility/${encodeURIComponent(permitID)}.json`),
+            getStandards(),
+        ]);
+        if (data && data.available && Array.isArray(data.inspections)) {
+            for (const insp of data.inspections) {
+                insp.checklist = decodeChecklist(insp.checklist, standards);
+            }
+        }
+        return data;
     },
 };
 
