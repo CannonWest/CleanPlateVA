@@ -1,0 +1,479 @@
+/* ════════════════════════════════════════════════════════════════════════
+   CleanPlateVA — restaurant-inspection map.
+   MapLibre GL map + grade-colored markers + detail panel. Data hues (grade
+   colors, score badges) are fixed inline in foodDashboard.js; everything
+   here is CHROME and gets a .theme-dark pair (dark is the default theme).
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* ── page shell ──────────────────────────────────────────────────────── */
+/* Column flex chain down to the map so the GL canvas gets a real height.
+   min-height:0 keeps the flex children shrinkable. */
+html, body { height: 100%; }
+body {
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    overflow: hidden;
+}
+
+.cp-header {
+    flex: 0 0 auto;
+    background: #f8f9fa;
+}
+.theme-dark .cp-header { background: #1d1f21; border-color: #333 !important; }
+.cp-brand { font-weight: 700; font-size: 1.05rem; }
+.cp-brand-icon { font-size: 1.2rem; color: #e8590c; }
+.cp-tagline { letter-spacing: 0.01em; }
+
+.food-container {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+.food-body {
+    flex: 1 1 auto;
+    min-height: 0;
+}
+.food-map-wrap {
+    position: relative;
+    min-width: 0;
+}
+#foodMap {
+    position: absolute;
+    inset: 0;
+}
+.food-map-error { font-size: 0.9rem; }
+
+.food-toolbar { background: #f8f9fa; }
+.theme-dark .food-toolbar { background: #1d1f21; border-color: #333 !important; }
+.food-toolbar .food-search { max-width: 260px; }
+
+.food-source-footer {
+    border-top: 1px solid #dee2e6;
+    background: #f8f9fa;
+    line-height: 1.35;
+}
+.theme-dark .food-source-footer {
+    border-top-color: #333;
+    background: #1d1f21;
+}
+.food-source-footer a { text-decoration: underline; }
+
+/* MapLibre chrome — the GL canvas host + .theme-dark pairs for the popup /
+   attribution / nav controls (basemaps are CARTO positron / dark-matter). */
+.theme-dark #foodMap { background: #181a1b; }
+
+/* Hover tooltip (maplibregl.Popup, className 'food-tip') on both themes. */
+.food-tip .maplibregl-popup-content {
+    padding: 6px 10px;
+    font-size: 0.8rem;
+    line-height: 1.3;
+    border-radius: 4px;
+}
+.theme-dark .food-tip .maplibregl-popup-content {
+    background: #2b2d30;
+    color: #e6e6e6;
+    border: 1px solid #444;
+}
+/* The popup tip is a CSS-border triangle whose colored side depends on the
+   anchor — pair each side with the dark content color. */
+.theme-dark .food-tip.maplibregl-popup-anchor-bottom .maplibregl-popup-tip,
+.theme-dark .food-tip.maplibregl-popup-anchor-bottom-left .maplibregl-popup-tip,
+.theme-dark .food-tip.maplibregl-popup-anchor-bottom-right .maplibregl-popup-tip { border-top-color: #2b2d30; }
+.theme-dark .food-tip.maplibregl-popup-anchor-top .maplibregl-popup-tip,
+.theme-dark .food-tip.maplibregl-popup-anchor-top-left .maplibregl-popup-tip,
+.theme-dark .food-tip.maplibregl-popup-anchor-top-right .maplibregl-popup-tip { border-bottom-color: #2b2d30; }
+.theme-dark .food-tip.maplibregl-popup-anchor-left .maplibregl-popup-tip { border-right-color: #2b2d30; }
+.theme-dark .food-tip.maplibregl-popup-anchor-right .maplibregl-popup-tip { border-left-color: #2b2d30; }
+
+/* Attribution strip + zoom control on dark. */
+.theme-dark .maplibregl-ctrl-attrib {
+    background: rgba(20, 20, 20, 0.7);
+    color: #9aa0a6;
+}
+.theme-dark .maplibregl-ctrl-attrib a { color: #4dabf7; }
+.theme-dark .maplibregl-ctrl-group { background: #2b2d30; }
+.theme-dark .maplibregl-ctrl-group button + button { border-top-color: #444; }
+.theme-dark .maplibregl-ctrl-group button:hover { background: #3a3d40; }
+/* Control glyphs are background-image SVGs — invert them to read on dark.
+   The compact-attribution ⓘ toggle (maps <640px wide) draws its icon on the
+   button itself, so it needs its own invert. */
+.theme-dark .maplibregl-ctrl button .maplibregl-ctrl-icon { filter: invert(0.85); }
+.theme-dark .maplibregl-ctrl-attrib-button { filter: invert(0.85); }
+
+/* ── detail panel ─────────────────────────────────────────────────────── */
+.food-detail {
+    width: 400px;
+    max-width: 45%;
+    border-left: 1px solid #dee2e6;
+    background: #fff;
+    overflow-y: auto;
+}
+.theme-dark .food-detail {
+    border-left-color: #333;
+    background: #1d1f21;
+}
+.food-detail-inner { padding: 0.9rem; }
+
+.food-detail-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.5rem;
+}
+.food-detail-title h5 { margin-bottom: 0.15rem; }
+.theme-dark .food-detail-title h5 { color: #e6e6e6; }
+.theme-dark .food-detail .btn-close { filter: invert(1) grayscale(100%) brightness(160%); }
+
+.food-approx {
+    margin-left: 0.4rem;
+    font-style: italic;
+    color: #e8590c;
+}
+.food-approx-street {
+    color: #868e96;
+}
+.theme-dark .food-approx-street {
+    color: #909296;
+}
+
+.food-score-hero {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin: 0.8rem 0 0.6rem;
+}
+.food-score-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 3.2rem;
+    height: 3.2rem;
+    border-radius: 0.6rem;
+    color: #fff;
+    font-size: 1.5rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.35);
+    padding: 0 0.4rem;
+}
+.food-score-grade {
+    font-weight: 600;
+    color: #212529;
+}
+.theme-dark .food-score-grade { color: #e6e6e6; }
+.food-score-computed {
+    margin-left: 0.35rem;
+    font-size: 0.68rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 0.1rem 0.35rem;
+    border: 1px solid #adb5bd;
+    border-radius: 0.5rem;
+    color: #6c757d;
+    vertical-align: text-top;
+    cursor: help;
+}
+.theme-dark .food-score-computed { border-color: #555; color: #9aa0a6; }
+
+.food-section-title {
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #6c757d;
+    margin: 0.9rem 0 0.4rem;
+}
+.theme-dark .food-section-title { color: #9aa0a6; }
+
+/* ── red flags ────────────────────────────────────────────────────────── */
+.food-flag {
+    display: flex;
+    align-items: baseline;
+    gap: 0.45rem;
+    padding: 0.35rem 0.45rem;
+    margin-bottom: 0.3rem;
+    border-radius: 0.35rem;
+    background: #fff4e6;
+    font-size: 0.85rem;
+}
+.theme-dark .food-flag { background: #33291c; }
+.food-flag-rf { background: #fff0f0; }
+.theme-dark .food-flag-rf { background: #3a2224; }
+.food-flag-item, .food-viol-item {
+    flex: 0 0 auto;
+    font-size: 0.72rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    padding: 0.05rem 0.3rem;
+    border-radius: 0.3rem;
+    background: #495057;
+    color: #fff;
+    cursor: help;
+}
+.food-flag-rf .food-flag-item, .food-viol-rf .food-viol-item { background: #c92a2a; }
+.food-flag-repeat {
+    flex: 0 0 auto;
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    padding: 0.05rem 0.3rem;
+    border-radius: 0.3rem;
+    background: #e8590c;
+    color: #fff;
+}
+.food-flag-text { color: #212529; }
+.theme-dark .food-flag-text { color: #d8d8d8; }
+
+/* ── inspection history ───────────────────────────────────────────────── */
+.food-insp {
+    border: 1px solid #dee2e6;
+    border-radius: 0.45rem;
+    margin-bottom: 0.45rem;
+    background: #fff;
+}
+.theme-dark .food-insp { border-color: #3a3d40; background: #232527; }
+.food-insp > summary {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.45rem 0.6rem;
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+}
+.food-insp > summary::-webkit-details-marker { display: none; }
+.food-insp > summary::after {
+    content: '\25B8';
+    margin-left: auto;
+    color: #adb5bd;
+    transition: transform 0.12s ease;
+}
+.food-insp[open] > summary::after { transform: rotate(90deg); }
+.food-insp-score {
+    flex: 0 0 auto;
+    min-width: 2rem;
+    text-align: center;
+    border-radius: 0.35rem;
+    padding: 0.1rem 0.25rem;
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.8rem;
+    font-variant-numeric: tabular-nums;
+    text-shadow: 0 1px 1px rgba(0,0,0,0.3);
+}
+.food-insp-when { font-weight: 600; font-size: 0.85rem; color: #212529; }
+.theme-dark .food-insp-when { color: #e6e6e6; }
+.food-insp-kind, .food-insp-count { font-size: 0.78rem; }
+.food-insp-body { padding: 0.3rem 0.6rem 0.6rem; }
+
+.food-viol {
+    padding: 0.3rem 0.4rem;
+    margin-bottom: 0.25rem;
+    border-radius: 0.3rem;
+    background: #f8f9fa;
+    font-size: 0.82rem;
+}
+.theme-dark .food-viol { background: #2a2c2e; }
+.food-viol-rf { background: #fff5f5; }
+.theme-dark .food-viol-rf { background: #342427; }
+.food-viol-head {
+    display: flex;
+    align-items: baseline;
+    gap: 0.4rem;
+}
+.food-viol-text { color: #212529; }
+.theme-dark .food-viol-text { color: #d8d8d8; }
+.food-viol-corrective {
+    margin-top: 0.15rem;
+    padding-left: 1.6rem;
+    font-size: 0.78rem;
+    color: #2b8a3e;
+}
+.theme-dark .food-viol-corrective { color: #69bd7c; }
+
+.food-insp-comments {
+    margin-top: 0.4rem;
+    font-size: 0.8rem;
+    color: #495057;
+}
+.theme-dark .food-insp-comments { color: #b8bcc0; }
+
+.food-temps { margin-top: 0.4rem; }
+.food-temps > summary { cursor: pointer; }
+.food-temp-cat {
+    font-size: 0.74rem;
+    font-weight: 600;
+    margin-top: 0.35rem;
+    color: #6c757d;
+}
+.theme-dark .food-temp-cat { color: #9aa0a6; }
+.food-temp-table {
+    width: 100%;
+    font-size: 0.76rem;
+    font-variant-numeric: tabular-nums;
+}
+.food-temp-table td {
+    padding: 0.1rem 0.4rem 0.1rem 0;
+    border-bottom: 1px dotted #dee2e6;
+    color: #495057;
+}
+.theme-dark .food-temp-table td { border-bottom-color: #3a3d40; color: #b8bcc0; }
+.food-temp-table th {
+    text-align: left; font-weight: 600; font-size: 0.7rem; color: #868e96;
+    padding: 0.1rem 0.4rem 0.1rem 0; border-bottom: 1px solid #dee2e6;
+}
+.theme-dark .food-temp-table th { color: #9aa0a6; border-bottom-color: #3a3d40; }
+.food-temp-bad td { color: #c92a2a; font-weight: 600; }
+.theme-dark .food-temp-bad td { color: #ff8787; }
+.food-temp-bad .bi { color: #e03131; }
+/* Temperature-log tables get arbitrary column counts — scroll, don't wrap. */
+.food-temp-scroll { overflow-x: auto; }
+
+/* ── sparkline · compliance · dispositions · checklist ──────────────────── */
+.food-spark { margin-left: auto; display: flex; flex-direction: column; align-items: center; }
+.food-spark-score { font-size: 8px; font-weight: 600; fill: #495057; }
+.theme-dark .food-spark-score { fill: #ced4da; }
+
+.food-compliance { margin: 0.1rem 0 0.5rem; }
+.food-compliance-head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-size: 0.76rem; color: #6c757d; margin-bottom: 0.25rem;
+}
+.theme-dark .food-compliance-head { color: #9aa0a6; }
+.food-compliance-pct { font-weight: 600; color: #212529; font-variant-numeric: tabular-nums; }
+.theme-dark .food-compliance-pct { color: #e6e6e6; }
+.food-compliance-bar { display: flex; height: 8px; border-radius: 999px; overflow: hidden; background: #e9ecef; }
+.theme-dark .food-compliance-bar { background: #2b2d30; }
+.food-compliance-ok { background: #2f9e44; }
+.food-compliance-bad { background: #e03131; }
+.food-compliance-sub { font-size: 0.72rem; color: #2b8a3e; margin-top: 0.25rem; }
+.theme-dark .food-compliance-sub { color: #69bd7c; }
+
+.food-dispos {
+    flex: 0 0 auto; font-size: 0.64rem; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.02em; padding: 0.05rem 0.35rem; border-radius: 0.3rem;
+}
+.food-dispos-cos { background: #d3f9d8; color: #2b8a3e; }
+.theme-dark .food-dispos-cos { background: #1e3a25; color: #69db7c; }
+.food-dispos-open { background: #ffe3e3; color: #c92a2a; }
+.theme-dark .food-dispos-open { background: #3a2224; color: #ff8787; }
+
+.food-status-note { margin-top: 0.3rem; font-size: 0.78rem; color: #e8590c; }
+.theme-dark .food-status-note { color: #ffa94d; }
+
+.food-insp-compliance {
+    font-size: 0.72rem; font-weight: 600; color: #6c757d; font-variant-numeric: tabular-nums;
+}
+.theme-dark .food-insp-compliance { color: #9aa0a6; }
+
+.food-checklist { margin-top: 0.45rem; }
+.food-checklist > summary { cursor: pointer; }
+.food-checklist-body { margin-top: 0.3rem; }
+.food-cl-cat { border: 1px solid #e9ecef; border-radius: 0.3rem; margin-bottom: 0.2rem; }
+.theme-dark .food-cl-cat { border-color: #3a3d40; }
+.food-cl-cat > summary {
+    display: flex; align-items: center; gap: 0.4rem; padding: 0.25rem 0.45rem;
+    cursor: pointer; list-style: none; font-size: 0.78rem;
+}
+.food-cl-cat > summary::-webkit-details-marker { display: none; }
+.food-cl-cat-name { flex: 1; color: #495057; }
+.theme-dark .food-cl-cat-name { color: #c8ccd0; }
+.food-cl-cat.has-out .food-cl-cat-name { font-weight: 600; }
+.food-cl-cat-count { font-size: 0.72rem; color: #868e96; font-variant-numeric: tabular-nums; }
+.food-cl-cat-bar { flex: 0 0 48px; height: 5px; border-radius: 999px; overflow: hidden; background: #e03131; }
+.food-cl-cat-bar > span { display: block; height: 100%; background: #2f9e44; }
+.food-cl-rows { padding: 0.1rem 0.45rem 0.35rem; }
+.food-cl-row { display: flex; align-items: baseline; gap: 0.35rem; padding: 0.15rem 0; font-size: 0.76rem; }
+.food-cl-disp {
+    flex: 0 0 auto; font-size: 0.6rem; font-weight: 700; padding: 0.05rem 0.25rem;
+    border-radius: 0.25rem; min-width: 1.9rem; text-align: center;
+}
+.food-cl-disp-in { background: #d3f9d8; color: #2b8a3e; }
+.theme-dark .food-cl-disp-in { background: #1e3a25; color: #69db7c; }
+.food-cl-disp-out { background: #ffe3e3; color: #c92a2a; }
+.theme-dark .food-cl-disp-out { background: #3a2224; color: #ff8787; }
+.food-cl-disp-na { background: #e9ecef; color: #868e96; }
+.theme-dark .food-cl-disp-na { background: #2b2d30; color: #868e96; }
+.food-cl-item { flex: 0 0 auto; color: #adb5bd; font-variant-numeric: tabular-nums; }
+.food-cl-text { color: #212529; }
+.theme-dark .food-cl-text { color: #c8ccd0; }
+.food-cl-row.food-cl-in .food-cl-text { color: #868e96; }
+.theme-dark .food-cl-row.food-cl-in .food-cl-text { color: #7a7f85; }
+
+/* ── toolbar-2 · tooltip · list view ─────────────────────────────────── */
+.food-toolbar2 { background: #f8f9fa; }
+.theme-dark .food-toolbar2 { background: #1d1f21; border-color: #333 !important; }
+.food-colorby { display: inline-flex; align-items: center; white-space: nowrap; }
+.food-colormode-legend { font-style: italic; }
+.food-tip-sub { opacity: 0.85; }
+.food-tip-closed { color: #e8590c; font-weight: 600; text-transform: uppercase; font-size: 0.82em; }
+.food-list-table tr.food-closed { opacity: 0.5; }
+.food-list-table tr.food-closed:hover { opacity: 0.85; }
+
+.food-list-wrap { overflow: auto; }
+.food-list-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+.food-list-table thead th {
+    position: sticky; top: 0; z-index: 1; background: #f1f3f5; color: #495057;
+    text-align: left; font-weight: 600; padding: 0.4rem 0.6rem;
+    border-bottom: 1px solid #dee2e6; cursor: pointer; white-space: nowrap;
+}
+.theme-dark .food-list-table thead th { background: #232527; color: #c8ccd0; border-bottom-color: #3a3d40; }
+.food-list-table thead th.sorted { color: #1c7ed6; }
+.theme-dark .food-list-table thead th.sorted { color: #4dabf7; }
+.food-list-table thead th.sorted[aria-sort="ascending"]::after { content: ' \25B2'; font-size: 0.7em; }
+.food-list-table thead th.sorted[aria-sort="descending"]::after { content: ' \25BC'; font-size: 0.7em; }
+.food-list-table tbody tr { border-bottom: 1px solid #f1f3f5; cursor: pointer; }
+.theme-dark .food-list-table tbody tr { border-bottom-color: #2a2c2e; }
+.food-list-table tbody tr:hover { background: #f1f3f5; }
+.theme-dark .food-list-table tbody tr:hover { background: #2a2c2e; }
+.food-list-table tbody tr.sel { background: #e7f5ff; }
+.theme-dark .food-list-table tbody tr.sel { background: #1c2a33; }
+.food-list-table td { padding: 0.35rem 0.6rem; vertical-align: top; color: #212529; font-variant-numeric: tabular-nums; }
+.theme-dark .food-list-table td { color: #d8d8d8; }
+.food-list-name { font-weight: 600; }
+.food-list-addr { font-weight: 400; font-size: 0.72rem; color: #868e96; }
+.food-list-score {
+    display: inline-block; min-width: 1.8rem; text-align: center; border-radius: 0.3rem;
+    padding: 0.05rem 0.3rem; color: #fff; font-weight: 700; font-size: 0.76rem;
+    text-shadow: 0 1px 1px rgba(0,0,0,0.3);
+}
+.food-list-date { color: #6c757d; white-space: nowrap; }
+.theme-dark .food-list-date { color: #9aa0a6; }
+.food-list-more td { text-align: center; color: #868e96; font-style: italic; cursor: default; padding: 0.5rem; }
+.food-list-more:hover { background: transparent !important; }
+
+/* Narrow windows: stack the detail panel under the map instead of beside. */
+@media (max-width: 900px) {
+    .food-body { flex-direction: column; }
+    .food-detail {
+        width: 100%;
+        max-width: 100%;
+        max-height: 45%;
+        border-left: none;
+        border-top: 1px solid #dee2e6;
+    }
+    .theme-dark .food-detail { border-top-color: #333; }
+}
+
+/* "Restaurants only" switch — the unchecked Bootstrap switch track is
+   near-invisible on the dark toolbar; give it explicit chrome. */
+.food-restaurants-switch { display: flex; align-items: center; gap: 0.35rem; }
+.food-restaurants-switch .form-check-input { cursor: pointer; margin-top: 0; }
+.food-restaurants-switch .form-check-label { cursor: pointer; white-space: nowrap; }
+.theme-dark .food-restaurants-switch .form-check-input:not(:checked) {
+    background-color: #2b2d30;
+    border-color: #555;
+}
+.theme-dark .food-restaurants-switch .form-check-label { color: #b8bcc0; }
+
+/* iOS zoom-on-focus guard: sub-16px inputs trigger a forced page zoom. */
+@media (max-width: 767.98px) {
+    input.form-control,
+    select.form-select,
+    .form-control-sm,
+    .form-select-sm {
+        font-size: 16px;
+    }
+}
