@@ -1,10 +1,21 @@
 // Cloudflare Workers deployment config — an assets-only Worker (no code):
 // serves the static site in public/. Deployed by the Workers Builds git
 // integration running `npx wrangler deploy` on push.
+//
+// workers.dev publishing is off (no subdomain registered on the account);
+// the worker deploys straight to its custom domains, and the deploy creates
+// the DNS records. preview_urls stays off for the same reason — flip both
+// on if a workers.dev subdomain is ever registered.
 {
     "name": "cleanplateva",
     "compatibility_date": "2026-07-03",
     "assets": {
         "directory": "./public"
-    }
+    },
+    "workers_dev": false,
+    "preview_urls": false,
+    "routes": [
+        { "pattern": "cleanplateva.com", "custom_domain": true },
+        { "pattern": "www.cleanplateva.com", "custom_domain": true }
+    ]
 }
