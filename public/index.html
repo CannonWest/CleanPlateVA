@@ -49,7 +49,7 @@
                 <input class="form-check-input" type="checkbox" role="switch" id="foodRestaurantsOnly">
                 <label class="form-check-label small" for="foodRestaurantsOnly">Restaurants only</label>
             </div>
-            <div class="form-check form-switch food-restaurants-switch mb-0 ms-1"
+            <div class="form-check form-switch food-restaurants-switch mb-0 ms-1" id="foodShowClosedWrap"
                  title="Show closed/withdrawn/expired permits (off by default). When on, they plot greyed + dimmed.">
                 <input class="form-check-input" type="checkbox" role="switch" id="foodShowClosed">
                 <label class="form-check-label small" for="foodShowClosed">Show closed</label>
@@ -99,12 +99,14 @@
                 <div class="food-detail-inner" id="foodDetailInner"></div>
             </aside>
         </div>
-        <!-- Methodology footer -->
+        <!-- Source footer: methodology sentence only appears in full mode -->
         <div class="food-source-footer small text-muted px-3 py-1" id="foodSourceFooter">
-            <strong>Computed scores</strong> — VDH publishes no numeric score; ours is 100 − 6 per risk-factor violation
-            (form items 1–29) − 2 per good-retail-practice violation (items 30+), repeats ×1.5. Source:
+            <span class="food-footer-full"><strong>Computed scores</strong> — VDH publishes no numeric score; ours is 100 − 6 per risk-factor violation
+            (form items 1–29) − 2 per good-retail-practice violation (items 30+), repeats ×1.5.</span>
+            Source:
             <a href="https://inspections.myhealthdepartment.com/virginia"
-               target="_blank" rel="noopener">VDH via MyHealthDepartment</a> — snapshot archive, not a live feed.
+               target="_blank" rel="noopener">VDH via MyHealthDepartment</a> (public records) — snapshot, not a live feed.
+            Each marker links to the official VDH inspection record.
             <span id="foodCoverage"></span>
         </div>
     </div>

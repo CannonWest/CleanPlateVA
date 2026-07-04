@@ -468,6 +468,23 @@ body {
 }
 .theme-dark .food-restaurants-switch .form-check-label { color: #b8bcc0; }
 
+/* ── lite (public finder) mode ────────────────────────────────────────── */
+/* body.food-mode-lite is set from the payload's mode marker. The public
+   tier has no scores/grades/history, so every judgment surface hides:
+   grade chips, color-by, show-closed, the methodology sentence, and the
+   list view's score/compliance/trend/date columns (3-6). */
+.food-mode-lite #foodGradeChips,
+.food-mode-lite #foodShowClosedWrap,
+.food-mode-lite .food-colorby,
+.food-mode-lite #foodColorLegend,
+.food-mode-lite .food-footer-full,
+.food-mode-lite .food-list-table th:nth-child(n+3),
+.food-mode-lite .food-list-table td:nth-child(n+3) {
+    display: none;
+}
+
+.food-lite-cta { margin: 1rem 0 0.5rem; }
+
 /* iOS zoom-on-focus guard: sub-16px inputs trigger a forced page zoom. */
 @media (max-width: 767.98px) {
     input.form-control,

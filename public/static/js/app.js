@@ -7,12 +7,19 @@ import { FoodDashboard } from './foodDashboard.js';
 const THEME_KEY = 'cleanplateva.theme';
 
 // ── data client ─────────────────────────────────────────────────────────
-// The site is fully static: the data pipeline publishes JSON snapshots
-// under /data/, and the page just fetches them. Facility detail files are
-// pre-merged at export time (re-issued permits already folded in), so no
-// query parameters are needed.
+// The site is fully static and serves two tiers:
+//   FULL  — /data-full/* — the complete inspection archive (scores, grades,
+//           violations, history). Served from a private, authenticated
+//           channel; anonymous visitors can't reach it.
+//   LITE  — /data/facilities.json — the public finder payload committed to
+//           this repo: names + locations + VDH link ids only.
+// The page tries the full channel first and falls back to lite, so the
+// same deploy serves both audiences. Detail files exist only in the full
+// tier and are pre-merged at export time.
 
-async function fetchJSON(path, forceRefresh) {
+const FULL_BASE = 'data-full';
+
+async function fetchJSON(path, forceRefresh, quiet = false) {
     try {
         const response = await fetch(path, forceRefresh ? { cache: 'reload' } : undefined);
         if (!response.ok) {
@@ -25,7 +32,7 @@ async function fetchJSON(path, forceRefresh) {
         const data = await response.json();
         return { ...data, _httpStatus: response.status };
     } catch (error) {
-        console.error(`[data] Failed to fetch ${path}:`, error);
+        if (!quiet) console.error(`[data] Failed to fetch ${path}:`, error);
         return { available: false, error: error.message };
     }
 }
@@ -42,7 +49,7 @@ async function fetchJSON(path, forceRefresh) {
 let standardsPromise = null;
 function getStandards() {
     if (!standardsPromise) {
-        standardsPromise = fetch('data/standards.json')
+        standardsPromise = fetch(`${FULL_BASE}/standards.json`)
             .then((r) => (r.ok ? r.json() : {}))
             .catch(() => ({}));
     }
@@ -68,15 +75,18 @@ function decodeChecklist(rows, standards) {
 }
 
 const api = {
-    /** The full mapped facility roster for the map view. */
-    getFoodFacilities(forceRefresh = false) {
+    /** The facility roster: full channel first, public lite as fallback. */
+    async getFoodFacilities(forceRefresh = false) {
+        const full = await fetchJSON(`${FULL_BASE}/facilities.json`, forceRefresh, true);
+        if (full && full.available) return full;
         return fetchJSON('data/facilities.json', forceRefresh);
     },
 
-    /** One facility + its full (pre-merged) inspection history. */
+    /** One facility + its full (pre-merged) inspection history.
+     *  Full-channel only — the lite tier renders details client-side. */
     async getFoodFacilityDetail(permitID) {
         const [data, standards] = await Promise.all([
-            fetchJSON(`data/facility/${encodeURIComponent(permitID)}.json`),
+            fetchJSON(`${FULL_BASE}/facility/${encodeURIComponent(permitID)}.json`),
             getStandards(),
         ]);
         if (data && data.available && Array.isArray(data.inspections)) {

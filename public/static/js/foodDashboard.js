@@ -75,6 +75,10 @@ function fmtDate(iso) {
 export class FoodDashboard {
     constructor(api) {
         this.api = api;
+        // 'full' = complete inspection archive (authenticated channel);
+        // 'lite' = the public finder payload — gray markers, name + address
+        // + VDH link, no judgment surfaces. Set from the payload's mode.
+        this._mode = 'full';
         this._loaded = false;
         this._map = null;
         this._mapReady = false;      // first style.load has run (source exists)
@@ -212,16 +216,29 @@ export class FoodDashboard {
             return;
         }
 
+        const lite = payload.mode === 'lite';
+        if (lite !== (this._mode === 'lite')) {
+            this._mode = lite ? 'lite' : 'full';
+            // Lite has no scores to sort by — fall back to name.
+            if (lite && this._sort.key === 'score') this._sort = { key: 'name', dir: 'asc' };
+        }
+        document.body.classList.toggle('food-mode-lite', lite);
+
         this._facilities = payload.facilities || [];
         this._byPermit = new Map(this._facilities.map((f) => [f.permit_id, f]));
         this._counts = payload.counts || null;
 
         const fetchedEl = document.getElementById('foodFetchedAt');
         if (fetchedEl) {
-            // The freshest inspection held = the latest data collected.
-            const dates = this._facilities.map((f) => f.latest?.date).filter(Boolean);
-            const latest = dates.length ? dates.reduce((a, b) => (a > b ? a : b)) : null;
-            fetchedEl.textContent = latest ? `as of ${fmtDate(latest)}` : '';
+            if (lite) {
+                fetchedEl.textContent = payload.fetched_at
+                    ? `snapshot ${fmtDate(payload.fetched_at.slice(0, 10))}` : '';
+            } else {
+                // The freshest inspection held = the latest data collected.
+                const dates = this._facilities.map((f) => f.latest?.date).filter(Boolean);
+                const latest = dates.length ? dates.reduce((a, b) => (a > b ? a : b)) : null;
+                fetchedEl.textContent = latest ? `as of ${fmtDate(latest)}` : '';
+            }
         }
 
         const coverageEl = document.getElementById('foodCoverage');
@@ -234,6 +251,10 @@ export class FoodDashboard {
         this._populateZipFilter();
         this._updateColorLegend();
         this._ensureMap();
+        // If the map predates a mode flip, restyle the cluster tint to match.
+        if (this._mapReady) {
+            this._map.setPaintProperty(LYR_CLUSTERS, 'circle-color', this._clusterColors());
+        }
         this._rebuildMarkers();
     }
 
@@ -297,15 +318,16 @@ export class FoodDashboard {
             clusterRadius: 40,
         });
 
-        // Cluster bubbles — sized/tinted by member count.
+        // Cluster bubbles — sized/tinted by member count. In lite the tint
+        // stays neutral: on a gray finder map, green/orange bubbles would
+        // read as judgment.
         this._map.addLayer({
             id: LYR_CLUSTERS,
             type: 'circle',
             source: SRC,
             filter: ['has', 'point_count'],
             paint: {
-                'circle-color': ['step', ['get', 'point_count'],
-                    '#6ecc39', 10, '#f0c20c', 50, '#f18017'],
+                'circle-color': this._clusterColors(),
                 'circle-radius': ['step', ['get', 'point_count'],
                     12, 10, 16, 50, 22],
                 'circle-opacity': 0.85,
@@ -404,6 +426,15 @@ export class FoodDashboard {
         });
     }
 
+    _clusterColors() {
+        if (this._mode === 'lite') {
+            return ['step', ['get', 'point_count'],
+                '#9aa1a9', 10, '#8b929b', 50, '#7d848d'];
+        }
+        return ['step', ['get', 'point_count'],
+            '#6ecc39', 10, '#f0c20c', 50, '#f18017'];
+    }
+
     _applyTheme() {
         if (!this._map || typeof maplibregl === 'undefined') return;
         const dark = this._isDark();
@@ -422,15 +453,18 @@ export class FoodDashboard {
 
     _matchesFilters(f) {
         const { q, zip, grade, restaurantsOnly, showClosed } = this._filters;
+        const lite = this._mode === 'lite';
         // Explicit === false so payloads without the field pass through
         // rather than blanking the map.
         if (restaurantsOnly && f.is_restaurant === false) return false;
-        if (!showClosed && !this._isActive(f)) return false;
-        if (zip && f.zip !== zip) return false;
-        if (grade) {
+        // Lite records carry no status (active-only by construction) and no
+        // grades — those filters are hidden and inert there.
+        if (!lite && !showClosed && !this._isActive(f)) return false;
+        if (!lite && grade) {
             if (grade === 'F' && f.latest?.grade !== 'F') return false;
             else if (grade !== 'F' && f.latest?.grade !== grade) return false;
         }
+        if (zip && f.zip !== zip) return false;
         if (q) {
             const hay = `${f.name || ''} ${f.address || ''} ${f.city || ''}`.toLowerCase();
             if (!hay.includes(q)) return false;
@@ -455,6 +489,11 @@ export class FoodDashboard {
     }
 
     _tooltipHTML(f) {
+        if (this._mode === 'lite') {
+            return `<strong>${esc(f.name)}</strong><br>`
+                + `${esc(f.address || '')}${f.city ? ', ' + esc(f.city) : ''}`
+                + (f.approx ? '<br><span class="food-tip-sub">≈ approximate location</span>' : '');
+        }
         const lt = f.latest || {};
         const grade = lt.grade || null;
         const score = lt.score;
@@ -474,23 +513,26 @@ export class FoodDashboard {
 
     /** Filtered facilities → FeatureCollection with per-feature paint props. */
     _toGeoJSON(filtered) {
+        const lite = this._mode === 'lite';
         const features = [];
         for (const f of filtered) {
             if (f.lat == null || f.lon == null) continue;
             // Closed permits (shown only when "Show closed" is on) plot greyed
             // + dimmed so they read as not-currently-open at a glance.
-            const active = this._isActive(f);
+            const active = lite || this._isActive(f);
             features.push({
                 type: 'Feature',
                 geometry: { type: 'Point', coordinates: [f.lon, f.lat] },
                 properties: {
                     pid: f.permit_id,
-                    fill: active ? this._markerColor(f) : '#9aa0a6',
+                    // Lite is the finder view: every marker a uniform neutral —
+                    // the map locates places, it doesn't judge them.
+                    fill: lite ? '#8d939c' : active ? this._markerColor(f) : '#9aa0a6',
                     fillOpacity: active ? 0.88 : 0.42,
                     // declining facilities get a heavier warning ring on any color-mode.
                     stroke: !active ? 'rgba(130, 130, 130, 0.55)'
-                        : f.declining ? GRADE_COLORS.F : 'rgba(20, 20, 20, 0.55)',
-                    strokeW: f.declining ? 2.5 : 1.5,
+                        : (!lite && f.declining) ? GRADE_COLORS.F : 'rgba(20, 20, 20, 0.55)',
+                    strokeW: (!lite && f.declining) ? 2.5 : 1.5,
                 },
             });
         }
@@ -533,6 +575,10 @@ export class FoodDashboard {
     _updateColorLegend() {
         const el = document.getElementById('foodColorLegend');
         if (!el) return;
+        if (this._mode === 'lite') {
+            el.textContent = '';
+            return;
+        }
         el.textContent = ({
             grade: 'fill: grade (green A → red F)',
             compliance: 'fill: checklist compliance (green high → red low)',
@@ -571,7 +617,7 @@ export class FoodDashboard {
             const arrow = t.length >= 2 ? (t[0] < t[1] ? '▼' : t[0] > t[1] ? '▲' : '▬') : '';
             const tcol = t.length >= 2 ? (t[0] < t[1] ? GRADE_COLORS.F : t[0] > t[1] ? GRADE_COLORS.A : GRADE_COLORS.none) : '';
             const rowCls = [this._selectedPermit === f.permit_id ? 'sel' : '',
-                this._isActive(f) ? '' : 'food-closed'].filter(Boolean).join(' ');
+                (this._mode === 'lite' || this._isActive(f)) ? '' : 'food-closed'].filter(Boolean).join(' ');
             return `<tr data-permit="${esc(f.permit_id)}"${rowCls ? ` class="${rowCls}"` : ''}>
                 <td class="food-list-name">${esc(f.name)}<div class="food-list-addr">${esc(f.address || '')}</div></td>
                 <td>${esc(f.zip || '')}</td>
@@ -617,6 +663,17 @@ export class FoodDashboard {
         if (!panel || !inner) return;
         panel.classList.remove('d-none');
         setTimeout(() => this._map?.resize(), 60);
+
+        // Lite: everything shown is already in the roster record — render
+        // locally and hand off to the official VDH page for the substance.
+        if (this._mode === 'lite') {
+            inner.innerHTML = this._renderLiteDetail(f);
+            inner.querySelector('.food-detail-close')
+                ?.addEventListener('click', () => this._closeDetail());
+            if (this._viewMode === 'list') this._rebuildList();
+            return;
+        }
+
         inner.innerHTML = `<div class="p-3 text-muted">Loading ${esc(f.name)}…</div>`;
 
         const detail = await this.api.getFoodFacilityDetail(f.permit_id);
@@ -635,6 +692,30 @@ export class FoodDashboard {
         this._selectedPermit = null;
         document.getElementById('foodDetail')?.classList.add('d-none');
         setTimeout(() => this._map?.resize(), 60);
+    }
+
+    /** Lite detail panel: identity + the hand-off to the official record. */
+    _renderLiteDetail(f) {
+        return `
+            <div class="food-detail-head">
+                <div class="food-detail-title">
+                    <h5>${esc(f.name)}</h5>
+                    <button type="button" class="btn-close food-detail-close" aria-label="Close"></button>
+                </div>
+                <div class="text-muted small">
+                    ${esc(f.address)}${f.address2 ? ' ' + esc(f.address2) : ''}${f.city ? ', ' + esc(f.city) : ''}, VA ${esc(f.zip || '')}
+                    ${f.approx ? '<span class="food-approx" title="Address didn\'t geocode — marker sits near the ZIP center, not the building">≈ approximate location</span>' : ''}
+                </div>
+            </div>
+            <div class="food-lite-cta">
+                <a class="btn btn-sm btn-primary" target="_blank" rel="noopener"
+                   href="${PORTAL_PERMIT_URL}${encodeURIComponent(f.permit_id)}">
+                    View inspections on VDH <i class="bi bi-box-arrow-up-right"></i>
+                </a>
+                <div class="text-muted small mt-2">
+                    Inspection reports live on the official VDH portal — this map is a finder.
+                </div>
+            </div>`;
     }
 
     _geoNote(source) {
