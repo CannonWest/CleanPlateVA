@@ -224,6 +224,13 @@ export class FoodDashboard {
             fetchedEl.textContent = latest ? `as of ${fmtDate(latest)}` : '';
         }
 
+        const coverageEl = document.getElementById('foodCoverage');
+        if (coverageEl && this._counts) {
+            const zips = Object.keys(this._counts.by_zip || {}).filter((z) => z !== '?').length;
+            coverageEl.textContent =
+                `Covering ${(this._counts.total || 0).toLocaleString()} facilities across ${zips} Virginia zipcodes.`;
+        }
+
         this._populateZipFilter();
         this._updateColorLegend();
         this._ensureMap();

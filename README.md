@@ -1,6 +1,6 @@
 # CleanPlateVA
 
-A restaurant-inspection map for the Richmond, VA area (Henrico / West End).
+A restaurant-inspection map for Virginia (Richmond metro and beyond).
 Virginia Department of Health food-establishment inspections, rendered as an
 interactive map with computed 0–100 scores, letter grades, and ranked red
 flags per facility.
@@ -22,12 +22,17 @@ Fully static — no server. The site is the contents of [`public/`](public/):
   violations, corrective actions, the food-code checklist, temperature logs,
   and a score sparkline.
 - **Data snapshots** published by a separate collection pipeline as plain
-  JSON under `public/data/` (not in this repo yet):
+  JSON under `public/data/`:
   - `data/facilities.json` — the full facility roster, shaped for map
     markers: `{available, facilities: [...], counts, fetched_at}`
   - `data/facility/<permitID>.json` — one facility + its full inspection
     history, with re-issued permits pre-merged:
     `{available, facility, inspections, fetched_at}`
+  - `data/standards.json` — the food-code checklist vocabulary
+    (`item → {category, text}`). Inspection checklists are stored compact —
+    each row is `[item, disposition, flags(, override)]` with a bitmask
+    (`1 compliant | 2 violation | 4 cos | 8 repeat | 16 sentinel`) — and
+    decoded against this vocabulary in the browser (`app.js`).
 
 The site never fetches from VDH or any live source; it reads only the
 published snapshot.
