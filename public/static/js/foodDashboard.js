@@ -612,8 +612,7 @@ export class FoodDashboard {
         setTimeout(() => this._map?.resize(), 60);
         inner.innerHTML = `<div class="p-3 text-muted">Loading ${esc(f.name)}…</div>`;
 
-        const detail = await this.api.getFoodFacilityDetail(
-            f.permit_id, f.merged_permit_ids || []);
+        const detail = await this.api.getFoodFacilityDetail(f.permit_id);
         if (this._selectedPermit !== f.permit_id) return;  // user clicked away
         if (!detail || !detail.available) {
             inner.innerHTML = `<div class="p-3 text-muted">Failed to load: `

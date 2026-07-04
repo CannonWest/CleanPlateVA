@@ -12,30 +12,42 @@ violations (items 30+)`, repeat violations weighted ×1.5, floored at 0.
 Grades: A ≥90 · B ≥80 · C ≥70 · D ≥60 · F <60. Every score surface in the UI
 is labeled "computed".
 
-## What's here
+## Architecture
 
-- **Flask** backend serving a read-only JSON API (`/api/food/facilities`,
-  `/api/food/facility`) over an archived inspection snapshot — never a live
-  feed, and never a scraper. Data collection happens in a separate pipeline.
+Fully static — no server. The site is the contents of [`public/`](public/):
+
 - **MapLibre GL JS** front-end: CARTO vector basemaps (light + dark),
   clustered grade-colored markers, map/list view toggle, search + zip +
   grade filters, and a facility detail panel with full inspection history —
   violations, corrective actions, the food-code checklist, temperature logs,
   and a score sparkline.
+- **Data snapshots** published by a separate collection pipeline as plain
+  JSON under `public/data/` (not in this repo yet):
+  - `data/facilities.json` — the full facility roster, shaped for map
+    markers: `{available, facilities: [...], counts, fetched_at}`
+  - `data/facility/<permitID>.json` — one facility + its full inspection
+    history, with re-issued permits pre-merged:
+    `{available, facility, inspections, fetched_at}`
 
-## Status
+The site never fetches from VDH or any live source; it reads only the
+published snapshot.
 
-The UI is in place; the data layer is not wired up yet. The API endpoints
-return `available: false` until a data source is configured.
+## Hosting
+
+Deployed on Cloudflare Pages at [cleanplateva.com](https://cleanplateva.com):
+no build step, output directory `public`. Every push to `main` deploys.
 
 ## Running locally
 
 ```
-pip install -r requirements.txt
+pip install -r requirements.txt   # flask, dev server only
 python app.py
 ```
 
-Then open http://127.0.0.1:5001.
+Then open http://127.0.0.1:5001. Any static file server over `public/`
+works just as well (e.g. `python -m http.server -d public`). Without data
+snapshots in `public/data/`, the UI loads and reports "no data published
+yet".
 
 ## Data source
 

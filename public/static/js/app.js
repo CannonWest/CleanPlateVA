@@ -6,36 +6,39 @@ import { FoodDashboard } from './foodDashboard.js';
 
 const THEME_KEY = 'cleanplateva.theme';
 
-// ── API client ──────────────────────────────────────────────────────────
+// ── data client ─────────────────────────────────────────────────────────
+// The site is fully static: the data pipeline publishes JSON snapshots
+// under /data/, and the page just fetches them. Facility detail files are
+// pre-merged at export time (re-issued permits already folded in), so no
+// query parameters are needed.
+
+async function fetchJSON(path, forceRefresh) {
+    try {
+        const response = await fetch(path, forceRefresh ? { cache: 'reload' } : undefined);
+        if (!response.ok) {
+            return {
+                available: false,
+                reason: response.status === 404 ? 'no data published yet' : `HTTP ${response.status}`,
+                _httpStatus: response.status,
+            };
+        }
+        const data = await response.json();
+        return { ...data, _httpStatus: response.status };
+    } catch (error) {
+        console.error(`[data] Failed to fetch ${path}:`, error);
+        return { available: false, error: error.message };
+    }
+}
 
 const api = {
     /** The full mapped facility roster for the map view. */
-    async getFoodFacilities(forceRefresh = false) {
-        const qs = forceRefresh ? '?refresh=1' : '';
-        try {
-            const response = await fetch(`/api/food/facilities${qs}`);
-            const data = await response.json();
-            return { ...data, _httpStatus: response.status };
-        } catch (error) {
-            console.error('[api] Failed to get facilities:', error);
-            return { available: false, error: error.message };
-        }
+    getFoodFacilities(forceRefresh = false) {
+        return fetchJSON('data/facilities.json', forceRefresh);
     },
 
-    /** One facility + its full inspection history. mergeIDs: re-issued
-     *  permit ids the roster merge folded into this marker — the server
-     *  re-validates them, then unions their inspections in. */
-    async getFoodFacilityDetail(permitID, mergeIDs = []) {
-        const params = new URLSearchParams({ permitID });
-        if (mergeIDs && mergeIDs.length) params.set('merge', mergeIDs.join(','));
-        try {
-            const response = await fetch(`/api/food/facility?${params.toString()}`);
-            const data = await response.json();
-            return { ...data, _httpStatus: response.status };
-        } catch (error) {
-            console.error('[api] Failed to get facility detail:', error);
-            return { available: false, error: error.message };
-        }
+    /** One facility + its full (pre-merged) inspection history. */
+    getFoodFacilityDetail(permitID) {
+        return fetchJSON(`data/facility/${encodeURIComponent(permitID)}.json`);
     },
 };
 
