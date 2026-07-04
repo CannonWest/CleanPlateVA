@@ -1,44 +1,45 @@
 # CleanPlateVA
 
-A standalone, single-purpose public implementation of the CannonAI **Food** tab —
-the Henrico/West-End Richmond restaurant-inspection map. Same data, same scoring,
-no CannonAI shell around it.
+A restaurant-inspection map for the Richmond, VA area (Henrico / West End).
+Virginia Department of Health food-establishment inspections, rendered as an
+interactive map with computed 0–100 scores, letter grades, and ranked red
+flags per facility.
 
-## Relationship to the rest of CannonGround
+**The scores are computed, not official.** VDH publishes no numeric score;
+ours is derived from the violation record of each inspection:
+`100 − 6 × risk-factor violations (form items 1–29) − 2 × good-retail-practice
+violations (items 30+)`, repeat violations weighted ×1.5, floored at 0.
+Grades: A ≥90 · B ≥80 · C ≥70 · D ≥60 · F <60. Every score surface in the UI
+is labeled "computed".
 
-- **Data source**: `cannon_food_facilities` / `cannon_food_inspections` in CouchDB,
-  built by the [cannon-food](../cannon-food/SKILL.md) pipeline (VDH MyHealthDepartment
-  scrape → geocode → score → load). This app reads that data; it does not scrape.
-- **Pattern reference**: CannonAI's `cannonai/food/` module (Leaflet map,
-  score-colored markers, facility detail panel, read-time re-permit merge in
-  `facilities.py`) is the design to port from. CannonAI isn't checked out on this
-  machine, so porting the exact route/template logic is a later step.
-- **Scoring**: computed, not VDH's (`references/scoring.md` in cannon-food) —
-  `100 − 6×risk-factor − 2×GRP violations`, repeats ×1.5. Must always be labeled
-  "computed score" in the UI, never implied official.
-- **Target domain**: `cleanplateva.com` (Cloudflare zone created 2026-07-03).
-  Deployment will follow the same pattern as the existing
-  `cannonai.djsweetheartclubmix.com` / `cannongate.djsweetheartclubmix.com` routes —
-  a local service on the ThinkPad, fronted by the `claudeground-couchdb-laptop`
-  Cloudflare Tunnel plus a DNS record, once there's something worth exposing.
+## What's here
 
-## Status: skeleton
+- **Flask** backend serving a read-only JSON API (`/api/food/facilities`,
+  `/api/food/facility`) over an archived inspection snapshot — never a live
+  feed, and never a scraper. Data collection happens in a separate pipeline.
+- **MapLibre GL JS** front-end: CARTO vector basemaps (light + dark),
+  clustered grade-colored markers, map/list view toggle, search + zip +
+  grade filters, and a facility detail panel with full inspection history —
+  violations, corrective actions, the food-code checklist, temperature logs,
+  and a score sparkline.
 
-Bare Flask scaffold — a working `/` route, no real data wiring yet. Building one
-step at a time:
+## Status
 
-1. ~~Repo + skeleton~~ (this commit)
-2. Port facility list + map (read from CouchDB, Leaflet rendering)
-3. Facility detail panel (score/grade/red flags/inspection history)
-4. Deploy behind the tunnel at cleanplateva.com
+The UI is in place; the data layer is not wired up yet. The API endpoints
+return `available: false` until a data source is configured.
 
 ## Running locally
 
 ```
 pip install -r requirements.txt
-cp .env.example .env   # fill in COUCHDB_URL if not running alongside CouchDB
 python app.py
 ```
 
-CouchDB is not LAN-exposed, so this only reaches live data when run on the same
-machine as CouchDB (currently the ThinkPad). Elsewhere it'll start but show no data.
+Then open http://127.0.0.1:5001.
+
+## Data source
+
+Inspection records originate from the
+[VDH MyHealthDepartment portal](https://inspections.myhealthdepartment.com/virginia)
+(public records). The app serves an archived snapshot; each facility panel
+links back to the official VDH record.

@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CleanPlateVA — Richmond-area restaurant inspections</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@5.19.0/dist/maplibre-gl.css">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+<script>
+    // Apply the stored theme before first paint to avoid a flash.
+    (function () {
+        var dark = (localStorage.getItem('cleanplateva.theme') || 'dark') === 'dark';
+        document.documentElement.setAttribute('data-bs-theme', dark ? 'dark' : 'light');
+    })();
+</script>
+</head>
+<body class="theme-dark">
+    <header class="cp-header d-flex align-items-center gap-2 px-3 py-2 border-bottom">
+        <i class="bi bi-egg-fried cp-brand-icon"></i>
+        <span class="cp-brand">CleanPlateVA</span>
+        <span class="cp-tagline text-muted small d-none d-sm-inline">Richmond-area restaurant inspections</span>
+        <button class="btn btn-sm btn-outline-secondary ms-auto" id="themeToggle" title="Toggle light/dark theme">
+            <i class="bi bi-sun"></i>
+        </button>
+    </header>
+
+    <div class="food-container flex-grow-1" id="foodContainer">
+        <!-- Toolbar: search + zip + grade filters + counts + refresh -->
+        <div class="food-toolbar d-flex align-items-center gap-2 px-3 py-2 border-bottom flex-wrap" id="foodToolbar">
+            <input type="search" class="form-control form-control-sm food-search" id="foodSearch"
+                   placeholder="Search restaurants…" aria-label="Search restaurants by name or address"
+                   title="Filter facilities by name / address substring">
+            <select class="form-select form-select-sm w-auto" id="foodZipFilter" title="Filter by zipcode">
+                <option value="">All zips</option>
+            </select>
+            <div class="btn-group btn-group-sm" id="foodGradeChips" role="group" aria-label="Grade filter">
+                <button type="button" class="btn btn-outline-secondary active" data-grade="">All</button>
+                <button type="button" class="btn btn-outline-secondary" data-grade="A" title="Computed score ≥90">A</button>
+                <button type="button" class="btn btn-outline-secondary" data-grade="B" title="80–89">B</button>
+                <button type="button" class="btn btn-outline-secondary" data-grade="C" title="70–79">C</button>
+                <button type="button" class="btn btn-outline-secondary" data-grade="D" title="60–69">D</button>
+                <button type="button" class="btn btn-outline-secondary" data-grade="F" title="<60">F</button>
+            </div>
+            <div class="form-check form-switch food-restaurants-switch mb-0 ms-1"
+                 title="Hide the permits nobody eats out at — schools, daycares, care homes, hospitals, hotel breakfast bars, caterers, commissaries, private clubs, camps, and retirement-community dining rooms.">
+                <input class="form-check-input" type="checkbox" role="switch" id="foodRestaurantsOnly">
+                <label class="form-check-label small" for="foodRestaurantsOnly">Restaurants only</label>
+            </div>
+            <div class="form-check form-switch food-restaurants-switch mb-0 ms-1"
+                 title="Show closed/withdrawn/expired permits (off by default). When on, they plot greyed + dimmed.">
+                <input class="form-check-input" type="checkbox" role="switch" id="foodShowClosed">
+                <label class="form-check-label small" for="foodShowClosed">Show closed</label>
+            </div>
+            <span class="text-muted small ms-auto" id="foodCounts">Loading…</span>
+            <small class="text-muted" id="foodFetchedAt"></small>
+            <button class="btn btn-sm btn-outline-secondary" id="foodRefreshBtn"
+                    title="Re-read from the inspection archive">
+                <i class="bi bi-arrow-clockwise"></i>
+            </button>
+        </div>
+        <!-- Toolbar row 2: view toggle · marker color-mode -->
+        <div class="food-toolbar2 d-flex align-items-center gap-2 px-3 py-1 border-bottom flex-wrap" id="foodToolbar2">
+            <div class="btn-group btn-group-sm" id="foodViewToggle" role="group" aria-label="Map or list view">
+                <button type="button" class="btn btn-outline-secondary active" data-view="map" title="Map view"><i class="bi bi-geo-alt"></i> Map</button>
+                <button type="button" class="btn btn-outline-secondary" data-view="list" title="Sortable list view"><i class="bi bi-list-ul"></i> List</button>
+            </div>
+            <label class="food-colorby small text-muted mb-0 ms-1">Color by
+                <select class="form-select form-select-sm w-auto d-inline-block ms-1" id="foodColorMode"
+                        title="What the marker color encodes">
+                    <option value="grade">Grade</option>
+                    <option value="compliance">Compliance %</option>
+                    <option value="repeat">Open repeats</option>
+                </select>
+            </label>
+            <span class="food-colormode-legend small text-muted ms-auto" id="foodColorLegend"></span>
+        </div>
+        <!-- Map | List + detail panel split -->
+        <div class="food-body d-flex flex-grow-1" id="foodBody">
+            <div class="food-map-wrap flex-grow-1" id="foodMapWrap">
+                <div id="foodMap" role="application" aria-label="Restaurant inspection map"></div>
+            </div>
+            <div class="food-list-wrap flex-grow-1 d-none" id="foodListWrap">
+                <table class="food-list-table" id="foodListTable">
+                    <thead><tr>
+                        <th data-sort="name">Name</th>
+                        <th data-sort="zip">Zip</th>
+                        <th data-sort="score" title="Computed score">Score</th>
+                        <th data-sort="compliance" title="Checklist compliance">Compl.</th>
+                        <th data-sort="trend" title="Latest vs prior inspection">Trend</th>
+                        <th data-sort="date">Last</th>
+                    </tr></thead>
+                    <tbody id="foodListBody"></tbody>
+                </table>
+            </div>
+            <aside class="food-detail d-none" id="foodDetail" aria-live="polite">
+                <div class="food-detail-inner" id="foodDetailInner"></div>
+            </aside>
+        </div>
+        <!-- Methodology footer -->
+        <div class="food-source-footer small text-muted px-3 py-1" id="foodSourceFooter">
+            <strong>Computed scores</strong> — VDH publishes no numeric score; ours is 100 − 6 per risk-factor violation
+            (form items 1–29) − 2 per good-retail-practice violation (items 30+), repeats ×1.5. Source:
+            <a href="https://inspections.myhealthdepartment.com/virginia/henrico/web.nsf/module_facilities.xsp?module=Food"
+               target="_blank" rel="noopener">VDH via MyHealthDepartment</a> — snapshot archive, not a live feed.
+            Zips 23060 · 23226 · 23228 · 23229 · 23230 · 23233 · 23238 · 23294.
+        </div>
+    </div>
+
+    <!-- MapLibre as a classic script so window.maplibregl is ready before the module runs -->
+    <script src="https://cdn.jsdelivr.net/npm/maplibre-gl@5.19.0/dist/maplibre-gl.js"></script>
+    <script type="module" src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
