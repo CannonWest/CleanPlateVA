@@ -34,8 +34,11 @@ published snapshot.
 
 ## Hosting
 
-Deployed on Cloudflare Pages at [cleanplateva.com](https://cleanplateva.com):
-no build step, output directory `public`. Every push to `main` deploys.
+Deployed on Cloudflare Workers (static assets, no worker code — see
+[`wrangler.jsonc`](wrangler.jsonc)) at
+[cleanplateva.com](https://cleanplateva.com). The Workers Builds git
+integration runs `npx wrangler deploy` on every push to `main`; no build
+step.
 
 ## Running locally
 

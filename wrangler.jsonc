@@ -1,0 +1,10 @@
+// Cloudflare Workers deployment config — an assets-only Worker (no code):
+// serves the static site in public/. Deployed by the Workers Builds git
+// integration running `npx wrangler deploy` on push.
+{
+    "name": "cleanplateva",
+    "compatibility_date": "2026-07-03",
+    "assets": {
+        "directory": "./public"
+    }
+}
