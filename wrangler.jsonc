@@ -1,17 +1,28 @@
-// Cloudflare Workers deployment config — an assets-only Worker (no code):
-// serves the static site in public/. Deployed by the Workers Builds git
-// integration running `npx wrangler deploy` on push.
+// Cloudflare Workers deployment config.
 //
-// workers.dev publishing is off (no subdomain registered on the account);
-// the worker deploys straight to its custom domains, and the deploy creates
-// the DNS records. preview_urls stays off for the same reason — flip both
-// on if a workers.dev subdomain is ever registered.
+// The worker (src/worker.js) serves two tiers:
+//   - static assets from public/ (the site + the committed lite data)
+//   - /data-full/* from the R2 bucket (the full inspection archive,
+//     Cloudflare Access-gated at the edge; see src/worker.js)
+//
+// Deployed by the Workers Builds git integration running
+// `npx wrangler deploy` on push. workers.dev publishing is off (no
+// subdomain registered); the worker deploys straight to its custom
+// domains. preview_urls off for the same reason.
 {
     "name": "cleanplateva",
     "compatibility_date": "2026-07-03",
+    "main": "src/worker.js",
     "assets": {
-        "directory": "./public"
+        "directory": "./public",
+        "binding": "ASSETS"
     },
+    "r2_buckets": [
+        {
+            "binding": "DATA_FULL",
+            "bucket_name": "cleanplateva-data"
+        }
+    ],
     "workers_dev": false,
     "preview_urls": false,
     "routes": [
