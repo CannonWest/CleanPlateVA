@@ -223,6 +223,9 @@ export class FoodDashboard {
             if (lite && this._sort.key === 'score') this._sort = { key: 'name', dir: 'asc' };
         }
         document.body.classList.toggle('food-mode-lite', lite);
+        // The sign-in affordance only makes sense when there's something
+        // more to sign in TO.
+        document.getElementById('signInBtn')?.classList.toggle('d-none', !lite);
 
         this._facilities = payload.facilities || [];
         this._byPermit = new Map(this._facilities.map((f) => [f.permit_id, f]));

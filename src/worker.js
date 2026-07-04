@@ -31,6 +31,11 @@ async function serveFullData(request, env, url) {
         return json({ available: false, reason: 'authentication required' }, 403);
     }
     const key = decodeURIComponent(url.pathname.slice(DATA_PREFIX.length));
+    // Sign-in helper: a gated no-op that sends the (now-authenticated)
+    // browser back to the app, where the data fetch picks up the session.
+    if (key === 'signin') {
+        return Response.redirect(new URL('/', url).toString(), 302);
+    }
     if (!key || key.includes('..')) {
         return json({ available: false, reason: 'bad path' }, 400);
     }
