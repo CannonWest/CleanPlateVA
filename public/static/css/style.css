@@ -574,6 +574,9 @@ body {
 
 /* ── toolbar-2 · tooltip · list view ─────────────────────────────────── */
 .food-toolbar2 { display: flex; background: var(--cp-surface); border-color: var(--cp-border) !important; }
+/* Color-by only tints map markers — hide the whole row on the list view.
+   (Lite mode hides it in both views; see the lite-mode block below.) */
+.food-view-list #foodToolbar2 { display: none; }
 .food-colorby { display: inline-flex; align-items: center; white-space: nowrap; }
 .food-colormode-legend { font-style: italic; }
 .food-tip-sub { opacity: 0.85; }
