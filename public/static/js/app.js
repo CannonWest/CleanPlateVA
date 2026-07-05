@@ -106,8 +106,9 @@ const api = {
 function applyTheme(dark) {
     document.body.classList.toggle('theme-dark', dark);
     document.documentElement.setAttribute('data-bs-theme', dark ? 'dark' : 'light');
-    const icon = document.querySelector('#themeToggle i');
-    if (icon) icon.className = dark ? 'bi bi-sun' : 'bi bi-moon';
+    // The toggle is a two-icon switch; the sliding thumb is pure CSS keyed
+    // off body.theme-dark — only the switch semantics need updating here.
+    document.getElementById('themeToggle')?.setAttribute('aria-checked', String(dark));
 }
 
 function initTheme() {

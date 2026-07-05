@@ -5,6 +5,39 @@
    here is CHROME and gets a .theme-dark pair (dark is the default theme).
    ════════════════════════════════════════════════════════════════════════ */
 
+/* ── design tokens ───────────────────────────────────────────────────── */
+/* Chrome palette only — data hues (grades, score badges) stay fixed in
+   foodDashboard.js. Dark is the default theme and runs blue-tinged;
+   .theme-dark on <body> swaps the set. */
+/* UA form controls / scrollbars follow the active theme (data-bs-theme is
+   set on <html> before first paint). */
+:root { color-scheme: light; }
+:root[data-bs-theme="dark"] { color-scheme: dark; }
+
+:root {
+    --cp-bg: #eef1f4;         /* page canvas behind the inset map card */
+    --cp-surface: #f8f9fa;    /* header / toolbars / cards */
+    --cp-surface-2: #ffffff;  /* raised cards (inspections, popups) */
+    --cp-surface-3: #f1f3f5;  /* nested fills, hovers */
+    --cp-border: #dee2e6;
+    --cp-text: #212529;
+    /* Muted + accent sit a step darker than the classic Bootstrap values so
+       small text (inactive tabs, footer, active-tab accent) clears WCAG AA
+       on the light surfaces. */
+    --cp-muted: #5f6b7a;
+    --cp-accent: #1971c2;
+}
+.theme-dark {
+    --cp-bg: #10141c;
+    --cp-surface: #161b26;
+    --cp-surface-2: #1d2330;
+    --cp-surface-3: #252c3c;
+    --cp-border: #2a3140;
+    --cp-text: #e2e6ee;
+    --cp-muted: #97a1b3;
+    --cp-accent: #4dabf7;
+}
+
 /* ── page shell ──────────────────────────────────────────────────────── */
 /* Column flex chain down to the map so the GL canvas gets a real height.
    min-height:0 keeps the flex children shrinkable. */
@@ -14,29 +47,107 @@ body {
     flex-direction: column;
     margin: 0;
     overflow: hidden;
+    background: var(--cp-bg);
 }
 
 .cp-header {
     flex: 0 0 auto;
-    background: #f8f9fa;
+    background: var(--cp-surface);
+    border-color: var(--cp-border) !important;
 }
-.theme-dark .cp-header { background: #1d1f21; border-color: #333 !important; }
 .cp-brand { font-weight: 700; font-size: 1.05rem; }
 .cp-brand-icon { font-size: 1.2rem; color: #e8590c; }
-.cp-tagline { letter-spacing: 0.01em; }
+
+/* View tabs (Map | List) — underline style, flush with the header's bottom
+   border (negative margins swallow the header's py-2 padding). */
+.cp-tabs {
+    display: inline-flex;
+    align-self: stretch;
+    margin: -0.5rem 0 -0.5rem 0.9rem;
+    gap: 0.25rem;
+}
+.cp-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0 0.85rem;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--cp-muted);
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+}
+.cp-tab:hover { color: var(--cp-text); }
+.cp-tab.active {
+    color: var(--cp-accent);
+    border-bottom-color: var(--cp-accent);
+}
+
+/* Theme switch — sun | moon with a sliding thumb, keyed purely off
+   body.theme-dark (the thumb sits under the icons, so the covered icon
+   reads as the active side). */
+.cp-theme-toggle {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    width: 58px;
+    height: 28px;
+    padding: 0;
+    border-radius: 999px;
+    border: 1px solid var(--cp-border);
+    background: var(--cp-surface-3);
+    cursor: pointer;
+}
+.cp-theme-toggle i {
+    position: relative;
+    z-index: 1;
+    flex: 1;
+    text-align: center;
+    font-size: 0.8rem;
+    line-height: 1;
+    color: var(--cp-muted);
+}
+.cp-theme-toggle .bi-sun { color: #e8590c; }
+.theme-dark .cp-theme-toggle .bi-sun { color: var(--cp-muted); }
+.theme-dark .cp-theme-toggle .bi-moon { color: #8ab4f8; }
+.cp-theme-thumb {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #fff;
+    border: 1px solid var(--cp-border);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+    transition: transform 0.15s ease;
+}
+.theme-dark .cp-theme-thumb {
+    transform: translateX(30px);
+    background: #333c50;
+    border-color: #3d4759;
+}
 
 .food-container {
     display: flex;
     flex-direction: column;
     min-height: 0;
 }
+/* The map sits inset on the canvas as a rounded card, not edge-to-edge. */
 .food-body {
     flex: 1 1 auto;
     min-height: 0;
+    padding: 0.85rem 1rem 0.4rem;
+    gap: 0.85rem;
 }
 .food-map-wrap {
     position: relative;
     min-width: 0;
+    border-radius: 0.75rem;
+    overflow: hidden;
+    border: 1px solid var(--cp-border);
 }
 #foodMap {
     position: absolute;
@@ -44,24 +155,39 @@ body {
 }
 .food-map-error { font-size: 0.9rem; }
 
-.food-toolbar { background: #f8f9fa; }
-.theme-dark .food-toolbar { background: #1d1f21; border-color: #333 !important; }
+.food-toolbar { background: var(--cp-surface); border-color: var(--cp-border) !important; }
 .food-toolbar .food-search { max-width: 260px; }
 
-.food-source-footer {
-    border-top: 1px solid #dee2e6;
-    background: #f8f9fa;
-    line-height: 1.35;
+/* Bootstrap controls pick up the chrome palette (their data-bs-theme
+   defaults are neutral gray and clash with the blue-tinged dark). */
+.theme-dark .form-control,
+.theme-dark .form-select {
+    background-color: var(--cp-bg);
+    border-color: var(--cp-border);
+    color: var(--cp-text);
 }
-.theme-dark .food-source-footer {
-    border-top-color: #333;
-    background: #1d1f21;
+.theme-dark .btn-outline-secondary {
+    --bs-btn-color: #aab4c6;
+    --bs-btn-border-color: #3a4356;
+    --bs-btn-hover-bg: var(--cp-surface-3);
+    --bs-btn-hover-border-color: #4a5568;
+    --bs-btn-hover-color: var(--cp-text);
+    --bs-btn-active-bg: #33415e;
+    --bs-btn-active-border-color: #46587e;
+    --bs-btn-active-color: #dbe4f5;
+}
+
+/* Footer floats on the page canvas below the inset map — no chrome box. */
+.food-source-footer {
+    background: transparent;
+    line-height: 1.35;
+    color: var(--cp-muted);
 }
 .food-source-footer a { text-decoration: underline; }
 
 /* MapLibre chrome — the GL canvas host + .theme-dark pairs for the popup /
    attribution / nav controls (basemaps are CARTO positron / dark-matter). */
-.theme-dark #foodMap { background: #181a1b; }
+.theme-dark #foodMap { background: #131722; }
 
 /* Hover tooltip (maplibregl.Popup, className 'food-tip') on both themes. */
 .food-tip .maplibregl-popup-content {
@@ -71,30 +197,32 @@ body {
     border-radius: 4px;
 }
 .theme-dark .food-tip .maplibregl-popup-content {
-    background: #2b2d30;
-    color: #e6e6e6;
-    border: 1px solid #444;
+    background: var(--cp-surface-3);
+    color: var(--cp-text);
+    border: 1px solid var(--cp-border);
 }
 /* The popup tip is a CSS-border triangle whose colored side depends on the
    anchor — pair each side with the dark content color. */
 .theme-dark .food-tip.maplibregl-popup-anchor-bottom .maplibregl-popup-tip,
 .theme-dark .food-tip.maplibregl-popup-anchor-bottom-left .maplibregl-popup-tip,
-.theme-dark .food-tip.maplibregl-popup-anchor-bottom-right .maplibregl-popup-tip { border-top-color: #2b2d30; }
+.theme-dark .food-tip.maplibregl-popup-anchor-bottom-right .maplibregl-popup-tip { border-top-color: var(--cp-surface-3); }
 .theme-dark .food-tip.maplibregl-popup-anchor-top .maplibregl-popup-tip,
 .theme-dark .food-tip.maplibregl-popup-anchor-top-left .maplibregl-popup-tip,
-.theme-dark .food-tip.maplibregl-popup-anchor-top-right .maplibregl-popup-tip { border-bottom-color: #2b2d30; }
-.theme-dark .food-tip.maplibregl-popup-anchor-left .maplibregl-popup-tip { border-right-color: #2b2d30; }
-.theme-dark .food-tip.maplibregl-popup-anchor-right .maplibregl-popup-tip { border-left-color: #2b2d30; }
+.theme-dark .food-tip.maplibregl-popup-anchor-top-right .maplibregl-popup-tip { border-bottom-color: var(--cp-surface-3); }
+.theme-dark .food-tip.maplibregl-popup-anchor-left .maplibregl-popup-tip { border-right-color: var(--cp-surface-3); }
+.theme-dark .food-tip.maplibregl-popup-anchor-right .maplibregl-popup-tip { border-left-color: var(--cp-surface-3); }
 
 /* Attribution strip + zoom control on dark. */
 .theme-dark .maplibregl-ctrl-attrib {
-    background: rgba(20, 20, 20, 0.7);
-    color: #9aa0a6;
+    background: rgba(12, 16, 25, 0.72);
+    color: var(--cp-muted);
 }
 .theme-dark .maplibregl-ctrl-attrib a { color: #4dabf7; }
-.theme-dark .maplibregl-ctrl-group { background: #2b2d30; }
-.theme-dark .maplibregl-ctrl-group button + button { border-top-color: #444; }
-.theme-dark .maplibregl-ctrl-group button:hover { background: #3a3d40; }
+.theme-dark .maplibregl-ctrl-group { background: var(--cp-surface-3); }
+.theme-dark .maplibregl-ctrl-group button + button { border-top-color: var(--cp-border); }
+/* Dedicated hover value — a real luminance step above --cp-surface-3, and
+   distinct from --cp-border so the +/− separator doesn't vanish on hover. */
+.theme-dark .maplibregl-ctrl-group button:hover { background: #313a4e; }
 /* Control glyphs are background-image SVGs — invert them to read on dark.
    The compact-attribution ⓘ toggle (maps <640px wide) draws its icon on the
    button itself, so it needs its own invert. */
@@ -134,9 +262,9 @@ body {
     color: #212529;
 }
 .theme-dark .food-map-note {
-    background: #2b2d30;
-    border-color: #444;
-    color: #e6e6e6;
+    background: var(--cp-surface-3);
+    border-color: var(--cp-border);
+    color: var(--cp-text);
 }
 .food-map-note a { white-space: nowrap; }
 .food-map-note .btn-close {
@@ -150,13 +278,10 @@ body {
 .food-detail {
     width: 400px;
     max-width: 45%;
-    border-left: 1px solid #dee2e6;
-    background: #fff;
+    border: 1px solid var(--cp-border);
+    border-radius: 0.75rem;
+    background: var(--cp-surface);
     overflow-y: auto;
-}
-.theme-dark .food-detail {
-    border-left-color: #333;
-    background: #1d1f21;
 }
 .food-detail-inner { padding: 0.9rem; }
 
@@ -167,7 +292,7 @@ body {
     gap: 0.5rem;
 }
 .food-detail-title h5 { margin-bottom: 0.15rem; }
-.theme-dark .food-detail-title h5 { color: #e6e6e6; }
+.theme-dark .food-detail-title h5 { color: var(--cp-text); }
 .theme-dark .food-detail .btn-close { filter: invert(1) grayscale(100%) brightness(160%); }
 
 .food-approx {
@@ -179,7 +304,7 @@ body {
     color: #868e96;
 }
 .theme-dark .food-approx-street {
-    color: #909296;
+    color: #8b93a4;
 }
 
 .food-score-hero {
@@ -206,7 +331,7 @@ body {
     font-weight: 600;
     color: #212529;
 }
-.theme-dark .food-score-grade { color: #e6e6e6; }
+.theme-dark .food-score-grade { color: var(--cp-text); }
 .food-score-computed {
     margin-left: 0.35rem;
     font-size: 0.68rem;
@@ -220,7 +345,7 @@ body {
     vertical-align: text-top;
     cursor: help;
 }
-.theme-dark .food-score-computed { border-color: #555; color: #9aa0a6; }
+.theme-dark .food-score-computed { border-color: #3d4759; color: var(--cp-muted); }
 
 .food-section-title {
     font-size: 0.78rem;
@@ -230,7 +355,7 @@ body {
     color: #6c757d;
     margin: 0.9rem 0 0.4rem;
 }
-.theme-dark .food-section-title { color: #9aa0a6; }
+.theme-dark .food-section-title { color: var(--cp-muted); }
 
 /* ── red flags ────────────────────────────────────────────────────────── */
 .food-flag {
@@ -269,7 +394,7 @@ body {
     color: #fff;
 }
 .food-flag-text { color: #212529; }
-.theme-dark .food-flag-text { color: #d8d8d8; }
+.theme-dark .food-flag-text { color: #d5dae4; }
 
 /* ── inspection history ───────────────────────────────────────────────── */
 .food-insp {
@@ -278,7 +403,7 @@ body {
     margin-bottom: 0.45rem;
     background: #fff;
 }
-.theme-dark .food-insp { border-color: #3a3d40; background: #232527; }
+.theme-dark .food-insp { border-color: var(--cp-border); background: var(--cp-surface-2); }
 .food-insp > summary {
     display: flex;
     align-items: center;
@@ -309,7 +434,7 @@ body {
     text-shadow: 0 1px 1px rgba(0,0,0,0.3);
 }
 .food-insp-when { font-weight: 600; font-size: 0.85rem; color: #212529; }
-.theme-dark .food-insp-when { color: #e6e6e6; }
+.theme-dark .food-insp-when { color: var(--cp-text); }
 .food-insp-kind, .food-insp-count { font-size: 0.78rem; }
 .food-insp-body { padding: 0.3rem 0.6rem 0.6rem; }
 
@@ -320,7 +445,7 @@ body {
     background: #f8f9fa;
     font-size: 0.82rem;
 }
-.theme-dark .food-viol { background: #2a2c2e; }
+.theme-dark .food-viol { background: var(--cp-surface-3); }
 .food-viol-rf { background: #fff5f5; }
 .theme-dark .food-viol-rf { background: #342427; }
 .food-viol-head {
@@ -329,7 +454,7 @@ body {
     gap: 0.4rem;
 }
 .food-viol-text { color: #212529; }
-.theme-dark .food-viol-text { color: #d8d8d8; }
+.theme-dark .food-viol-text { color: #d5dae4; }
 .food-viol-corrective {
     margin-top: 0.15rem;
     padding-left: 1.6rem;
@@ -343,7 +468,7 @@ body {
     font-size: 0.8rem;
     color: #495057;
 }
-.theme-dark .food-insp-comments { color: #b8bcc0; }
+.theme-dark .food-insp-comments { color: #adb6c6; }
 
 .food-temps { margin-top: 0.4rem; }
 .food-temps > summary { cursor: pointer; }
@@ -353,7 +478,7 @@ body {
     margin-top: 0.35rem;
     color: #6c757d;
 }
-.theme-dark .food-temp-cat { color: #9aa0a6; }
+.theme-dark .food-temp-cat { color: var(--cp-muted); }
 .food-temp-table {
     width: 100%;
     font-size: 0.76rem;
@@ -364,12 +489,12 @@ body {
     border-bottom: 1px dotted #dee2e6;
     color: #495057;
 }
-.theme-dark .food-temp-table td { border-bottom-color: #3a3d40; color: #b8bcc0; }
+.theme-dark .food-temp-table td { border-bottom-color: var(--cp-border); color: #adb6c6; }
 .food-temp-table th {
     text-align: left; font-weight: 600; font-size: 0.7rem; color: #868e96;
     padding: 0.1rem 0.4rem 0.1rem 0; border-bottom: 1px solid #dee2e6;
 }
-.theme-dark .food-temp-table th { color: #9aa0a6; border-bottom-color: #3a3d40; }
+.theme-dark .food-temp-table th { color: var(--cp-muted); border-bottom-color: var(--cp-border); }
 .food-temp-bad td { color: #c92a2a; font-weight: 600; }
 .theme-dark .food-temp-bad td { color: #ff8787; }
 .food-temp-bad .bi { color: #e03131; }
@@ -379,18 +504,18 @@ body {
 /* ── sparkline · compliance · dispositions · checklist ──────────────────── */
 .food-spark { margin-left: auto; display: flex; flex-direction: column; align-items: center; }
 .food-spark-score { font-size: 8px; font-weight: 600; fill: #495057; }
-.theme-dark .food-spark-score { fill: #ced4da; }
+.theme-dark .food-spark-score { fill: #c3cbd9; }
 
 .food-compliance { margin: 0.1rem 0 0.5rem; }
 .food-compliance-head {
     display: flex; justify-content: space-between; align-items: baseline;
     font-size: 0.76rem; color: #6c757d; margin-bottom: 0.25rem;
 }
-.theme-dark .food-compliance-head { color: #9aa0a6; }
+.theme-dark .food-compliance-head { color: var(--cp-muted); }
 .food-compliance-pct { font-weight: 600; color: #212529; font-variant-numeric: tabular-nums; }
-.theme-dark .food-compliance-pct { color: #e6e6e6; }
+.theme-dark .food-compliance-pct { color: var(--cp-text); }
 .food-compliance-bar { display: flex; height: 8px; border-radius: 999px; overflow: hidden; background: #e9ecef; }
-.theme-dark .food-compliance-bar { background: #2b2d30; }
+.theme-dark .food-compliance-bar { background: var(--cp-surface-3); }
 .food-compliance-ok { background: #2f9e44; }
 .food-compliance-bad { background: #e03131; }
 .food-compliance-sub { font-size: 0.72rem; color: #2b8a3e; margin-top: 0.25rem; }
@@ -411,20 +536,20 @@ body {
 .food-insp-compliance {
     font-size: 0.72rem; font-weight: 600; color: #6c757d; font-variant-numeric: tabular-nums;
 }
-.theme-dark .food-insp-compliance { color: #9aa0a6; }
+.theme-dark .food-insp-compliance { color: var(--cp-muted); }
 
 .food-checklist { margin-top: 0.45rem; }
 .food-checklist > summary { cursor: pointer; }
 .food-checklist-body { margin-top: 0.3rem; }
 .food-cl-cat { border: 1px solid #e9ecef; border-radius: 0.3rem; margin-bottom: 0.2rem; }
-.theme-dark .food-cl-cat { border-color: #3a3d40; }
+.theme-dark .food-cl-cat { border-color: var(--cp-border); }
 .food-cl-cat > summary {
     display: flex; align-items: center; gap: 0.4rem; padding: 0.25rem 0.45rem;
     cursor: pointer; list-style: none; font-size: 0.78rem;
 }
 .food-cl-cat > summary::-webkit-details-marker { display: none; }
 .food-cl-cat-name { flex: 1; color: #495057; }
-.theme-dark .food-cl-cat-name { color: #c8ccd0; }
+.theme-dark .food-cl-cat-name { color: #c3cbd9; }
 .food-cl-cat.has-out .food-cl-cat-name { font-weight: 600; }
 .food-cl-cat-count { font-size: 0.72rem; color: #868e96; font-variant-numeric: tabular-nums; }
 .food-cl-cat-bar { flex: 0 0 48px; height: 5px; border-radius: 999px; overflow: hidden; background: #e03131; }
@@ -440,16 +565,15 @@ body {
 .food-cl-disp-out { background: #ffe3e3; color: #c92a2a; }
 .theme-dark .food-cl-disp-out { background: #3a2224; color: #ff8787; }
 .food-cl-disp-na { background: #e9ecef; color: #868e96; }
-.theme-dark .food-cl-disp-na { background: #2b2d30; color: #868e96; }
+.theme-dark .food-cl-disp-na { background: var(--cp-surface-3); color: #868e96; }
 .food-cl-item { flex: 0 0 auto; color: #adb5bd; font-variant-numeric: tabular-nums; }
 .food-cl-text { color: #212529; }
-.theme-dark .food-cl-text { color: #c8ccd0; }
+.theme-dark .food-cl-text { color: #c3cbd9; }
 .food-cl-row.food-cl-in .food-cl-text { color: #868e96; }
 .theme-dark .food-cl-row.food-cl-in .food-cl-text { color: #7a7f85; }
 
 /* ── toolbar-2 · tooltip · list view ─────────────────────────────────── */
-.food-toolbar2 { background: #f8f9fa; }
-.theme-dark .food-toolbar2 { background: #1d1f21; border-color: #333 !important; }
+.food-toolbar2 { display: flex; background: var(--cp-surface); border-color: var(--cp-border) !important; }
 .food-colorby { display: inline-flex; align-items: center; white-space: nowrap; }
 .food-colormode-legend { font-style: italic; }
 .food-tip-sub { opacity: 0.85; }
@@ -457,26 +581,31 @@ body {
 .food-list-table tr.food-closed { opacity: 0.5; }
 .food-list-table tr.food-closed:hover { opacity: 0.85; }
 
-.food-list-wrap { overflow: auto; }
+.food-list-wrap {
+    overflow: auto;
+    border: 1px solid var(--cp-border);
+    border-radius: 0.75rem;
+    background: var(--cp-surface);
+}
 .food-list-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
 .food-list-table thead th {
     position: sticky; top: 0; z-index: 1; background: #f1f3f5; color: #495057;
     text-align: left; font-weight: 600; padding: 0.4rem 0.6rem;
     border-bottom: 1px solid #dee2e6; cursor: pointer; white-space: nowrap;
 }
-.theme-dark .food-list-table thead th { background: #232527; color: #c8ccd0; border-bottom-color: #3a3d40; }
+.theme-dark .food-list-table thead th { background: var(--cp-surface-2); color: #c3cbd9; border-bottom-color: var(--cp-border); }
 .food-list-table thead th.sorted { color: #1c7ed6; }
 .theme-dark .food-list-table thead th.sorted { color: #4dabf7; }
 .food-list-table thead th.sorted[aria-sort="ascending"]::after { content: ' \25B2'; font-size: 0.7em; }
 .food-list-table thead th.sorted[aria-sort="descending"]::after { content: ' \25BC'; font-size: 0.7em; }
 .food-list-table tbody tr { border-bottom: 1px solid #f1f3f5; cursor: pointer; }
-.theme-dark .food-list-table tbody tr { border-bottom-color: #2a2c2e; }
+.theme-dark .food-list-table tbody tr { border-bottom-color: var(--cp-surface-3); }
 .food-list-table tbody tr:hover { background: #f1f3f5; }
-.theme-dark .food-list-table tbody tr:hover { background: #2a2c2e; }
+.theme-dark .food-list-table tbody tr:hover { background: var(--cp-surface-3); }
 .food-list-table tbody tr.sel { background: #e7f5ff; }
-.theme-dark .food-list-table tbody tr.sel { background: #1c2a33; }
+.theme-dark .food-list-table tbody tr.sel { background: #22304a; }
 .food-list-table td { padding: 0.35rem 0.6rem; vertical-align: top; color: #212529; font-variant-numeric: tabular-nums; }
-.theme-dark .food-list-table td { color: #d8d8d8; }
+.theme-dark .food-list-table td { color: #d5dae4; }
 .food-list-name { font-weight: 600; }
 .food-list-addr { font-weight: 400; font-size: 0.72rem; color: #868e96; }
 .food-list-score {
@@ -485,21 +614,30 @@ body {
     text-shadow: 0 1px 1px rgba(0,0,0,0.3);
 }
 .food-list-date { color: #6c757d; white-space: nowrap; }
-.theme-dark .food-list-date { color: #9aa0a6; }
+.theme-dark .food-list-date { color: var(--cp-muted); }
 .food-list-more td { text-align: center; color: #868e96; font-style: italic; cursor: default; padding: 0.5rem; }
 .food-list-more:hover { background: transparent !important; }
 
 /* Narrow windows: stack the detail panel under the map instead of beside. */
 @media (max-width: 900px) {
-    .food-body { flex-direction: column; }
+    .food-body { flex-direction: column; padding: 0.6rem 0.6rem 0.35rem; gap: 0.6rem; }
     .food-detail {
         width: 100%;
         max-width: 100%;
         max-height: 45%;
-        border-left: none;
-        border-top: 1px solid #dee2e6;
     }
-    .theme-dark .food-detail { border-top-color: #333; }
+    .cp-tabs { margin-left: 0.4rem; }
+    .cp-tab { padding: 0 0.6rem; }
+}
+
+/* Phones: icon-only tabs + sign-in. The header is a no-wrap flex row and
+   body clips overflow, so its min-content width must stay under 360px —
+   with text labels it hits ~450px in lite mode and the theme switch
+   becomes unreachable. */
+@media (max-width: 575.98px) {
+    .cp-tab-label,
+    .cp-signin-label { display: none; }
+    .cp-tabs { margin-left: 0.25rem; }
 }
 
 /* "Restaurants only" switch — the unchecked Bootstrap switch track is
@@ -508,20 +646,20 @@ body {
 .food-restaurants-switch .form-check-input { cursor: pointer; margin-top: 0; }
 .food-restaurants-switch .form-check-label { cursor: pointer; white-space: nowrap; }
 .theme-dark .food-restaurants-switch .form-check-input:not(:checked) {
-    background-color: #2b2d30;
-    border-color: #555;
+    background-color: var(--cp-surface-3);
+    border-color: #3d4759;
 }
-.theme-dark .food-restaurants-switch .form-check-label { color: #b8bcc0; }
+.theme-dark .food-restaurants-switch .form-check-label { color: #adb6c6; }
 
 /* ── lite (public finder) mode ────────────────────────────────────────── */
 /* body.food-mode-lite is set from the payload's mode marker. The public
    tier has no scores/grades/history, so every judgment surface hides:
-   grade chips, color-by, show-closed, the methodology sentence, and the
+   grade chips, show-closed, the whole second toolbar (color-by + legend
+   are its only remaining occupants), the methodology sentence, and the
    list view's score/compliance/trend/date columns (3-6). */
 .food-mode-lite #foodGradeChips,
 .food-mode-lite #foodShowClosedWrap,
-.food-mode-lite .food-colorby,
-.food-mode-lite #foodColorLegend,
+.food-mode-lite #foodToolbar2,
 .food-mode-lite .food-footer-full,
 .food-mode-lite .food-list-table th:nth-child(n+3),
 .food-mode-lite .food-list-table td:nth-child(n+3) {
