@@ -100,6 +100,51 @@ body {
    button itself, so it needs its own invert. */
 .theme-dark .maplibregl-ctrl button .maplibregl-ctrl-icon { filter: invert(0.85); }
 .theme-dark .maplibregl-ctrl-attrib-button { filter: invert(0.85); }
+/* …except the geolocate control's colored states (blue = active/background,
+   red = error, red slash = disabled/blocked) — those hues are the signal,
+   and they already read on the dark button chrome, so exempt them from the
+   invert. Scoped to the geolocate button: disabled ZOOM buttons keep the
+   invert (their glyph is dark and would vanish on the dark chrome). */
+.theme-dark .maplibregl-ctrl button.maplibregl-ctrl-geolocate-active .maplibregl-ctrl-icon,
+.theme-dark .maplibregl-ctrl button.maplibregl-ctrl-geolocate-active-error .maplibregl-ctrl-icon,
+.theme-dark .maplibregl-ctrl button.maplibregl-ctrl-geolocate-background .maplibregl-ctrl-icon,
+.theme-dark .maplibregl-ctrl button.maplibregl-ctrl-geolocate-background-error .maplibregl-ctrl-icon,
+.theme-dark .maplibregl-ctrl button.maplibregl-ctrl-geolocate:disabled .maplibregl-ctrl-icon {
+    filter: none;
+}
+
+/* Locate feedback — small dismissible notice over the map (out-of-coverage
+   geolocate, geolocation errors). Kept clear of the top-left control stack. */
+.food-map-note {
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 5;
+    max-width: min(calc(100% - 112px), 460px);
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    padding: 0.45rem 0.7rem;
+    border-radius: 0.45rem;
+    background: #fff;
+    border: 1px solid #dee2e6;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+    font-size: 0.82rem;
+    color: #212529;
+}
+.theme-dark .food-map-note {
+    background: #2b2d30;
+    border-color: #444;
+    color: #e6e6e6;
+}
+.food-map-note a { white-space: nowrap; }
+.food-map-note .btn-close {
+    flex: 0 0 auto;
+    font-size: 0.6rem;
+    align-self: center;
+}
+.theme-dark .food-map-note .btn-close { filter: invert(1) grayscale(100%) brightness(160%); }
 
 /* ── detail panel ─────────────────────────────────────────────────────── */
 .food-detail {
