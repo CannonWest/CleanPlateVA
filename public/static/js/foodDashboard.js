@@ -667,6 +667,9 @@ export class FoodDashboard {
         });
         document.getElementById('foodMapWrap')?.classList.toggle('d-none', mode !== 'map');
         document.getElementById('foodListWrap')?.classList.toggle('d-none', mode !== 'list');
+        // The color-by row tints map markers — irrelevant in the list, so
+        // hide toolbar2 there (it's already hidden entirely in lite mode).
+        document.body.classList.toggle('food-view-list', mode === 'list');
         if (mode === 'map') {
             setTimeout(() => this._map?.resize(), 60);
             this._rebuildMarkers();
