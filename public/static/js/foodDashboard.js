@@ -251,7 +251,7 @@ export class FoodDashboard {
         if (coverageEl && this._counts) {
             const zips = Object.keys(this._counts.by_zip || {}).filter((z) => z !== '?').length;
             coverageEl.textContent =
-                `Covering ${(this._counts.total || 0).toLocaleString()} facilities across ${zips} Virginia zipcodes.`;
+                ` · ${(this._counts.total || 0).toLocaleString()} facilities, ${zips} zipcodes`;
         }
 
         this._populateZipFilter();
@@ -661,8 +661,10 @@ export class FoodDashboard {
 
     _setView(mode) {
         this._viewMode = mode;
-        document.querySelectorAll('#foodViewToggle button[data-view]').forEach(
-            (b) => b.classList.toggle('active', b.dataset.view === mode));
+        document.querySelectorAll('#foodViewToggle button[data-view]').forEach((b) => {
+            b.classList.toggle('active', b.dataset.view === mode);
+            b.setAttribute('aria-pressed', String(b.dataset.view === mode));
+        });
         document.getElementById('foodMapWrap')?.classList.toggle('d-none', mode !== 'map');
         document.getElementById('foodListWrap')?.classList.toggle('d-none', mode !== 'list');
         if (mode === 'map') {
