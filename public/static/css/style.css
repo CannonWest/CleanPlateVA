@@ -453,6 +453,31 @@ body {
 .food-insp-kind, .food-insp-count { font-size: 0.78rem; }
 .food-insp-body { padding: 0.3rem 0.6rem 0.6rem; }
 
+/* "View full VDH report" — first thing in an expanded inspection. A quiet
+   accent-tinted button that hands off to the official per-inspection page. */
+.food-insp-report {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin: 0.15rem 0 0.5rem;
+    padding: 0.4rem 0.55rem;
+    border: 1px solid var(--cp-border);
+    border-radius: 0.35rem;
+    background: color-mix(in srgb, var(--cp-accent) 8%, transparent);
+    color: var(--cp-accent);
+    font-size: 0.82rem;
+    font-weight: 600;
+    text-decoration: none;
+}
+.food-insp-report:hover {
+    background: color-mix(in srgb, var(--cp-accent) 16%, transparent);
+    border-color: var(--cp-accent);
+}
+/* The middle span takes the slack so the launch icon sits flush right. */
+.food-insp-report span { flex: 1; }
+.food-insp-report .bi-file-earmark-text { font-size: 0.9rem; }
+.food-insp-report .bi-box-arrow-up-right { font-size: 0.72rem; opacity: 0.75; }
+
 .food-viol {
     padding: 0.3rem 0.4rem;
     margin-bottom: 0.25rem;

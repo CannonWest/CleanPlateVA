@@ -1013,6 +1013,10 @@ export class FoodDashboard {
                 <span class="food-insp-count text-muted">${violations.length} viol.</span>
             </summary>
             <div class="food-insp-body">
+                ${insp.report_url ? `<a class="food-insp-report" href="${esc(insp.report_url)}"
+                    target="_blank" rel="noopener" title="Open the official VDH report for this inspection">
+                    <i class="bi bi-file-earmark-text"></i><span>View full VDH report</span>
+                    <i class="bi bi-box-arrow-up-right"></i></a>` : ''}
                 ${violations.length ? violations.map((v) => `
                     <div class="food-viol${(v.item != null && v.item <= 29) ? ' food-viol-rf' : ''}">
                         <div class="food-viol-head">
