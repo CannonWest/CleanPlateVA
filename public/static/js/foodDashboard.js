@@ -700,6 +700,7 @@ export class FoodDashboard {
         const val = (f) => {
             const lt = f.latest || {};
             switch (key) {
+                case 'address': return `${f.address || ''} ${f.address2 || ''}`.trim().toLowerCase();
                 case 'name': return (f.name || '').toLowerCase();
                 case 'zip': return f.zip || '';
                 case 'score': return lt.score == null ? -1 : lt.score;
@@ -719,23 +720,29 @@ export class FoodDashboard {
         const rows = filtered.slice(0, CAP);
         body.innerHTML = rows.map((f) => {
             const lt = f.latest || {};
+            const address = [f.address, f.address2].filter(Boolean).join(' ');
             const t = (f.score_trend || []).filter((s) => s != null);
             const arrow = t.length >= 2 ? (t[0] < t[1] ? '▼' : t[0] > t[1] ? '▲' : '▬') : '';
             const tcol = t.length >= 2 ? (t[0] < t[1] ? GRADE_COLORS.F : t[0] > t[1] ? GRADE_COLORS.A : GRADE_COLORS.none) : '';
             const rowCls = [this._selectedPermit === f.permit_id ? 'sel' : '',
                 (this._mode === 'lite' || this._isActive(f)) ? '' : 'food-closed'].filter(Boolean).join(' ');
             return `<tr data-permit="${esc(f.permit_id)}"${rowCls ? ` class="${rowCls}"` : ''}>
-                <td class="food-list-name">${esc(f.name)}<div class="food-list-addr">${esc(f.address || '')}</div></td>
-                <td>${esc(f.zip || '')}</td>
-                <td><span class="food-list-score" style="background:${gradeColor(lt.grade || null)}">${lt.score ?? '—'}</span></td>
-                <td>${lt.compliance_rate != null ? Math.round(lt.compliance_rate * 100) + '%' : '—'}</td>
-                <td style="color:${tcol}">${arrow || '—'}</td>
-                <td class="food-list-date">${fmtDate(lt.date)}</td>
+                <td class="food-list-col-address">${esc(address)}</td>
+                <td class="food-list-name food-list-col-name">${esc(f.name)}</td>
+                <td class="food-list-col-zip">${esc(f.zip || '')}</td>
+                <td class="food-list-full-only food-list-col-score"><span class="food-list-score" style="background:${gradeColor(lt.grade || null)}">${lt.score ?? '—'}</span></td>
+                <td class="food-list-full-only food-list-col-compliance">${lt.compliance_rate != null ? Math.round(lt.compliance_rate * 100) + '%' : '—'}</td>
+                <td class="food-list-full-only food-list-col-trend" style="color:${tcol}">${arrow || '—'}</td>
+                <td class="food-list-date food-list-full-only food-list-col-date">${fmtDate(lt.date)}</td>
+                <td class="food-list-col-vdh"><a class="food-list-vdh-link" href="${PORTAL_PERMIT_URL}${encodeURIComponent(f.permit_id)}" target="_blank" rel="noopener" aria-label="View ${esc(f.name)} on VDH">View on VDH <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i></a></td>
             </tr>`;
         }).join('') + (filtered.length > CAP
-            ? `<tr class="food-list-more"><td colspan="6">Showing first ${CAP} of ${filtered.length} — narrow the filters to see the rest.</td></tr>` : '');
+            ? `<tr class="food-list-more"><td colspan="${this._mode === 'lite' ? 4 : 8}">Showing first ${CAP} of ${filtered.length} — narrow the filters to see the rest.</td></tr>` : '');
         body.querySelectorAll('tr[data-permit]').forEach((tr) => {
-            tr.addEventListener('click', () => {
+            tr.addEventListener('click', (event) => {
+                // The VDH link is its own destination; don't also open the
+                // facility detail panel when the click bubbles to the row.
+                if (event.target.closest('a')) return;
                 const f = this._facilities.find((x) => x.permit_id === tr.dataset.permit);
                 if (f) this._select(f);
             });
