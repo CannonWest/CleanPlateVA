@@ -65,6 +65,25 @@ function gradeColor(grade) {
     return GRADE_COLORS[grade] || GRADE_COLORS.none;
 }
 
+function gradeForScore(score) {
+    if (score >= 90) return 'A';
+    if (score >= 80) return 'B';
+    if (score >= 70) return 'C';
+    if (score >= 60) return 'D';
+    return 'F';
+}
+
+/** Public score-demo math. Mirrors cannon-food's deterministic v1 formula. */
+export function computeScoreBreakdown({
+    riskRegular = 0, riskRepeat = 0, grpRegular = 0, grpRepeat = 0,
+} = {}) {
+    const count = (value) => Math.max(0, Number(value) || 0);
+    const riskDeduction = count(riskRegular) * 6 + count(riskRepeat) * 9;
+    const grpDeduction = count(grpRegular) * 2 + count(grpRepeat) * 3;
+    const score = Math.max(0, Math.round(100 - riskDeduction - grpDeduction));
+    return { score, grade: gradeForScore(score), riskDeduction, grpDeduction };
+}
+
 function fmtDate(iso) {
     if (!iso) return '—';
     const d = new Date(iso + 'T12:00:00Z');
@@ -100,7 +119,7 @@ export class FoodDashboard {
             // places, not closed pins wearing their last grade.
             showClosed: localStorage.getItem(SHOW_CLOSED_KEY) === '1',
         };
-        this._viewMode = 'map';     // 'map' | 'list'
+        this._viewMode = 'map';     // 'map' | 'list' | 'about'
         this._colorMode = 'grade';  // 'grade' | 'compliance' | 'repeat'
         this._sort = { key: 'score', dir: 'asc' };  // list sort — worst-first default
         this._selectedPermit = null;
@@ -169,6 +188,22 @@ export class FoodDashboard {
             ?.querySelectorAll('button[data-view]').forEach((btn) => {
                 btn.addEventListener('click', () => this._setView(btn.dataset.view));
             });
+        document.querySelectorAll('[data-view-link]').forEach((link) => {
+            link.addEventListener('click', () => {
+                const view = link.dataset.viewLink;
+                this._setView(view);
+                if (view === 'about') {
+                    const wrap = document.getElementById('foodAboutWrap');
+                    if (wrap) wrap.scrollTop = 0;
+                    requestAnimationFrame(() => {
+                        document.getElementById('foodAboutTitle')?.focus({ preventScroll: true });
+                    });
+                }
+            });
+        });
+
+        this._initAboutScoreDemo();
+        if (window.location.hash.toLowerCase() === '#about') this._setView('about', false);
 
         // Marker color-mode (grade / compliance / open repeats)
         document.getElementById('foodColorMode')?.addEventListener('change', (e) => {
@@ -211,6 +246,7 @@ export class FoodDashboard {
         if (!payload || !payload.available) {
             const reason = payload?.reason || payload?.error || 'data unreachable';
             if (countsEl) countsEl.textContent = `Unavailable — ${reason}`;
+            this._updateAboutUnavailable();
             const mapEl = document.getElementById('foodMap');
             if (mapEl && !this._map) {
                 mapEl.innerHTML = `<div class="food-map-error p-4 text-muted">`
@@ -240,19 +276,27 @@ export class FoodDashboard {
                 fetchedEl.textContent = payload.fetched_at
                     ? `snapshot ${fmtDate(payload.fetched_at.slice(0, 10))}` : '';
             } else {
-                // The freshest inspection held = the latest data collected.
+                // Keep publication time and source-record recency distinct:
+                // export generation does not mean every report is that new.
                 const dates = this._facilities.map((f) => f.latest?.date).filter(Boolean);
                 const latest = dates.length ? dates.reduce((a, b) => (a > b ? a : b)) : null;
-                fetchedEl.textContent = latest ? `as of ${fmtDate(latest)}` : '';
+                const timing = [];
+                if (payload.fetched_at) timing.push(`snapshot ${fmtDate(payload.fetched_at.slice(0, 10))}`);
+                if (latest) timing.push(`newest report ${fmtDate(latest)}`);
+                fetchedEl.textContent = timing.join(' · ');
             }
         }
 
         const coverageEl = document.getElementById('foodCoverage');
         if (coverageEl && this._counts) {
             const zips = Object.keys(this._counts.by_zip || {}).filter((z) => z !== '?').length;
+            const total = Number(this._counts.total || 0);
             coverageEl.textContent =
-                ` · ${(this._counts.total || 0).toLocaleString()} facilities, ${zips} zipcodes`;
+                ` · ${total.toLocaleString()} ${total === 1 ? 'facility' : 'facilities'}, `
+                + `${zips} ${zips === 1 ? 'ZIP' : 'ZIPs'}`;
         }
+
+        this._updateAboutStatus(payload, lite);
 
         this._populateZipFilter();
         this._updateColorLegend();
@@ -659,7 +703,94 @@ export class FoodDashboard {
         countsEl.textContent = `${filterNote}${this._facilities.length} facilities`;
     }
 
-    _setView(mode) {
+    _updateAboutStatus(payload, lite) {
+        const setText = (id, value) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = value;
+        };
+        const zips = Object.keys(this._counts?.by_zip || {}).filter((z) => z !== '?').length;
+        const total = this._counts?.total ?? this._facilities.length;
+        const dates = this._facilities.map((f) => f.latest?.date).filter(Boolean);
+        const latest = dates.length ? dates.reduce((a, b) => (a > b ? a : b)) : null;
+        const snapshot = payload.fetched_at ? fmtDate(payload.fetched_at.slice(0, 10)) : 'Not recorded';
+
+        setText('aboutTierLabel', lite ? 'Public finder' : 'Authenticated archive');
+        setText('aboutTierDetail', lite
+            ? 'Identity, geocoded location, and retained permit ID'
+            : 'Inspection histories plus CleanPlateVA-derived signals');
+        setText('aboutSnapshotDate', snapshot);
+        const totalNumber = Number(total || 0);
+        setText('aboutCoverageCount', `${totalNumber.toLocaleString()} `
+            + `${totalNumber === 1 ? 'facility' : 'facilities'} · ${zips} ${zips === 1 ? 'ZIP' : 'ZIPs'}`);
+        setText('aboutLatestDate', latest ? fmtDate(latest) : (lite ? 'Not exposed publicly' : 'No dated report'));
+    }
+
+    _updateAboutUnavailable() {
+        const values = {
+            aboutTierLabel: 'Data unavailable',
+            aboutTierDetail: 'Methodology remains available; try refresh',
+            aboutSnapshotDate: 'Unavailable',
+            aboutCoverageCount: 'Unavailable',
+            aboutLatestDate: 'Unavailable',
+        };
+        Object.entries(values).forEach(([id, value]) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = value;
+        });
+    }
+
+    _initAboutScoreDemo() {
+        const inputs = [...document.querySelectorAll('[data-about-score]')];
+        if (!inputs.length) return;
+
+        const update = () => {
+            const values = Object.fromEntries(inputs.map((input) => [input.id, Number(input.value)]));
+            const result = computeScoreBreakdown({
+                riskRegular: values.aboutRiskRegular,
+                riskRepeat: values.aboutRiskRepeat,
+                grpRegular: values.aboutGrpRegular,
+                grpRepeat: values.aboutGrpRepeat,
+            });
+
+            inputs.forEach((input) => {
+                const value = Math.max(0, Number(input.value) || 0);
+                const penalty = value * Number(input.dataset.penalty || 0);
+                const countOutput = document.getElementById(input.dataset.countOutput);
+                const deductionOutput = document.getElementById(input.dataset.deductionOutput);
+                if (countOutput) countOutput.textContent = String(value);
+                if (deductionOutput) deductionOutput.textContent = String(penalty);
+            });
+
+            const color = gradeColor(result.grade);
+            const ring = document.getElementById('aboutScoreRing');
+            ring?.style.setProperty('--about-score-angle', `${result.score * 3.6}deg`);
+            ring?.style.setProperty('--about-score-color', color);
+            document.getElementById('aboutGradeScale')
+                ?.style.setProperty('--about-score-position', `${result.score}%`);
+
+            const grade = document.getElementById('aboutGradeValue');
+            grade?.style.setProperty('--about-grade-color', color);
+            if (grade) grade.textContent = `Grade ${result.grade}`;
+
+            const valuesById = {
+                aboutScoreValue: result.score,
+                aboutEquationScore: result.score,
+                aboutRiskDeduction: result.riskDeduction,
+                aboutGrpDeduction: result.grpDeduction,
+                aboutGradeMarkerText: `${result.score} · ${result.grade}`,
+            };
+            Object.entries(valuesById).forEach(([id, value]) => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = String(value);
+            });
+        };
+
+        inputs.forEach((input) => input.addEventListener('input', update));
+        update();
+    }
+
+    _setView(mode, syncHash = true) {
+        if (!['map', 'list', 'about'].includes(mode)) return;
         this._viewMode = mode;
         document.querySelectorAll('#foodViewToggle button[data-view]').forEach((b) => {
             b.classList.toggle('active', b.dataset.view === mode);
@@ -667,13 +798,19 @@ export class FoodDashboard {
         });
         document.getElementById('foodMapWrap')?.classList.toggle('d-none', mode !== 'map');
         document.getElementById('foodListWrap')?.classList.toggle('d-none', mode !== 'list');
+        document.getElementById('foodAboutWrap')?.classList.toggle('d-none', mode !== 'about');
         // The color-by row tints map markers — irrelevant in the list, so
         // hide toolbar2 there (it's already hidden entirely in lite mode).
         document.body.classList.toggle('food-view-list', mode === 'list');
+        document.body.classList.toggle('food-view-about', mode === 'about');
+        if (syncHash && window.history?.replaceState) {
+            const hash = mode === 'about' ? '#about' : '';
+            window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}${hash}`);
+        }
         if (mode === 'map') {
             setTimeout(() => this._map?.resize(), 60);
             this._rebuildMarkers();
-        } else {
+        } else if (mode === 'list') {
             this._rebuildList();
         }
     }
