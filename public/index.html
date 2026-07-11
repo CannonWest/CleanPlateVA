@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CleanPlateVA — Virginia restaurant inspections</title>
-<meta name="description" content="Health-inspection map for Virginia restaurants — VDH inspection records with computed 0–100 scores, letter grades, and red flags.">
+<title>CleanPlateVA — archived VDH inspection finder</title>
+<meta name="description" content="Find archived VDH food-facility records across covered Virginia ZIPs and see how CleanPlateVA sources, transforms, and computes inspection metrics.">
 <!-- The site ships its own dark mode; this tells Dark Reader to stand down
      (otherwise it re-tints the dark theme and force-darkens the light one). -->
 <meta name="darkreader-lock">
@@ -24,18 +24,21 @@
     <header class="cp-header d-flex align-items-center gap-2 px-3 py-2 border-bottom">
         <i class="bi bi-egg-fried cp-brand-icon"></i>
         <span class="cp-brand">CleanPlateVA</span>
-        <!-- View tabs — same #foodViewToggle / button[data-view] contract the
-             dashboard wires; only the chrome moved up from the old toolbar. -->
-        <nav class="cp-tabs" id="foodViewToggle" aria-label="Map or list view">
+        <!-- Primary views — the dashboard wires every button[data-view]. -->
+        <nav class="cp-tabs" id="foodViewToggle" aria-label="Primary views">
             <!-- Text labels hide below 576px (icon-only tabs keep the no-wrap
                  header under 360px); aria-label carries the name regardless. -->
             <button type="button" class="cp-tab active" data-view="map" aria-pressed="true"
-                    aria-label="Map" title="Map view">
+                    aria-label="Map" aria-controls="foodMapWrap" title="Map view">
                 <i class="bi bi-geo-alt"></i><span class="cp-tab-label">Map</span>
             </button>
             <button type="button" class="cp-tab" data-view="list" aria-pressed="false"
-                    aria-label="List" title="Sortable list view">
+                    aria-label="List" aria-controls="foodListWrap" title="Sortable list view">
                 <i class="bi bi-list-ul"></i><span class="cp-tab-label">List</span>
+            </button>
+            <button type="button" class="cp-tab" data-view="about" aria-pressed="false"
+                    aria-label="About" aria-controls="foodAboutWrap" title="How CleanPlateVA works">
+                <i class="bi bi-info-circle"></i><span class="cp-tab-label">About</span>
             </button>
         </nav>
         <div class="ms-auto d-flex align-items-center gap-2">
@@ -124,16 +127,340 @@
                 <div class="food-detail-inner" id="foodDetailInner"></div>
             </aside>
         </div>
-        <!-- Source footer: methodology sentence only appears in full mode -->
+
+        <!-- Public methodology: the process is transparent even when the full
+             inspection archive is behind Access. -->
+        <main class="food-about-wrap d-none" id="foodAboutWrap" aria-labelledby="foodAboutTitle">
+            <div class="food-about">
+                <section class="about-hero">
+                    <div class="about-hero-copy">
+                        <div class="about-badge-row" aria-label="Provenance legend">
+                            <span class="about-badge about-badge-official"><i class="bi bi-building"></i> Official source</span>
+                            <span class="about-badge about-badge-archived"><i class="bi bi-archive"></i> Archived snapshot</span>
+                            <span class="about-badge about-badge-derived"><i class="bi bi-calculator"></i> CleanPlateVA-derived</span>
+                        </div>
+                        <p class="about-kicker">Methodology &amp; provenance</p>
+                        <h1 id="foodAboutTitle" tabindex="-1">Every marker has a source ID. Every score has math.</h1>
+                        <p class="about-lede">CleanPlateVA is an independent presentation of archived Virginia Department of Health records from MyHealthDepartment. It is not affiliated with or endorsed by VDH or MyHealthDepartment. VDH remains the authority. We do not inspect facilities or issue official grades.</p>
+                    </div>
+                    <div class="about-live-grid" aria-label="Current dataset status">
+                        <div class="about-live-card">
+                            <span>Current access</span>
+                            <strong id="aboutTierLabel">Loading…</strong>
+                            <small id="aboutTierDetail">Detecting data tier</small>
+                        </div>
+                        <div class="about-live-card">
+                            <span>Snapshot generated</span>
+                            <strong id="aboutSnapshotDate">Loading…</strong>
+                            <small>Export time, not a live VDH query</small>
+                        </div>
+                        <div class="about-live-card">
+                            <span>Coverage in this snapshot</span>
+                            <strong id="aboutCoverageCount">Loading…</strong>
+                            <small>Covered ZIPs, not all Virginia</small>
+                        </div>
+                        <div class="about-live-card">
+                            <span>Newest held report</span>
+                            <strong id="aboutLatestDate">Loading…</strong>
+                            <small>Does not imply equal freshness everywhere</small>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="about-section" id="aboutScoring" aria-labelledby="aboutScoringTitle">
+                    <div class="about-section-heading">
+                        <span class="about-section-number">01</span>
+                        <div>
+                            <p class="about-kicker">Score anatomy</p>
+                            <h2 id="aboutScoringTitle">Move the violations. Watch the score change.</h2>
+                            <p>The portal does not publish a usable numeric score. This 0–100 number and its letter grade are deterministic CleanPlateVA comparison aids, not VDH pass/fail findings or guarantees of safety.</p>
+                        </div>
+                        <span class="about-badge about-badge-derived">Computed here</span>
+                    </div>
+
+                    <div class="about-score-lab">
+                        <div class="about-score-result" aria-live="polite">
+                            <div class="about-score-ring" id="aboutScoreRing" style="--about-score-angle:291.6deg;--about-score-color:#94be1b">
+                                <div class="about-score-ring-inner">
+                                    <strong id="aboutScoreValue">81</strong>
+                                    <span>/ 100</span>
+                                </div>
+                            </div>
+                            <div class="about-grade-pill" id="aboutGradeValue">Grade B</div>
+                            <div class="about-score-equation" aria-label="Current score equation">
+                                <span>100</span><b>−</b><span id="aboutRiskDeduction">15</span><b>−</b><span id="aboutGrpDeduction">4</span><b>=</b><strong id="aboutEquationScore">81</strong>
+                            </div>
+                            <small>Start − risk-factor deductions − good-retail-practice deductions; rounded and floored at 0.</small>
+                        </div>
+
+                        <div class="about-score-controls">
+                            <label class="about-score-control" for="aboutRiskRegular">
+                                <span><strong>Risk-factor, not detected as repeat</strong><small>Form items 1–29</small></span>
+                                <span class="about-control-math"><output id="aboutRiskRegularCount">1</output> × 6 = −<output id="aboutRiskRegularDeduction">6</output></span>
+                                <input id="aboutRiskRegular" type="range" min="0" max="10" value="1"
+                                       data-about-score data-category="risk" data-penalty="6"
+                                       data-count-output="aboutRiskRegularCount" data-deduction-output="aboutRiskRegularDeduction">
+                            </label>
+                            <label class="about-score-control" for="aboutRiskRepeat">
+                                <span><strong>Risk-factor, detected repeat</strong><small>6 × 1.5</small></span>
+                                <span class="about-control-math"><output id="aboutRiskRepeatCount">1</output> × 9 = −<output id="aboutRiskRepeatDeduction">9</output></span>
+                                <input id="aboutRiskRepeat" type="range" min="0" max="10" value="1"
+                                       data-about-score data-category="risk" data-penalty="9"
+                                       data-count-output="aboutRiskRepeatCount" data-deduction-output="aboutRiskRepeatDeduction">
+                            </label>
+                            <label class="about-score-control" for="aboutGrpRegular">
+                                <span><strong>Good retail practice, not detected as repeat</strong><small>Form items 30+</small></span>
+                                <span class="about-control-math"><output id="aboutGrpRegularCount">2</output> × 2 = −<output id="aboutGrpRegularDeduction">4</output></span>
+                                <input id="aboutGrpRegular" type="range" min="0" max="16" value="2"
+                                       data-about-score data-category="grp" data-penalty="2"
+                                       data-count-output="aboutGrpRegularCount" data-deduction-output="aboutGrpRegularDeduction">
+                            </label>
+                            <label class="about-score-control" for="aboutGrpRepeat">
+                                <span><strong>Good retail practice, detected repeat</strong><small>2 × 1.5</small></span>
+                                <span class="about-control-math"><output id="aboutGrpRepeatCount">0</output> × 3 = −<output id="aboutGrpRepeatDeduction">0</output></span>
+                                <input id="aboutGrpRepeat" type="range" min="0" max="16" value="0"
+                                       data-about-score data-category="grp" data-penalty="3"
+                                       data-count-output="aboutGrpRepeatCount" data-deduction-output="aboutGrpRepeatDeduction">
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="about-grade-scale" id="aboutGradeScale" style="--about-score-position:81%" aria-label="Grade thresholds: F below 60, D 60 to 69, C 70 to 79, B 80 to 89, A 90 to 100">
+                        <div class="about-grade-marker" id="aboutGradeMarker"><span id="aboutGradeMarkerText">81 · B</span></div>
+                        <div class="about-grade-segments">
+                            <span class="grade-f"><b>F</b><small>0–59</small></span>
+                            <span class="grade-d"><b>D</b><small>60–69</small></span>
+                            <span class="grade-c"><b>C</b><small>70–79</small></span>
+                            <span class="grade-b"><b>B</b><small>80–89</small></span>
+                            <span class="grade-a"><b>A</b><small>90–100</small></span>
+                        </div>
+                    </div>
+
+                    <details class="about-disclosure">
+                        <summary>Exact scoring edge cases</summary>
+                        <div class="about-disclosure-grid">
+                            <p><strong>Repeat source</strong><span>A structured VDH <em>Repeat</em> flag or the word “repeat” in the observation makes that violation 1.5×.</span></p>
+                            <p><strong>Missing item number</strong><span>Defaults to the lower good-retail-practice deduction of 2 points.</span></p>
+                            <p><strong>Corrected on site</strong><span>Still deducts. The corrective action is shown separately; it does not erase the recorded violation.</span></p>
+                            <p><strong>Follow-up reports</strong><span>Use the same formula as routine reports. Report type stays visible so readers can supply context.</span></p>
+                        </div>
+                    </details>
+                </section>
+
+                <section class="about-section" aria-labelledby="aboutSignalsTitle">
+                    <div class="about-section-heading">
+                        <span class="about-section-number">02</span>
+                        <div>
+                            <p class="about-kicker">Not the same measurement</p>
+                            <h2 id="aboutSignalsTitle">What the other signals mean</h2>
+                            <p>Each answers a different question. None is an official VDH rating.</p>
+                        </div>
+                    </div>
+                    <div class="about-signal-grid">
+                        <article class="about-signal-card">
+                            <span class="about-badge about-badge-derived">Derived</span>
+                            <i class="bi bi-check2-square"></i>
+                            <h3>Checklist compliance</h3>
+                            <div class="about-metric-formula"><b>IN</b><span>÷</span><b>(IN + OUT)</b></div>
+                            <p>Only applicable checklist rows count. N/A, not observed, and the non-scoring item-99 sentinel are excluded.</p>
+                        </article>
+                        <article class="about-signal-card">
+                            <span class="about-badge about-badge-derived">Derived</span>
+                            <i class="bi bi-graph-down-arrow"></i>
+                            <h3>Trend</h3>
+                            <div class="about-trend-demo"><span>86</span><i class="bi bi-arrow-right"></i><span>72</span><b>▼</b></div>
+                            <p>The latest computed score compared with the prior scored inspection. It is direction, not a forecast.</p>
+                        </article>
+                        <article class="about-signal-card">
+                            <span class="about-badge about-badge-derived">Heuristic</span>
+                            <i class="bi bi-exclamation-diamond"></i>
+                            <h3>Biggest red flags</h3>
+                            <div class="about-flag-demo"><span>Risk factor</span><span>Repeat</span><span>Keyword weight</span></div>
+                            <p>Up to five observations ranked by category, repeat status, and the documented keyword groups below. Empty means none crossed the heuristic, not “safe.”</p>
+                        </article>
+                        <article class="about-signal-card">
+                            <span class="about-badge about-badge-derived">Derived</span>
+                            <i class="bi bi-arrow-repeat"></i>
+                            <h3>Open repeats</h3>
+                            <div class="about-open-repeat-demo"><b>OUT</b><span>+</span><b>Repeat</b><span>−</span><b>COS</b></div>
+                            <p>Latest checklist rows simultaneously marked out and repeat, excluding rows marked corrected on site.</p>
+                        </article>
+                    </div>
+                    <details class="about-disclosure about-redflag-disclosure">
+                        <summary>Exact red-flag ranking weights</summary>
+                        <div class="about-redflag-rules">
+                            <div class="about-rule-base" aria-label="Base ranking weights">
+                                <span><b>+10</b> risk-factor item</span>
+                                <span><b>+3</b> detected repeat</span>
+                                <span><b>Top 5</b> ranks above 1</span>
+                            </div>
+                            <div class="about-keyword-grid" aria-label="Keyword ranking groups">
+                                <span><b>+8</b> sewage/wastewater · rodents/pests · vomit/diarrhea/ill employee</span>
+                                <span><b>+6</b> no handwashing/bare hand · raw food over cooked food · no hot water</span>
+                                <span><b>+5</b> cross-contamination · mold/slime</span>
+                                <span><b>+4</b> holding temperature · cooling/cook temperature</span>
+                                <span><b>+3</b> hand sink · date marking · sanitizer · expired food</span>
+                                <span><b>+1</b> dirty/buildup/grease/debris/soiled</span>
+                            </div>
+                            <p>Matching groups accumulate. Ties retain source order; displayed observation text is capped at 180 characters. This rank selects what to show—it does not change the 0–100 score.</p>
+                        </div>
+                    </details>
+                </section>
+
+                <section class="about-section" aria-labelledby="aboutPipelineTitle">
+                    <div class="about-section-heading">
+                        <span class="about-section-number">03</span>
+                        <div>
+                            <p class="about-kicker">Source to screen</p>
+                            <h2 id="aboutPipelineTitle">How a VDH report becomes this website</h2>
+                            <p>The browser reads a prepared snapshot. It never scrapes VDH while you wait.</p>
+                        </div>
+                        <span class="about-badge about-badge-archived">Snapshot pipeline</span>
+                    </div>
+
+                    <ol class="about-pipeline">
+                        <li>
+                            <span class="about-pipeline-step">1</span>
+                            <i class="bi bi-building"></i>
+                            <h3>Official VDH surfaces</h3>
+                            <p>MyHealthDepartment provides a search roster, permit-history pages, and individual inspection reports.</p>
+                            <div><code>permitID</code><code>inspectionID</code><code>12VAC5-421</code></div>
+                        </li>
+                        <li>
+                            <span class="about-pipeline-step">2</span>
+                            <i class="bi bi-archive"></i>
+                            <h3>Archive a snapshot</h3>
+                            <p>A polite, resumable collector stores roster JSON and compressed permit/report pages by covered ZIP.</p>
+                            <div><code>raw HTML</code><code>roster JSON</code><code>collected time</code></div>
+                        </li>
+                        <li>
+                            <span class="about-pipeline-step">3</span>
+                            <i class="bi bi-braces"></i>
+                            <h3>Parse &amp; preserve IDs</h3>
+                            <p>We extract identity, history, observations, citations, corrective actions, checklist rows, temperatures, and comments.</p>
+                            <div><code>fac:&lt;permitID&gt;</code><code>insp:&lt;inspectionID&gt;</code></div>
+                        </li>
+                        <li>
+                            <span class="about-pipeline-step">4</span>
+                            <i class="bi bi-database"></i>
+                            <h3>Derive &amp; store</h3>
+                            <p>Addresses are geocoded; rules compute metrics; idempotent CouchDB projections retain each permit and inspection separately.</p>
+                            <div><code>geocode</code><code>computed fields</code><code>content hash</code></div>
+                        </li>
+                        <li>
+                            <span class="about-pipeline-step">5</span>
+                            <i class="bi bi-diagram-3"></i>
+                            <h3>Merge &amp; whitelist</h3>
+                            <p>At export, likely re-permits are presentation-merged. Explicit field lists shape the roster and per-facility history while retaining lineage.</p>
+                            <div><code>lineage</code><code>facility JSON</code><code>facility-history JSON</code></div>
+                        </li>
+                        <li>
+                            <span class="about-pipeline-step">6</span>
+                            <i class="bi bi-cloud-arrow-up"></i>
+                            <h3>Publish two contracts</h3>
+                            <p>Public finder JSON ships with the site. Full archive JSON syncs to private R2 and is served through the Access-gated Worker.</p>
+                            <div><code>static lite</code><code>private full</code><code>full → lite fallback</code></div>
+                        </li>
+                    </ol>
+                    <div class="about-pipeline-note"><i class="bi bi-link-45deg"></i><span>VDH GUIDs stay attached through the path. Views link back where the corresponding MyHealthDepartment tenant route is available.</span></div>
+                </section>
+
+                <section class="about-section" aria-labelledby="aboutLineageTitle">
+                    <div class="about-section-heading">
+                        <span class="about-section-number">04</span>
+                        <div>
+                            <p class="about-kicker">Field-level boundary</p>
+                            <h2 id="aboutLineageTitle">What is official, and what is ours</h2>
+                            <p>Color is not the contract. Every group is labeled in words.</p>
+                        </div>
+                    </div>
+                    <div class="about-lineage-grid">
+                        <article class="about-lineage-card about-lineage-official">
+                            <div><span class="about-badge about-badge-official">Official VDH record</span><i class="bi bi-building-check"></i></div>
+                            <h3>Archived and reorganized</h3>
+                            <ul>
+                                <li>Facility name, address, permit type, and status</li>
+                                <li>Permit and inspection GUIDs</li>
+                                <li>Inspection date, type, and purpose</li>
+                                <li>Violation item, citation, observation, and corrective action</li>
+                                <li>Checklist IN/OUT/N/A/N/O, COS, and Repeat markings</li>
+                                <li>Temperatures and inspector comments when present</li>
+                            </ul>
+                        </article>
+                        <article class="about-lineage-card about-lineage-derived">
+                            <div><span class="about-badge about-badge-derived">CleanPlateVA-derived</span><i class="bi bi-calculator-fill"></i></div>
+                            <h3>Computed or enriched</h3>
+                            <ul>
+                                <li>0–100 score and A–F grade</li>
+                                <li>Checklist compliance percentage</li>
+                                <li>Score trend, red flags, and open-repeat count</li>
+                                <li>Map coordinates and approximate-location flag</li>
+                                <li>“Restaurants only” classification</li>
+                                <li>Presentation merge of likely predecessor permits</li>
+                            </ul>
+                        </article>
+                    </div>
+
+                    <div class="about-tier-grid">
+                        <article class="about-tier-card">
+                            <span class="about-tier-icon"><i class="bi bi-geo-alt"></i></span>
+                            <div>
+                                <p class="about-kicker">Public finder</p>
+                                <h3>Identity, location, source handoff</h3>
+                                <p>Snapshot markers recorded as active at export time, names, addresses, geocoded coordinates, restaurant classification, approximation flag, and permit IDs. Status can age; presence is not proof a facility is currently open or permitted. No report dates, scores, grades, or inspection content.</p>
+                            </div>
+                        </article>
+                        <div class="about-tier-route"><span>Browser tries full</span><i class="bi bi-arrow-right"></i><span>falls back to finder</span></div>
+                        <article class="about-tier-card about-tier-card-full">
+                            <span class="about-tier-icon"><i class="bi bi-shield-lock"></i></span>
+                            <div>
+                                <p class="about-kicker">Authenticated archive</p>
+                                <h3>Reports plus derived signals</h3>
+                                <p>Whitelisted histories, citations, observations, checklists, temperatures, comments, status, lineage, and computed metrics from private R2 behind Cloudflare Access.</p>
+                            </div>
+                        </article>
+                    </div>
+                </section>
+
+                <section class="about-section" aria-labelledby="aboutLimitsTitle">
+                    <div class="about-section-heading">
+                        <span class="about-section-number">05</span>
+                        <div>
+                            <p class="about-kicker">Limits &amp; verification</p>
+                            <h2 id="aboutLimitsTitle">What this view cannot promise</h2>
+                            <p>Transparency includes the edges, not just the happy path.</p>
+                        </div>
+                    </div>
+                    <div class="about-limit-grid">
+                        <article><i class="bi bi-map"></i><h3>Selected coverage</h3><p>Coverage is the ZIP count shown above, not every Virginia jurisdiction. Absence from this map does not mean absence from VDH; some places are outside the selected ZIPs or use other systems.</p></article>
+                        <article><i class="bi bi-clock-history"></i><h3>Snapshot, not live</h3><p>Collection and publication can lag. “Newest report” is one maximum date, not proof that every covered area is equally current.</p></article>
+                        <article><i class="bi bi-shop-window"></i><h3>Permit status can age</h3><p>An incremental scan can retain the last known “active” state after a facility stops receiving inspections. A full resweep reconciles closures; a marker is not operating-status proof.</p></article>
+                        <article><i class="bi bi-journal-text"></i><h3>Source retention</h3><p>The portal typically exposes about two years of history. Missing report pages remain missing or unscored; this is an archive of what was collected, not a complete lifetime record.</p></article>
+                        <article><i class="bi bi-pin-map"></i><h3>Geocoded locations</h3><p>Pins come from address lookups through Census, VGIN, OpenStreetMap/Nominatim, then ZIP-centroid fallback—not VDH coordinates. Some unbadged pins are street-level or interpolated, not rooftop; centroid fallbacks are labeled approximate.</p></article>
+                        <article><i class="bi bi-intersect"></i><h3>Presentation heuristics</h3><p>“Restaurants only” uses permit-type/name patterns. History merging uses shared location/address plus name similarity. Either can misclassify, combine, or miss a match; retained permit IDs are the audit trail.</p></article>
+                        <article><i class="bi bi-sliders"></i><h3>Context still matters</h3><p>Corrected-on-site violations still deduct, and follow-ups use the same formula as routines. Read the report type and corrective text beside the number.</p></article>
+                        <article><i class="bi bi-shield-check"></i><h3>VDH wins conflicts</h3><p>Scores and summaries are comparison tools, not safety or illness predictions. If our presentation and the source disagree, the official VDH record is authoritative.</p></article>
+                    </div>
+                    <div class="about-verify-card">
+                        <i class="bi bi-box-arrow-up-right"></i>
+                        <div>
+                            <h3>Verify at the source</h3>
+                            <p>Facility rows and report cards expose MyHealthDepartment links where available. Compare the observation, citation, corrective action, and checklist markings yourself.</p>
+                        </div>
+                        <a href="https://inspections.myhealthdepartment.com/virginia" target="_blank" rel="noopener">Open VDH portal <i class="bi bi-box-arrow-up-right"></i></a>
+                    </div>
+                </section>
+            </div>
+        </main>
+
+        <!-- Compact source footer; methodology lives in the first-class About view. -->
         <!-- No text-muted here: Bootstrap's !important would beat the
              palette's --cp-muted footer color. -->
         <div class="food-source-footer small px-3 py-1" id="foodSourceFooter">
-            <span class="food-footer-full"><strong>Scores are computed</strong> (VDH publishes none):
-            100 − 6 per risk-factor violation − 2 per good-retail-practice, repeats ×1.5. ·</span>
-            Data: <a href="https://inspections.myhealthdepartment.com/virginia"
-               target="_blank" rel="noopener">VDH via MyHealthDepartment</a>, archived snapshot ·
-            markers link to official VDH records
-            <span id="foodCoverage"></span>
+            Data snapshot: <a href="https://inspections.myhealthdepartment.com/virginia"
+               target="_blank" rel="noopener">VDH via MyHealthDepartment</a> · archived, not live ·
+            source IDs retained · VDH links where available <span id="foodCoverage"></span> ·
+            <button type="button" class="food-footer-about" data-view-link="about">methodology &amp; provenance</button>
         </div>
     </div>
 
