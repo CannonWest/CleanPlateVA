@@ -108,12 +108,14 @@
             <div class="food-list-wrap flex-grow-1 d-none" id="foodListWrap">
                 <table class="food-list-table" id="foodListTable">
                     <thead><tr>
-                        <th data-sort="name">Name</th>
-                        <th data-sort="zip">Zip</th>
-                        <th data-sort="score" title="Computed score">Score</th>
-                        <th data-sort="compliance" title="Checklist compliance">Compl.</th>
-                        <th data-sort="trend" title="Latest vs prior inspection">Trend</th>
-                        <th data-sort="date">Last</th>
+                        <th class="food-list-col-address" data-sort="address">Address</th>
+                        <th class="food-list-col-name" data-sort="name">Name</th>
+                        <th class="food-list-col-zip" data-sort="zip">Zip</th>
+                        <th class="food-list-full-only food-list-col-score" data-sort="score" title="Computed score">Score</th>
+                        <th class="food-list-full-only food-list-col-compliance" data-sort="compliance" title="Checklist compliance">Compl.</th>
+                        <th class="food-list-full-only food-list-col-trend" data-sort="trend" title="Latest vs prior inspection">Trend</th>
+                        <th class="food-list-full-only food-list-col-date" data-sort="date">Last</th>
+                        <th class="food-list-col-vdh">VDH</th>
                     </tr></thead>
                     <tbody id="foodListBody"></tbody>
                 </table>
