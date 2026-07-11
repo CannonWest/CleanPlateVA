@@ -18,8 +18,8 @@
  *   · theme swap is map.setStyle(light↔dark) + re-adding the data source and
  *     layers on the next `style.load`.
  *
- * THE SCORE IS COMPUTED, NOT VDH'S (they publish none) — every score surface
- * here says "computed".
+ * THE SCORE IS COMPUTED, NOT VDH'S (they publish none). Only broad checklist
+ * assessments promote it to a grade/trend; focused reports label it raw.
  */
 
 const RESTAURANTS_ONLY_KEY = 'cleanplateva.food.restaurantsOnly';
@@ -82,6 +82,93 @@ export function computeScoreBreakdown({
     const grpDeduction = count(grpRegular) * 2 + count(grpRepeat) * 3;
     const score = Math.max(0, Math.round(100 - riskDeduction - grpDeduction));
     return { score, grade: gradeForScore(score), riskDeduction, grpDeduction };
+}
+
+const BROAD_MIN_APPLICABLE_ITEMS = 20;
+
+function distinctApplicableItems(checklist) {
+    const items = new Set();
+    for (const row of (checklist || [])) {
+        const item = Number.isInteger(row.item) ? row.item : null;
+        const applicable = row.compliant || row.violation
+            || ['IN', 'OUT'].includes(String(row.disposition || '').toUpperCase());
+        if (item != null && item !== 99 && !row.is_sentinel && applicable) items.add(item);
+    }
+    return items.size;
+}
+
+/** One inspection's single presentation contract: broad, focused, or unknown. */
+export function inspectionPresentation(insp = null) {
+    if (!insp) return {
+        scope: 'unknown', count: null, broadEligible: false, gradeEligible: false,
+        score: null, grade: null, compliant: null, out: null,
+    };
+    const cs = insp.checklist_summary || {};
+    let count = insp.applicable_item_count ?? cs.applicable_item_count ?? null;
+    if (count == null && Array.isArray(insp.checklist)
+        && (insp.checklist.length || insp.checklist_present)) {
+        count = distinctApplicableItems(insp.checklist);
+    }
+    if (count != null) count = Math.max(0, Number(count) || 0);
+    // Breadth is the gate. Never let a stale/contradictory scope label promote
+    // a zero- or 1–19-item report into a grade.
+    const scope = insp.checklist_present === false || count == null || count === 0
+        ? 'unknown' : count >= BROAD_MIN_APPLICABLE_ITEMS ? 'broad' : 'focused';
+    const score = Number.isFinite(Number(insp.score)) && insp.score !== null
+        ? Number(insp.score) : null;
+    const broadEligible = scope === 'broad';
+    const gradeEligible = broadEligible && score != null;
+    const compliant = insp.checklist_compliant ?? cs.compliant
+        ?? (Array.isArray(insp.checklist)
+            ? insp.checklist.filter((row) => row.compliant).length : null);
+    const out = insp.checklist_out ?? cs.out
+        ?? (Array.isArray(insp.checklist)
+            ? insp.checklist.filter((row) => row.violation).length : null);
+    return {
+        scope, count, broadEligible, gradeEligible, score,
+        grade: gradeEligible ? (insp.grade || gradeForScore(score)) : null,
+        compliant, out,
+    };
+}
+
+/** Pair the newest event with the one facility-level grade assessment. */
+export function facilityPresentation(facility = {}) {
+    const latest = inspectionPresentation(facility.latest || null);
+    const candidate = facility.latest_assessment || null;
+    let assessmentRecord = candidate;
+    let assessment = candidate ? inspectionPresentation(candidate) : null;
+    if (assessment && !assessment.gradeEligible) {
+        assessment = null;
+        assessmentRecord = null;
+    }
+    if (!assessment && latest.gradeEligible) {
+        assessment = latest;
+        assessmentRecord = facility.latest;
+    }
+    const trend = (facility.score_trend || []).filter((score) => Number.isFinite(score));
+    return {
+        latest,
+        assessment,
+        assessmentRecord,
+        trend,
+        declining: trend.length >= 2 && trend[0] < trend[1],
+    };
+}
+
+/** Oldest-first event positions; only broad points belong to the score line. */
+export function buildScopeSeries(inspections = []) {
+    const events = [...inspections].reverse().map((inspection, index) => ({
+        inspection,
+        presentation: inspectionPresentation(inspection),
+        index,
+    }));
+    return {
+        events,
+        broad: events.filter((event) => event.presentation.gradeEligible),
+        focused: events.filter((event) => event.presentation.scope === 'focused'
+            && event.presentation.score != null),
+        unknown: events.filter((event) => event.presentation.scope === 'unknown'),
+    };
 }
 
 function fmtDate(iso) {
@@ -606,8 +693,8 @@ export class FoodDashboard {
         // grades — those filters are hidden and inert there.
         if (!lite && !showClosed && !this._isActive(f)) return false;
         if (!lite && grade) {
-            if (grade === 'F' && f.latest?.grade !== 'F') return false;
-            else if (grade !== 'F' && f.latest?.grade !== grade) return false;
+            const assessmentGrade = facilityPresentation(f).assessment?.grade || null;
+            if (assessmentGrade !== grade) return false;
         }
         if (zip && f.zip !== zip) return false;
         if (q) {
@@ -619,18 +706,20 @@ export class FoodDashboard {
 
     // Marker fill by the active color-mode. (`gradeColor` is the data palette.)
     _markerColor(f) {
-        const lt = f.latest || {};
+        const fp = facilityPresentation(f);
+        const assessment = fp.assessmentRecord || {};
         if (this._colorMode === 'compliance') {
-            const c = lt.compliance_rate;
+            const c = assessment.compliance_rate;
             if (c == null) return GRADE_COLORS.none;
             return c >= 0.9 ? GRADE_COLORS.A : c >= 0.75 ? GRADE_COLORS.B
                 : c >= 0.6 ? GRADE_COLORS.C : c >= 0.4 ? GRADE_COLORS.D : GRADE_COLORS.F;
         }
         if (this._colorMode === 'repeat') {
+            const lt = f.latest || {};
             if ((lt.open_repeat || 0) > 0) return GRADE_COLORS.F;
-            return lt.score == null ? GRADE_COLORS.none : GRADE_COLORS.A;
+            return lt.checklist_present ? GRADE_COLORS.A : GRADE_COLORS.none;
         }
-        return gradeColor(lt.grade || null);
+        return gradeColor(fp.assessment?.grade || null);
     }
 
     _tooltipHTML(f) {
@@ -640,18 +729,36 @@ export class FoodDashboard {
                 + (f.approx ? '<br><span class="food-tip-sub">≈ approximate location</span>' : '');
         }
         const lt = f.latest || {};
-        const grade = lt.grade || null;
-        const score = lt.score;
-        const trend = (f.score_trend || []).filter((s) => s != null);
+        const fp = facilityPresentation(f);
+        const latest = fp.latest;
+        const trend = fp.trend;
         const arrow = trend.length >= 2
             ? (trend[0] < trend[1] ? ' ▼' : trend[0] > trend[1] ? ' ▲' : '') : '';
         const active = this._isActive(f);
+        const assessment = fp.assessment;
+        const assessmentRecord = fp.assessmentRecord || {};
         const sub = [];
-        if (lt.compliance_rate != null) sub.push(`${Math.round(lt.compliance_rate * 100)}% compliant`);
+        if (latest.scope === 'focused') {
+            sub.push(latest.out ? `${latest.out} OUT marking${latest.out === 1 ? '' : 's'}`
+                : 'no OUT items in focused check');
+            if (latest.count != null) sub.push(`${latest.count} applicable items`);
+            if (latest.score != null) sub.push(`raw formula ${latest.score}`);
+        } else if (latest.scope === 'unknown') {
+            sub.push('latest checklist scope unavailable');
+        }
+        if (assessmentRecord.compliance_rate != null) {
+            sub.push(`Broad compliance ${Math.round(assessmentRecord.compliance_rate * 100)}%`);
+        }
         if (lt.open_repeat) sub.push(`${lt.open_repeat} open repeat`);
+        const headline = assessment
+            ? `Grade ${assessment.grade} · ${assessment.score}${arrow}`
+            : 'no broad assessment captured';
         return `<strong>${esc(f.name)}</strong><br>`
-            + `${score != null ? `${score} · ${grade}${arrow}` : 'no scored inspection'}`
-            + ` — ${esc(lt.date ? fmtDate(lt.date) : 'n/a')}`
+            + `${esc(latest.scope === 'focused' ? 'Latest: focused inspection'
+                : latest.scope === 'broad' ? 'Latest: broad inspection'
+                    : 'Latest report')} — ${esc(lt.date ? fmtDate(lt.date) : 'n/a')}`
+            + `<br><span class="food-tip-sub">${esc(`Assessment: ${headline}`)}`
+            + `${assessmentRecord.date ? ` · ${esc(fmtDate(assessmentRecord.date))}` : ''}</span>`
             + (active ? '' : `<br><span class="food-tip-closed">${esc(f.status || 'closed')}</span>`)
             + (sub.length ? `<br><span class="food-tip-sub">${esc(sub.join(' · '))}</span>` : '');
     }
@@ -665,6 +772,7 @@ export class FoodDashboard {
             // Closed permits (shown only when "Show closed" is on) plot greyed
             // + dimmed so they read as not-currently-open at a glance.
             const active = lite || this._isActive(f);
+            const declining = !lite && facilityPresentation(f).declining;
             features.push({
                 type: 'Feature',
                 geometry: { type: 'Point', coordinates: [f.lon, f.lat] },
@@ -676,8 +784,8 @@ export class FoodDashboard {
                     fillOpacity: active ? 0.88 : 0.42,
                     // declining facilities get a heavier warning ring on any color-mode.
                     stroke: !active ? 'rgba(130, 130, 130, 0.55)'
-                        : (!lite && f.declining) ? GRADE_COLORS.F : 'rgba(20, 20, 20, 0.55)',
-                    strokeW: (!lite && f.declining) ? 2.5 : 1.5,
+                        : declining ? GRADE_COLORS.F : 'rgba(20, 20, 20, 0.55)',
+                    strokeW: declining ? 2.5 : 1.5,
                 },
             });
         }
@@ -741,6 +849,7 @@ export class FoodDashboard {
 
     _initAboutScoreDemo() {
         const inputs = [...document.querySelectorAll('[data-about-score]')];
+        const scopeInput = document.querySelector('[data-about-scope]');
         if (!inputs.length) return;
 
         const update = () => {
@@ -751,6 +860,10 @@ export class FoodDashboard {
                 grpRegular: values.aboutGrpRegular,
                 grpRepeat: values.aboutGrpRepeat,
             });
+            const applicableItems = Math.max(0, Number(scopeInput?.value) || 0);
+            const scope = applicableItems >= BROAD_MIN_APPLICABLE_ITEMS ? 'broad'
+                : applicableItems > 0 ? 'focused' : 'unknown';
+            const gradeEligible = scope === 'broad';
 
             inputs.forEach((input) => {
                 const value = Math.max(0, Number(input.value) || 0);
@@ -761,23 +874,37 @@ export class FoodDashboard {
                 if (deductionOutput) deductionOutput.textContent = String(penalty);
             });
 
-            const color = gradeColor(result.grade);
+            const color = gradeEligible ? gradeColor(result.grade)
+                : scope === 'focused' ? '#228be6' : GRADE_COLORS.none;
             const ring = document.getElementById('aboutScoreRing');
             ring?.style.setProperty('--about-score-angle', `${result.score * 3.6}deg`);
             ring?.style.setProperty('--about-score-color', color);
-            document.getElementById('aboutGradeScale')
-                ?.style.setProperty('--about-score-position', `${result.score}%`);
+            const scale = document.getElementById('aboutGradeScale');
+            scale?.style.setProperty('--about-score-position', `${result.score}%`);
+            scale?.classList.toggle('is-ineligible', !gradeEligible);
 
             const grade = document.getElementById('aboutGradeValue');
             grade?.style.setProperty('--about-grade-color', color);
-            if (grade) grade.textContent = `Grade ${result.grade}`;
+            if (grade) grade.textContent = gradeEligible
+                ? `Grade ${result.grade}` : `Not graded · ${scope}`;
+            const resultCard = document.querySelector('.about-score-result');
+            resultCard?.classList.toggle('is-focused', scope === 'focused');
+            resultCard?.classList.toggle('is-unknown', scope === 'unknown');
+            const countOutput = document.getElementById('aboutApplicableCount');
+            if (countOutput) countOutput.textContent = applicableItems
+                ? `${applicableItems} applicable item${applicableItems === 1 ? '' : 's'}`
+                : '0 / checklist unavailable';
+            document.querySelectorAll('[data-about-scope-card]').forEach((card) => {
+                card.classList.toggle('is-active', card.dataset.aboutScopeCard === scope);
+            });
 
             const valuesById = {
                 aboutScoreValue: result.score,
                 aboutEquationScore: result.score,
                 aboutRiskDeduction: result.riskDeduction,
                 aboutGrpDeduction: result.grpDeduction,
-                aboutGradeMarkerText: `${result.score} · ${result.grade}`,
+                aboutGradeMarkerText: gradeEligible
+                    ? `${result.score} · ${result.grade}` : `${result.score} raw · not graded`,
             };
             Object.entries(valuesById).forEach(([id, value]) => {
                 const el = document.getElementById(id);
@@ -786,6 +913,7 @@ export class FoodDashboard {
         };
 
         inputs.forEach((input) => input.addEventListener('input', update));
+        scopeInput?.addEventListener('input', update);
         update();
     }
 
@@ -823,10 +951,10 @@ export class FoodDashboard {
             return;
         }
         el.textContent = ({
-            grade: 'fill: grade (green A → red F)',
-            compliance: 'fill: checklist compliance (green high → red low)',
-            repeat: 'fill: red = open repeat violation',
-        }[this._colorMode] || '') + ' · red ring = declining';
+            grade: 'fill: latest broad grade (green A → red F)',
+            compliance: 'fill: latest broad checklist compliance',
+            repeat: 'fill: red = open repeat on latest report',
+        }[this._colorMode] || '') + ' · red ring = broad trend declined';
     }
 
     _rebuildList() {
@@ -836,13 +964,15 @@ export class FoodDashboard {
         const { key, dir } = this._sort;
         const val = (f) => {
             const lt = f.latest || {};
+            const fp = facilityPresentation(f);
+            const assessment = fp.assessmentRecord || {};
             switch (key) {
                 case 'address': return `${f.address || ''} ${f.address2 || ''}`.trim().toLowerCase();
                 case 'name': return (f.name || '').toLowerCase();
                 case 'zip': return f.zip || '';
-                case 'score': return lt.score == null ? -1 : lt.score;
-                case 'compliance': return lt.compliance_rate == null ? -1 : lt.compliance_rate;
-                case 'trend': { const t = (f.score_trend || []).filter((s) => s != null); return t.length >= 2 ? t[0] - t[1] : 0; }
+                case 'score': return fp.assessment?.score ?? -1;
+                case 'compliance': return assessment.compliance_rate ?? -1;
+                case 'trend': return fp.trend.length >= 2 ? fp.trend[0] - fp.trend[1] : 0;
                 case 'date': return lt.date || '';
                 default: return 0;
             }
@@ -857,18 +987,27 @@ export class FoodDashboard {
         const rows = filtered.slice(0, CAP);
         body.innerHTML = rows.map((f) => {
             const lt = f.latest || {};
+            const fp = facilityPresentation(f);
+            const latest = fp.latest;
+            const assessment = fp.assessment;
+            const assessmentRecord = fp.assessmentRecord || {};
             const address = [f.address, f.address2].filter(Boolean).join(' ');
-            const t = (f.score_trend || []).filter((s) => s != null);
+            const t = fp.trend;
             const arrow = t.length >= 2 ? (t[0] < t[1] ? '▼' : t[0] > t[1] ? '▲' : '▬') : '';
-            const tcol = t.length >= 2 ? (t[0] < t[1] ? GRADE_COLORS.F : t[0] > t[1] ? GRADE_COLORS.A : GRADE_COLORS.none) : '';
+            const tcol = t.length >= 2 ? '#228be6' : '';
+            const eventLine = latest.scope === 'focused'
+                ? `Latest: focused · ${latest.out ? `${latest.out} OUT` : 'no OUT'} · ${latest.count ?? '?'} items${latest.score != null ? ` · raw ${latest.score}` : ''}`
+                : latest.scope === 'broad'
+                    ? `Latest: broad · ${latest.count ?? '?'} items`
+                    : 'Latest: checklist scope unavailable';
             const rowCls = [this._selectedPermit === f.permit_id ? 'sel' : '',
                 (this._mode === 'lite' || this._isActive(f)) ? '' : 'food-closed'].filter(Boolean).join(' ');
             return `<tr data-permit="${esc(f.permit_id)}"${rowCls ? ` class="${rowCls}"` : ''}>
                 <td class="food-list-col-address">${esc(address)}</td>
-                <td class="food-list-name food-list-col-name">${esc(f.name)}</td>
+                <td class="food-list-name food-list-col-name">${esc(f.name)}<span class="food-list-event food-list-full-only">${esc(eventLine)}</span></td>
                 <td class="food-list-col-zip">${esc(f.zip || '')}</td>
-                <td class="food-list-full-only food-list-col-score"><span class="food-list-score" style="background:${gradeColor(lt.grade || null)}">${lt.score ?? '—'}</span></td>
-                <td class="food-list-full-only food-list-col-compliance">${lt.compliance_rate != null ? Math.round(lt.compliance_rate * 100) + '%' : '—'}</td>
+                <td class="food-list-full-only food-list-col-score"><span class="food-list-score" style="background:${gradeColor(assessment?.grade || null)}" title="${assessmentRecord.date ? `Broad assessment ${esc(fmtDate(assessmentRecord.date))}` : 'No broad assessment captured'}">${assessment?.score ?? '—'}</span></td>
+                <td class="food-list-full-only food-list-col-compliance">${assessmentRecord.compliance_rate != null ? Math.round(assessmentRecord.compliance_rate * 100) + '%' : '—'}</td>
                 <td class="food-list-full-only food-list-col-trend" style="color:${tcol}">${arrow || '—'}</td>
                 <td class="food-list-date food-list-full-only food-list-col-date">${fmtDate(lt.date)}</td>
                 <td class="food-list-col-vdh"><a class="food-list-vdh-link" href="${PORTAL_PERMIT_URL}${encodeURIComponent(f.permit_id)}" target="_blank" rel="noopener" aria-label="View ${esc(f.name)} on VDH" title="View ${esc(f.name)} on VDH"><i class="bi bi-box-arrow-up-right" aria-hidden="true"></i></a></td>
@@ -981,27 +1120,63 @@ export class FoodDashboard {
 
     _renderDetail(fac, inspections) {
         const latest = inspections[0] || null;
-        const grade = latest?.grade || null;
-        const score = latest?.score;
+        const latestView = inspectionPresentation(latest);
+        const assessmentRecord = inspections.find(
+            (inspection) => inspectionPresentation(inspection).gradeEligible,
+        ) || null;
+        const assessmentView = inspectionPresentation(assessmentRecord);
         const geoNote = this._geoNote(fac.geocode?.source);
         const cs = latest?.checklist_summary || null;
         const sets = this._disposSets(latest?.checklist);
 
-        const scoreHero = latest ? `
-            <div class="food-score-hero">
-                <span class="food-score-badge" style="background:${gradeColor(grade)}">
-                    ${score != null ? esc(score) : '—'}
-                </span>
+        let heroBody = '';
+        if (latestView.scope === 'broad') {
+            heroBody = `
+                <span class="food-score-badge" style="background:${gradeColor(latestView.grade)}">${latestView.score ?? '—'}</span>
                 <div class="food-score-meta">
-                    <div class="food-score-grade">Grade ${esc(grade || '—')}
-                        <span class="food-score-computed" title="VDH publishes no numeric score — this one is computed from the cited violations (see the note below the map)">computed</span></div>
+                    <div class="food-score-grade">Grade ${esc(latestView.grade || '—')}
+                        <span class="food-score-computed" title="CleanPlateVA formula; VDH publishes no numeric score">computed</span></div>
+                    <div><span class="food-scope-badge food-scope-badge-broad">Broad assessment</span>
+                        <span class="text-muted small">${esc(latestView.count)} distinct applicable code items</span></div>
                     <div class="text-muted small">${esc(latest.insp_type)} · ${esc(latest.purpose)} · ${fmtDate(latest.date)}</div>
                     <div class="text-muted small">${latest.violation_count} violation${latest.violation_count === 1 ? '' : 's'}
                         (${latest.risk_factor_count} risk-factor)</div>
-                </div>
+                </div>`;
+        } else if (latestView.scope === 'focused') {
+            heroBody = `
+                <span class="food-score-badge food-focused-outcome">${latestView.out ?? 0}<small>OUT</small></span>
+                <div class="food-score-meta">
+                    <div class="food-score-grade">Focused inspection</div>
+                    <div><span class="food-scope-badge food-scope-badge-focused">Targeted</span>
+                        <span class="text-muted small">${esc(latestView.count)} distinct applicable code item${latestView.count === 1 ? '' : 's'}</span></div>
+                    <div class="text-muted small">${esc(latest.insp_type)} · ${esc(latest.purpose)} · ${fmtDate(latest.date)}</div>
+                    <div class="food-raw-score">Raw formula ${latestView.score ?? '—'} · not used for grade or trend</div>
+                </div>`;
+        } else {
+            heroBody = `
+                <span class="food-score-badge food-scope-unknown-mark">?</span>
+                <div class="food-score-meta">
+                    <div class="food-score-grade">Checklist scope unavailable</div>
+                    <div><span class="food-scope-badge food-scope-badge-unknown">Unknown scope</span></div>
+                    <div class="text-muted small">${esc(latest?.insp_type || '')} · ${esc(latest?.purpose || '')} · ${fmtDate(latest?.date)}</div>
+                    <div class="text-muted small">Recorded observations remain below; no facility grade is inferred.</div>
+                </div>`;
+        }
+        const priorAssessment = latest && latestView.scope !== 'broad' ? `
+            <div class="food-last-assessment">
+                <span>Last broad assessment</span>
+                ${assessmentRecord ? `<strong style="color:${gradeColor(assessmentView.grade)}">Grade ${esc(assessmentView.grade)} · ${esc(assessmentView.score)}</strong>
+                    <small>${fmtDate(assessmentRecord.date)} · ${esc(assessmentRecord.purpose || assessmentRecord.insp_type || '')}</small>`
+                    : '<strong>None captured</strong><small>No broad inspection is available in this snapshot.</small>'}
+            </div>` : '';
+        const scoreHero = latest ? `
+            <div class="food-score-hero food-score-hero-${latestView.scope}">
+                ${heroBody}
                 ${this._sparkline(inspections)}
             </div>
-            ${this._complianceBar(cs)}` : '<div class="text-muted small mb-2">No inspection detail available yet.</div>';
+            ${priorAssessment}
+            ${this._complianceBar(cs, latestView)}`
+            : '<div class="text-muted small mb-2">No inspection detail available yet.</div>';
 
         const statusNote = (fac.status_onpage && fac.status
             && fac.status_onpage.toLowerCase() !== (fac.status || '').toLowerCase()) ? `
@@ -1011,7 +1186,7 @@ export class FoodDashboard {
         const flags = (latest?.red_flags || []);
         const flagsHtml = latest ? (flags.length ? `
             <div class="food-flags">
-                <div class="food-section-title">Biggest red flags — last report</div>
+                <div class="food-section-title">Biggest red flags — latest report</div>
                 ${flags.map((fl) => `
                     <div class="food-flag${fl.category === 'risk_factor' ? ' food-flag-rf' : ''}">
                         ${this._disposBadge(fl.item, sets)}
@@ -1019,7 +1194,7 @@ export class FoodDashboard {
                         ${(fl.repeat || sets.repeat.has(fl.item)) ? '<span class="food-flag-repeat">repeat</span>' : ''}
                         <span class="food-flag-text">${esc(fl.text)}</span>
                     </div>`).join('')}
-            </div>` : '<div class="food-flags"><div class="food-section-title">Biggest red flags — last report</div><div class="text-muted small">None — nothing on the last report would make a diner wince.</div></div>') : '';
+            </div>` : '<div class="food-flags"><div class="food-section-title">Biggest red flags — latest report</div><div class="text-muted small">None prioritized by the display heuristic; this is not a safety finding.</div></div>') : '';
 
         const history = inspections.length ? `
             <div class="food-section-title">Inspection history (${inspections.length})</div>
@@ -1080,23 +1255,34 @@ export class FoodDashboard {
             : s >= 70 ? GRADE_COLORS.C : s >= 60 ? GRADE_COLORS.D : GRADE_COLORS.F;
     }
 
-    // Small inline score sparkline (oldest → newest, left → right), each vertex
-    // labelled with its score. The line is a STATIC vertical gradient keyed to
-    // the SCORE axis; green at the top (100), red at the bottom (0), with stops
-    // on the grade bands so a point's height reads as its grade.
+    // One comparison history: broad assessments form the connected line;
+    // focused inspections keep their time position but render as neutral,
+    // unconnected raw-formula diamonds. Unknown-scope events are baseline ticks.
     _sparkline(inspections) {
-        const pts = (inspections || []).map((i) => i.score).filter((s) => s != null).reverse();
-        if (pts.length < 2) return '';
-        const W = 120, H = 44, padX = 12, padTop = 16, padBot = 8;
+        const series = buildScopeSeries(inspections);
+        if (!series.events.length) return '';
+        const W = 144, H = 52, padX = 12, padTop = 16, padBot = 12;
         const innerH = H - padTop - padBot;
-        const x = (i) => padX + i * ((W - padX * 2) / (pts.length - 1));
+        const x = (i) => series.events.length === 1 ? W / 2
+            : padX + i * ((W - padX * 2) / (series.events.length - 1));
         const y = (s) => padTop + (1 - s / 100) * innerH;
-        const coords = pts.map((s, i) => `${x(i).toFixed(1)},${y(s).toFixed(1)}`);
-        const last = pts[pts.length - 1];
-        const dots = pts.map((s, i) =>
-            `<circle cx="${x(i).toFixed(1)}" cy="${y(s).toFixed(1)}" r="1.8" fill="${this._scoreColor(s)}"/>`).join('');
-        const labels = pts.map((s, i) =>
-            `<text class="food-spark-score" x="${x(i).toFixed(1)}" y="${(y(s) - 4).toFixed(1)}" text-anchor="middle">${s}</text>`).join('');
+        const coords = series.broad.map((event) =>
+            `${x(event.index).toFixed(1)},${y(event.presentation.score).toFixed(1)}`);
+        const broadDots = series.broad.map((event) => {
+            const px = x(event.index).toFixed(1), py = y(event.presentation.score).toFixed(1);
+            return `<circle cx="${px}" cy="${py}" r="2.2" fill="${this._scoreColor(event.presentation.score)}"><title>Broad assessment · ${event.presentation.score} · ${event.presentation.count} applicable items</title></circle>`;
+        }).join('');
+        const broadLabels = series.broad.map((event) =>
+            `<text class="food-spark-score" x="${x(event.index).toFixed(1)}" y="${(y(event.presentation.score) - 4).toFixed(1)}" text-anchor="middle">${event.presentation.score}</text>`).join('');
+        const focusedMarks = series.focused.map((event) => {
+            const px = x(event.index), py = y(event.presentation.score);
+            return `<rect class="food-spark-focused" x="${(px - 2.8).toFixed(1)}" y="${(py - 2.8).toFixed(1)}" width="5.6" height="5.6" transform="rotate(45 ${px.toFixed(1)} ${py.toFixed(1)})"><title>Focused inspection · raw formula ${event.presentation.score} · ${event.presentation.count} applicable items</title></rect>`
+                + `<text class="food-spark-raw" x="${px.toFixed(1)}" y="${(py - 5).toFixed(1)}" text-anchor="middle">r${event.presentation.score}</text>`;
+        }).join('');
+        const unknownMarks = series.unknown.map((event) => {
+            const px = x(event.index).toFixed(1), py = (H - padBot + 1).toFixed(1);
+            return `<line class="food-spark-unknown" x1="${px}" y1="${py}" x2="${px}" y2="${H - 4}"><title>Inspection with unavailable checklist scope</title></line>`;
+        }).join('');
         // Vertical gradient in user space: top (score 100) → bottom (score 0),
         // stops at the grade-band boundaries (A green · B lime · C amber · D
         // orange · F red).
@@ -1109,18 +1295,30 @@ export class FoodDashboard {
             + `<stop offset="0.45" stop-color="${GRADE_COLORS.F}"/>`
             + `<stop offset="1" stop-color="${GRADE_COLORS.F}"/>`
             + `</linearGradient>`;
-        return `<div class="food-spark" title="Computed score across the last ${pts.length} inspections">
-            <svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Score across the last ${pts.length} inspections, latest ${last}">
+        const line = coords.length > 1
+            ? `<polyline points="${coords.join(' ')}" fill="none" stroke="url(#food-spark-grad)" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round"/>` : '';
+        const broadSummary = series.broad.length
+            ? `Broad scores oldest to newest: ${series.broad.map((event) => `${fmtDate(event.inspection.date)} ${event.presentation.score}`).join(', ')}`
+            : 'No broad scores captured';
+        const focusedSummary = series.focused.length
+            ? `Focused raw events: ${series.focused.map((event) => `${fmtDate(event.inspection.date)} raw ${event.presentation.score}, ${event.presentation.count} applicable items`).join('; ')}`
+            : 'No focused raw events';
+        const accessibleSummary = `${broadSummary}. ${focusedSummary}. ${series.unknown.length} unknown-scope event${series.unknown.length === 1 ? '' : 's'}.`;
+        return `<div class="food-spark" title="Broad assessments form the line; focused raw scores are unconnected diamonds">
+            <svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(accessibleSummary)}">
                 <defs>${grad}</defs>
-                <polyline points="${coords.join(' ')}" fill="none" stroke="url(#food-spark-grad)" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round"/>
-                ${dots}
-                ${labels}
+                ${line}
+                ${broadDots}
+                ${broadLabels}
+                ${focusedMarks}
+                ${unknownMarks}
             </svg>
+            <span class="food-spark-legend">broad line · ◇ focused raw</span>
         </div>`;
     }
 
     // Compliance "breadth" bar — complements the severity score.
-    _complianceBar(cs) {
+    _complianceBar(cs, presentation = {}) {
         if (!cs || cs.compliance_rate == null) return '';
         const pct = Math.round(cs.compliance_rate * 100);
         const compliant = cs.compliant ?? 0, out = cs.out ?? 0;
@@ -1128,9 +1326,9 @@ export class FoodDashboard {
         if (cs.cos) sub.push(`${cs.cos} corrected on site`);
         if (cs.repeat) sub.push(`${cs.repeat} repeat`);
         return `
-        <div class="food-compliance" title="Share of applicable food-code items in compliance on the last report (excludes N/A · N/O)">
+        <div class="food-compliance" title="Share of applicable food-code rows in compliance on the latest report (excludes N/A · N/O)">
             <div class="food-compliance-head">
-                <span class="food-compliance-label">Checklist compliance</span>
+                <span class="food-compliance-label">${presentation.scope === 'focused' ? 'Focused checklist outcome' : 'Checklist compliance'}</span>
                 <span class="food-compliance-pct">${pct}% — ${esc(compliant)} of ${esc(compliant + out)}</span>
             </div>
             <div class="food-compliance-bar">
@@ -1142,16 +1340,28 @@ export class FoodDashboard {
     }
 
     _renderInspection(insp, openByDefault) {
-        const grade = insp.grade || null;
+        const view = inspectionPresentation(insp);
         const violations = insp.violations || [];
         const sets = this._disposSets(insp.checklist);
         const cs = insp.checklist_summary || null;
+        const badge = view.scope === 'broad'
+            ? `<span class="food-insp-score" style="background:${gradeColor(view.grade)}">${view.score ?? '—'}</span>`
+            : view.scope === 'focused'
+                ? `<span class="food-insp-score food-insp-score-focused">${view.out ?? 0}<small> OUT</small></span>`
+                : '<span class="food-insp-score food-insp-score-unknown">?</span>';
+        const scopeBadge = `<span class="food-scope-badge food-scope-badge-${view.scope}">${view.scope === 'broad' ? 'Broad' : view.scope === 'focused' ? `Focused · ${view.count} items` : 'Scope unknown'}</span>`;
+        const noViolations = view.scope === 'broad'
+            ? `No violations recorded across ${view.count} distinct applicable code items.`
+            : view.scope === 'focused'
+                ? `No violations recorded in this focused ${view.count}-item check.`
+                : 'No violations recorded; checklist breadth was not published.';
         return `
         <details class="food-insp"${openByDefault ? ' open' : ''}>
             <summary>
-                <span class="food-insp-score" style="background:${gradeColor(grade)}">${insp.score ?? '—'}</span>
+                ${badge}
                 <span class="food-insp-when">${fmtDate(insp.date)}</span>
                 <span class="food-insp-kind text-muted">${esc(insp.insp_type)} · ${esc(insp.purpose)}</span>
+                ${scopeBadge}
                 ${cs && cs.compliance_rate != null
                     ? `<span class="food-insp-compliance" title="checklist compliance">${Math.round(cs.compliance_rate * 100)}%</span>` : ''}
                 <span class="food-insp-count text-muted">${violations.length} viol.</span>
@@ -1161,6 +1371,8 @@ export class FoodDashboard {
                     target="_blank" rel="noopener" title="Open the official VDH report for this inspection">
                     <i class="bi bi-file-earmark-text"></i><span>View full VDH report</span>
                     <i class="bi bi-box-arrow-up-right"></i></a>` : ''}
+                ${view.scope === 'focused' && view.score != null
+                    ? `<div class="food-raw-score">Raw formula ${view.score} · retained for audit, not used for grade or trend</div>` : ''}
                 ${violations.length ? violations.map((v) => `
                     <div class="food-viol${(v.item != null && v.item <= 29) ? ' food-viol-rf' : ''}">
                         <div class="food-viol-head">
@@ -1171,17 +1383,17 @@ export class FoodDashboard {
                         </div>
                         ${v.corrective ? `<div class="food-viol-corrective">↳ ${esc(v.corrective)}</div>` : ''}
                     </div>`).join('')
-                : '<div class="text-muted small px-1">No violations recorded — clean report.</div>'}
-                ${this._renderChecklist(insp.checklist)}
+                : `<div class="text-muted small px-1">${esc(noViolations)}</div>`}
+                ${this._renderChecklist(insp.checklist, view)}
                 ${insp.comments ? `<div class="food-insp-comments"><strong>Inspector comments:</strong> ${esc(insp.comments)}</div>` : ''}
                 ${this._renderTemps(insp.temps_v2, insp.temps)}
             </div>
         </details>`;
     }
 
-    // The full food-code checklist (passing items too), grouped by category,
+    // The inspection's published checklist rows (passing items too), grouped by category,
     // each category collapsible with a pass-rate bar. Sentinel rows excluded.
-    _renderChecklist(checklist) {
+    _renderChecklist(checklist, presentation = {}) {
         const rows = (checklist || []).filter((r) => !r.is_sentinel);
         if (!rows.length) return '';
         const cats = [], byCat = new Map();
@@ -1217,7 +1429,7 @@ export class FoodDashboard {
             </details>`;
         }).join('');
         return `<details class="food-checklist">
-            <summary class="text-muted small">Full food-code checklist — ${rows.length} items, ${out} out of compliance</summary>
+            <summary class="text-muted small">Inspection checklist — ${presentation.count ?? 0} distinct applicable code items · ${rows.length} published rows · ${out} OUT</summary>
             <div class="food-checklist-body">${cats_html}</div>
         </details>`;
     }
