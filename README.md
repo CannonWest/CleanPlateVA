@@ -16,7 +16,7 @@ The deployed page serves two audiences from the same code:
   (`public/data/facilities.json` — 10 identity/location fields per active
   facility).
 - **Full (authenticated)** — the complete archived inspection history with
-  computed scores, letter grades, violation detail, food-code checklists,
+  raw computed scores, scope-qualified letter grades, violation detail, food-code checklists,
   and temperature logs, rendered in the same UI. Served from a private
   channel at `/data-full/*` that anonymous visitors can't reach; the page
   tries it first and falls back to lite. The full-tier data is never
@@ -42,6 +42,12 @@ privately): a rich `facilities.json`, per-facility
 compact checklist rows (`[item, disposition, flags(, override)]`, bitmask
 `1 compliant | 2 violation | 4 cos | 8 repeat | 16 sentinel`) are decoded
 in the browser.
+
+Each inspection is classified from its distinct applicable checklist items:
+`broad` (20+, grade/trend eligible), `focused` (1–19, targeted outcome with
+raw formula shown secondarily), or `unknown` (zero/no checklist, no grade).
+Facility records keep the chronological `latest` event, one
+`latest_assessment`, and one broad-only `score_trend` / `declining` signal.
 
 The site never fetches from VDH or any live source; it reads only archived
 snapshots published by a separate collection pipeline.

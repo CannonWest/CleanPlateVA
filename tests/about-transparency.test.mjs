@@ -56,6 +56,18 @@ test('the interactive score explainer uses the production scoring coefficients',
     }
 });
 
+test('the score explainer visibly gates grades by assessment breadth', () => {
+    assert.match(html, /20\+/);
+    assert.match(html, /1–19/);
+    assert.match(html, /0 \/ no checklist/);
+    assert.match(html, /data-about-scope/);
+    assert.match(dashboardSource, /applicableItems >= BROAD_MIN_APPLICABLE_ITEMS/);
+    assert.match(dashboardSource, /`Not graded · \$\{scope\}`/);
+    assert.match(dashboardSource, /classList\.toggle\('is-ineligible', !gradeEligible\)/);
+    assert.match(html, /◇ r100/);
+    assert.match(html, /Focused inspections remain visible as unconnected raw-formula event markers/);
+});
+
 test('transparency content draws the official/derived boundary and full pipeline', () => {
     for (const label of ['Official source', 'Archived snapshot', 'CleanPlateVA-derived']) {
         assert.match(html, new RegExp(label));
