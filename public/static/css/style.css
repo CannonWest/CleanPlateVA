@@ -630,12 +630,16 @@ body {
     border-radius: 0.75rem;
     background: var(--cp-surface);
 }
-.food-list-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+.food-list-table {
+    width: 100%; min-width: 1000px; table-layout: fixed;
+    border-collapse: collapse; font-size: 0.82rem;
+}
 .food-list-table thead th {
     position: sticky; top: 0; z-index: 1; background: #f1f3f5; color: #495057;
     text-align: left; font-weight: 600; padding: 0.4rem 0.6rem;
-    border-bottom: 1px solid #dee2e6; cursor: pointer; white-space: nowrap;
+    border-bottom: 1px solid #dee2e6; cursor: default; white-space: nowrap;
 }
+.food-list-table thead th[data-sort] { cursor: pointer; }
 .theme-dark .food-list-table thead th { background: var(--cp-surface-2); color: #c3cbd9; border-bottom-color: var(--cp-border); }
 .food-list-table thead th.sorted { color: #1c7ed6; }
 .theme-dark .food-list-table thead th.sorted { color: #4dabf7; }
@@ -650,7 +654,22 @@ body {
 .food-list-table td { padding: 0.35rem 0.6rem; vertical-align: top; color: #212529; font-variant-numeric: tabular-nums; }
 .theme-dark .food-list-table td { color: #d5dae4; }
 .food-list-name { font-weight: 600; }
-.food-list-addr { font-weight: 400; font-size: 0.72rem; color: #868e96; }
+.food-list-col-address { width: 25%; color: #495057; overflow-wrap: anywhere; }
+.theme-dark .food-list-col-address { color: #adb6c6; }
+.food-list-col-name { width: 23%; overflow-wrap: anywhere; }
+.food-list-col-zip { width: 7%; white-space: nowrap; }
+.food-list-col-score { width: 7%; }
+.food-list-col-compliance { width: 8%; }
+.food-list-col-trend { width: 7%; }
+.food-list-col-date { width: 11%; white-space: nowrap; }
+.food-list-col-vdh { width: 12%; white-space: nowrap; }
+.food-list-vdh-link {
+    display: inline-flex; align-items: center; gap: 0.3rem; white-space: nowrap;
+    color: #1c7ed6; font-weight: 600; text-decoration: none;
+}
+.theme-dark .food-list-vdh-link { color: #4dabf7; }
+.food-list-vdh-link:hover { text-decoration: underline; }
+.food-list-vdh-link .bi { font-size: 0.72rem; }
 .food-list-score {
     display: inline-block; min-width: 1.8rem; text-align: center; border-radius: 0.3rem;
     padding: 0.05rem 0.3rem; color: #fff; font-weight: 700; font-size: 0.76rem;
@@ -699,15 +718,22 @@ body {
    tier has no scores/grades/history, so every judgment surface hides:
    grade chips, show-closed, the whole second toolbar (color-by + legend
    are its only remaining occupants), the methodology sentence, and the
-   list view's score/compliance/trend/date columns (3-6). */
+   list view's full-only score/compliance/trend/date columns. */
 .food-mode-lite #foodGradeChips,
 .food-mode-lite #foodShowClosedWrap,
 .food-mode-lite #foodToolbar2,
 .food-mode-lite .food-footer-full,
-.food-mode-lite .food-list-table th:nth-child(n+3),
-.food-mode-lite .food-list-table td:nth-child(n+3) {
+.food-mode-lite .food-list-full-only {
     display: none;
 }
+
+/* Lite keeps Address | Name | Zip | VDH. On narrow screens the table scrolls
+   instead of crushing the terminal VDH link or long street addresses. */
+.food-mode-lite .food-list-table { min-width: 680px; }
+.food-mode-lite .food-list-col-address { width: 36%; }
+.food-mode-lite .food-list-col-name { width: 34%; }
+.food-mode-lite .food-list-col-zip { width: 10%; }
+.food-mode-lite .food-list-col-vdh { width: 20%; }
 
 .food-lite-cta { margin: 1rem 0 0.5rem; }
 
