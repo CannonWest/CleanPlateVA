@@ -10,11 +10,11 @@ const dashboard = await import(
     `data:text/javascript;base64,${Buffer.from(source).toString('base64')}`
 );
 
-const checklist = (count) => Array.from({ length: count }, (_, index) => ({
+const checklist = (count, out = 0) => Array.from({ length: count }, (_, index) => ({
     item: index + 1,
-    disposition: 'IN',
-    compliant: true,
-    violation: false,
+    disposition: index < out ? 'OUT' : 'IN',
+    compliant: index >= out,
+    violation: index < out,
     is_sentinel: false,
 }));
 
@@ -38,9 +38,93 @@ test('duplicates, non-applicable rows, missing IDs, and item 99 do not inflate s
     ];
     const view = dashboard.inspectionPresentation({ checklist: rows, score: 0 });
     assert.equal(view.count, 2);
+    assert.equal(view.out, 1);
     assert.equal(view.scope, 'focused');
     assert.equal(view.score, 0);
     assert.equal(view.grade, null);
+});
+
+test('focused X/Y outcomes reserve green for zero OUT and escalate by compliance', () => {
+    const { focusedOutcomePresentation, inspectionPresentation } = dashboard;
+    const outcome = (count, out) => focusedOutcomePresentation(
+        inspectionPresentation({ checklist: checklist(count, out), score: 100 }),
+    );
+
+    assert.deepEqual(
+        [outcome(2, 0).label, outcome(2, 0).tone],
+        ['0/2 OUT', 'clear'],
+    );
+    assert.equal(outcome(4, 1).tone, 'good');
+    assert.equal(outcome(3, 1).tone, 'watch');
+    assert.equal(outcome(3, 2).tone, 'warning');
+    assert.deepEqual(
+        [outcome(4, 4).label, outcome(4, 4).tone],
+        ['4/4 OUT', 'severe'],
+    );
+});
+
+test('focused outcomes never fabricate a clean result from missing or inconsistent counts', () => {
+    const { focusedOutcomePresentation } = dashboard;
+    assert.deepEqual(
+        [focusedOutcomePresentation({ count: 2, out: null }).label,
+            focusedOutcomePresentation({ count: 2, out: null }).tone],
+        ['?/2 OUT', 'unknown'],
+    );
+    assert.equal(focusedOutcomePresentation({ count: 3, out: 4 }).tone, 'unknown');
+});
+
+test('compact row-counted OUT values are never presented as a distinct-item ratio', () => {
+    const compact = dashboard.inspectionPresentation({
+        scope: 'focused', applicable_item_count: 3, checklist_out: 4,
+        checklist_present: true, score: 52,
+    });
+    assert.equal(compact.outIsDistinct, false);
+    assert.deepEqual(
+        [dashboard.focusedOutcomePresentation(compact).label,
+            dashboard.focusedOutcomePresentation(compact).tone],
+        ['4 OUT markings', 'unknown'],
+    );
+
+    const futureDistinct = dashboard.inspectionPresentation({
+        scope: 'focused', applicable_item_count: 3, out_item_count: 2,
+        checklist_present: true, score: 68,
+    });
+    assert.equal(futureDistinct.outIsDistinct, true);
+    assert.equal(dashboard.focusedOutcomePresentation(futureDistinct).label, '2/3 OUT');
+});
+
+test('focused history renders one colored X/Y OUT signal', () => {
+    const context = {
+        _disposSets: dashboard.FoodDashboard.prototype._disposSets,
+        _renderChecklist: () => '',
+        _renderTemps: () => '',
+    };
+    const html = dashboard.FoodDashboard.prototype._renderInspection.call(context, {
+        date: '2024-11-12', insp_type: 'Full Service Restaurant', purpose: 'Follow-Up',
+        score: 100, checklist: checklist(2), checklist_present: true,
+        checklist_summary: { compliance_rate: 1, compliant: 2, out: 0 },
+        violations: [],
+    }, false);
+
+    assert.match(html, /food-outcome-clear/);
+    assert.match(html, />0\/2<\/span><small aria-hidden="true">OUT/);
+    assert.match(html, /role="img"/);
+    assert.match(html, /aria-label="0 of 2 focused items marked OUT; 100% in compliance"/);
+    assert.match(html, />Focused<\/span>/);
+    assert.doesNotMatch(html, /Focused · 2 items/);
+    assert.doesNotMatch(html, /food-insp-compliance/);
+});
+
+test('focused compliance bar uses the same distinct-item X/Y outcome', () => {
+    const html = dashboard.FoodDashboard.prototype._complianceBar.call({}, {
+        compliance_rate: 0.75, compliant: 3, out: 1,
+    }, { scope: 'focused', count: 3, out: 2 });
+    assert.match(html, /33% — 1 of 3/);
+    assert.match(html, /distinct applicable numbered items/);
+    assert.doesNotMatch(html, /75%/);
+    assert.equal(dashboard.FoodDashboard.prototype._complianceBar.call({}, {
+        compliance_rate: 0.75, compliant: 3, out: 1,
+    }, { scope: 'focused', count: 3, out: null }), '');
 });
 
 test('a broad report needs a raw score before it can expose a grade', () => {

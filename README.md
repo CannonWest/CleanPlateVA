@@ -45,7 +45,8 @@ in the browser.
 
 Each inspection is classified from its distinct applicable checklist items:
 `broad` (20+, grade/trend eligible), `focused` (1–19, targeted outcome with
-raw formula shown secondarily), or `unknown` (zero/no checklist, no grade).
+an OUT/applicable ratio colored by compliance and the raw formula shown
+secondarily), or `unknown` (zero/no checklist, no grade).
 Facility records keep the chronological `latest` event, one
 `latest_assessment`, and one broad-only `score_trend` / `declining` signal.
 
