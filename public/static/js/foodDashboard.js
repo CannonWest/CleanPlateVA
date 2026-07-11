@@ -97,11 +97,22 @@ function distinctApplicableItems(checklist) {
     return items.size;
 }
 
+function distinctOutItems(checklist) {
+    const items = new Set();
+    for (const row of (checklist || [])) {
+        const item = Number.isInteger(row.item) ? row.item : null;
+        const isOut = row.violation
+            || String(row.disposition || '').toUpperCase() === 'OUT';
+        if (item != null && item !== 99 && !row.is_sentinel && isOut) items.add(item);
+    }
+    return items.size;
+}
+
 /** One inspection's single presentation contract: broad, focused, or unknown. */
 export function inspectionPresentation(insp = null) {
     if (!insp) return {
         scope: 'unknown', count: null, broadEligible: false, gradeEligible: false,
-        score: null, grade: null, compliant: null, out: null,
+        score: null, grade: null, compliant: null, out: null, outIsDistinct: false,
     };
     const cs = insp.checklist_summary || {};
     let count = insp.applicable_item_count ?? cs.applicable_item_count ?? null;
@@ -121,14 +132,77 @@ export function inspectionPresentation(insp = null) {
     const compliant = insp.checklist_compliant ?? cs.compliant
         ?? (Array.isArray(insp.checklist)
             ? insp.checklist.filter((row) => row.compliant).length : null);
-    const out = insp.checklist_out ?? cs.out
-        ?? (Array.isArray(insp.checklist)
-            ? insp.checklist.filter((row) => row.violation).length : null);
+    // The focused X/Y signal compares like with like: distinct OUT item IDs
+    // over distinct applicable item IDs. Compact marker records have no rows,
+    // so retain their published summary as a fallback.
+    const hasChecklistRows = Array.isArray(insp.checklist) && insp.checklist.length > 0;
+    const publishedDistinctOut = insp.out_item_count ?? cs.out_item_count ?? null;
+    const outIsDistinct = hasChecklistRows || publishedDistinctOut != null;
+    const out = hasChecklistRows
+        ? distinctOutItems(insp.checklist)
+        : publishedDistinctOut ?? insp.checklist_out ?? cs.out ?? null;
     return {
         scope, count, broadEligible, gradeEligible, score,
         grade: gradeEligible ? (insp.grade || gradeForScore(score)) : null,
-        compliant, out,
+        compliant, out, outIsDistinct,
     };
+}
+
+/** Compliance-colored focused outcome, deliberately separate from grading. */
+export function focusedOutcomePresentation(view = {}) {
+    const totalValue = Number(view.count);
+    const outValue = Number(view.out);
+    const total = Number.isFinite(totalValue) && totalValue > 0
+        ? Math.trunc(totalValue) : null;
+    const out = view.out !== null && view.out !== undefined
+        && Number.isFinite(outValue) && outValue >= 0
+        ? Math.trunc(outValue) : null;
+    if (view.outIsDistinct === false) {
+        const label = out == null
+            ? 'OUT count unavailable'
+            : `${out} OUT marking${out === 1 ? '' : 's'}`;
+        return {
+            out, total, label, complianceRate: null, tone: 'unknown', ratioKnown: false,
+            description: out == null
+                ? 'Focused OUT count is unavailable'
+                : `${label}; distinct OUT-item ratio is unavailable`,
+        };
+    }
+    const consistent = total != null && out != null && out <= total;
+    if (!consistent) {
+        const label = `${out ?? '?'}/${total ?? '?'} OUT`;
+        return {
+            out, total, label, complianceRate: null, tone: 'unknown', ratioKnown: false,
+            description: out != null && total != null
+                ? `${label}; focused outcome counts are inconsistent`
+                : `${label}; focused OUT count is unavailable`,
+        };
+    }
+
+    const complianceRate = (total - out) / total;
+    // Reserve green for an actually clear focused check and red for a check in
+    // which every assessed item was OUT. Partial outcomes step through
+    // lime/amber/orange without assigning a grade.
+    const tone = out === 0 ? 'clear'
+        : complianceRate >= 0.75 ? 'good'
+            : complianceRate >= 0.5 ? 'watch'
+                : out < total ? 'warning' : 'severe';
+    const pct = Math.round(complianceRate * 100);
+    return {
+        out, total, label: `${out}/${total} OUT`, complianceRate, tone, ratioKnown: true,
+        description: `${out} of ${total} focused items marked OUT; ${pct}% in compliance`,
+    };
+}
+
+function focusedOutcomeBadge(view, hero = false) {
+    const outcome = focusedOutcomePresentation(view);
+    const classes = hero
+        ? 'food-score-badge food-focused-outcome'
+        : 'food-insp-score food-insp-score-focused';
+    return `<span class="${classes} food-outcome-${outcome.tone}" role="img"`
+        + ` title="${esc(outcome.description)}" aria-label="${esc(outcome.description)}">`
+        + `<span aria-hidden="true">${esc(outcome.out ?? '?')}/${esc(outcome.total ?? '?')}</span>`
+        + '<small aria-hidden="true">OUT</small></span>';
 }
 
 /** Pair the newest event with the one facility-level grade assessment. */
@@ -739,9 +813,7 @@ export class FoodDashboard {
         const assessmentRecord = fp.assessmentRecord || {};
         const sub = [];
         if (latest.scope === 'focused') {
-            sub.push(latest.out ? `${latest.out} OUT marking${latest.out === 1 ? '' : 's'}`
-                : 'no OUT items in focused check');
-            if (latest.count != null) sub.push(`${latest.count} applicable items`);
+            sub.push(focusedOutcomePresentation(latest).label);
             if (latest.score != null) sub.push(`raw formula ${latest.score}`);
         } else if (latest.scope === 'unknown') {
             sub.push('latest checklist scope unavailable');
@@ -996,7 +1068,7 @@ export class FoodDashboard {
             const arrow = t.length >= 2 ? (t[0] < t[1] ? '▼' : t[0] > t[1] ? '▲' : '▬') : '';
             const tcol = t.length >= 2 ? '#228be6' : '';
             const eventLine = latest.scope === 'focused'
-                ? `Latest: focused · ${latest.out ? `${latest.out} OUT` : 'no OUT'} · ${latest.count ?? '?'} items${latest.score != null ? ` · raw ${latest.score}` : ''}`
+                ? `Latest: focused · ${focusedOutcomePresentation(latest).label}${latest.score != null ? ` · raw ${latest.score}` : ''}`
                 : latest.scope === 'broad'
                     ? `Latest: broad · ${latest.count ?? '?'} items`
                     : 'Latest: checklist scope unavailable';
@@ -1144,7 +1216,7 @@ export class FoodDashboard {
                 </div>`;
         } else if (latestView.scope === 'focused') {
             heroBody = `
-                <span class="food-score-badge food-focused-outcome">${latestView.out ?? 0}<small>OUT</small></span>
+                ${focusedOutcomeBadge(latestView, true)}
                 <div class="food-score-meta">
                     <div class="food-score-grade">Focused inspection</div>
                     <div><span class="food-scope-badge food-scope-badge-focused">Targeted</span>
@@ -1256,8 +1328,9 @@ export class FoodDashboard {
     }
 
     // One comparison history: broad assessments form the connected line;
-    // focused inspections keep their time position but render as neutral,
-    // unconnected raw-formula diamonds. Unknown-scope events are baseline ticks.
+    // focused inspections keep their time position as unconnected raw-formula
+    // diamonds, colored by their own OUT/applicable compliance outcome. They do
+    // not join the broad score line. Unknown-scope events are baseline ticks.
     _sparkline(inspections) {
         const series = buildScopeSeries(inspections);
         if (!series.events.length) return '';
@@ -1276,7 +1349,8 @@ export class FoodDashboard {
             `<text class="food-spark-score" x="${x(event.index).toFixed(1)}" y="${(y(event.presentation.score) - 4).toFixed(1)}" text-anchor="middle">${event.presentation.score}</text>`).join('');
         const focusedMarks = series.focused.map((event) => {
             const px = x(event.index), py = y(event.presentation.score);
-            return `<rect class="food-spark-focused" x="${(px - 2.8).toFixed(1)}" y="${(py - 2.8).toFixed(1)}" width="5.6" height="5.6" transform="rotate(45 ${px.toFixed(1)} ${py.toFixed(1)})"><title>Focused inspection · raw formula ${event.presentation.score} · ${event.presentation.count} applicable items</title></rect>`
+            const outcome = focusedOutcomePresentation(event.presentation);
+            return `<rect class="food-spark-focused food-outcome-${outcome.tone}" x="${(px - 2.8).toFixed(1)}" y="${(py - 2.8).toFixed(1)}" width="5.6" height="5.6" transform="rotate(45 ${px.toFixed(1)} ${py.toFixed(1)})"><title>Focused inspection · ${outcome.label} · raw formula ${event.presentation.score}</title></rect>`
                 + `<text class="food-spark-raw" x="${px.toFixed(1)}" y="${(py - 5).toFixed(1)}" text-anchor="middle">r${event.presentation.score}</text>`;
         }).join('');
         const unknownMarks = series.unknown.map((event) => {
@@ -1301,7 +1375,7 @@ export class FoodDashboard {
             ? `Broad scores oldest to newest: ${series.broad.map((event) => `${fmtDate(event.inspection.date)} ${event.presentation.score}`).join(', ')}`
             : 'No broad scores captured';
         const focusedSummary = series.focused.length
-            ? `Focused raw events: ${series.focused.map((event) => `${fmtDate(event.inspection.date)} raw ${event.presentation.score}, ${event.presentation.count} applicable items`).join('; ')}`
+            ? `Focused raw events: ${series.focused.map((event) => `${fmtDate(event.inspection.date)} ${focusedOutcomePresentation(event.presentation).label}, raw ${event.presentation.score}`).join('; ')}`
             : 'No focused raw events';
         const accessibleSummary = `${broadSummary}. ${focusedSummary}. ${series.unknown.length} unknown-scope event${series.unknown.length === 1 ? '' : 's'}.`;
         return `<div class="food-spark" title="Broad assessments form the line; focused raw scores are unconnected diamonds">
@@ -1319,14 +1393,22 @@ export class FoodDashboard {
 
     // Compliance "breadth" bar — complements the severity score.
     _complianceBar(cs, presentation = {}) {
-        if (!cs || cs.compliance_rate == null) return '';
-        const pct = Math.round(cs.compliance_rate * 100);
-        const compliant = cs.compliant ?? 0, out = cs.out ?? 0;
+        const focused = presentation.scope === 'focused'
+            ? focusedOutcomePresentation(presentation) : null;
+        const rate = focused ? focused.complianceRate : cs?.compliance_rate ?? null;
+        if (rate == null) return '';
+        const pct = Math.round(rate * 100);
+        const compliant = focused
+            ? focused.total - focused.out : cs?.compliant ?? 0;
+        const out = focused ? focused.out : cs?.out ?? 0;
         const sub = [];
-        if (cs.cos) sub.push(`${cs.cos} corrected on site`);
-        if (cs.repeat) sub.push(`${cs.repeat} repeat`);
+        if (cs?.cos) sub.push(`${cs.cos} corrected on site`);
+        if (cs?.repeat) sub.push(`${cs.repeat} repeat`);
+        const title = focused
+            ? 'Share of distinct applicable numbered items marked IN on this focused report'
+            : 'Share of applicable food-code rows in compliance on the latest report (excludes N/A · N/O)';
         return `
-        <div class="food-compliance" title="Share of applicable food-code rows in compliance on the latest report (excludes N/A · N/O)">
+        <div class="food-compliance" title="${title}">
             <div class="food-compliance-head">
                 <span class="food-compliance-label">${presentation.scope === 'focused' ? 'Focused checklist outcome' : 'Checklist compliance'}</span>
                 <span class="food-compliance-pct">${pct}% — ${esc(compliant)} of ${esc(compliant + out)}</span>
@@ -1347,9 +1429,9 @@ export class FoodDashboard {
         const badge = view.scope === 'broad'
             ? `<span class="food-insp-score" style="background:${gradeColor(view.grade)}">${view.score ?? '—'}</span>`
             : view.scope === 'focused'
-                ? `<span class="food-insp-score food-insp-score-focused">${view.out ?? 0}<small> OUT</small></span>`
+                ? focusedOutcomeBadge(view)
                 : '<span class="food-insp-score food-insp-score-unknown">?</span>';
-        const scopeBadge = `<span class="food-scope-badge food-scope-badge-${view.scope}">${view.scope === 'broad' ? 'Broad' : view.scope === 'focused' ? `Focused · ${view.count} items` : 'Scope unknown'}</span>`;
+        const scopeBadge = `<span class="food-scope-badge food-scope-badge-${view.scope}">${view.scope === 'broad' ? 'Broad' : view.scope === 'focused' ? 'Focused' : 'Scope unknown'}</span>`;
         const noViolations = view.scope === 'broad'
             ? `No violations recorded across ${view.count} distinct applicable code items.`
             : view.scope === 'focused'
@@ -1362,7 +1444,7 @@ export class FoodDashboard {
                 <span class="food-insp-when">${fmtDate(insp.date)}</span>
                 <span class="food-insp-kind text-muted">${esc(insp.insp_type)} · ${esc(insp.purpose)}</span>
                 ${scopeBadge}
-                ${cs && cs.compliance_rate != null
+                ${view.scope === 'broad' && cs && cs.compliance_rate != null
                     ? `<span class="food-insp-compliance" title="checklist compliance">${Math.round(cs.compliance_rate * 100)}%</span>` : ''}
                 <span class="food-insp-count text-muted">${violations.length} viol.</span>
             </summary>
