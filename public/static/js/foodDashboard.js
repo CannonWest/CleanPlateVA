@@ -734,7 +734,7 @@ export class FoodDashboard {
                 <td class="food-list-full-only food-list-col-compliance">${lt.compliance_rate != null ? Math.round(lt.compliance_rate * 100) + '%' : '—'}</td>
                 <td class="food-list-full-only food-list-col-trend" style="color:${tcol}">${arrow || '—'}</td>
                 <td class="food-list-date food-list-full-only food-list-col-date">${fmtDate(lt.date)}</td>
-                <td class="food-list-col-vdh"><a class="food-list-vdh-link" href="${PORTAL_PERMIT_URL}${encodeURIComponent(f.permit_id)}" target="_blank" rel="noopener" aria-label="View ${esc(f.name)} on VDH">View on VDH <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i></a></td>
+                <td class="food-list-col-vdh"><a class="food-list-vdh-link" href="${PORTAL_PERMIT_URL}${encodeURIComponent(f.permit_id)}" target="_blank" rel="noopener" aria-label="View ${esc(f.name)} on VDH" title="View ${esc(f.name)} on VDH"><i class="bi bi-box-arrow-up-right" aria-hidden="true"></i></a></td>
             </tr>`;
         }).join('') + (filtered.length > CAP
             ? `<tr class="food-list-more"><td colspan="${this._mode === 'lite' ? 4 : 8}">Showing first ${CAP} of ${filtered.length} — narrow the filters to see the rest.</td></tr>` : '');
