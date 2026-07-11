@@ -624,7 +624,11 @@ body {
 .food-list-table tr.food-closed { opacity: 0.5; }
 .food-list-table tr.food-closed:hover { opacity: 0.85; }
 
+/* Start this flex item from zero so a wide table scrolls inside it instead of
+   collapsing the selected-facility panel beside it. */
 .food-list-wrap {
+    flex-basis: 0;
+    min-width: 0;
     overflow: auto;
     border: 1px solid var(--cp-border);
     border-radius: 0.75rem;
@@ -654,22 +658,24 @@ body {
 .food-list-table td { padding: 0.35rem 0.6rem; vertical-align: top; color: #212529; font-variant-numeric: tabular-nums; }
 .theme-dark .food-list-table td { color: #d5dae4; }
 .food-list-name { font-weight: 600; }
-.food-list-col-address { width: 25%; color: #495057; overflow-wrap: anywhere; }
+.food-list-col-address { width: 29%; color: #495057; overflow-wrap: anywhere; }
 .theme-dark .food-list-col-address { color: #adb6c6; }
-.food-list-col-name { width: 23%; overflow-wrap: anywhere; }
+.food-list-col-name { width: 26%; overflow-wrap: anywhere; }
 .food-list-col-zip { width: 7%; white-space: nowrap; }
 .food-list-col-score { width: 7%; }
 .food-list-col-compliance { width: 8%; }
 .food-list-col-trend { width: 7%; }
 .food-list-col-date { width: 11%; white-space: nowrap; }
-.food-list-col-vdh { width: 12%; white-space: nowrap; }
+.food-list-col-vdh { width: 5%; text-align: center; white-space: nowrap; }
 .food-list-vdh-link {
-    display: inline-flex; align-items: center; gap: 0.3rem; white-space: nowrap;
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 1.6rem; height: 1.6rem; border-radius: 0.3rem; white-space: nowrap;
     color: #1c7ed6; font-weight: 600; text-decoration: none;
 }
 .theme-dark .food-list-vdh-link { color: #4dabf7; }
-.food-list-vdh-link:hover { text-decoration: underline; }
-.food-list-vdh-link .bi { font-size: 0.72rem; }
+.food-list-vdh-link:hover { background: rgba(28, 126, 214, 0.12); }
+.theme-dark .food-list-vdh-link:hover { background: rgba(77, 171, 247, 0.14); }
+.food-list-vdh-link .bi { font-size: 0.85rem; }
 .food-list-score {
     display: inline-block; min-width: 1.8rem; text-align: center; border-radius: 0.3rem;
     padding: 0.05rem 0.3rem; color: #fff; font-weight: 700; font-size: 0.76rem;
@@ -730,10 +736,10 @@ body {
 /* Lite keeps Address | Name | Zip | VDH. On narrow screens the table scrolls
    instead of crushing the terminal VDH link or long street addresses. */
 .food-mode-lite .food-list-table { min-width: 680px; }
-.food-mode-lite .food-list-col-address { width: 36%; }
-.food-mode-lite .food-list-col-name { width: 34%; }
+.food-mode-lite .food-list-col-address { width: 41%; }
+.food-mode-lite .food-list-col-name { width: 39%; }
 .food-mode-lite .food-list-col-zip { width: 10%; }
-.food-mode-lite .food-list-col-vdh { width: 20%; }
+.food-mode-lite .food-list-col-vdh { width: 10%; }
 
 .food-lite-cta { margin: 1rem 0 0.5rem; }
 
