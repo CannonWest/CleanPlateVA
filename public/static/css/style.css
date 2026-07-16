@@ -266,7 +266,6 @@ body {
     border-color: var(--cp-border);
     color: var(--cp-text);
 }
-.food-map-note a { white-space: nowrap; }
 .food-map-note .btn-close {
     flex: 0 0 auto;
     font-size: 0.6rem;
