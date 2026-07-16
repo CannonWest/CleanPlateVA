@@ -20,6 +20,13 @@
  *
  * THE SCORE IS COMPUTED, NOT VDH'S (they publish none). Only broad checklist
  * assessments promote it to a grade/trend; focused reports label it raw.
+ *
+ * The facility HEADLINE (marker fill, grade chips, sort, hover, detail hero)
+ * is STANDING: the latest broad assessment adjusted by what post-broad
+ * focused re-checks verified, published by the exporter as `standing` on
+ * markers and facility details. A payload that predates the field falls back
+ * to the assessment — same numbers, and the UI keeps saying "Assessment"
+ * because no adjustment math was actually published.
  */
 
 const RESTAURANTS_ONLY_KEY = 'cleanplateva.food.restaurantsOnly';
@@ -198,6 +205,58 @@ function focusedOutcomeBadge(view, hero = false) {
         + '<small aria-hidden="true">OUT</small></span>';
 }
 
+// Restore fraction the pipeline applies on a passed re-check — display-only
+// mirror of cf_lib.STANDING_RESTORE (the math happens at export time).
+const STANDING_RESTORE_PCT = 65;
+
+/**
+ * Facility standing: the latest broad assessment adjusted by post-broad
+ * focused re-checks, computed by the exporter (`facility.standing`). When a
+ * payload predates the field, the assessment stands in (published: false) so
+ * filters/sort/color stay uniform — but only a published block may present
+ * itself as "Standing", because only then was the adjustment math actually
+ * run.
+ */
+export function standingPresentation(facility = {}, assessment = null) {
+    const s = facility.standing || null;
+    const score = s != null && Number.isFinite(Number(s.score)) ? Number(s.score) : null;
+    if (score != null) {
+        const baseScore = Number.isFinite(Number(s.base_score)) ? Number(s.base_score) : score;
+        return {
+            published: true,
+            score,
+            grade: s.grade || gradeForScore(score),
+            adjusted: !!s.adjusted,
+            baseScore,
+            baseGrade: s.base_grade || gradeForScore(baseScore),
+            baseDate: s.base_date || null,
+            followups: Number(s.followups) || 0,
+            followupDate: s.followup_date || null,
+            restored: s.restored_items || [],
+            failed: s.failed_items || [],
+            cos: s.cos_items || [],
+            newItems: s.new_items || [],
+            unchecked: s.unchecked_items || [],
+            restoredPoints: Number(s.restored_points) || 0,
+            extraPoints: Number(s.extra_points) || 0,
+        };
+    }
+    if (!assessment || !assessment.gradeEligible) return null;
+    return {
+        published: false,
+        score: assessment.score,
+        grade: assessment.grade,
+        adjusted: false,
+        baseScore: assessment.score,
+        baseGrade: assessment.grade,
+        baseDate: null,
+        followups: 0,
+        followupDate: null,
+        restored: [], failed: [], cos: [], newItems: [], unchecked: [],
+        restoredPoints: 0, extraPoints: 0,
+    };
+}
+
 /** Pair the newest event with the one facility-level grade assessment. */
 export function facilityPresentation(facility = {}) {
     const latest = inspectionPresentation(facility.latest || null);
@@ -217,6 +276,7 @@ export function facilityPresentation(facility = {}) {
         latest,
         assessment,
         assessmentRecord,
+        standing: standingPresentation(facility, assessment),
         trend,
         declining: trend.length >= 2 && trend[0] < trend[1],
     };
@@ -808,8 +868,8 @@ export class FoodDashboard {
         // grades — those filters are hidden and inert there.
         if (!lite && !showClosed && !this._isActive(f)) return false;
         if (!lite && grade) {
-            const assessmentGrade = facilityPresentation(f).assessment?.grade || null;
-            if (assessmentGrade !== grade) return false;
+            const standingGrade = facilityPresentation(f).standing?.grade || null;
+            if (standingGrade !== grade) return false;
         }
         if (zip && f.zip !== zip) return false;
         if (q) {
@@ -834,7 +894,7 @@ export class FoodDashboard {
             if ((lt.open_repeat || 0) > 0) return GRADE_COLORS.F;
             return lt.checklist_present ? GRADE_COLORS.A : GRADE_COLORS.none;
         }
-        return gradeColor(fp.assessment?.grade || null);
+        return gradeColor(fp.standing?.grade || null);
     }
 
     _tooltipHTML(f) {
@@ -850,7 +910,6 @@ export class FoodDashboard {
         const arrow = trend.length >= 2
             ? (trend[0] < trend[1] ? ' ▼' : trend[0] > trend[1] ? ' ▲' : '') : '';
         const active = this._isActive(f);
-        const assessment = fp.assessment;
         const assessmentRecord = fp.assessmentRecord || {};
         const sub = [];
         if (latest.scope === 'focused') {
@@ -863,15 +922,28 @@ export class FoodDashboard {
             sub.push(`Broad compliance ${Math.round(assessmentRecord.compliance_rate * 100)}%`);
         }
         if (lt.open_repeat) sub.push(`${lt.open_repeat} open repeat`);
-        const headline = assessment
-            ? `Grade ${assessment.grade} · ${assessment.score}${arrow}`
-            : 'no broad assessment captured';
+        // Headline = standing when the payload published it; a follow-up-
+        // adjusted standing gets its own line with the broad base beneath.
+        const st = fp.standing;
+        let headlineHtml;
+        if (st?.published && st.adjusted) {
+            headlineHtml = `<span class="food-tip-sub">${esc(`Standing: Grade ${st.grade} · ${st.score}`
+                + ` · after ${st.followups} follow-up${st.followups === 1 ? '' : 's'}`)}</span>`
+                + `<br><span class="food-tip-sub">${esc(`Broad: ${st.baseGrade} · ${st.baseScore}${arrow}`)}`
+                + `${assessmentRecord.date ? ` · ${esc(fmtDate(assessmentRecord.date))}` : ''}</span>`;
+        } else {
+            const label = st?.published ? 'Standing' : 'Assessment';
+            const headline = st
+                ? `Grade ${st.grade} · ${st.score}${arrow}`
+                : 'no broad assessment captured';
+            headlineHtml = `<span class="food-tip-sub">${esc(`${label}: ${headline}`)}`
+                + `${assessmentRecord.date ? ` · ${esc(fmtDate(assessmentRecord.date))}` : ''}</span>`;
+        }
         return `<strong>${esc(f.name)}</strong><br>`
             + `${esc(latest.scope === 'focused' ? 'Latest: focused inspection'
                 : latest.scope === 'broad' ? 'Latest: broad inspection'
                     : 'Latest report')} — ${esc(lt.date ? fmtDate(lt.date) : 'n/a')}`
-            + `<br><span class="food-tip-sub">${esc(`Assessment: ${headline}`)}`
-            + `${assessmentRecord.date ? ` · ${esc(fmtDate(assessmentRecord.date))}` : ''}</span>`
+            + `<br>${headlineHtml}`
             + (active ? '' : `<br><span class="food-tip-closed">${esc(f.status || 'closed')}</span>`)
             + (sub.length ? `<br><span class="food-tip-sub">${esc(sub.join(' · '))}</span>` : '');
     }
@@ -994,7 +1066,7 @@ export class FoodDashboard {
             return;
         }
         el.textContent = ({
-            grade: 'fill: latest broad grade (green A → red F)',
+            grade: 'fill: standing grade — broad ± follow-ups (green A → red F)',
             compliance: 'fill: latest broad checklist compliance',
             repeat: 'fill: red = open repeat on latest report',
         }[this._colorMode] || '') + ' · red ring = broad trend declined';
@@ -1013,7 +1085,7 @@ export class FoodDashboard {
                 case 'address': return `${f.address || ''} ${f.address2 || ''}`.trim().toLowerCase();
                 case 'name': return (f.name || '').toLowerCase();
                 case 'zip': return f.zip || '';
-                case 'score': return fp.assessment?.score ?? -1;
+                case 'score': return fp.standing?.score ?? -1;
                 case 'compliance': return assessment.compliance_rate ?? -1;
                 case 'trend': return fp.trend.length >= 2 ? fp.trend[0] - fp.trend[1] : 0;
                 case 'date': return lt.date || '';
@@ -1032,7 +1104,7 @@ export class FoodDashboard {
             const lt = f.latest || {};
             const fp = facilityPresentation(f);
             const latest = fp.latest;
-            const assessment = fp.assessment;
+            const st = fp.standing;
             const assessmentRecord = fp.assessmentRecord || {};
             const address = [f.address, f.address2].filter(Boolean).join(' ');
             const t = fp.trend;
@@ -1049,7 +1121,9 @@ export class FoodDashboard {
                 <td class="food-list-col-address">${esc(address)}</td>
                 <td class="food-list-name food-list-col-name">${esc(f.name)}<span class="food-list-event food-list-full-only">${esc(eventLine)}</span></td>
                 <td class="food-list-col-zip">${esc(f.zip || '')}</td>
-                <td class="food-list-full-only food-list-col-score"><span class="food-list-score" style="background:${gradeColor(assessment?.grade || null)}" title="${assessmentRecord.date ? `Broad assessment ${esc(fmtDate(assessmentRecord.date))}` : 'No broad assessment captured'}">${assessment?.score ?? '—'}</span></td>
+                <td class="food-list-full-only food-list-col-score"><span class="food-list-score" style="background:${gradeColor(st?.grade || null)}" title="${st?.published && st.adjusted
+                    ? `Standing after ${st.followups} follow-up${st.followups === 1 ? '' : 's'} · broad ${esc(st.baseGrade)} ${esc(st.baseScore)}${assessmentRecord.date ? ` on ${esc(fmtDate(assessmentRecord.date))}` : ''}`
+                    : assessmentRecord.date ? `Broad assessment ${esc(fmtDate(assessmentRecord.date))}` : 'No broad assessment captured'}">${st?.score ?? '—'}</span></td>
                 <td class="food-list-full-only food-list-col-compliance">${assessmentRecord.compliance_rate != null ? Math.round(assessmentRecord.compliance_rate * 100) + '%' : '—'}</td>
                 <td class="food-list-full-only food-list-col-trend" style="color:${tcol}">${arrow || '—'}</td>
                 <td class="food-list-date food-list-full-only food-list-col-date">${fmtDate(lt.date)}</td>
@@ -1212,10 +1286,18 @@ export class FoodDashboard {
                     <small>${fmtDate(assessmentRecord.date)} · ${esc(assessmentRecord.purpose || assessmentRecord.insp_type || '')}</small>`
                     : '<strong>None captured</strong><small>No broad inspection is available in this snapshot.</small>'}
             </div>` : '';
+        // A follow-up-adjusted standing leads the panel; the sparkline rides
+        // with whichever hero is on top. Unadjusted standing equals the broad
+        // assessment, so the classic latest-event hero already shows it.
+        const standing = standingPresentation(fac, assessmentView);
+        const sparkHtml = latest ? this._sparkline(inspections) : '';
+        const standingHero = standing?.published && standing.adjusted
+            ? this._standingHero(standing, sparkHtml) : '';
         const scoreHero = latest ? `
+            ${standingHero}
             <div class="food-score-hero food-score-hero-${latestView.scope}">
                 ${heroBody}
-                ${this._sparkline(inspections)}
+                ${standingHero ? '' : sparkHtml}
             </div>
             ${priorAssessment}
             ${this._complianceBar(cs, latestView)}`
@@ -1269,6 +1351,41 @@ export class FoodDashboard {
             ${scoreHero}
             ${flagsHtml}
             <div class="food-history">${history}</div>`;
+    }
+
+    // The standing hero: leads the detail panel when the exporter published a
+    // follow-up-adjusted standing. Every chip names its items and its rule —
+    // the same transparency contract as the per-report score.
+    _standingHero(st, sparkHtml = '') {
+        const items = (list) => `item${list.length === 1 ? '' : 's'} ${list.join(', ')}`;
+        const chips = [];
+        if (st.restored.length) {
+            chips.push(`<span class="food-standing-chip food-standing-chip-restored" title="${esc(`${items(st.restored)} re-checked IN — ${STANDING_RESTORE_PCT}% of their deductions returned`)}">✓ ${st.restored.length} verified fixed (+${esc(st.restoredPoints)})</span>`);
+        }
+        if (st.failed.length) {
+            chips.push(`<span class="food-standing-chip food-standing-chip-failed" title="${esc(`${items(st.failed)} still OUT on the newest re-check — deduction ×1.5`)}">✗ ${st.failed.length} still out</span>`);
+        }
+        if (st.cos.length) {
+            chips.push(`<span class="food-standing-chip" title="${esc(`${items(st.cos)} OUT again but corrected on site — deduction unchanged`)}">${st.cos.length} fixed on site</span>`);
+        }
+        if (st.newItems.length) {
+            chips.push(`<span class="food-standing-chip food-standing-chip-new" title="${esc(`new on a follow-up: ${items(st.newItems)} — docked at category weight`)}">+${st.newItems.length} new finding${st.newItems.length === 1 ? '' : 's'}</span>`);
+        }
+        if (st.unchecked.length) {
+            chips.push(`<span class="food-standing-chip" title="${esc(`docked ${items(st.unchecked)} not re-checked — deductions stand in full`)}">${st.unchecked.length} not re-checked</span>`);
+        }
+        return `
+            <div class="food-score-hero food-standing-hero">
+                <span class="food-score-badge" style="background:${gradeColor(st.grade)}">${esc(st.score)}</span>
+                <div class="food-score-meta">
+                    <div class="food-score-grade">Grade ${esc(st.grade)}
+                        <span class="food-score-computed" title="CleanPlateVA formula; VDH publishes no numeric score">computed</span></div>
+                    <div><span class="food-scope-badge food-scope-badge-standing">Standing</span>
+                        <span class="text-muted small">broad ${esc(st.baseGrade)} ${esc(st.baseScore)}${st.baseDate ? ` · ${fmtDate(st.baseDate)}` : ''} adjusted by ${st.followups} follow-up${st.followups === 1 ? '' : 's'}${st.followupDate ? ` (newest ${fmtDate(st.followupDate)})` : ''}</span></div>
+                    <div class="food-standing-breakdown">${chips.join('')}</div>
+                </div>
+                ${sparkHtml}
+            </div>`;
     }
 
     // item#s by disposition, from a parsed checklist — used to badge violations

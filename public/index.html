@@ -66,11 +66,11 @@
             </select>
             <div class="btn-group btn-group-sm" id="foodGradeChips" role="group" aria-label="Grade filter">
                 <button type="button" class="btn btn-outline-secondary active" data-grade="">All</button>
-                <button type="button" class="btn btn-outline-secondary" data-grade="A" title="Last broad computed grade · score ≥90">A</button>
-                <button type="button" class="btn btn-outline-secondary" data-grade="B" title="Last broad computed grade · score 80–89">B</button>
-                <button type="button" class="btn btn-outline-secondary" data-grade="C" title="Last broad computed grade · score 70–79">C</button>
-                <button type="button" class="btn btn-outline-secondary" data-grade="D" title="Last broad computed grade · score 60–69">D</button>
-                <button type="button" class="btn btn-outline-secondary" data-grade="F" title="Last broad computed grade · score below 60">F</button>
+                <button type="button" class="btn btn-outline-secondary" data-grade="A" title="Standing grade (broad assessment ± follow-up re-checks) · score ≥90">A</button>
+                <button type="button" class="btn btn-outline-secondary" data-grade="B" title="Standing grade (broad assessment ± follow-up re-checks) · score 80–89">B</button>
+                <button type="button" class="btn btn-outline-secondary" data-grade="C" title="Standing grade (broad assessment ± follow-up re-checks) · score 70–79">C</button>
+                <button type="button" class="btn btn-outline-secondary" data-grade="D" title="Standing grade (broad assessment ± follow-up re-checks) · score 60–69">D</button>
+                <button type="button" class="btn btn-outline-secondary" data-grade="F" title="Standing grade (broad assessment ± follow-up re-checks) · score below 60">F</button>
             </div>
             <div class="form-check form-switch food-restaurants-switch mb-0 ms-1"
                  title="Hide the permits nobody eats out at — schools, daycares, care homes, hospitals, hotel breakfast bars, caterers, commissaries, private clubs, camps, and retirement-community dining rooms.">
@@ -114,7 +114,7 @@
                         <th class="food-list-col-address" data-sort="address">Address</th>
                         <th class="food-list-col-name" data-sort="name">Name</th>
                         <th class="food-list-col-zip" data-sort="zip">Zip</th>
-                        <th class="food-list-full-only food-list-col-score" data-sort="score" title="Latest broad computed assessment">Assessment</th>
+                        <th class="food-list-full-only food-list-col-score" data-sort="score" title="Standing — the latest broad computed assessment adjusted by follow-up re-checks">Standing</th>
                         <th class="food-list-full-only food-list-col-compliance" data-sort="compliance" title="Latest broad checklist compliance">Compl.</th>
                         <th class="food-list-full-only food-list-col-trend" data-sort="trend" title="Newest vs prior broad assessment">Trend</th>
                         <th class="food-list-full-only food-list-col-date" data-sort="date" title="Actual newest inspection event">Latest</th>
@@ -293,13 +293,62 @@
                         </div>
                     </div>
 
+                    <!-- Facility standing: the map headline. Static like the rest
+                         of the explainer; data-standing-* attributes are the
+                         honesty contract the test suite re-adds up. -->
+                    <div class="about-scope-rules about-standing" id="aboutStanding">
+                        <header>
+                            <strong>From one report to the facility headline: standing</strong>
+                            <small>Marker color, filters, and the hover grade show <em>standing</em> — the latest broad assessment, adjusted by what focused re-checks verified afterward, item by item. No follow-up since the broad assessment → standing is that score, exactly. The next broad assessment resets it.</small>
+                        </header>
+                        <div class="about-scope-grid about-standing-grid" aria-label="Standing adjustment rules">
+                            <article class="about-scope-card is-standing-restored">
+                                <span>+65%</span><div><strong>Re-checked IN</strong><small>Returns 65% of that item’s deduction</small></div>
+                            </article>
+                            <article class="about-scope-card is-standing-failed">
+                                <span>×1.5</span><div><strong>Still OUT</strong><small>A verified repeat — the deduction grows half again</small></div>
+                            </article>
+                            <article class="about-scope-card is-standing-cos">
+                                <span>±0</span><div><strong>OUT, fixed on site</strong><small>No return, no growth — the deduction stands</small></div>
+                            </article>
+                            <article class="about-scope-card is-standing-new">
+                                <span>−6/−2</span><div><strong>New finding</strong><small>Docks at normal category weight</small></div>
+                            </article>
+                        </div>
+                        <div class="about-example-receipt about-standing-example" aria-label="Worked standing example: broad 70, plus 7.8, plus 7.8, minus 3 equals 83">
+                            <p class="about-example-title">Worked example — a C 70 broad assessment, then one follow-up</p>
+                            <div class="about-example-line about-example-start">
+                                <span>Broad assessment score</span>
+                                <b data-standing-base="70">70</b>
+                            </div>
+                            <div class="about-example-line is-standing-restored" data-standing-delta="7.8">
+                                <span>2 risk-factor violations verified fixed <small>65% of their 12 points returned</small></span>
+                                <b>+7.8</b>
+                            </div>
+                            <div class="about-example-line is-standing-restored" data-standing-delta="7.8">
+                                <span>6 good-retail-practice violations verified fixed <small>65% of their 12 points returned</small></span>
+                                <b>+7.8</b>
+                            </div>
+                            <div class="about-example-line is-standing-failed" data-standing-delta="-3">
+                                <span>1 risk-factor item still out <small>deduction grows 6 → 9</small></span>
+                                <b>−3</b>
+                            </div>
+                            <div class="about-example-total">
+                                <span>Standing</span>
+                                <b data-standing-total="83">83 · B</b>
+                            </div>
+                            <p class="about-example-scope">The C 70 pin turns B 83 — visibly better, but not laundered: the calibration keeps a fully-cleared F 0 inside D at best, and no follow-up alone can reach A from D or F. Re-earning the letter takes the next broad assessment.</p>
+                        </div>
+                    </div>
+
                     <details class="about-disclosure">
                         <summary>Exact scoring edge cases</summary>
                         <div class="about-disclosure-grid">
                             <p><strong>Repeat source</strong><span>A structured VDH <em>Repeat</em> flag or the word “repeat” in the observation makes that violation 1.5×.</span></p>
                             <p><strong>Missing item number</strong><span>Defaults to the lower good-retail-practice deduction of 2 points.</span></p>
                             <p><strong>Corrected on site</strong><span>Still deducts. The corrective action is shown separately; it does not erase the recorded violation.</span></p>
-                            <p><strong>Follow-up reports</strong><span>Use the same raw formula, but checklist breadth—not the word “follow-up”—decides whether the result can become a facility grade.</span></p>
+                            <p><strong>Follow-up reports</strong><span>Use the same raw formula, but checklist breadth—not the word “follow-up”—decides whether the result can become a facility grade. Their per-item IN/OUT verdicts also adjust the facility standing above, joined on the form item number.</span></p>
+                            <p><strong>Standing without follow-ups</strong><span>Identical to the latest broad score. Items never re-checked keep their full deduction; undated or same-day reports never adjust.</span></p>
                         </div>
                     </details>
                 </section>
@@ -451,6 +500,7 @@
                             <h3>Computed or enriched</h3>
                             <ul>
                                 <li>Raw 0–100 formula on each report; A–F grade on broad assessments only</li>
+                                <li>Facility standing: the latest broad grade adjusted by follow-up re-checks</li>
                                 <li>Checklist compliance percentage</li>
                                 <li>Broad-only score trend, red flags, and open-repeat count</li>
                                 <li>Map coordinates and approximate-location flag</li>
@@ -497,7 +547,7 @@
                         <article><i class="bi bi-journal-text"></i><h3>Source retention</h3><p>The portal typically exposes about two years of history. Missing report pages remain missing or unscored; this is an archive of what was collected, not a complete lifetime record.</p></article>
                         <article><i class="bi bi-pin-map"></i><h3>Geocoded locations</h3><p>Pins come from address lookups through Census, VGIN, OpenStreetMap/Nominatim, then ZIP-centroid fallback—not VDH coordinates. Some unbadged pins are street-level or interpolated, not rooftop; centroid fallbacks are labeled approximate.</p></article>
                         <article><i class="bi bi-intersect"></i><h3>Presentation heuristics</h3><p>“Restaurants only” uses permit-type/name patterns. History merging uses shared location/address plus name similarity. Either can misclassify, combine, or miss a match; retained permit IDs are the audit trail.</p></article>
-                        <article><i class="bi bi-sliders"></i><h3>Focused is not facility-wide</h3><p>A focused follow-up stays visible as the latest event but does not replace the last broad comparison result. Corrected-on-site violations still deduct from its raw formula.</p></article>
+                        <article><i class="bi bi-sliders"></i><h3>Focused is not facility-wide</h3><p>A focused follow-up stays visible as the latest event and adjusts the facility standing item by item, but it never replaces the broad assessment itself. Corrected-on-site violations still deduct from its raw formula.</p></article>
                         <article><i class="bi bi-shield-check"></i><h3>VDH wins conflicts</h3><p>Scores and summaries are comparison tools, not safety or illness predictions. If our presentation and the source disagree, the official VDH record is authoritative.</p></article>
                     </div>
                     <div class="about-verify-card">
