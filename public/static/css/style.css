@@ -249,16 +249,19 @@ body {
     left: 50%;
     transform: translateX(-50%);
     z-index: 5;
-    max-width: min(calc(100% - 112px), 460px);
+    max-width: min(calc(100% - 112px), 300px);
     display: flex;
-    align-items: baseline;
-    gap: 0.5rem;
-    padding: 0.45rem 0.7rem;
-    border-radius: 0.45rem;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.55rem;
+    /* Extra right padding keeps the wrapping text clear of the corner close. */
+    padding: 0.55rem 1.9rem 0.6rem 0.75rem;
+    border-radius: 0.5rem;
     background: #fff;
     border: 1px solid #dee2e6;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
     font-size: 0.82rem;
+    line-height: 1.4;
     color: #212529;
 }
 .theme-dark .food-map-note {
@@ -266,11 +269,26 @@ body {
     border-color: var(--cp-border);
     color: var(--cp-text);
 }
-.food-map-note a { white-space: nowrap; }
+.food-map-note-back {
+    padding: 0.28rem 0.65rem;
+    border: 1px solid var(--cp-accent);
+    border-radius: 0.35rem;
+    background: transparent;
+    color: var(--cp-accent);
+    font-size: 0.78rem;
+    font-weight: 500;
+    white-space: nowrap;
+    cursor: pointer;
+}
+.food-map-note-back:hover {
+    background: var(--cp-accent);
+    color: #fff;
+}
 .food-map-note .btn-close {
-    flex: 0 0 auto;
+    position: absolute;
+    top: 0.45rem;
+    right: 0.45rem;
     font-size: 0.6rem;
-    align-self: center;
 }
 .theme-dark .food-map-note .btn-close { filter: invert(1) grayscale(100%) brightness(160%); }
 
