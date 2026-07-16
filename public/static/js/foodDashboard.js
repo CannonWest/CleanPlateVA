@@ -44,10 +44,14 @@ const GRADE_COLORS = {
 const STYLE_LIGHT = 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json';
 const STYLE_DARK = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
 
-// Map home: centroid-ish of the covered zipcode footprint.
-// [lng, lat] (MapLibre order).
-const HOME_CENTER = [-77.55, 37.618];
-const HOME_ZOOM = 11;
+// Map home: the whole state, framed by fitBounds so the initial view
+// scales to the viewport instead of a fixed zoom. Virginia is far wider
+// than it is tall, so on desktop the east–west span is the constraint and
+// the full north–south border always clears; on a portrait phone the state
+// lands as a horizontal band (near-VA visitors get auto-located past it).
+// [[west, south], [east, north]] — padded a touch beyond the true extent.
+const VA_BOUNDS = [[-83.7, 36.5], [-75.2, 39.5]];
+const VA_FIT = { padding: 20 };
 
 // MapLibre source + layer ids (data layers re-added on every style swap).
 const SRC = 'food-facilities';
@@ -495,8 +499,8 @@ export class FoodDashboard {
         this._map = new maplibregl.Map({
             container: 'foodMap',
             style: dark ? STYLE_DARK : STYLE_LIGHT,
-            center: HOME_CENTER,
-            zoom: HOME_ZOOM,
+            bounds: VA_BOUNDS,
+            fitBoundsOptions: VA_FIT,
             maxZoom: 19,
         });
         this._map.addControl(
@@ -541,8 +545,15 @@ export class FoodDashboard {
 
         this._bindMapInteractions();
 
-        // The container may have been display:none moments ago.
-        setTimeout(() => this._map.resize(), 50);
+        // The container may have been zero-sized at construction (hidden
+        // tab, flex height not yet resolved), which would bake a wrong zoom
+        // into the bounds fit. Resize to the real dimensions, then re-fit the
+        // state to them once — unless a location fix has already claimed the
+        // camera, in which case the visitor's own view wins.
+        setTimeout(() => {
+            this._map.resize();
+            if (!this._geoFollowing) this._map.fitBounds(VA_BOUNDS, { ...VA_FIT, duration: 0 });
+        }, 50);
     }
 
     /** Ask for the visitor's location on open instead of waiting for a
@@ -736,12 +747,12 @@ export class FoodDashboard {
         note.querySelector('.btn-close')
             .addEventListener('click', () => this._hideMapNote());
         note.querySelector('.food-map-note-back')?.addEventListener('click', () => {
-            // A zoom-changing easeTo does NOT drop the control's follow
-            // lock (its movestart handler skips zooming camera moves), so
-            // switch the control off first — otherwise the next fix flies
-            // the camera right back out of coverage.
+            // A zoom-changing camera move (fitBounds included) does NOT drop
+            // the control's follow lock (its movestart handler skips zooming
+            // moves), so switch the control off first — otherwise the next
+            // fix flies the camera right back out of coverage.
             if (this._geoFollowing) this._geolocate?.trigger();
-            this._map?.easeTo({ center: HOME_CENTER, zoom: HOME_ZOOM });
+            this._map?.fitBounds(VA_BOUNDS, VA_FIT);
             this._hideMapNote();
         });
         wrap.appendChild(note);
