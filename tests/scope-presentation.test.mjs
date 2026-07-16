@@ -41,7 +41,7 @@ test('duplicates, non-applicable rows, missing IDs, and item 99 do not inflate s
     assert.equal(view.out, 1);
     assert.equal(view.scope, 'focused');
     assert.equal(view.score, 0);
-    assert.equal(view.grade, null);
+    assert.equal('grade' in view, false);   // an inspection never carries a letter
 });
 
 test('focused X/Y outcomes reserve green for zero OUT and escalate by compliance', () => {
@@ -127,13 +127,17 @@ test('focused compliance bar uses the same distinct-item X/Y outcome', () => {
     }, { scope: 'focused', count: 3, out: null }), '');
 });
 
-test('a broad report needs a raw score before it can expose a grade', () => {
-    const view = dashboard.inspectionPresentation({
-        scope: 'broad', applicable_item_count: 24, score: null, grade: 'A',
+test('an inspection has a score but never a letter', () => {
+    const withScore = dashboard.inspectionPresentation({
+        scope: 'broad', applicable_item_count: 24, score: 81,
     });
-    assert.equal(view.broadEligible, true);
-    assert.equal(view.gradeEligible, false);
-    assert.equal(view.grade, null);
+    assert.equal(withScore.broadEligible, true);
+    assert.equal(withScore.gradeEligible, true);   // broad + scored: can anchor a grade
+    assert.equal('grade' in withScore, false);     // but carries no letter of its own
+    const noScore = dashboard.inspectionPresentation({
+        scope: 'broad', applicable_item_count: 24, score: null,
+    });
+    assert.equal(noScore.gradeEligible, false);
 });
 
 test('the hard count gate wins over contradictory scope labels', () => {
@@ -144,32 +148,36 @@ test('the hard count gate wins over contradictory scope labels', () => {
     assert.equal(inspectionPresentation({ scope: 'broad', applicable_item_count: 20, checklist_present: false, score: 90 }).scope, 'unknown');
 });
 
-test('facility presentation pairs newest event with one assessment and one trend', () => {
+test('facility presentation pairs newest event with one assessment, one grade, one trend', () => {
     const facility = {
         latest: { scope: 'focused', applicable_item_count: 2, score: 100, checklist_out: 0 },
-        latest_assessment: { scope: 'broad', applicable_item_count: 31, score: 68, grade: 'D' },
+        latest_assessment: { scope: 'broad', applicable_item_count: 31, score: 68 },
+        grade: { score: 68, letter: 'D', base_score: 68, base_letter: 'D', adjusted: false },
         score_trend: [68, 76, 64],
     };
     const view = dashboard.facilityPresentation(facility);
     assert.equal(view.latest.scope, 'focused');
     assert.equal(view.latest.score, 100);
-    assert.equal(view.assessment.grade, 'D');
+    assert.equal(view.assessment.score, 68);          // the broad record...
+    assert.equal('grade' in view.assessment, false);  // ...with no letter of its own
+    assert.deepEqual([view.grade.score, view.grade.letter], [68, 'D']);  // the letter is the facility's
     assert.deepEqual(view.trend, [68, 76, 64]);
     assert.equal(view.declining, true);
-    assert.equal('broadTrend' in view, false);
+    assert.equal('standing' in view, false);
 });
 
-test('a focused-only facility has no fabricated assessment', () => {
+test('a focused-only facility has no fabricated assessment or grade', () => {
     const view = dashboard.facilityPresentation({
         latest: { scope: 'focused', applicable_item_count: 2, score: 100 },
         latest_assessment: null,
         score_trend: [],
     });
     assert.equal(view.assessment, null);
+    assert.equal(view.grade, null);
     assert.deepEqual(view.trend, []);
 });
 
-test('focused marker tooltip executes and discloses broad compliance', () => {
+test('an unadjusted grade leads the marker tooltip; broad compliance discloses below', () => {
     const facility = {
         name: 'Example', status: 'Permitted',
         latest: {
@@ -177,9 +185,10 @@ test('focused marker tooltip executes and discloses broad compliance', () => {
             checklist_out: 0, date: '2026-06-05', checklist_present: true,
         },
         latest_assessment: {
-            scope: 'broad', applicable_item_count: 31, score: 58, grade: 'F',
+            scope: 'broad', applicable_item_count: 31, score: 58,
             compliance_rate: 0.7667, date: '2026-05-21',
         },
+        grade: { score: 58, letter: 'F', base_score: 58, base_letter: 'F', adjusted: false },
         score_trend: [58, 54],
     };
     const html = dashboard.FoodDashboard.prototype._tooltipHTML.call({
@@ -187,7 +196,8 @@ test('focused marker tooltip executes and discloses broad compliance', () => {
         _isActive: () => true,
     }, facility);
     assert.match(html, /Latest: focused inspection/);
-    assert.match(html, /Assessment: Grade F · 58/);
+    assert.match(html, /Grade F · 58/);
+    assert.doesNotMatch(html, /Grade F · 58 · after/);   // unadjusted: one line, no follow-up
     assert.match(html, /Broad compliance 77%/);
 });
 
@@ -209,50 +219,47 @@ test('detail copy does not claim a limited report is a clean full checklist', ()
     assert.doesNotMatch(source, /clean report/i);
     assert.doesNotMatch(source, /Full food-code checklist/i);
     assert.match(source, /No violations recorded in this focused/);
-    assert.match(source, /Raw formula .*not used for grade or trend/);
+    assert.match(source, /focused re-check — it adjusts the facility grade/);
     assert.match(source, /broad line · ◇ focused raw/);
     assert.match(source, /Broad scores oldest to newest/);
     assert.match(source, /Broad compliance/);
 });
 
-test('standing passes through a published block and synthesizes grades only from bands', () => {
-    const view = dashboard.standingPresentation({
-        standing: {
-            score: 62, grade: 'D', adjusted: true, base_score: 82, base_grade: 'B',
+test('gradePresentation reads the facility grade block; letters band from the score', () => {
+    const view = dashboard.gradePresentation({
+        grade: {
+            score: 62, letter: 'D', adjusted: true, base_score: 82, base_letter: 'B',
             base_date: '2025-01-17', followups: 1, followup_date: '2025-07-05',
             restored_items: [], failed_items: [47, 49], cos_items: [],
             new_items: [16], unchecked_items: [5],
             restored_points: 0, extra_points: 11,
         },
     });
-    assert.equal(view.published, true);
     assert.equal(view.adjusted, true);
-    assert.deepEqual([view.score, view.grade, view.baseScore, view.baseGrade], [62, 'D', 82, 'B']);
+    assert.deepEqual([view.score, view.letter, view.baseScore, view.baseLetter], [62, 'D', 82, 'B']);
     assert.deepEqual(view.failed, [47, 49]);
 
-    const gradeless = dashboard.standingPresentation({ standing: { score: 91, adjusted: false } });
-    assert.equal(gradeless.grade, 'A');
+    const banded = dashboard.gradePresentation({ grade: { score: 91, adjusted: false } });
+    assert.equal(banded.letter, 'A');
 });
 
-test('a payload without standing falls back to the assessment and never claims publication', () => {
-    const facility = {
-        latest: { scope: 'broad', applicable_item_count: 31, score: 68, grade: 'D' },
-        latest_assessment: { scope: 'broad', applicable_item_count: 31, score: 68, grade: 'D' },
+test('no grade block means no grade — the assessment never stands in for one', () => {
+    const view = dashboard.facilityPresentation({
+        latest: { scope: 'broad', applicable_item_count: 31, score: 68 },
+        latest_assessment: { scope: 'broad', applicable_item_count: 31, score: 68 },
         score_trend: [68],
-    };
-    const view = dashboard.facilityPresentation(facility);
-    assert.equal(view.standing.published, false);
-    assert.equal(view.standing.adjusted, false);
-    assert.deepEqual([view.standing.score, view.standing.grade], [68, 'D']);
+    });
+    assert.equal(view.grade, null);
+    assert.notEqual(view.assessment, null);   // the broad record is still there, just letterless
 
     const none = dashboard.facilityPresentation({
         latest: { scope: 'focused', applicable_item_count: 2, score: 100 },
         latest_assessment: null,
     });
-    assert.equal(none.standing, null);
+    assert.equal(none.grade, null);
 });
 
-test('an adjusted standing leads the tooltip with the broad base as provenance', () => {
+test('an adjusted grade leads the tooltip; the broad line names a score, not a letter', () => {
     const facility = {
         name: 'Example', status: 'Permitted',
         latest: {
@@ -260,11 +267,11 @@ test('an adjusted standing leads the tooltip with the broad base as provenance',
             checklist_out: 0, date: '2025-07-05', checklist_present: true,
         },
         latest_assessment: {
-            scope: 'broad', applicable_item_count: 31, score: 82, grade: 'B',
+            scope: 'broad', applicable_item_count: 31, score: 82,
             compliance_rate: 0.9, date: '2025-01-17',
         },
-        standing: {
-            score: 62, grade: 'D', adjusted: true, base_score: 82, base_grade: 'B',
+        grade: {
+            score: 62, letter: 'D', adjusted: true, base_score: 82, base_letter: 'B',
             base_date: '2025-01-17', followups: 1, followup_date: '2025-07-05',
         },
         score_trend: [82, 90],
@@ -273,42 +280,25 @@ test('an adjusted standing leads the tooltip with the broad base as provenance',
         _mode: 'full',
         _isActive: () => true,
     }, facility);
-    assert.match(html, /Standing: Grade D · 62 · after 1 follow-up/);
-    assert.match(html, /Broad: B · 82 ▼/);
-    assert.doesNotMatch(html, /Assessment: Grade/);
+    assert.match(html, /Grade D · 62 · after 1 follow-up/);
+    assert.match(html, /Latest broad inspection: 82 ▼/);
+    assert.doesNotMatch(html, /Grade B/);   // the broad inspection shows its score, never a letter
 });
 
-test('an unadjusted published standing keeps one headline line labeled Standing', () => {
-    const facility = {
-        name: 'Example', status: 'Permitted',
-        latest: {
-            scope: 'broad', applicable_item_count: 31, score: 82, grade: 'B',
-            date: '2025-01-17', checklist_present: true,
+test('the grade hero draws the circle and names every adjustment with its rule', () => {
+    const proto = dashboard.FoodDashboard.prototype;
+    const html = proto._gradeHero.call(
+        { _gradeCircle: proto._gradeCircle, _gradeChips: proto._gradeChips },
+        {
+            adjusted: true, score: 62, letter: 'D', baseScore: 82, baseLetter: 'B',
+            baseDate: '2025-01-17', followups: 1, followupDate: '2025-07-05',
+            restored: [22], failed: [47, 49], cos: [3], newItems: [16], unchecked: [5],
+            restoredPoints: 3.9, extraPoints: 11,
         },
-        latest_assessment: {
-            scope: 'broad', applicable_item_count: 31, score: 82, grade: 'B',
-            compliance_rate: 0.9, date: '2025-01-17',
-        },
-        standing: { score: 82, grade: 'B', adjusted: false, base_score: 82, base_grade: 'B' },
-        score_trend: [82],
-    };
-    const html = dashboard.FoodDashboard.prototype._tooltipHTML.call({
-        _mode: 'full',
-        _isActive: () => true,
-    }, facility);
-    assert.match(html, /Standing: Grade B · 82/);
-    assert.doesNotMatch(html, /after \d+ follow-up/);
-});
-
-test('the standing hero names every adjustment with its items and rule', () => {
-    const html = dashboard.FoodDashboard.prototype._standingHero.call({}, {
-        published: true, adjusted: true, score: 62, grade: 'D',
-        baseScore: 82, baseGrade: 'B', baseDate: '2025-01-17',
-        followups: 1, followupDate: '2025-07-05',
-        restored: [22], failed: [47, 49], cos: [3], newItems: [16], unchecked: [5],
-        restoredPoints: 3.9, extraPoints: 11,
-    }, '<svg data-spark></svg>');
-    assert.match(html, /food-scope-badge-standing/);
+        '<svg data-spark></svg>');
+    assert.match(html, /food-grade-circle/);
+    assert.match(html, /food-grade-letter">D</);
+    assert.match(html, /food-grade-score">62</);
     assert.match(html, /✓ 1 verified fixed \(\+3\.9\)/);
     assert.match(html, /items 47, 49 still OUT on the newest re-check — deduction ×1\.5/);
     assert.match(html, /\+1 new finding</);
@@ -316,12 +306,14 @@ test('the standing hero names every adjustment with its items and rule', () => {
     assert.match(html, /1 not re-checked/);
     assert.match(html, /65% of their deductions returned/);
     assert.match(html, /data-spark/);
+    assert.doesNotMatch(html, /standing/i);
 });
 
-test('grade filter, marker fill, and score sort key off standing', () => {
-    const source = readFileSync(
+test('grade filter, marker fill, and score sort all key off facility.grade', () => {
+    const src = readFileSync(
         new URL('../public/static/js/foodDashboard.js', import.meta.url), 'utf8');
-    assert.match(source, /const standingGrade = facilityPresentation\(f\)\.standing\?\.grade/);
-    assert.match(source, /return gradeColor\(fp\.standing\?\.grade \|\| null\);/);
-    assert.match(source, /case 'score': return fp\.standing\?\.score \?\? -1;/);
+    assert.match(src, /facilityPresentation\(f\)\.grade\?\.letter/);
+    assert.match(src, /return gradeColor\(fp\.grade\?\.letter \|\| null\);/);
+    assert.match(src, /case 'score': return fp\.grade\?\.score \?\? -1;/);
+    assert.doesNotMatch(src, /\bstandingPresentation\b/);
 });

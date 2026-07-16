@@ -47,16 +47,17 @@ test('the static score explainer states the production scoring coefficients', ()
     assert.equal(Number(html.match(/data-risk-deduction="(\d+)"/)?.[1]), sum('risk'));
     assert.equal(Number(html.match(/data-grp-deduction="(\d+)"/)?.[1]), sum('grp'));
     assert.match(html, new RegExp(`--about-score-angle:${total * 3.6}deg`));
-    assert.match(html, new RegExp(`--about-score-position:${total}%`));
-    assert.match(html, new RegExp(`${total} · B`));
-    assert.match(html, /Grade B/);
+    // The worked example is an INSPECTION SCORE (no letter); the result panel
+    // frames the letter as the facility's, not the inspection's.
+    assert.match(html, /Inspection score/);
+    assert.match(html, /as a facility grade → B/);
 });
 
 test('the score explainer visibly gates grades by assessment breadth', () => {
     assert.match(html, /20\+/);
     assert.match(html, /1–19/);
     assert.match(html, /0 \/ no checklist/);
-    assert.match(html, /When does a score become a grade\?/);
+    assert.match(html, /Which inspections anchor the grade\?/);
     // The gate itself lives in the production presentation path.
     assert.match(dashboardSource, /count >= BROAD_MIN_APPLICABLE_ITEMS \? 'broad' : 'focused'/);
     assert.match(html, /◇ r100/);
@@ -123,14 +124,15 @@ test('the grade scale keeps a truthful axis and readable band labels on phones',
     );
 });
 
-test('the standing explainer is arithmetically honest and matches the pipeline rules', () => {
-    // Receipt honesty: base + Σ(deltas) rounds to the printed total.
-    const base = Number(html.match(/data-standing-base="(\d+)"/)?.[1]);
-    const deltas = [...html.matchAll(/data-standing-delta="(-?[\d.]+)"/g)]
+test('the grade explainer is arithmetically honest and matches the pipeline rules', () => {
+    // Receipt honesty: base + Σ(deltas) rounds to the printed grade score.
+    const base = Number(html.match(/data-grade-base="(\d+)"/)?.[1]);
+    const deltas = [...html.matchAll(/data-grade-delta="(-?[\d.]+)"/g)]
         .map(([, n]) => Number(n));
-    const total = Number(html.match(/data-standing-total="(\d+)"/)?.[1]);
-    assert.ok(deltas.length >= 2, 'worked standing example lists adjustments');
+    const total = Number(html.match(/data-grade-total="(\d+)"/)?.[1]);
+    assert.ok(deltas.length >= 2, 'worked grade example lists adjustments');
     assert.equal(Math.round(base + deltas.reduce((a, b) => a + b, 0)), total);
+    assert.match(html, new RegExp(`${total} · B`));   // the band scale marks where the grade lands
 
     // The four adjustment rules are stated with the locked constants.
     assert.match(html, /\+65%/);
@@ -138,10 +140,11 @@ test('the standing explainer is arithmetically honest and matches the pipeline r
     assert.match(html, /×1\.5/);
     assert.match(html, /OUT, fixed on site/);
     assert.match(html, /New finding/);
-    assert.match(html, /No follow-up since the broad assessment → standing is that score, exactly\./);
+    assert.match(html, /No follow-up since the broad inspection → the grade is that score, exactly\./);
 
-    // The production path actually keys the headline off standing.
-    assert.match(dashboardSource, /standingPresentation/);
-    assert.match(dashboardSource, /const STANDING_RESTORE_PCT = 65;/);
-    assert.match(dashboardSource, /fill: standing grade — broad ± follow-ups/);
+    // The production path keys the headline off the facility grade — no standing.
+    assert.match(dashboardSource, /gradePresentation/);
+    assert.match(dashboardSource, /const GRADE_RESTORE_PCT = 65;/);
+    assert.match(dashboardSource, /fill: facility grade — broad ± follow-ups/);
+    assert.doesNotMatch(dashboardSource, /\bstandingPresentation\b/);
 });
