@@ -512,11 +512,13 @@ export class FoodDashboard {
         // (insecure origin, prior denial); the colored error states only
         // happen when a position request fails after a successful add.
         const geolocate = new maplibregl.GeolocateControl({
-            // Full object on purpose — the control's option merge is
-            // shallow, so a partial one would silently drop the library's
-            // 6s timeout (and with it the error feedback when no fix
-            // ever arrives).
-            positionOptions: { enableHighAccuracy: true, timeout: 6000, maximumAge: 0 },
+            // Full object on purpose — the control's option merge is shallow,
+            // so a partial one would silently drop these. The 6s timeout keeps
+            // a MANUAL button press snappy: it's a deliberate ask, so a genuine
+            // failure earns the error note quickly. maximumAge lets the control
+            // reuse the fix auto-locate just acquired (see _autoLocate) rather
+            // than firing a second lookup on the programmatic hand-off.
+            positionOptions: { enableHighAccuracy: true, timeout: 6000, maximumAge: 15000 },
             trackUserLocation: true,
             // Land at neighborhood radius: clusters dissolve above zoom 12,
             // and CARTO's 512px tiles render ~1 zoom tighter than usual —
@@ -562,19 +564,38 @@ export class FoodDashboard {
      *  grant flies straight to their neighborhood. */
     async _autoLocate() {
         // A standing denial renders the control disabled, but trigger()
-        // has no disabled-check — it would still call watchPosition and
-        // paint the error note on every open. Probe and stay quiet.
+        // has no disabled-check — it would still fire a doomed request.
+        // Probe and stay quiet.
         try {
             const perm = await navigator.permissions.query({ name: 'geolocation' });
             if (perm.state === 'denied') return;
-        } catch (_) { /* no Permissions API — let trigger() find out */ }
-        // The control finishes its own setup async (behind the same
-        // permissions probe); trigger() returns false until then.
-        const kick = (attemptsLeft) => {
-            if (this._geolocate?.trigger() || attemptsLeft <= 0) return;
-            setTimeout(() => kick(attemptsLeft - 1), 200);
-        };
-        kick(10);
+        } catch (_) { /* no Permissions API — the request below finds out */ }
+        // Auto-locate is unsolicited and best-effort, so it runs its OWN
+        // request rather than the control's, for two reasons:
+        //  1. A patient timeout. The browser counts the seconds the permission
+        //     prompt sits unanswered against this timeout, so it has to cover
+        //     human decision time — not just fix latency. 20s means a visitor
+        //     who takes a beat to click Allow still gets flown in, where the
+        //     control's snappy 6s would have "timed out" mid-decision.
+        //  2. Silence on every failure — denial, timeout, no signal. Nobody
+        //     asked to be located and the statewide map stands on its own, so
+        //     a miss just leaves it be. The error note is reserved for a
+        //     manual button press (a deliberate ask), which keeps the 6s.
+        // On success the control takes over to draw the dot and follow; it
+        // reuses this just-acquired fix via its maximumAge (no second lookup).
+        navigator.geolocation?.getCurrentPosition(
+            () => {
+                // The control finishes its own setup async (same permissions
+                // probe); trigger() returns false until then.
+                const kick = (attemptsLeft) => {
+                    if (this._geolocate?.trigger() || attemptsLeft <= 0) return;
+                    setTimeout(() => kick(attemptsLeft - 1), 200);
+                };
+                kick(10);
+            },
+            () => { /* silent: unsolicited, and the map already shows the state */ },
+            { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 },
+        );
     }
 
     /** Add the facilities source + cluster/point layers to the CURRENT style.
