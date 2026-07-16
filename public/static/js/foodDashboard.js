@@ -77,17 +77,6 @@ function gradeForScore(score) {
     return 'F';
 }
 
-/** Public score-demo math. Mirrors cannon-food's deterministic v1 formula. */
-export function computeScoreBreakdown({
-    riskRegular = 0, riskRepeat = 0, grpRegular = 0, grpRepeat = 0,
-} = {}) {
-    const count = (value) => Math.max(0, Number(value) || 0);
-    const riskDeduction = count(riskRegular) * 6 + count(riskRepeat) * 9;
-    const grpDeduction = count(grpRegular) * 2 + count(grpRepeat) * 3;
-    const score = Math.max(0, Math.round(100 - riskDeduction - grpDeduction));
-    return { score, grade: gradeForScore(score), riskDeduction, grpDeduction };
-}
-
 const BROAD_MIN_APPLICABLE_ITEMS = 20;
 
 function distinctApplicableItems(checklist) {
@@ -367,7 +356,6 @@ export class FoodDashboard {
             });
         });
 
-        this._initAboutScoreDemo();
         if (window.location.hash.toLowerCase() === '#about') this._setView('about', false);
 
         // Marker color-mode (grade / compliance / open repeats)
@@ -970,76 +958,6 @@ export class FoodDashboard {
             const el = document.getElementById(id);
             if (el) el.textContent = value;
         });
-    }
-
-    _initAboutScoreDemo() {
-        const inputs = [...document.querySelectorAll('[data-about-score]')];
-        const scopeInput = document.querySelector('[data-about-scope]');
-        if (!inputs.length) return;
-
-        const update = () => {
-            const values = Object.fromEntries(inputs.map((input) => [input.id, Number(input.value)]));
-            const result = computeScoreBreakdown({
-                riskRegular: values.aboutRiskRegular,
-                riskRepeat: values.aboutRiskRepeat,
-                grpRegular: values.aboutGrpRegular,
-                grpRepeat: values.aboutGrpRepeat,
-            });
-            const applicableItems = Math.max(0, Number(scopeInput?.value) || 0);
-            const scope = applicableItems >= BROAD_MIN_APPLICABLE_ITEMS ? 'broad'
-                : applicableItems > 0 ? 'focused' : 'unknown';
-            const gradeEligible = scope === 'broad';
-
-            inputs.forEach((input) => {
-                const value = Math.max(0, Number(input.value) || 0);
-                const penalty = value * Number(input.dataset.penalty || 0);
-                const countOutput = document.getElementById(input.dataset.countOutput);
-                const deductionOutput = document.getElementById(input.dataset.deductionOutput);
-                if (countOutput) countOutput.textContent = String(value);
-                if (deductionOutput) deductionOutput.textContent = String(penalty);
-            });
-
-            const color = gradeEligible ? gradeColor(result.grade)
-                : scope === 'focused' ? '#228be6' : GRADE_COLORS.none;
-            const ring = document.getElementById('aboutScoreRing');
-            ring?.style.setProperty('--about-score-angle', `${result.score * 3.6}deg`);
-            ring?.style.setProperty('--about-score-color', color);
-            const scale = document.getElementById('aboutGradeScale');
-            scale?.style.setProperty('--about-score-position', `${result.score}%`);
-            scale?.classList.toggle('is-ineligible', !gradeEligible);
-
-            const grade = document.getElementById('aboutGradeValue');
-            grade?.style.setProperty('--about-grade-color', color);
-            if (grade) grade.textContent = gradeEligible
-                ? `Grade ${result.grade}` : `Not graded · ${scope}`;
-            const resultCard = document.querySelector('.about-score-result');
-            resultCard?.classList.toggle('is-focused', scope === 'focused');
-            resultCard?.classList.toggle('is-unknown', scope === 'unknown');
-            const countOutput = document.getElementById('aboutApplicableCount');
-            if (countOutput) countOutput.textContent = applicableItems
-                ? `${applicableItems} applicable item${applicableItems === 1 ? '' : 's'}`
-                : '0 / checklist unavailable';
-            document.querySelectorAll('[data-about-scope-card]').forEach((card) => {
-                card.classList.toggle('is-active', card.dataset.aboutScopeCard === scope);
-            });
-
-            const valuesById = {
-                aboutScoreValue: result.score,
-                aboutEquationScore: result.score,
-                aboutRiskDeduction: result.riskDeduction,
-                aboutGrpDeduction: result.grpDeduction,
-                aboutGradeMarkerText: gradeEligible
-                    ? `${result.score} · ${result.grade}` : `${result.score} raw · not graded`,
-            };
-            Object.entries(valuesById).forEach(([id, value]) => {
-                const el = document.getElementById(id);
-                if (el) el.textContent = String(value);
-            });
-        };
-
-        inputs.forEach((input) => input.addEventListener('input', update));
-        scopeInput?.addEventListener('input', update);
-        update();
     }
 
     _setView(mode, syncHash = true) {

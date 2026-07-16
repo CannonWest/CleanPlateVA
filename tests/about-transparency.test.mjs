@@ -9,10 +9,6 @@ const dashboardSource = readFileSync(
     'utf8',
 );
 
-const dashboardModule = await import(
-    `data:text/javascript;base64,${Buffer.from(dashboardSource).toString('base64')}`
-);
-
 test('the About view is public, directly linkable, and replaces the footer formula', () => {
     assert.match(html, /data-view="about"/);
     assert.match(html, /id="foodAboutWrap"/);
@@ -28,44 +24,49 @@ test('the About view is public, directly linkable, and replaces the footer formu
     assert.doesNotMatch(css, /food-mode-lite[^}]*foodAboutWrap/);
 });
 
-test('the interactive score explainer uses the production scoring coefficients', () => {
-    const { computeScoreBreakdown } = dashboardModule;
-
-    assert.deepEqual(
-        computeScoreBreakdown({ riskRegular: 1, riskRepeat: 1, grpRegular: 2 }),
-        { score: 81, grade: 'B', riskDeduction: 15, grpDeduction: 4 },
-    );
-    assert.deepEqual(
-        computeScoreBreakdown({ riskRegular: 20, grpRepeat: 4 }),
-        { score: 0, grade: 'F', riskDeduction: 120, grpDeduction: 12 },
-    );
-    assert.equal(computeScoreBreakdown({ riskRegular: 1, grpRegular: 2 }).grade, 'A');
-    assert.equal(computeScoreBreakdown({ riskRegular: 2, grpRegular: 1 }).grade, 'B');
-    assert.equal(computeScoreBreakdown({ riskRegular: 4, grpRegular: 2 }).grade, 'C');
-    assert.equal(computeScoreBreakdown({ riskRegular: 6, grpRegular: 2 }).grade, 'D');
-    assert.equal(computeScoreBreakdown({ riskRegular: 7 }).grade, 'F');
-
-    for (const [id, penalty] of [
-        ['aboutRiskRegular', 6],
-        ['aboutRiskRepeat', 9],
-        ['aboutGrpRegular', 2],
-        ['aboutGrpRepeat', 3],
-    ]) {
-        const input = html.match(new RegExp(`<input id="${id}"[\\s\\S]*?>`))?.[0] || '';
-        assert.match(input, new RegExp(`data-penalty="${penalty}"`));
+test('the static score explainer states the production scoring coefficients', () => {
+    // Weight board: −6/−9 per risk-factor violation, −2/−3 per
+    // good-retail-practice violation, repeats at ×1.5.
+    for (const [weight, label] of [[6, '−6'], [9, '−9'], [2, '−2'], [3, '−3']]) {
+        assert.match(html, new RegExp(`data-weight="${weight}"[^>]*>${label}<`));
     }
+    assert.match(html, /6 × 1\.5/);
+    assert.match(html, /2 × 1\.5/);
+
+    // The worked example is static, so the honesty check is arithmetic:
+    // 100 − Σ(data-points) must equal data-example-total, the per-family
+    // sums must match the equation, and the ring/marker must sit at the
+    // same value.
+    const points = [...html.matchAll(/data-family="(risk|grp)" data-points="(\d+)"/g)]
+        .map(([, family, n]) => ({ family, n: Number(n) }));
+    assert.ok(points.length >= 3, 'worked example lists at least three deduction lines');
+    const sum = (family) => points.filter((p) => p.family === family)
+        .reduce((acc, p) => acc + p.n, 0);
+    const total = Number(html.match(/data-example-total="(\d+)"/)?.[1]);
+    assert.equal(100 - sum('risk') - sum('grp'), total);
+    assert.equal(Number(html.match(/data-risk-deduction="(\d+)"/)?.[1]), sum('risk'));
+    assert.equal(Number(html.match(/data-grp-deduction="(\d+)"/)?.[1]), sum('grp'));
+    assert.match(html, new RegExp(`--about-score-angle:${total * 3.6}deg`));
+    assert.match(html, new RegExp(`--about-score-position:${total}%`));
+    assert.match(html, new RegExp(`${total} · B`));
+    assert.match(html, /Grade B/);
 });
 
 test('the score explainer visibly gates grades by assessment breadth', () => {
     assert.match(html, /20\+/);
     assert.match(html, /1–19/);
     assert.match(html, /0 \/ no checklist/);
-    assert.match(html, /data-about-scope/);
-    assert.match(dashboardSource, /applicableItems >= BROAD_MIN_APPLICABLE_ITEMS/);
-    assert.match(dashboardSource, /`Not graded · \$\{scope\}`/);
-    assert.match(dashboardSource, /classList\.toggle\('is-ineligible', !gradeEligible\)/);
+    assert.match(html, /When does a score become a grade\?/);
+    // The gate itself lives in the production presentation path.
+    assert.match(dashboardSource, /count >= BROAD_MIN_APPLICABLE_ITEMS \? 'broad' : 'focused'/);
     assert.match(html, /◇ r100/);
     assert.match(html, /Focused inspections remain visible as unconnected raw-formula event markers/);
+    // The explainer is deliberately static — no interactive controls, no
+    // score-demo wiring anywhere in the About view.
+    const aboutView = html.match(/<main class="food-about-wrap[\s\S]*?<\/main>/)?.[0] || '';
+    assert.ok(aboutView.length > 0, 'About view markup found');
+    assert.doesNotMatch(aboutView, /<(input|output)\b/);
+    assert.doesNotMatch(dashboardSource, /data-about-score/);
 });
 
 test('transparency content draws the official/derived boundary and full pipeline', () => {
