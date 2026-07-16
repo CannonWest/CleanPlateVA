@@ -410,6 +410,23 @@ body {
     background: var(--cp-surface-2);
 }
 .food-grade-hero-none { border-style: dashed; }
+/* "Grade" caption above the circle, "computed" tag below — a centered stack
+   that reads as one labeled badge. */
+.food-grade-badge-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.22rem;
+    flex: 0 0 auto;
+}
+.food-grade-caption {
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--cp-muted);
+}
+.food-grade-badge-col .food-score-computed { margin: 0; }
 .food-grade-circle {
     display: inline-flex;
     flex-direction: column;
