@@ -395,24 +395,47 @@ body {
 .food-scope-badge-broad { color: #2b8a3e; }
 .food-scope-badge-focused { color: #1971c2; }
 .food-scope-badge-unknown { color: #6c757d; }
-.food-scope-badge-standing { color: #6741d9; }
 .theme-dark .food-scope-badge-broad { color: #69db7c; }
 .theme-dark .food-scope-badge-focused { color: #74c0fc; }
 .theme-dark .food-scope-badge-unknown { color: #adb5bd; }
-.theme-dark .food-scope-badge-standing { color: #b197fc; }
 
-/* Standing hero — leads the detail panel when a follow-up adjusted the
-   headline. Same hero anatomy, violet accent to match the Standing badge. */
-.food-standing-hero {
+/* The facility GRADE circle — the detail-panel headline. One circle: small
+   letter over big score, tinted by the grade color. It is the ONLY round,
+   only letter-bearing badge; every inspection below is a rounded SQUARE
+   score with no letter, so shape alone says "verdict vs. evidence". */
+.food-grade-hero {
     padding: 0.55rem;
     border: 1px solid var(--cp-border);
-    border-left: 3px solid #6741d9;
     border-radius: 0.65rem;
     background: var(--cp-surface-2);
 }
-.theme-dark .food-standing-hero { border-left-color: #b197fc; }
-.food-standing-breakdown { display: flex; flex-wrap: wrap; gap: 0.28rem; margin-top: 0.3rem; }
-.food-standing-chip {
+.food-grade-hero-none { border-style: dashed; }
+.food-grade-circle {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 3.6rem;
+    height: 3.6rem;
+    flex: 0 0 auto;
+    border-radius: 50%;
+    background: var(--grade-color, #868e96);
+    color: #fff;
+    line-height: 1;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+.food-grade-letter { font-size: 0.92rem; font-weight: 800; letter-spacing: 0.02em; }
+.food-grade-score { font-size: 1.5rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.food-grade-circle-none {
+    background: transparent;
+    border: 2px dashed #868e96;
+    color: #6c757d;
+    text-shadow: none;
+}
+.food-grade-circle-none .food-grade-score { font-size: 0.9rem; }
+.theme-dark .food-grade-circle-none { color: #adb5bd; }
+.food-grade-breakdown { display: flex; flex-wrap: wrap; gap: 0.28rem; margin-top: 0.3rem; }
+.food-grade-chip {
     padding: 0.06rem 0.4rem;
     border: 1px solid var(--cp-border);
     border-radius: 999px;
@@ -422,28 +445,14 @@ body {
     background: var(--cp-surface);
     white-space: nowrap;
 }
-.food-standing-chip-restored { color: #2b8a3e; border-color: currentColor; }
-.food-standing-chip-failed { color: #e03131; border-color: currentColor; }
-.food-standing-chip-new { color: #e8590c; border-color: currentColor; }
-.theme-dark .food-standing-chip-restored { color: #69db7c; }
-.theme-dark .food-standing-chip-failed { color: #ff8787; }
-.theme-dark .food-standing-chip-new { color: #ffa94d; }
+.food-grade-chip-restored { color: #2b8a3e; border-color: currentColor; }
+.food-grade-chip-failed { color: #e03131; border-color: currentColor; }
+.food-grade-chip-new { color: #e8590c; border-color: currentColor; }
+.theme-dark .food-grade-chip-restored { color: #69db7c; }
+.theme-dark .food-grade-chip-failed { color: #ff8787; }
+.theme-dark .food-grade-chip-new { color: #ffa94d; }
 .food-raw-score { margin: 0.25rem 0; color: #1971c2; font-size: 0.74rem; font-weight: 600; }
 .theme-dark .food-raw-score { color: #74c0fc; }
-.food-last-assessment {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 0.12rem 0.65rem;
-    align-items: baseline;
-    margin: -0.1rem 0 0.55rem;
-    padding: 0.48rem 0.58rem;
-    border-left: 3px solid #868e96;
-    border-radius: 0.25rem;
-    background: var(--cp-surface-2);
-    font-size: 0.76rem;
-}
-.food-last-assessment > span { color: var(--cp-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.035em; }
-.food-last-assessment > small { grid-column: 1 / -1; color: var(--cp-muted); }
 .food-score-grade {
     font-weight: 600;
     color: #212529;
@@ -1168,17 +1177,20 @@ body {
 }
 .about-weight-family.is-risk, .about-example-line.is-risk { --about-weight-color: #e03131; }
 .about-weight-family.is-grp, .about-example-line.is-grp { --about-weight-color: #f59f00; }
-/* Standing explainer reuses the scope-rules / receipt anatomy; the accent
-   colors track the detail-panel standing chips (light + dark pairs). */
-.about-example-line.is-standing-restored { --about-weight-color: #2b8a3e; }
-.about-example-line.is-standing-failed { --about-weight-color: #e03131; }
-.theme-dark .about-example-line.is-standing-restored { --about-weight-color: #69db7c; }
-.theme-dark .about-example-line.is-standing-failed { --about-weight-color: #ff8787; }
-.about-standing-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-.about-standing-example { margin-top: 0.35rem; padding: 0.85rem 0.35rem 0; border-top: 1px dashed var(--cp-border); }
-.about-standing-grid .about-scope-card > span { min-width: 3.1rem; }
+/* Grade explainer reuses the scope-rules / receipt anatomy; the accent
+   colors track the detail-panel grade chips (light + dark pairs). */
+.about-example-line.is-grade-restored { --about-weight-color: #2b8a3e; }
+.about-example-line.is-grade-failed { --about-weight-color: #e03131; }
+.theme-dark .about-example-line.is-grade-restored { --about-weight-color: #69db7c; }
+.theme-dark .about-example-line.is-grade-failed { --about-weight-color: #ff8787; }
+.about-grade-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.about-grade-example { margin-top: 0.35rem; padding: 0.85rem 0.35rem 0; border-top: 1px dashed var(--cp-border); }
+.about-grade-grid .about-scope-card > span { min-width: 3.1rem; }
+/* Grade legend: the round grade badge next to the F→A band scale. */
+.about-grade-legend { display: flex; align-items: center; gap: 1rem; margin: 0.6rem 0 0.2rem; flex-wrap: wrap; }
+.about-grade-legend .about-grade-scale { flex: 1 1 14rem; margin: 1.6rem 0 0.5rem; }
 @media (max-width: 720px) {
-    .about-standing-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .about-grade-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 .about-weight-family > header { display: grid; gap: 0.15rem; }
 .about-weight-family > header small { color: var(--cp-muted); font-size: 0.78rem; }
@@ -1308,10 +1320,10 @@ body {
 .about-scope-card.is-broad { border-left-color: #2f9e44; }
 .about-scope-card.is-focused { border-left-color: #228be6; }
 .about-scope-card.is-unknown { border-left-color: #868e96; }
-.about-scope-card.is-standing-restored { border-left-color: #2f9e44; }
-.about-scope-card.is-standing-failed { border-left-color: #e03131; }
-.about-scope-card.is-standing-cos { border-left-color: #868e96; }
-.about-scope-card.is-standing-new { border-left-color: #e8590c; }
+.about-scope-card.is-grade-restored { border-left-color: #2f9e44; }
+.about-scope-card.is-grade-failed { border-left-color: #e03131; }
+.about-scope-card.is-grade-cos { border-left-color: #868e96; }
+.about-scope-card.is-grade-new { border-left-color: #e8590c; }
 
 .about-grade-scale {
     position: relative;
