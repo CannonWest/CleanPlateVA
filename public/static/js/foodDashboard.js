@@ -286,6 +286,14 @@ function fmtDate(iso) {
     return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
+// Compact numeric date (M/D/YYYY) for the grade hero's provenance lines.
+function fmtDateNum(iso) {
+    if (!iso) return '—';
+    const d = new Date(iso + 'T12:00:00Z');
+    if (Number.isNaN(d.getTime())) return iso;
+    return d.toLocaleDateString('en-US', { year: 'numeric', month: 'numeric', day: 'numeric' });
+}
+
 export class FoodDashboard {
     constructor(api) {
         this.api = api;
@@ -1189,9 +1197,10 @@ export class FoodDashboard {
         // latest inspection is just the first (open) card in the history below.
         const grade = gradePresentation(fac);
         const sparkHtml = latest ? this._sparkline(inspections) : '';
+        const latestDate = latest?.date || null;
         const gradeHero = grade
-            ? this._gradeHero(grade, sparkHtml)
-            : this._noGradeHero(latestView, sparkHtml);
+            ? this._gradeHero(grade, sparkHtml, latestDate)
+            : this._noGradeHero(latestView, sparkHtml, latestDate);
         const scoreHero = latest
             ? `${gradeHero}${this._complianceBar(cs, latestView)}`
             : '<div class="text-muted small mb-2">No inspection detail available yet.</div>';
@@ -1277,20 +1286,27 @@ export class FoodDashboard {
         return chips.join('');
     }
 
+    // "Grade" caption over the circle, "computed" tag under it — one centered
+    // stack that reads as a single labeled badge.
+    _gradeBadgeCol(circleHtml) {
+        return `
+            <div class="food-grade-badge-col">
+                <span class="food-grade-caption">Grade</span>
+                ${circleHtml}
+                <span class="food-score-computed" title="CleanPlateVA formula; VDH publishes no numeric score">computed</span>
+            </div>`;
+    }
+
     // The grade hero: the facility verdict, on top of every full detail panel.
-    // Provenance names the broad inspection by SCORE only (no letter — a letter
-    // is a facility thing). Adjusted grades add the per-item breakdown.
-    _gradeHero(g, sparkHtml = '') {
-        const provenance = g.adjusted
-            ? `broad ${esc(g.baseScore)}${g.baseDate ? ` · ${fmtDate(g.baseDate)}` : ''} adjusted by ${g.followups} follow-up${g.followups === 1 ? '' : 's'}${g.followupDate ? ` (newest ${fmtDate(g.followupDate)})` : ''}`
-            : `from the broad inspection${g.baseDate ? ` on ${fmtDate(g.baseDate)}` : ''}`;
+    // Provenance is two dated lines — the broad that anchors the grade, and the
+    // most recent visit of any kind. Adjusted grades add the per-item breakdown.
+    _gradeHero(g, sparkHtml = '', latestDate = null) {
         return `
             <div class="food-score-hero food-grade-hero">
-                ${this._gradeCircle(g.letter, g.score)}
+                ${this._gradeBadgeCol(this._gradeCircle(g.letter, g.score))}
                 <div class="food-score-meta">
-                    <div class="food-score-grade">Grade
-                        <span class="food-score-computed" title="CleanPlateVA formula; VDH publishes no numeric score">computed</span></div>
-                    <div class="text-muted small">${esc(provenance)}</div>
+                    <div class="text-muted small">Last broad inspection: ${fmtDateNum(g.baseDate)}</div>
+                    <div class="text-muted small">Last visit: ${fmtDateNum(latestDate || g.baseDate)}</div>
                     ${g.adjusted ? `<div class="food-grade-breakdown">${this._gradeChips(g)}</div>` : ''}
                 </div>
                 ${sparkHtml}
@@ -1299,18 +1315,23 @@ export class FoodDashboard {
 
     // No scored broad assessment → no grade. A neutral circle keeps the panel
     // shape, and the note says what a grade would need.
-    _noGradeHero(latestView, sparkHtml = '') {
+    _noGradeHero(latestView, sparkHtml = '', latestDate = null) {
         const detail = latestView.scope === 'focused'
             ? `The latest report is a focused ${latestView.count}-item check. A grade needs a broad inspection (20+ items).`
             : 'No broad inspection (20+ items) captured yet, so no grade — the inspections below stand on their own.';
+        const circle = `<span class="food-grade-circle food-grade-circle-none" role="img" aria-label="No grade yet">
+                    <span class="food-grade-letter">–</span>
+                    <span class="food-grade-score">n/a</span></span>`;
         return `
             <div class="food-score-hero food-grade-hero food-grade-hero-none">
-                <span class="food-grade-circle food-grade-circle-none" role="img" aria-label="No grade yet">
-                    <span class="food-grade-letter">–</span>
-                    <span class="food-grade-score">n/a</span></span>
+                <div class="food-grade-badge-col">
+                    <span class="food-grade-caption">Grade</span>
+                    ${circle}
+                </div>
                 <div class="food-score-meta">
                     <div class="food-score-grade">No grade yet</div>
                     <div class="text-muted small">${esc(detail)}</div>
+                    ${latestDate ? `<div class="text-muted small">Last visit: ${fmtDateNum(latestDate)}</div>` : ''}
                 </div>
                 ${sparkHtml}
             </div>`;
