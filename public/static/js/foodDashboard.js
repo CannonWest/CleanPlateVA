@@ -204,10 +204,6 @@ function focusedOutcomeBadge(view, hero = false) {
         + '<small aria-hidden="true">OUT</small></span>';
 }
 
-// Restore fraction the pipeline applies on a passed re-check — display-only
-// mirror of cf_lib.GRADE_RESTORE (the math happens at export time).
-const GRADE_RESTORE_PCT = 65;
-
 /**
  * The facility grade — a SCORE plus an A-F LETTER, the latest broad assessment
  * adjusted by post-broad focused re-checks, computed by the exporter
@@ -1190,7 +1186,6 @@ export class FoodDashboard {
         const latest = inspections[0] || null;
         const latestView = inspectionPresentation(latest);
         const geoNote = this._geoNote(fac.geocode?.source);
-        const cs = latest?.checklist_summary || null;
         const sets = this._disposSets(latest?.checklist);
 
         // The facility GRADE circle leads the panel for every facility; the
@@ -1199,10 +1194,10 @@ export class FoodDashboard {
         const sparkHtml = latest ? this._sparkline(inspections) : '';
         const latestDate = latest?.date || null;
         const gradeHero = grade
-            ? this._gradeHero(grade, sparkHtml, latestDate)
-            : this._noGradeHero(latestView, sparkHtml, latestDate);
+            ? this._gradeHero(grade, sparkHtml)
+            : this._noGradeHero(latestView, sparkHtml);
         const scoreHero = latest
-            ? `${gradeHero}${this._complianceBar(cs, latestView)}`
+            ? `${gradeHero}${this._gradeDates(grade?.baseDate || null, latestDate)}`
             : '<div class="text-muted small mb-2">No inspection detail available yet.</div>';
 
         const statusNote = (fac.status_onpage && fac.status
@@ -1263,29 +1258,6 @@ export class FoodDashboard {
             <span class="food-grade-score">${esc(score)}</span></span>`;
     }
 
-    // Per-item chips explaining an adjusted grade — same transparency contract
-    // as the score: every chip names its items and its rule.
-    _gradeChips(g) {
-        const items = (list) => `item${list.length === 1 ? '' : 's'} ${list.join(', ')}`;
-        const chips = [];
-        if (g.restored.length) {
-            chips.push(`<span class="food-grade-chip food-grade-chip-restored" title="${esc(`${items(g.restored)} re-checked IN — ${GRADE_RESTORE_PCT}% of their deductions returned`)}">✓ ${g.restored.length} verified fixed (+${esc(g.restoredPoints)})</span>`);
-        }
-        if (g.failed.length) {
-            chips.push(`<span class="food-grade-chip food-grade-chip-failed" title="${esc(`${items(g.failed)} still OUT on the newest re-check — deduction ×1.5`)}">✗ ${g.failed.length} still out</span>`);
-        }
-        if (g.cos.length) {
-            chips.push(`<span class="food-grade-chip" title="${esc(`${items(g.cos)} OUT again but corrected on site — deduction unchanged`)}">${g.cos.length} fixed on site</span>`);
-        }
-        if (g.newItems.length) {
-            chips.push(`<span class="food-grade-chip food-grade-chip-new" title="${esc(`new on a follow-up: ${items(g.newItems)} — docked at category weight`)}">+${g.newItems.length} new finding${g.newItems.length === 1 ? '' : 's'}</span>`);
-        }
-        if (g.unchecked.length) {
-            chips.push(`<span class="food-grade-chip" title="${esc(`docked ${items(g.unchecked)} not re-checked — deductions stand in full`)}">${g.unchecked.length} not re-checked</span>`);
-        }
-        return chips.join('');
-    }
-
     // "Grade" caption over the circle, "computed" tag under it — one centered
     // stack that reads as a single labeled badge.
     _gradeBadgeCol(circleHtml) {
@@ -1298,24 +1270,19 @@ export class FoodDashboard {
     }
 
     // The grade hero: the facility verdict, on top of every full detail panel.
-    // Provenance is two dated lines — the broad that anchors the grade, and the
-    // most recent visit of any kind. Adjusted grades add the per-item breakdown.
-    _gradeHero(g, sparkHtml = '', latestDate = null) {
+    // Just the badge and the broad-score trend line — the dated provenance
+    // rides below in its own objects (_gradeDates).
+    _gradeHero(g, sparkHtml = '') {
         return `
             <div class="food-score-hero food-grade-hero">
                 ${this._gradeBadgeCol(this._gradeCircle(g.letter, g.score))}
-                <div class="food-score-meta">
-                    <div class="text-muted small">Last broad inspection: ${fmtDateNum(g.baseDate)}</div>
-                    <div class="text-muted small">Last visit: ${fmtDateNum(latestDate || g.baseDate)}</div>
-                    ${g.adjusted ? `<div class="food-grade-breakdown">${this._gradeChips(g)}</div>` : ''}
-                </div>
                 ${sparkHtml}
             </div>`;
     }
 
     // No scored broad assessment → no grade. A neutral circle keeps the panel
     // shape, and the note says what a grade would need.
-    _noGradeHero(latestView, sparkHtml = '', latestDate = null) {
+    _noGradeHero(latestView, sparkHtml = '') {
         const detail = latestView.scope === 'focused'
             ? `The latest report is a focused ${latestView.count}-item check. A grade needs a broad inspection (20+ items).`
             : 'No broad inspection (20+ items) captured yet, so no grade — the inspections below stand on their own.';
@@ -1331,10 +1298,23 @@ export class FoodDashboard {
                 <div class="food-score-meta">
                     <div class="food-score-grade">No grade yet</div>
                     <div class="text-muted small">${esc(detail)}</div>
-                    ${latestDate ? `<div class="text-muted small">Last visit: ${fmtDateNum(latestDate)}</div>` : ''}
                 </div>
                 ${sparkHtml}
             </div>`;
+    }
+
+    // Dated provenance as its own graphical objects below the hero: the broad
+    // that anchors the grade, and the most recent visit of any kind.
+    _gradeDates(baseDate, latestDate) {
+        const obj = (label, iso) => `
+            <div class="food-grade-date">
+                <span class="food-grade-date-label">${label}</span>
+                <span class="food-grade-date-value">${fmtDateNum(iso)}</span>
+            </div>`;
+        const objs = [];
+        if (baseDate) objs.push(obj('Last broad inspection', baseDate));
+        if (latestDate) objs.push(obj('Last visit', latestDate));
+        return objs.length ? `<div class="food-grade-dates">${objs.join('')}</div>` : '';
     }
 
     // item#s by disposition, from a parsed checklist — used to badge violations
@@ -1425,36 +1405,6 @@ export class FoodDashboard {
                 ${unknownMarks}
             </svg>
             <span class="food-spark-legend">broad line · ◇ focused raw</span>
-        </div>`;
-    }
-
-    // Compliance "breadth" bar — complements the severity score.
-    _complianceBar(cs, presentation = {}) {
-        const focused = presentation.scope === 'focused'
-            ? focusedOutcomePresentation(presentation) : null;
-        const rate = focused ? focused.complianceRate : cs?.compliance_rate ?? null;
-        if (rate == null) return '';
-        const pct = Math.round(rate * 100);
-        const compliant = focused
-            ? focused.total - focused.out : cs?.compliant ?? 0;
-        const out = focused ? focused.out : cs?.out ?? 0;
-        const sub = [];
-        if (cs?.cos) sub.push(`${cs.cos} corrected on site`);
-        if (cs?.repeat) sub.push(`${cs.repeat} repeat`);
-        const title = focused
-            ? 'Share of distinct applicable numbered items marked IN on this focused report'
-            : 'Share of applicable food-code rows in compliance on the latest report (excludes N/A · N/O)';
-        return `
-        <div class="food-compliance" title="${title}">
-            <div class="food-compliance-head">
-                <span class="food-compliance-label">${presentation.scope === 'focused' ? 'Focused checklist outcome' : 'Checklist compliance'}</span>
-                <span class="food-compliance-pct">${pct}% — ${esc(compliant)} of ${esc(compliant + out)}</span>
-            </div>
-            <div class="food-compliance-bar">
-                <span class="food-compliance-ok" style="width:${pct}%"></span>
-                <span class="food-compliance-bad" style="width:${100 - pct}%"></span>
-            </div>
-            ${sub.length ? `<div class="food-compliance-sub">${esc(sub.join(' · '))}</div>` : ''}
         </div>`;
     }
 

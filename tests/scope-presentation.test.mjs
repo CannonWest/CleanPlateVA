@@ -115,18 +115,6 @@ test('focused history renders one colored X/Y OUT signal', () => {
     assert.doesNotMatch(html, /food-insp-compliance/);
 });
 
-test('focused compliance bar uses the same distinct-item X/Y outcome', () => {
-    const html = dashboard.FoodDashboard.prototype._complianceBar.call({}, {
-        compliance_rate: 0.75, compliant: 3, out: 1,
-    }, { scope: 'focused', count: 3, out: 2 });
-    assert.match(html, /33% — 1 of 3/);
-    assert.match(html, /distinct applicable numbered items/);
-    assert.doesNotMatch(html, /75%/);
-    assert.equal(dashboard.FoodDashboard.prototype._complianceBar.call({}, {
-        compliance_rate: 0.75, compliant: 3, out: 1,
-    }, { scope: 'focused', count: 3, out: null }), '');
-});
-
 test('an inspection has a score but never a letter', () => {
     const withScore = dashboard.inspectionPresentation({
         scope: 'broad', applicable_item_count: 24, score: 81,
@@ -285,38 +273,41 @@ test('an adjusted grade leads the tooltip; the broad line names a score, not a l
     assert.doesNotMatch(html, /Grade B/);   // the broad inspection shows its score, never a letter
 });
 
-test('the grade hero draws the circle and names every adjustment with its rule', () => {
+test('the grade hero is just the labeled circle and the trend line — no chips, no dates', () => {
     const proto = dashboard.FoodDashboard.prototype;
     const html = proto._gradeHero.call(
-        {
-            _gradeCircle: proto._gradeCircle,
-            _gradeChips: proto._gradeChips,
-            _gradeBadgeCol: proto._gradeBadgeCol,
-        },
+        { _gradeCircle: proto._gradeCircle, _gradeBadgeCol: proto._gradeBadgeCol },
         {
             adjusted: true, score: 62, letter: 'D', baseScore: 82, baseLetter: 'B',
             baseDate: '2025-01-17', followups: 1, followupDate: '2025-07-05',
             restored: [22], failed: [47, 49], cos: [3], newItems: [16], unchecked: [5],
             restoredPoints: 3.9, extraPoints: 11,
         },
-        '<svg data-spark></svg>', '2025-07-05');
+        '<svg data-spark></svg>');
     assert.match(html, /food-grade-circle/);
     assert.match(html, /food-grade-letter">D</);
     assert.match(html, /food-grade-score">62</);
-    // "Grade" caption over the circle, "computed" tag under it
-    assert.match(html, /food-grade-caption">Grade</);
-    assert.match(html, /food-score-computed[^>]*>computed</);
-    // two dated provenance lines, numeric M/D/YYYY
-    assert.match(html, /Last broad inspection: 1\/17\/2025/);
-    assert.match(html, /Last visit: 7\/5\/2025/);
-    assert.match(html, /✓ 1 verified fixed \(\+3\.9\)/);
-    assert.match(html, /items 47, 49 still OUT on the newest re-check — deduction ×1\.5/);
-    assert.match(html, /\+1 new finding</);
-    assert.match(html, /1 fixed on site/);
-    assert.match(html, /1 not re-checked/);
-    assert.match(html, /65% of their deductions returned/);
+    assert.match(html, /food-grade-caption">Grade</);      // "Grade" over the circle
+    assert.match(html, /food-score-computed[^>]*>computed</); // "computed" under it
     assert.match(html, /data-spark/);
+    // the breakdown chips and dated lines are gone from the hero
+    assert.doesNotMatch(html, /verified fixed/);
+    assert.doesNotMatch(html, /still out/);
+    assert.doesNotMatch(html, /Last broad inspection/);
     assert.doesNotMatch(html, /standing/i);
+});
+
+test('grade dates render as two labeled objects below the hero, numeric M/D/YYYY', () => {
+    const proto = dashboard.FoodDashboard.prototype;
+    const both = proto._gradeDates.call({}, '2025-01-17', '2025-07-05');
+    assert.match(both, /food-grade-dates/);
+    assert.match(both, /Last broad inspection<\/span>\s*<span class="food-grade-date-value">1\/17\/2025/);
+    assert.match(both, /Last visit<\/span>\s*<span class="food-grade-date-value">7\/5\/2025/);
+    // no broad date (no-grade facility) → only the visit object
+    const visitOnly = proto._gradeDates.call({}, null, '2025-07-05');
+    assert.doesNotMatch(visitOnly, /Last broad inspection/);
+    assert.match(visitOnly, /Last visit/);
+    assert.equal(proto._gradeDates.call({}, null, null), '');
 });
 
 test('grade filter, marker fill, and score sort all key off facility.grade', () => {
