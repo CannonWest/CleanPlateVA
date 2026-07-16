@@ -214,3 +214,114 @@ test('detail copy does not claim a limited report is a clean full checklist', ()
     assert.match(source, /Broad scores oldest to newest/);
     assert.match(source, /Broad compliance/);
 });
+
+test('standing passes through a published block and synthesizes grades only from bands', () => {
+    const view = dashboard.standingPresentation({
+        standing: {
+            score: 62, grade: 'D', adjusted: true, base_score: 82, base_grade: 'B',
+            base_date: '2025-01-17', followups: 1, followup_date: '2025-07-05',
+            restored_items: [], failed_items: [47, 49], cos_items: [],
+            new_items: [16], unchecked_items: [5],
+            restored_points: 0, extra_points: 11,
+        },
+    });
+    assert.equal(view.published, true);
+    assert.equal(view.adjusted, true);
+    assert.deepEqual([view.score, view.grade, view.baseScore, view.baseGrade], [62, 'D', 82, 'B']);
+    assert.deepEqual(view.failed, [47, 49]);
+
+    const gradeless = dashboard.standingPresentation({ standing: { score: 91, adjusted: false } });
+    assert.equal(gradeless.grade, 'A');
+});
+
+test('a payload without standing falls back to the assessment and never claims publication', () => {
+    const facility = {
+        latest: { scope: 'broad', applicable_item_count: 31, score: 68, grade: 'D' },
+        latest_assessment: { scope: 'broad', applicable_item_count: 31, score: 68, grade: 'D' },
+        score_trend: [68],
+    };
+    const view = dashboard.facilityPresentation(facility);
+    assert.equal(view.standing.published, false);
+    assert.equal(view.standing.adjusted, false);
+    assert.deepEqual([view.standing.score, view.standing.grade], [68, 'D']);
+
+    const none = dashboard.facilityPresentation({
+        latest: { scope: 'focused', applicable_item_count: 2, score: 100 },
+        latest_assessment: null,
+    });
+    assert.equal(none.standing, null);
+});
+
+test('an adjusted standing leads the tooltip with the broad base as provenance', () => {
+    const facility = {
+        name: 'Example', status: 'Permitted',
+        latest: {
+            scope: 'focused', applicable_item_count: 2, score: 100,
+            checklist_out: 0, date: '2025-07-05', checklist_present: true,
+        },
+        latest_assessment: {
+            scope: 'broad', applicable_item_count: 31, score: 82, grade: 'B',
+            compliance_rate: 0.9, date: '2025-01-17',
+        },
+        standing: {
+            score: 62, grade: 'D', adjusted: true, base_score: 82, base_grade: 'B',
+            base_date: '2025-01-17', followups: 1, followup_date: '2025-07-05',
+        },
+        score_trend: [82, 90],
+    };
+    const html = dashboard.FoodDashboard.prototype._tooltipHTML.call({
+        _mode: 'full',
+        _isActive: () => true,
+    }, facility);
+    assert.match(html, /Standing: Grade D · 62 · after 1 follow-up/);
+    assert.match(html, /Broad: B · 82 ▼/);
+    assert.doesNotMatch(html, /Assessment: Grade/);
+});
+
+test('an unadjusted published standing keeps one headline line labeled Standing', () => {
+    const facility = {
+        name: 'Example', status: 'Permitted',
+        latest: {
+            scope: 'broad', applicable_item_count: 31, score: 82, grade: 'B',
+            date: '2025-01-17', checklist_present: true,
+        },
+        latest_assessment: {
+            scope: 'broad', applicable_item_count: 31, score: 82, grade: 'B',
+            compliance_rate: 0.9, date: '2025-01-17',
+        },
+        standing: { score: 82, grade: 'B', adjusted: false, base_score: 82, base_grade: 'B' },
+        score_trend: [82],
+    };
+    const html = dashboard.FoodDashboard.prototype._tooltipHTML.call({
+        _mode: 'full',
+        _isActive: () => true,
+    }, facility);
+    assert.match(html, /Standing: Grade B · 82/);
+    assert.doesNotMatch(html, /after \d+ follow-up/);
+});
+
+test('the standing hero names every adjustment with its items and rule', () => {
+    const html = dashboard.FoodDashboard.prototype._standingHero.call({}, {
+        published: true, adjusted: true, score: 62, grade: 'D',
+        baseScore: 82, baseGrade: 'B', baseDate: '2025-01-17',
+        followups: 1, followupDate: '2025-07-05',
+        restored: [22], failed: [47, 49], cos: [3], newItems: [16], unchecked: [5],
+        restoredPoints: 3.9, extraPoints: 11,
+    }, '<svg data-spark></svg>');
+    assert.match(html, /food-scope-badge-standing/);
+    assert.match(html, /✓ 1 verified fixed \(\+3\.9\)/);
+    assert.match(html, /items 47, 49 still OUT on the newest re-check — deduction ×1\.5/);
+    assert.match(html, /\+1 new finding</);
+    assert.match(html, /1 fixed on site/);
+    assert.match(html, /1 not re-checked/);
+    assert.match(html, /65% of their deductions returned/);
+    assert.match(html, /data-spark/);
+});
+
+test('grade filter, marker fill, and score sort key off standing', () => {
+    const source = readFileSync(
+        new URL('../public/static/js/foodDashboard.js', import.meta.url), 'utf8');
+    assert.match(source, /const standingGrade = facilityPresentation\(f\)\.standing\?\.grade/);
+    assert.match(source, /return gradeColor\(fp\.standing\?\.grade \|\| null\);/);
+    assert.match(source, /case 'score': return fp\.standing\?\.score \?\? -1;/);
+});
