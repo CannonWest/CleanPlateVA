@@ -408,8 +408,9 @@ body {
     border: 1px solid var(--cp-border);
     border-radius: 0.65rem;
     background: var(--cp-surface-2);
+    justify-content: space-between;
 }
-.food-grade-hero-none { border-style: dashed; }
+.food-grade-hero-none { justify-content: flex-start; border-style: dashed; }
 /* "Grade" caption above the circle, "computed" tag below — a centered stack
    that reads as one labeled badge. */
 .food-grade-badge-col {
@@ -451,23 +452,32 @@ body {
 }
 .food-grade-circle-none .food-grade-score { font-size: 0.9rem; }
 .theme-dark .food-grade-circle-none { color: #adb5bd; }
-.food-grade-breakdown { display: flex; flex-wrap: wrap; gap: 0.28rem; margin-top: 0.3rem; }
-.food-grade-chip {
-    padding: 0.06rem 0.4rem;
+/* Dated provenance objects below the hero: two little labeled cards. */
+.food-grade-dates { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.1rem 0 0.55rem; }
+.food-grade-date {
+    display: flex;
+    flex-direction: column;
+    gap: 0.05rem;
+    flex: 1 1 8rem;
+    padding: 0.4rem 0.6rem;
     border: 1px solid var(--cp-border);
-    border-radius: 999px;
-    font-size: 0.68rem;
-    font-weight: 600;
-    color: var(--cp-muted);
+    border-radius: 0.5rem;
     background: var(--cp-surface);
-    white-space: nowrap;
 }
-.food-grade-chip-restored { color: #2b8a3e; border-color: currentColor; }
-.food-grade-chip-failed { color: #e03131; border-color: currentColor; }
-.food-grade-chip-new { color: #e8590c; border-color: currentColor; }
-.theme-dark .food-grade-chip-restored { color: #69db7c; }
-.theme-dark .food-grade-chip-failed { color: #ff8787; }
-.theme-dark .food-grade-chip-new { color: #ffa94d; }
+.food-grade-date-label {
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--cp-muted);
+}
+.food-grade-date-value {
+    font-size: 0.95rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: #212529;
+}
+.theme-dark .food-grade-date-value { color: var(--cp-text); }
 .food-raw-score { margin: 0.25rem 0; color: #1971c2; font-size: 0.74rem; font-weight: 600; }
 .theme-dark .food-raw-score { color: #74c0fc; }
 .food-score-grade {
@@ -705,21 +715,6 @@ body {
 .food-spark-focused { fill: var(--cp-surface); stroke: var(--food-outcome-border, #868e96); stroke-width: 1.8; }
 .food-spark-unknown { stroke: #868e96; stroke-width: 1.5; stroke-linecap: round; }
 .food-spark-legend { margin-top: -0.25rem; color: var(--cp-muted); font-size: 0.58rem; white-space: nowrap; }
-
-.food-compliance { margin: 0.1rem 0 0.5rem; }
-.food-compliance-head {
-    display: flex; justify-content: space-between; align-items: baseline;
-    font-size: 0.76rem; color: #6c757d; margin-bottom: 0.25rem;
-}
-.theme-dark .food-compliance-head { color: var(--cp-muted); }
-.food-compliance-pct { font-weight: 600; color: #212529; font-variant-numeric: tabular-nums; }
-.theme-dark .food-compliance-pct { color: var(--cp-text); }
-.food-compliance-bar { display: flex; height: 8px; border-radius: 999px; overflow: hidden; background: #e9ecef; }
-.theme-dark .food-compliance-bar { background: var(--cp-surface-3); }
-.food-compliance-ok { background: #2f9e44; }
-.food-compliance-bad { background: #e03131; }
-.food-compliance-sub { font-size: 0.72rem; color: #2b8a3e; margin-top: 0.25rem; }
-.theme-dark .food-compliance-sub { color: #69bd7c; }
 
 .food-dispos {
     flex: 0 0 auto; font-size: 0.64rem; font-weight: 600; text-transform: uppercase;
