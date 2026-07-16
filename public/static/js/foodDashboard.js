@@ -532,6 +532,7 @@ export class FoodDashboard {
         geolocate.on('trackuserlocationend', () => { this._geoFollowing = false; });
         geolocate.on('userlocationlostfocus', () => { this._geoFollowing = false; });
         this._map.addControl(geolocate, 'top-left');
+        this._autoLocate();
 
         // Fires on the initial style AND after every setStyle (theme swap) —
         // custom sources/layers don't survive a style swap, so this is the
@@ -542,6 +543,27 @@ export class FoodDashboard {
 
         // The container may have been display:none moments ago.
         setTimeout(() => this._map.resize(), 50);
+    }
+
+    /** Ask for the visitor's location on open instead of waiting for a
+     *  button press — a finder map should start from where they stand.
+     *  First visit surfaces the browser's permission prompt; a standing
+     *  grant flies straight to their neighborhood. */
+    async _autoLocate() {
+        // A standing denial renders the control disabled, but trigger()
+        // has no disabled-check — it would still call watchPosition and
+        // paint the error note on every open. Probe and stay quiet.
+        try {
+            const perm = await navigator.permissions.query({ name: 'geolocation' });
+            if (perm.state === 'denied') return;
+        } catch (_) { /* no Permissions API — let trigger() find out */ }
+        // The control finishes its own setup async (behind the same
+        // permissions probe); trigger() returns false until then.
+        const kick = (attemptsLeft) => {
+            if (this._geolocate?.trigger() || attemptsLeft <= 0) return;
+            setTimeout(() => kick(attemptsLeft - 1), 200);
+        };
+        kick(10);
     }
 
     /** Add the facilities source + cluster/point layers to the CURRENT style.
