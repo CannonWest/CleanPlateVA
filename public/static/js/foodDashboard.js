@@ -287,6 +287,7 @@ export class FoodDashboard {
         this._searchDebounce = null;
         this._mapNote = null;       // locate-feedback notice over the map
         this._geolocate = null;     // the GeolocateControl instance
+        this._geoFollowing = false; // camera locked to the user's position?
     }
 
     init() {
@@ -519,11 +520,17 @@ export class FoodDashboard {
             // blocks with zero markers in them.
             fitBoundsOptions: { maxZoom: 13 },
         });
-        // A fresh fix clears any stale location-error note.
-        geolocate.on('geolocate', () => this._hideMapNote());
+        geolocate.on('geolocate', (pos) => this._onGeolocate(pos));
         geolocate.on('error', () => this._showMapNote(
             'Couldn\'t get your location — check that location access is enabled for your browser.'));
+        // Follow-mode bookkeeping via the control's public events: the
+        // coverage note's back-link must know whether to switch the control
+        // off before moving the camera (see _showMapNote).
         this._geolocate = geolocate;
+        geolocate.on('trackuserlocationstart', () => { this._geoFollowing = true; });
+        geolocate.on('userlocationfocus', () => { this._geoFollowing = true; });
+        geolocate.on('trackuserlocationend', () => { this._geoFollowing = false; });
+        geolocate.on('userlocationlostfocus', () => { this._geoFollowing = false; });
         this._map.addControl(geolocate, 'top-left');
         this._autoLocate();
 
@@ -541,57 +548,22 @@ export class FoodDashboard {
     /** Ask for the visitor's location on open instead of waiting for a
      *  button press — a finder map should start from where they stand.
      *  First visit surfaces the browser's permission prompt; a standing
-     *  grant flies straight to their neighborhood. Visitors with no
-     *  mapped places near them keep the default statewide view — flying
-     *  a Texan to an empty patch of Texas basemap helps nobody. */
+     *  grant flies straight to their neighborhood. */
     async _autoLocate() {
         // A standing denial renders the control disabled, but trigger()
-        // has no disabled-check — it would still fire a doomed position
-        // request and paint the error note on every open. Probe and
-        // stay quiet.
+        // has no disabled-check — it would still call watchPosition and
+        // paint the error note on every open. Probe and stay quiet.
         try {
             const perm = await navigator.permissions.query({ name: 'geolocation' });
             if (perm.state === 'denied') return;
-        } catch (_) { /* no Permissions API — let the fix find out */ }
-        // One fix of our own before involving the control: the control
-        // always chases its fix with the camera, so the stay-or-fly
-        // decision has to happen before it's triggered.
-        navigator.geolocation?.getCurrentPosition(
-            (pos) => {
-                if (!this._nearData(pos.coords.latitude, pos.coords.longitude)) return;
-                // The control finishes its own setup async (behind the
-                // same permissions probe); trigger() returns false
-                // until then.
-                const kick = (attemptsLeft) => {
-                    if (this._geolocate?.trigger() || attemptsLeft <= 0) return;
-                    setTimeout(() => kick(attemptsLeft - 1), 200);
-                };
-                kick(10);
-            },
-            (err) => {
-                // code 1 is the visitor declining the prompt they just
-                // saw — only real failures are worth explaining.
-                if (err.code !== 1) this._showMapNote(
-                    'Couldn\'t get your location — check that location access is enabled for your browser.');
-            },
-            // Mirrors the control's positionOptions above.
-            { enableHighAccuracy: true, timeout: 6000, maximumAge: 0 },
-        );
-    }
-
-    /** True when any mapped facility sits within `km` of the fix — the
-     *  "would zooming in show them anything?" test. Equirectangular
-     *  approximation; at these distances the error is noise. */
-    _nearData(lat, lon, km = 30) {
-        const kmPerDegLat = 111.32;
-        const kmPerDegLon = kmPerDegLat * Math.cos(lat * Math.PI / 180);
-        for (const f of this._facilities) {
-            if (f.lat == null || f.lon == null) continue;
-            const dy = (f.lat - lat) * kmPerDegLat;
-            const dx = (f.lon - lon) * kmPerDegLon;
-            if (dy * dy + dx * dx <= km * km) return true;
-        }
-        return false;
+        } catch (_) { /* no Permissions API — let trigger() find out */ }
+        // The control finishes its own setup async (behind the same
+        // permissions probe); trigger() returns false until then.
+        const kick = (attemptsLeft) => {
+            if (this._geolocate?.trigger() || attemptsLeft <= 0) return;
+            setTimeout(() => kick(attemptsLeft - 1), 200);
+        };
+        kick(10);
     }
 
     /** Add the facilities source + cluster/point layers to the CURRENT style.
@@ -720,9 +692,37 @@ export class FoodDashboard {
 
     // ── locate feedback ─────────────────────────────────────────────────
 
+    /** Padded bounding box of the loaded facilities — "the mapped area". */
+    _coverageBounds() {
+        let n = -90, s = 90, e = -180, w = 180;
+        for (const f of this._facilities) {
+            if (f.lat == null || f.lon == null) continue;
+            n = Math.max(n, f.lat); s = Math.min(s, f.lat);
+            e = Math.max(e, f.lon); w = Math.min(w, f.lon);
+        }
+        if (n < s) return null;   // nothing located yet
+        const PAD = 0.2;          // ~20 km — near-edge users still see markers
+        return { n: n + PAD, s: s - PAD, e: e + PAD, w: w - PAD };
+    }
+
+    /** The data covers a fraction of the state the site is named after —
+     *  tell out-of-coverage users why their map is empty instead of
+     *  stranding them on a blank basemap. */
+    _onGeolocate(pos) {
+        const { latitude: lat, longitude: lon } = pos.coords;
+        const b = this._coverageBounds();
+        if (!b || (lat <= b.n && lat >= b.s && lon <= b.e && lon >= b.w)) {
+            this._hideMapNote();
+            return;
+        }
+        this._showMapNote(
+            'You\'re outside the mapped area — coverage is currently the greater Richmond region.',
+            true);
+    }
+
     /** Small dismissible notice over the map. Static strings only — the
      *  markup goes through innerHTML. */
-    _showMapNote(text) {
+    _showMapNote(text, withReturnLink = false) {
         const wrap = document.getElementById('foodMapWrap');
         if (!wrap) return;
         if (this._mapNote?.dataset.note === text) return;   // already showing
@@ -731,9 +731,20 @@ export class FoodDashboard {
         note.className = 'food-map-note';
         note.dataset.note = text;
         note.innerHTML = `<span>${text}</span>`
+            + (withReturnLink ? '<a href="#" class="food-map-note-back">Back to the mapped area</a>' : '')
             + '<button type="button" class="btn-close" aria-label="Dismiss"></button>';
         note.querySelector('.btn-close')
             .addEventListener('click', () => this._hideMapNote());
+        note.querySelector('.food-map-note-back')?.addEventListener('click', (ev) => {
+            ev.preventDefault();
+            // A zoom-changing easeTo does NOT drop the control's follow
+            // lock (its movestart handler skips zooming camera moves), so
+            // switch the control off first — otherwise the next fix flies
+            // the camera right back out of coverage.
+            if (this._geoFollowing) this._geolocate?.trigger();
+            this._map?.easeTo({ center: HOME_CENTER, zoom: HOME_ZOOM });
+            this._hideMapNote();
+        });
         wrap.appendChild(note);
         this._mapNote = note;
     }
