@@ -288,17 +288,27 @@ test('an adjusted grade leads the tooltip; the broad line names a score, not a l
 test('the grade hero draws the circle and names every adjustment with its rule', () => {
     const proto = dashboard.FoodDashboard.prototype;
     const html = proto._gradeHero.call(
-        { _gradeCircle: proto._gradeCircle, _gradeChips: proto._gradeChips },
+        {
+            _gradeCircle: proto._gradeCircle,
+            _gradeChips: proto._gradeChips,
+            _gradeBadgeCol: proto._gradeBadgeCol,
+        },
         {
             adjusted: true, score: 62, letter: 'D', baseScore: 82, baseLetter: 'B',
             baseDate: '2025-01-17', followups: 1, followupDate: '2025-07-05',
             restored: [22], failed: [47, 49], cos: [3], newItems: [16], unchecked: [5],
             restoredPoints: 3.9, extraPoints: 11,
         },
-        '<svg data-spark></svg>');
+        '<svg data-spark></svg>', '2025-07-05');
     assert.match(html, /food-grade-circle/);
     assert.match(html, /food-grade-letter">D</);
     assert.match(html, /food-grade-score">62</);
+    // "Grade" caption over the circle, "computed" tag under it
+    assert.match(html, /food-grade-caption">Grade</);
+    assert.match(html, /food-score-computed[^>]*>computed</);
+    // two dated provenance lines, numeric M/D/YYYY
+    assert.match(html, /Last broad inspection: 1\/17\/2025/);
+    assert.match(html, /Last visit: 7\/5\/2025/);
     assert.match(html, /✓ 1 verified fixed \(\+3\.9\)/);
     assert.match(html, /items 47, 49 still OUT on the newest re-check — deduction ×1\.5/);
     assert.match(html, /\+1 new finding</);
