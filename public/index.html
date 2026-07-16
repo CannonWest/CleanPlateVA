@@ -172,86 +172,124 @@
                         <span class="about-section-number">01</span>
                         <div>
                             <p class="about-kicker">Score anatomy</p>
-                            <h2 id="aboutScoringTitle">Move the violations. Watch the score change.</h2>
+                            <h2 id="aboutScoringTitle">Start at 100. Every violation subtracts.</h2>
                             <p>The portal does not publish a usable numeric score. The raw 0–100 formula runs on every report; a letter grade is shown only when VDH published a broad checklist of at least 20 distinct applicable code items.</p>
                         </div>
                         <span class="about-badge about-badge-derived">Computed here</span>
                     </div>
 
-                    <div class="about-score-lab">
-                        <div class="about-score-result" aria-live="polite">
-                            <div class="about-score-ring" id="aboutScoreRing" style="--about-score-angle:291.6deg;--about-score-color:#94be1b">
+                    <!-- Static weight board: one block = one point, all bars on a
+                         shared 9-point scale so the 3× risk-vs-practice gap and the
+                         ×1.5 repeat premium (hollow blocks) read at a glance. -->
+                    <div class="about-weight-board">
+                        <p class="about-weight-title">Deduction per violation <small>each block is one point off the score</small></p>
+                        <section class="about-weight-family is-risk" aria-label="A risk-factor violation deducts 6 points, or 9 when detected as a repeat">
+                            <header>
+                                <strong>Risk-factor violation</strong>
+                                <small>Form items 1–29 — the practices most tied to foodborne illness: temperatures, cooking, hygiene, approved sources, contamination.</small>
+                            </header>
+                            <div class="about-weight-row">
+                                <span class="about-weight-when">First time flagged</span>
+                                <span class="about-weight-blocks" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></span>
+                                <b class="about-weight-amount" data-weight="6">−6</b>
+                            </div>
+                            <div class="about-weight-row">
+                                <span class="about-weight-when">Detected repeat <small>6 × 1.5</small></span>
+                                <span class="about-weight-blocks" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i class="is-repeat"></i><i class="is-repeat"></i><i class="is-repeat"></i></span>
+                                <b class="about-weight-amount" data-weight="9">−9</b>
+                            </div>
+                        </section>
+                        <section class="about-weight-family is-grp" aria-label="A good-retail-practice violation deducts 2 points, or 3 when detected as a repeat">
+                            <header>
+                                <strong>Good-retail-practice violation</strong>
+                                <small>Form items 30+ — operational upkeep: cleaning, labeling, equipment, maintenance.</small>
+                            </header>
+                            <div class="about-weight-row">
+                                <span class="about-weight-when">First time flagged</span>
+                                <span class="about-weight-blocks" aria-hidden="true"><i></i><i></i></span>
+                                <b class="about-weight-amount" data-weight="2">−2</b>
+                            </div>
+                            <div class="about-weight-row">
+                                <span class="about-weight-when">Detected repeat <small>2 × 1.5</small></span>
+                                <span class="about-weight-blocks" aria-hidden="true"><i></i><i></i><i class="is-repeat"></i></span>
+                                <b class="about-weight-amount" data-weight="3">−3</b>
+                            </div>
+                        </section>
+                        <p class="about-weight-note">A risk-factor violation costs three times a good-retail-practice one; a detected repeat costs half again (hollow blocks). “Corrected on site” still deducts. Rounded and floored at 0.</p>
+                    </div>
+
+                    <!-- Worked example: fixed numbers, receipt-style tally. The
+                         data-points / data-example-total attributes are the honesty
+                         contract the test suite re-adds up. -->
+                    <div class="about-example">
+                        <div class="about-example-receipt" aria-label="Worked example: 100 minus 6 minus 9 minus 4 equals 81">
+                            <p class="about-example-title">Worked example — one routine inspection</p>
+                            <div class="about-example-line about-example-start">
+                                <span>Every report starts at</span>
+                                <b>100</b>
+                            </div>
+                            <div class="about-example-line is-risk" data-family="risk" data-points="6">
+                                <span>1 risk-factor violation</span>
+                                <span class="about-weight-blocks" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></span>
+                                <b>−6</b>
+                            </div>
+                            <div class="about-example-line is-risk" data-family="risk" data-points="9">
+                                <span>1 risk-factor violation, repeat <small>6 × 1.5</small></span>
+                                <span class="about-weight-blocks" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i class="is-repeat"></i><i class="is-repeat"></i><i class="is-repeat"></i></span>
+                                <b>−9</b>
+                            </div>
+                            <div class="about-example-line is-grp" data-family="grp" data-points="4">
+                                <span>2 good-retail-practice violations <small>2 × 2</small></span>
+                                <span class="about-weight-blocks" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+                                <b>−4</b>
+                            </div>
+                            <div class="about-example-total">
+                                <span>Raw score</span>
+                                <b data-example-total="81">81</b>
+                            </div>
+                            <p class="about-example-scope">This example assessed 24 distinct code items — broad — so its 81 may also carry a letter grade.</p>
+                        </div>
+                        <div class="about-example-result" style="--about-grade-color:#94be1b">
+                            <div class="about-score-ring" style="--about-score-angle:291.6deg;--about-score-color:#94be1b">
                                 <div class="about-score-ring-inner">
-                                    <strong id="aboutScoreValue">81</strong>
+                                    <strong>81</strong>
                                     <span>/ 100</span>
                                 </div>
                             </div>
-                            <div class="about-grade-pill" id="aboutGradeValue">Grade B</div>
-                            <div class="about-score-equation" aria-label="Current score equation">
-                                <span>100</span><b>−</b><span id="aboutRiskDeduction">15</span><b>−</b><span id="aboutGrpDeduction">4</span><b>=</b><strong id="aboutEquationScore">81</strong>
+                            <div class="about-grade-pill">Grade B</div>
+                            <div class="about-score-equation" aria-label="100 minus 15 risk-factor points minus 4 good-retail-practice points equals 81">
+                                <span>100</span><b>−</b><span data-risk-deduction="15">15</span><b>−</b><span data-grp-deduction="4">4</span><b>=</b><strong>81</strong>
                             </div>
-                            <small>Start − risk-factor deductions − good-retail-practice deductions; rounded and floored at 0.</small>
-                        </div>
-
-                        <div class="about-score-controls">
-                            <label class="about-score-control" for="aboutRiskRegular">
-                                <span><strong>Risk-factor, not detected as repeat</strong><small>Form items 1–29</small></span>
-                                <span class="about-control-math"><output id="aboutRiskRegularCount">1</output> × 6 = −<output id="aboutRiskRegularDeduction">6</output></span>
-                                <input id="aboutRiskRegular" type="range" min="0" max="10" value="1"
-                                       data-about-score data-category="risk" data-penalty="6"
-                                       data-count-output="aboutRiskRegularCount" data-deduction-output="aboutRiskRegularDeduction">
-                            </label>
-                            <label class="about-score-control" for="aboutRiskRepeat">
-                                <span><strong>Risk-factor, detected repeat</strong><small>6 × 1.5</small></span>
-                                <span class="about-control-math"><output id="aboutRiskRepeatCount">1</output> × 9 = −<output id="aboutRiskRepeatDeduction">9</output></span>
-                                <input id="aboutRiskRepeat" type="range" min="0" max="10" value="1"
-                                       data-about-score data-category="risk" data-penalty="9"
-                                       data-count-output="aboutRiskRepeatCount" data-deduction-output="aboutRiskRepeatDeduction">
-                            </label>
-                            <label class="about-score-control" for="aboutGrpRegular">
-                                <span><strong>Good retail practice, not detected as repeat</strong><small>Form items 30+</small></span>
-                                <span class="about-control-math"><output id="aboutGrpRegularCount">2</output> × 2 = −<output id="aboutGrpRegularDeduction">4</output></span>
-                                <input id="aboutGrpRegular" type="range" min="0" max="16" value="2"
-                                       data-about-score data-category="grp" data-penalty="2"
-                                       data-count-output="aboutGrpRegularCount" data-deduction-output="aboutGrpRegularDeduction">
-                            </label>
-                            <label class="about-score-control" for="aboutGrpRepeat">
-                                <span><strong>Good retail practice, detected repeat</strong><small>2 × 1.5</small></span>
-                                <span class="about-control-math"><output id="aboutGrpRepeatCount">0</output> × 3 = −<output id="aboutGrpRepeatDeduction">0</output></span>
-                                <input id="aboutGrpRepeat" type="range" min="0" max="16" value="0"
-                                       data-about-score data-category="grp" data-penalty="3"
-                                       data-count-output="aboutGrpRepeatCount" data-deduction-output="aboutGrpRepeatDeduction">
-                            </label>
+                            <small>Start − risk-factor deductions − good-retail-practice deductions.</small>
                         </div>
                     </div>
 
-                    <div class="about-scope-lab">
-                        <label for="aboutApplicableItems">
-                            <span><strong>How much did this inspection assess?</strong><small>Distinct numbered code items marked IN or OUT; duplicate rows count once.</small></span>
-                            <output id="aboutApplicableCount">24 applicable items</output>
-                            <input id="aboutApplicableItems" type="range" min="0" max="40" value="24" data-about-scope>
-                        </label>
-                        <div class="about-scope-grid" aria-label="Assessment scope rules">
-                            <article class="about-scope-card is-active" data-about-scope-card="broad">
-                                <span>20+</span><div><strong>Broad</strong><small>Eligible for grade and connected trend</small></div>
-                            </article>
-                            <article class="about-scope-card" data-about-scope-card="focused">
-                                <span>1–19</span><div><strong>Focused</strong><small>OUT/applicable ratio is compliance-colored; no grade</small></div>
-                            </article>
-                            <article class="about-scope-card" data-about-scope-card="unknown">
-                                <span>0 / no checklist</span><div><strong>Unknown</strong><small>No grade or trend claim</small></div>
-                            </article>
-                        </div>
-                    </div>
-
-                    <div class="about-grade-scale" id="aboutGradeScale" style="--about-score-position:81%" aria-label="Grade thresholds: F below 60, D 60 to 69, C 70 to 79, B 80 to 89, A 90 to 100">
-                        <div class="about-grade-marker" id="aboutGradeMarker"><span id="aboutGradeMarkerText">81 · B</span></div>
+                    <div class="about-grade-scale" style="--about-score-position:81%" aria-label="Grade thresholds: F below 60, D 60 to 69, C 70 to 79, B 80 to 89, A 90 to 100">
+                        <div class="about-grade-marker"><span>81 · B</span></div>
                         <div class="about-grade-segments">
                             <span class="grade-f"><b>F</b><small>0–59</small></span>
                             <span class="grade-d"><b>D</b><small>60–69</small></span>
                             <span class="grade-c"><b>C</b><small>70–79</small></span>
                             <span class="grade-b"><b>B</b><small>80–89</small></span>
                             <span class="grade-a"><b>A</b><small>90–100</small></span>
+                        </div>
+                    </div>
+
+                    <div class="about-scope-rules">
+                        <header>
+                            <strong>When does a score become a grade?</strong>
+                            <small>Breadth decides. Distinct numbered code items marked IN or OUT; duplicate rows count once.</small>
+                        </header>
+                        <div class="about-scope-grid" aria-label="Assessment scope rules">
+                            <article class="about-scope-card is-broad">
+                                <span>20+</span><div><strong>Broad</strong><small>Eligible for grade and connected trend</small></div>
+                            </article>
+                            <article class="about-scope-card is-focused">
+                                <span>1–19</span><div><strong>Focused</strong><small>OUT/applicable ratio is compliance-colored; no grade</small></div>
+                            </article>
+                            <article class="about-scope-card is-unknown">
+                                <span>0 / no checklist</span><div><strong>Unknown</strong><small>No grade or trend claim</small></div>
+                            </article>
                         </div>
                     </div>
 

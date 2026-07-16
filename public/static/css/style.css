@@ -1057,28 +1057,10 @@ body {
     font-variant-numeric: tabular-nums;
 }
 
-/* Interactive score explainer. */
-.about-score-lab {
-    display: grid;
-    grid-template-columns: minmax(16rem, 0.72fr) minmax(28rem, 1.28fr);
-    min-height: 23rem;
-    border: 1px solid var(--cp-border);
-    border-radius: 0.85rem;
-    overflow: hidden;
-    background: var(--cp-surface-2);
-}
-.about-score-result {
-    display: grid;
-    place-items: center;
-    align-content: center;
-    gap: 0.8rem;
-    padding: 1.5rem;
-    border-right: 1px solid var(--cp-border);
-    background:
-        linear-gradient(145deg, color-mix(in srgb, var(--cp-accent) 8%, transparent), transparent 65%),
-        var(--cp-surface-3);
-    text-align: center;
-}
+/* Static score explainer. The ring / pill / equation visuals are reused by
+   the worked-example result panel; the weight board and receipt follow.
+   Family severity hues ride --about-weight-color and are data colors
+   (fixed on both themes), same convention as the grade palette. */
 .about-score-ring {
     width: clamp(9.5rem, 14vw, 12rem);
     aspect-ratio: 1;
@@ -1123,61 +1105,149 @@ body {
 }
 .about-score-equation b { color: var(--cp-muted); font-weight: 400; }
 .about-score-equation strong { color: var(--about-grade-color, var(--cp-text)); font-size: 1.35em; }
-.about-score-result > small { max-width: 30rem; color: var(--cp-muted); }
-.about-score-result.is-focused { box-shadow: inset 0 0 0 2px color-mix(in srgb, #228be6 45%, transparent); }
-.about-score-result.is-unknown { box-shadow: inset 0 0 0 2px color-mix(in srgb, #868e96 45%, transparent); }
-.about-score-controls {
+/* Weight board — one <i> block = one point, every bar on the same
+   9-column scale so the deduction ratios are visually literal. Repeat
+   premium blocks render hollow (dashed) instead of solid. */
+.about-weight-board {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 1px;
-    background: var(--cp-border);
-}
-.about-score-control {
-    display: grid;
-    grid-template-rows: auto auto 1fr;
-    align-content: center;
-    gap: 1.3rem;
-    min-width: 0;
-    padding: clamp(1rem, 2.2vw, 1.6rem);
+    gap: 1rem;
+    padding: clamp(1rem, 2.2vw, 1.5rem);
+    border: 1px solid var(--cp-border);
+    border-radius: 0.85rem;
     background: var(--cp-surface-2);
 }
-.about-score-control > span:first-child { display: grid; gap: 0.15rem; }
-.about-score-control small { color: var(--cp-muted); font-size: 0.75rem; font-weight: 400; }
-.about-control-math {
-    display: flex;
-    justify-content: space-between;
-    gap: 0.5rem;
+.about-weight-title,
+.about-example-title {
+    margin: 0;
+    font-size: 0.86rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+.about-weight-title small {
+    margin-left: 0.4rem;
     color: var(--cp-muted);
-    font-size: 0.85rem;
+    font-weight: 400;
+    letter-spacing: normal;
+    text-transform: none;
+}
+.about-weight-family { display: grid; gap: 0.6rem; }
+.about-weight-family + .about-weight-family {
+    padding-top: 1rem;
+    border-top: 1px dashed var(--cp-border);
+}
+.about-weight-family.is-risk, .about-example-line.is-risk { --about-weight-color: #e03131; }
+.about-weight-family.is-grp, .about-example-line.is-grp { --about-weight-color: #f59f00; }
+.about-weight-family > header { display: grid; gap: 0.15rem; }
+.about-weight-family > header small { color: var(--cp-muted); font-size: 0.78rem; }
+.about-weight-row {
+    display: grid;
+    grid-template-columns: minmax(9.5rem, 13rem) minmax(0, 1fr) 3rem;
+    gap: 0.9rem;
+    align-items: center;
+}
+.about-weight-when { color: var(--cp-muted); font-size: 0.85rem; }
+.about-weight-when small { display: block; font-size: 0.72rem; opacity: 0.85; }
+.about-weight-blocks {
+    display: grid;
+    grid-template-columns: repeat(9, minmax(0, 1fr));
+    gap: 0.25rem;
+    width: min(100%, 20rem);
+    height: 1.05rem;
+}
+.about-weight-blocks i {
+    border-radius: 3px;
+    background: var(--about-weight-color, var(--cp-muted));
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+}
+.about-weight-blocks i.is-repeat {
+    background: color-mix(in srgb, var(--about-weight-color, var(--cp-muted)) 22%, transparent);
+    border: 1px dashed var(--about-weight-color, var(--cp-muted));
+    box-shadow: none;
+}
+.about-weight-amount {
+    justify-self: end;
+    color: var(--about-weight-color, var(--cp-text));
+    font-size: 1.25rem;
+    font-weight: 800;
     font-variant-numeric: tabular-nums;
 }
-.about-control-math output { color: var(--cp-text); font-weight: 800; }
-.about-score-control input[type='range'] {
-    width: 100%;
-    align-self: end;
-    cursor: ew-resize;
-    accent-color: var(--cp-accent);
-}
-.about-score-control input[type='range']:focus-visible {
-    outline: 2px solid var(--cp-accent);
-    outline-offset: 4px;
+.about-weight-note {
+    margin: 0;
+    max-width: 76ch;
+    color: var(--cp-muted);
+    font-size: 0.82rem;
 }
 
-.about-scope-lab {
+/* Worked example — receipt tally on the left, reused ring/pill/equation
+   result panel on the right. All numbers are static; the test suite
+   re-adds the receipt up via the data-points attributes. */
+.about-example {
     display: grid;
-    grid-template-columns: minmax(17rem, 0.7fr) minmax(30rem, 1.3fr);
-    gap: 1rem;
+    grid-template-columns: minmax(28rem, 1.28fr) minmax(16rem, 0.72fr);
+    margin-top: 1rem;
+    border: 1px solid var(--cp-border);
+    border-radius: 0.85rem;
+    overflow: hidden;
+    background: var(--cp-surface-2);
+}
+.about-example-receipt {
+    display: grid;
+    gap: 0.65rem;
+    align-content: center;
+    padding: clamp(1rem, 2.2vw, 1.5rem);
+}
+.about-example-line {
+    display: grid;
+    grid-template-columns: minmax(12rem, 17rem) minmax(0, 1fr) 3rem;
+    gap: 0.9rem;
+    align-items: center;
+    font-size: 0.9rem;
+}
+.about-example-line small { display: block; color: var(--cp-muted); font-size: 0.72rem; }
+.about-example-line > b {
+    justify-self: end;
+    color: var(--about-weight-color, var(--cp-text));
+    font-size: 1.05rem;
+    font-variant-numeric: tabular-nums;
+}
+.about-example-start { grid-template-columns: minmax(0, 1fr) 3rem; color: var(--cp-muted); }
+.about-example-total {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: baseline;
+    padding-top: 0.6rem;
+    border-top: 2px solid var(--cp-border);
+    font-weight: 800;
+}
+.about-example-total > b { font-size: 1.6rem; font-variant-numeric: tabular-nums; }
+.about-example-scope { margin: 0; color: var(--cp-muted); font-size: 0.82rem; }
+.about-example-result {
+    display: grid;
+    place-items: center;
+    align-content: center;
+    gap: 0.8rem;
+    padding: 1.5rem;
+    border-left: 1px solid var(--cp-border);
+    background:
+        linear-gradient(145deg, color-mix(in srgb, var(--cp-accent) 8%, transparent), transparent 65%),
+        var(--cp-surface-3);
+    text-align: center;
+}
+.about-example-result > small { max-width: 30rem; color: var(--cp-muted); }
+
+/* Breadth gate — static rule strip; the cards state the thresholds. */
+.about-scope-rules {
+    display: grid;
+    gap: 0.75rem;
     margin-top: 1rem;
     padding: 1rem;
     border: 1px solid var(--cp-border);
     border-radius: 0.8rem;
     background: var(--cp-surface-2);
 }
-.about-scope-lab > label { display: grid; gap: 0.75rem; align-content: center; }
-.about-scope-lab > label > span { display: grid; gap: 0.15rem; }
-.about-scope-lab small { color: var(--cp-muted); font-size: 0.75rem; font-weight: 400; }
-.about-scope-lab output { color: var(--cp-accent); font-size: 1rem; font-weight: 800; font-variant-numeric: tabular-nums; }
-.about-scope-lab input[type='range'] { width: 100%; accent-color: var(--cp-accent); }
+.about-scope-rules > header { display: grid; gap: 0.15rem; }
+.about-scope-rules > header small { color: var(--cp-muted); font-size: 0.78rem; }
 .about-scope-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.55rem; }
 .about-scope-card {
     display: grid;
@@ -1187,25 +1257,21 @@ body {
     min-width: 0;
     padding: 0.7rem;
     border: 1px solid var(--cp-border);
+    border-left-width: 3px;
     border-radius: 0.6rem;
     background: var(--cp-surface-3);
-    opacity: 0.62;
-    transition: opacity 120ms ease, border-color 120ms ease, transform 120ms ease;
 }
 .about-scope-card > span { color: var(--cp-muted); font-size: 0.78rem; font-weight: 900; white-space: nowrap; }
 .about-scope-card > div { display: grid; gap: 0.12rem; }
-.about-scope-card.is-active { opacity: 1; transform: translateY(-2px); border-color: var(--cp-accent); }
-.about-scope-card[data-about-scope-card='broad'].is-active { border-color: #2f9e44; }
-.about-scope-card[data-about-scope-card='focused'].is-active { border-color: #228be6; }
-.about-scope-card[data-about-scope-card='unknown'].is-active { border-color: #868e96; }
+.about-scope-card.is-broad { border-left-color: #2f9e44; }
+.about-scope-card.is-focused { border-left-color: #228be6; }
+.about-scope-card.is-unknown { border-left-color: #868e96; }
 
 .about-grade-scale {
     position: relative;
     margin: 3rem 0 0.5rem;
     padding-top: 1.15rem;
 }
-.about-grade-scale.is-ineligible { opacity: 0.35; }
-.about-grade-scale.is-ineligible .about-grade-marker { display: none; }
 .about-grade-segments {
     display: grid;
     grid-template-columns: 6fr repeat(4, 1fr);
@@ -1243,7 +1309,6 @@ body {
     top: -1.2rem;
     left: clamp(2%, var(--about-score-position), 98%);
     transform: translateX(-50%);
-    transition: left 120ms ease-out;
 }
 .about-grade-marker::after {
     content: '';
@@ -1608,9 +1673,8 @@ body {
 @media (max-width: 899.98px) {
     .about-hero { grid-template-columns: 1fr; min-height: 0; }
     .about-live-card { min-height: 7.5rem; }
-    .about-score-lab { grid-template-columns: 1fr; }
-    .about-scope-lab { grid-template-columns: 1fr; }
-    .about-score-result { border-right: 0; border-bottom: 1px solid var(--cp-border); }
+    .about-example { grid-template-columns: 1fr; }
+    .about-example-result { border-left: 0; border-top: 1px solid var(--cp-border); }
     .about-lineage-card ul { grid-template-columns: 1fr; }
     .about-tier-grid { grid-template-columns: 1fr; }
     .about-tier-route { grid-template-columns: auto auto auto; }
@@ -1628,7 +1692,6 @@ body {
     .about-badge-row { gap: 0.3rem; }
     .about-badge { font-size: 0.6rem; }
     .about-live-grid,
-    .about-score-controls,
     .about-scope-grid,
     .about-disclosure-grid,
     .about-rule-base,
@@ -1640,9 +1703,17 @@ body {
     .about-live-card { min-height: 6.4rem; }
     .about-section-heading { grid-template-columns: auto minmax(0, 1fr); gap: 0.65rem; }
     .about-section-heading > .about-badge { grid-column: 2; }
-    .about-score-lab { min-height: 0; }
-    .about-score-result { padding: 1.2rem 0.75rem; }
-    .about-score-control { min-height: 10.5rem; }
+    /* Phone: weight/receipt rows go two-line — label + amount on top,
+       the point-block bar full-width beneath. */
+    .about-weight-row,
+    .about-example-line { grid-template-columns: minmax(0, 1fr) auto; row-gap: 0.35rem; }
+    .about-weight-row > .about-weight-when,
+    .about-example-line > span:first-child { grid-row: 1; grid-column: 1; }
+    .about-weight-row > .about-weight-amount,
+    .about-example-line > b { grid-row: 1; grid-column: 2; }
+    .about-weight-row > .about-weight-blocks,
+    .about-example-line > .about-weight-blocks { grid-row: 2; grid-column: 1 / -1; width: 100%; }
+    .about-example-result { padding: 1.2rem 0.75rem; }
     .about-grade-scale { margin-top: 3.5rem; }
     .about-grade-segments { grid-template-columns: 6fr repeat(4, 1fr); }
     .about-grade-segments > span {
@@ -1659,7 +1730,4 @@ body {
     .food-source-footer { padding-inline: 0.55rem !important; font-size: 0.7rem; }
     .food-score-hero { flex-wrap: wrap; }
     .food-score-hero .food-spark { width: 100%; margin-left: 0; }
-}
-@media (prefers-reduced-motion: reduce) {
-    .about-grade-marker { transition: none; }
 }
