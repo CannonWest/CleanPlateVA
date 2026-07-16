@@ -522,7 +522,7 @@ export class FoodDashboard {
         });
         geolocate.on('geolocate', (pos) => this._onGeolocate(pos));
         geolocate.on('error', () => this._showMapNote(
-            'Couldn\'t get your location — check that location access is enabled for your browser.'));
+            'We couldn\'t find your location. Check that location access is on for your browser.'));
         // Follow-mode bookkeeping via the control's public events: the
         // coverage note's back-link must know whether to switch the control
         // off before moving the camera (see _showMapNote).
@@ -716,7 +716,7 @@ export class FoodDashboard {
             return;
         }
         this._showMapNote(
-            'You\'re outside the mapped area — the map currently covers Virginia.',
+            'This map only covers Virginia, and you\'re outside it.',
             true);
     }
 
@@ -730,13 +730,12 @@ export class FoodDashboard {
         const note = document.createElement('div');
         note.className = 'food-map-note';
         note.dataset.note = text;
-        note.innerHTML = `<span>${text}</span>`
-            + (withReturnLink ? '<a href="#" class="food-map-note-back">Back to the mapped area</a>' : '')
-            + '<button type="button" class="btn-close" aria-label="Dismiss"></button>';
+        note.innerHTML = '<button type="button" class="btn-close" aria-label="Dismiss"></button>'
+            + `<span>${text}</span>`
+            + (withReturnLink ? '<button type="button" class="food-map-note-back">Back to Virginia</button>' : '');
         note.querySelector('.btn-close')
             .addEventListener('click', () => this._hideMapNote());
-        note.querySelector('.food-map-note-back')?.addEventListener('click', (ev) => {
-            ev.preventDefault();
+        note.querySelector('.food-map-note-back')?.addEventListener('click', () => {
             // A zoom-changing easeTo does NOT drop the control's follow
             // lock (its movestart handler skips zooming camera moves), so
             // switch the control off first — otherwise the next fix flies
