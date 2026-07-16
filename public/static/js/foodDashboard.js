@@ -705,9 +705,9 @@ export class FoodDashboard {
         return { n: n + PAD, s: s - PAD, e: e + PAD, w: w - PAD };
     }
 
-    /** The data covers a fraction of the state the site is named after —
-     *  tell out-of-coverage users why their map is empty instead of
-     *  stranding them on a blank basemap. */
+    /** Tell out-of-coverage visitors why the map around them is empty —
+     *  and hand them a way back — instead of stranding them on a blank
+     *  basemap. */
     _onGeolocate(pos) {
         const { latitude: lat, longitude: lon } = pos.coords;
         const b = this._coverageBounds();
@@ -716,7 +716,7 @@ export class FoodDashboard {
             return;
         }
         this._showMapNote(
-            'You\'re outside the mapped area — coverage is currently the greater Richmond region.',
+            'You\'re outside the mapped area — the map currently covers Virginia.',
             true);
     }
 
