@@ -122,3 +122,26 @@ test('the grade scale keeps a truthful axis and readable band labels on phones',
         /\.about-grade-segments \.grade-d,[\s\S]*?color:\s*#10141c;[\s\S]*?text-shadow:\s*none/,
     );
 });
+
+test('the standing explainer is arithmetically honest and matches the pipeline rules', () => {
+    // Receipt honesty: base + Σ(deltas) rounds to the printed total.
+    const base = Number(html.match(/data-standing-base="(\d+)"/)?.[1]);
+    const deltas = [...html.matchAll(/data-standing-delta="(-?[\d.]+)"/g)]
+        .map(([, n]) => Number(n));
+    const total = Number(html.match(/data-standing-total="(\d+)"/)?.[1]);
+    assert.ok(deltas.length >= 2, 'worked standing example lists adjustments');
+    assert.equal(Math.round(base + deltas.reduce((a, b) => a + b, 0)), total);
+
+    // The four adjustment rules are stated with the locked constants.
+    assert.match(html, /\+65%/);
+    assert.match(html, /Returns 65% of that item’s deduction/);
+    assert.match(html, /×1\.5/);
+    assert.match(html, /OUT, fixed on site/);
+    assert.match(html, /New finding/);
+    assert.match(html, /No follow-up since the broad assessment → standing is that score, exactly\./);
+
+    // The production path actually keys the headline off standing.
+    assert.match(dashboardSource, /standingPresentation/);
+    assert.match(dashboardSource, /const STANDING_RESTORE_PCT = 65;/);
+    assert.match(dashboardSource, /fill: standing grade — broad ± follow-ups/);
+});

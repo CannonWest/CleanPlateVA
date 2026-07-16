@@ -395,9 +395,39 @@ body {
 .food-scope-badge-broad { color: #2b8a3e; }
 .food-scope-badge-focused { color: #1971c2; }
 .food-scope-badge-unknown { color: #6c757d; }
+.food-scope-badge-standing { color: #6741d9; }
 .theme-dark .food-scope-badge-broad { color: #69db7c; }
 .theme-dark .food-scope-badge-focused { color: #74c0fc; }
 .theme-dark .food-scope-badge-unknown { color: #adb5bd; }
+.theme-dark .food-scope-badge-standing { color: #b197fc; }
+
+/* Standing hero — leads the detail panel when a follow-up adjusted the
+   headline. Same hero anatomy, violet accent to match the Standing badge. */
+.food-standing-hero {
+    padding: 0.55rem;
+    border: 1px solid var(--cp-border);
+    border-left: 3px solid #6741d9;
+    border-radius: 0.65rem;
+    background: var(--cp-surface-2);
+}
+.theme-dark .food-standing-hero { border-left-color: #b197fc; }
+.food-standing-breakdown { display: flex; flex-wrap: wrap; gap: 0.28rem; margin-top: 0.3rem; }
+.food-standing-chip {
+    padding: 0.06rem 0.4rem;
+    border: 1px solid var(--cp-border);
+    border-radius: 999px;
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: var(--cp-muted);
+    background: var(--cp-surface);
+    white-space: nowrap;
+}
+.food-standing-chip-restored { color: #2b8a3e; border-color: currentColor; }
+.food-standing-chip-failed { color: #e03131; border-color: currentColor; }
+.food-standing-chip-new { color: #e8590c; border-color: currentColor; }
+.theme-dark .food-standing-chip-restored { color: #69db7c; }
+.theme-dark .food-standing-chip-failed { color: #ff8787; }
+.theme-dark .food-standing-chip-new { color: #ffa94d; }
 .food-raw-score { margin: 0.25rem 0; color: #1971c2; font-size: 0.74rem; font-weight: 600; }
 .theme-dark .food-raw-score { color: #74c0fc; }
 .food-last-assessment {
@@ -1138,6 +1168,18 @@ body {
 }
 .about-weight-family.is-risk, .about-example-line.is-risk { --about-weight-color: #e03131; }
 .about-weight-family.is-grp, .about-example-line.is-grp { --about-weight-color: #f59f00; }
+/* Standing explainer reuses the scope-rules / receipt anatomy; the accent
+   colors track the detail-panel standing chips (light + dark pairs). */
+.about-example-line.is-standing-restored { --about-weight-color: #2b8a3e; }
+.about-example-line.is-standing-failed { --about-weight-color: #e03131; }
+.theme-dark .about-example-line.is-standing-restored { --about-weight-color: #69db7c; }
+.theme-dark .about-example-line.is-standing-failed { --about-weight-color: #ff8787; }
+.about-standing-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.about-standing-example { margin-top: 0.35rem; padding: 0.85rem 0.35rem 0; border-top: 1px dashed var(--cp-border); }
+.about-standing-grid .about-scope-card > span { min-width: 3.1rem; }
+@media (max-width: 720px) {
+    .about-standing-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 .about-weight-family > header { display: grid; gap: 0.15rem; }
 .about-weight-family > header small { color: var(--cp-muted); font-size: 0.78rem; }
 .about-weight-row {
@@ -1266,6 +1308,10 @@ body {
 .about-scope-card.is-broad { border-left-color: #2f9e44; }
 .about-scope-card.is-focused { border-left-color: #228be6; }
 .about-scope-card.is-unknown { border-left-color: #868e96; }
+.about-scope-card.is-standing-restored { border-left-color: #2f9e44; }
+.about-scope-card.is-standing-failed { border-left-color: #e03131; }
+.about-scope-card.is-standing-cos { border-left-color: #868e96; }
+.about-scope-card.is-standing-new { border-left-color: #e8590c; }
 
 .about-grade-scale {
     position: relative;
