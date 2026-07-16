@@ -89,20 +89,6 @@
                 <i class="bi bi-arrow-clockwise"></i>
             </button>
         </div>
-        <!-- Toolbar row 2: marker color-mode (full tier only — hidden in lite) -->
-        <!-- flex comes from .food-toolbar2 (not the d-flex utility): d-flex is
-             !important and would beat the lite-mode display:none. -->
-        <div class="food-toolbar2 align-items-center gap-2 px-3 py-1 border-bottom flex-wrap" id="foodToolbar2">
-            <label class="food-colorby small text-muted mb-0">Color by
-                <select class="form-select form-select-sm w-auto d-inline-block ms-1" id="foodColorMode"
-                        title="What the marker color encodes">
-                    <option value="grade">Grade</option>
-                    <option value="compliance">Compliance %</option>
-                    <option value="repeat">Open repeats</option>
-                </select>
-            </label>
-            <span class="food-colormode-legend small text-muted ms-auto" id="foodColorLegend"></span>
-        </div>
         <!-- Map | List + detail panel split -->
         <div class="food-body d-flex flex-grow-1" id="foodBody">
             <div class="food-map-wrap flex-grow-1" id="foodMapWrap">

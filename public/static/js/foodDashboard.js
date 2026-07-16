@@ -315,7 +315,6 @@ export class FoodDashboard {
             showClosed: localStorage.getItem(SHOW_CLOSED_KEY) === '1',
         };
         this._viewMode = 'map';     // 'map' | 'list' | 'about'
-        this._colorMode = 'grade';  // 'grade' | 'compliance' | 'repeat'
         this._sort = { key: 'score', dir: 'asc' };  // list sort — worst-first default
         this._selectedPermit = null;
         this._searchDebounce = null;
@@ -398,13 +397,6 @@ export class FoodDashboard {
         });
 
         if (window.location.hash.toLowerCase() === '#about') this._setView('about', false);
-
-        // Marker color-mode (grade / compliance / open repeats)
-        document.getElementById('foodColorMode')?.addEventListener('change', (e) => {
-            this._colorMode = e.target.value;
-            this._updateColorLegend();
-            this._rebuildMarkers();
-        });
 
         // List sort headers — click to sort, click again to flip direction
         document.getElementById('foodListTable')
@@ -493,7 +485,6 @@ export class FoodDashboard {
         this._updateAboutStatus(payload, lite);
 
         this._populateZipFilter();
-        this._updateColorLegend();
         this._ensureMap();
         // If the map predates a mode flip, restyle the cluster tint to match.
         if (this._mapReady) {
@@ -860,22 +851,9 @@ export class FoodDashboard {
         return true;
     }
 
-    // Marker fill by the active color-mode. (`gradeColor` is the data palette.)
+    // Marker fill = the facility grade color. (`gradeColor` is the data palette.)
     _markerColor(f) {
-        const fp = facilityPresentation(f);
-        const assessment = fp.assessmentRecord || {};
-        if (this._colorMode === 'compliance') {
-            const c = assessment.compliance_rate;
-            if (c == null) return GRADE_COLORS.none;
-            return c >= 0.9 ? GRADE_COLORS.A : c >= 0.75 ? GRADE_COLORS.B
-                : c >= 0.6 ? GRADE_COLORS.C : c >= 0.4 ? GRADE_COLORS.D : GRADE_COLORS.F;
-        }
-        if (this._colorMode === 'repeat') {
-            const lt = f.latest || {};
-            if ((lt.open_repeat || 0) > 0) return GRADE_COLORS.F;
-            return lt.checklist_present ? GRADE_COLORS.A : GRADE_COLORS.none;
-        }
-        return gradeColor(fp.grade?.letter || null);
+        return gradeColor(facilityPresentation(f).grade?.letter || null);
     }
 
     _tooltipHTML(f) {
@@ -1022,8 +1000,6 @@ export class FoodDashboard {
         document.getElementById('foodMapWrap')?.classList.toggle('d-none', mode !== 'map');
         document.getElementById('foodListWrap')?.classList.toggle('d-none', mode !== 'list');
         document.getElementById('foodAboutWrap')?.classList.toggle('d-none', mode !== 'about');
-        // The color-by row tints map markers — irrelevant in the list, so
-        // hide toolbar2 there (it's already hidden entirely in lite mode).
         document.body.classList.toggle('food-view-list', mode === 'list');
         document.body.classList.toggle('food-view-about', mode === 'about');
         if (syncHash && window.history?.replaceState) {
@@ -1038,19 +1014,6 @@ export class FoodDashboard {
         }
     }
 
-    _updateColorLegend() {
-        const el = document.getElementById('foodColorLegend');
-        if (!el) return;
-        if (this._mode === 'lite') {
-            el.textContent = '';
-            return;
-        }
-        el.textContent = ({
-            grade: 'fill: facility grade — broad ± follow-ups (green A → red F)',
-            compliance: 'fill: latest broad checklist compliance',
-            repeat: 'fill: red = open repeat on latest report',
-        }[this._colorMode] || '') + ' · red ring = broad trend declined';
-    }
 
     _rebuildList() {
         const body = document.getElementById('foodListBody');

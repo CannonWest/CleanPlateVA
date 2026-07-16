@@ -313,7 +313,7 @@ test('grade filter, marker fill, and score sort all key off facility.grade', () 
     const src = readFileSync(
         new URL('../public/static/js/foodDashboard.js', import.meta.url), 'utf8');
     assert.match(src, /facilityPresentation\(f\)\.grade\?\.letter/);
-    assert.match(src, /return gradeColor\(fp\.grade\?\.letter \|\| null\);/);
+    assert.match(src, /return gradeColor\(facilityPresentation\(f\)\.grade\?\.letter \|\| null\);/);
     assert.match(src, /case 'score': return fp\.grade\?\.score \?\? -1;/);
     assert.doesNotMatch(src, /\bstandingPresentation\b/);
 });

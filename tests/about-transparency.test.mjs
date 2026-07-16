@@ -145,6 +145,5 @@ test('the grade explainer is arithmetically honest and matches the pipeline rule
     // The production path keys the headline off the facility grade — no standing.
     assert.match(dashboardSource, /gradePresentation/);
     assert.match(dashboardSource, /const GRADE_RESTORE_PCT = 65;/);
-    assert.match(dashboardSource, /fill: facility grade — broad ± follow-ups/);
     assert.doesNotMatch(dashboardSource, /\bstandingPresentation\b/);
 });
