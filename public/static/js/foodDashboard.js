@@ -858,12 +858,13 @@ export class FoodDashboard {
         return (f.status || '').toLowerCase().includes('permitted');
     }
 
-    // Newly permitted = an active permit with no scored broad assessment yet,
-    // so no grade. Plots blue and is governed by the "Show new" toggle. Also
-    // catches mobile units and the rare data gap — all honestly "permitted,
-    // not yet broadly assessed".
+    // Newly permitted = the exporter's authoritative flag: active + no grade +
+    // a pre-opening on record + no routine/risk-factor inspection + zero
+    // violations. "No grade" alone is NOT enough — an unparsed routine that
+    // carries violations must never read as "cleared to open" (see cf_export_site
+    // _newly_permitted). Absent flag (older payload) degrades safely to false.
     _isNew(f) {
-        return this._isActive(f) && !gradePresentation(f);
+        return f.newly_permitted === true;
     }
 
     _matchesFilters(f) {
@@ -1234,9 +1235,10 @@ export class FoodDashboard {
         // The facility GRADE circle leads the panel for every facility; the
         // latest inspection is just the first (open) card in the history below.
         const grade = gradePresentation(fac);
-        // Active permit, no broad assessment → "newly permitted": a blue NEW
-        // badge and no sparkline (there's no broad-score history to trend).
-        const isNew = !grade && this._isActive(fac);
+        // Newly permitted → a blue NEW badge and no sparkline (no broad-score
+        // history to trend). Uses the exporter's flag (see _isNew), not merely
+        // "no grade".
+        const isNew = this._isNew(fac);
         const sparkHtml = (latest && !isNew) ? this._sparkline(inspections) : '';
         const latestDate = latest?.date || null;
         const gradeHero = grade
