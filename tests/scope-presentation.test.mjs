@@ -320,12 +320,15 @@ test('grade filter, marker fill, and score sort all key off facility.grade', () 
     assert.doesNotMatch(src, /\bstandingPresentation\b/);
 });
 
-test('newly permitted = an active permit with no grade; closed or graded is not', () => {
+test('newly permitted keys off the exporter flag, not merely "no grade"', () => {
     const proto = dashboard.FoodDashboard.prototype;
-    assert.equal(proto._isNew.call(proto, { status: 'Permitted' }), true);
+    assert.equal(proto._isNew.call(proto, { newly_permitted: true }), true);
+    assert.equal(proto._isNew.call(proto, { newly_permitted: false }), false);
+    // "active + no grade" is NOT enough on its own anymore — an unparsed routine
+    // with violations (the E'din bug) reached here and read as "cleared to open".
+    assert.equal(proto._isNew.call(proto, { status: 'Permitted' }), false);
     assert.equal(proto._isNew.call(proto, { status: 'Permitted', grade: { score: 82, letter: 'B' } }), false);
-    assert.equal(proto._isNew.call(proto, { status: 'Business Closed' }), false);
-    assert.equal(proto._isNew.call(proto, {}), false);   // unknown status is not "permitted"
+    assert.equal(proto._isNew.call(proto, {}), false);
 });
 
 test('the newly-permitted hero is a blue NEW badge with simple copy and no sparkline', () => {
