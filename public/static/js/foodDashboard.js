@@ -29,6 +29,7 @@
 
 const RESTAURANTS_ONLY_KEY = 'cleanplateva.food.restaurantsOnly';
 const SHOW_CLOSED_KEY = 'cleanplateva.food.showClosed';
+const SHOW_NEW_KEY = 'cleanplateva.food.showNew';
 
 const PORTAL_PERMIT_URL =
     'https://inspections.myhealthdepartment.com/virginia/permit/?permitID=';
@@ -43,6 +44,12 @@ const GRADE_COLORS = {
     F: '#e03131',   // red
     none: '#868e96', // unscored — gray
 };
+
+// Newly permitted (an active permit with no scored broad assessment yet, so no
+// grade): a blue that reads "cleared to open, grade still to come" — distinct
+// from every A–F hue and on-brand with --cp-accent. Data color (map marker +
+// panel badge), so it lives alongside GRADE_COLORS.
+const NEW_COLOR = '#1c7ed6';
 
 // CARTO vector basemaps. Attribution rides in the style's sources;
 // MapLibre's AttributionControl surfaces it.
@@ -317,6 +324,10 @@ export class FoodDashboard {
             // Pending / etc.) by default — a "where to eat" map shows live
             // places, not closed pins wearing their last grade.
             showClosed: localStorage.getItem(SHOW_CLOSED_KEY) === '1',
+            // Newly-permitted places (active, no broad assessment yet) plot blue
+            // and show by default; the toggle lets a graded-only view hide them.
+            // Default ON — a missing key means show.
+            showNew: localStorage.getItem(SHOW_NEW_KEY) !== '0',
         };
         this._viewMode = 'map';     // 'map' | 'list' | 'about'
         this._sort = { key: 'score', dir: 'asc' };  // list sort — worst-first default
@@ -376,6 +387,19 @@ export class FoodDashboard {
                 try {
                     localStorage.setItem(SHOW_CLOSED_KEY,
                         closedToggle.checked ? '1' : '0');
+                } catch (_) { /* private mode */ }
+                this._rebuildMarkers();
+            });
+        }
+
+        const newToggle = document.getElementById('foodShowNew');
+        if (newToggle) {
+            newToggle.checked = this._filters.showNew;
+            newToggle.addEventListener('change', () => {
+                this._filters.showNew = newToggle.checked;
+                try {
+                    localStorage.setItem(SHOW_NEW_KEY,
+                        newToggle.checked ? '1' : '0');
                 } catch (_) { /* private mode */ }
                 this._rebuildMarkers();
             });
@@ -834,8 +858,16 @@ export class FoodDashboard {
         return (f.status || '').toLowerCase().includes('permitted');
     }
 
+    // Newly permitted = an active permit with no scored broad assessment yet,
+    // so no grade. Plots blue and is governed by the "Show new" toggle. Also
+    // catches mobile units and the rare data gap — all honestly "permitted,
+    // not yet broadly assessed".
+    _isNew(f) {
+        return this._isActive(f) && !gradePresentation(f);
+    }
+
     _matchesFilters(f) {
-        const { q, zip, grade, restaurantsOnly, showClosed } = this._filters;
+        const { q, zip, grade, restaurantsOnly, showClosed, showNew } = this._filters;
         const lite = this._mode === 'lite';
         // Explicit === false so payloads without the field pass through
         // rather than blanking the map.
@@ -843,6 +875,8 @@ export class FoodDashboard {
         // Lite records carry no status (active-only by construction) and no
         // grades — those filters are hidden and inert there.
         if (!lite && !showClosed && !this._isActive(f)) return false;
+        // Newly-permitted (active, ungraded) places get their own toggle.
+        if (!lite && !showNew && this._isNew(f)) return false;
         if (!lite && grade) {
             const letter = facilityPresentation(f).grade?.letter || null;
             if (letter !== grade) return false;
@@ -891,7 +925,9 @@ export class FoodDashboard {
         const g = fp.grade;
         let headlineHtml;
         if (!g) {
-            headlineHtml = '<span class="food-tip-sub">No grade yet — no broad inspection</span>';
+            headlineHtml = active
+                ? '<span class="food-tip-new">Newly permitted · not yet broadly assessed</span>'
+                : '<span class="food-tip-sub">No grade yet — no broad inspection</span>';
         } else if (g.adjusted) {
             headlineHtml = `<span class="food-tip-sub">${esc(`Grade ${g.letter} · ${g.score}`
                 + ` · after ${g.followups} follow-up${g.followups === 1 ? '' : 's'}`)}</span>`
@@ -926,8 +962,11 @@ export class FoodDashboard {
                 properties: {
                     pid: f.permit_id,
                     // Lite is the finder view: every marker a uniform neutral —
-                    // the map locates places, it doesn't judge them.
-                    fill: lite ? '#8d939c' : active ? this._markerColor(f) : '#9aa0a6',
+                    // the map locates places, it doesn't judge them. Full tier:
+                    // graded → grade color, newly-permitted → blue, closed → gray.
+                    fill: lite ? '#8d939c'
+                        : !active ? '#9aa0a6'
+                            : this._isNew(f) ? NEW_COLOR : this._markerColor(f),
                     fillOpacity: active ? 0.88 : 0.42,
                     // declining facilities get a heavier warning ring on any color-mode.
                     stroke: !active ? 'rgba(130, 130, 130, 0.55)'
@@ -1070,7 +1109,10 @@ export class FoodDashboard {
                 <td class="food-list-col-zip">${esc(f.zip || '')}</td>
                 <td class="food-list-full-only food-list-col-score">${g ? `<span class="food-list-score" style="background:${gradeColor(g.letter)}" title="${g.adjusted
                     ? `Grade after ${g.followups} follow-up${g.followups === 1 ? '' : 's'} · from broad ${esc(g.baseScore)}${assessmentRecord.date ? ` on ${esc(fmtDate(assessmentRecord.date))}` : ''}`
-                    : assessmentRecord.date ? `Grade from the broad inspection on ${esc(fmtDate(assessmentRecord.date))}` : 'Facility grade'}">${esc(g.letter)} ${esc(g.score)}</span>` : '<span class="food-list-score food-list-score-none" title="No broad inspection captured">—</span>'}</td>
+                    : assessmentRecord.date ? `Grade from the broad inspection on ${esc(fmtDate(assessmentRecord.date))}` : 'Facility grade'}">${esc(g.letter)} ${esc(g.score)}</span>`
+                    : this._isNew(f)
+                        ? '<span class="food-list-score food-list-score-new" title="Newly permitted — not yet broadly assessed">NEW</span>'
+                        : '<span class="food-list-score food-list-score-none" title="No broad inspection captured">—</span>'}</td>
                 <td class="food-list-full-only food-list-col-compliance">${assessmentRecord.compliance_rate != null ? Math.round(assessmentRecord.compliance_rate * 100) + '%' : '—'}</td>
                 <td class="food-list-full-only food-list-col-trend" style="color:${tcol}">${arrow || '—'}</td>
                 <td class="food-list-date food-list-full-only food-list-col-date">${fmtDate(lt.date)}</td>
@@ -1191,12 +1233,17 @@ export class FoodDashboard {
         // The facility GRADE circle leads the panel for every facility; the
         // latest inspection is just the first (open) card in the history below.
         const grade = gradePresentation(fac);
-        const sparkHtml = latest ? this._sparkline(inspections) : '';
+        // Active permit, no broad assessment → "newly permitted": a blue NEW
+        // badge and no sparkline (there's no broad-score history to trend).
+        const isNew = !grade && this._isActive(fac);
+        const sparkHtml = (latest && !isNew) ? this._sparkline(inspections) : '';
         const latestDate = latest?.date || null;
         const gradeHero = grade
             ? this._gradeHero(grade, sparkHtml)
-            : this._noGradeHero(latestView, sparkHtml);
-        const scoreHero = latest
+            : isNew
+                ? this._newHero(latestView)
+                : this._noGradeHero(latestView, sparkHtml);
+        const scoreHero = (latest || isNew)
             ? `${gradeHero}${this._gradeDates(grade?.baseDate || null, latestDate)}`
             : '<div class="text-muted small mb-2">No inspection detail available yet.</div>';
 
@@ -1280,6 +1327,29 @@ export class FoodDashboard {
             </div>`;
     }
 
+    // Newly permitted: an active permit with no broad assessment yet. A blue
+    // NEW badge + a simple headline says "cleared to open, grade still to
+    // come" — a positive state, not the neutral "no data" dash. No sparkline
+    // and no trend: there's no broad-score history yet.
+    _newHero(latestView) {
+        const detail = latestView && latestView.scope === 'focused'
+            ? 'Its latest visit was a focused re-check — a broad inspection is still to come.'
+            : 'Cleared to open — its first broad inspection is still to come.';
+        const circle = `<span class="food-grade-circle food-grade-circle-new" style="--grade-color:${NEW_COLOR}" role="img" aria-label="Newly permitted, not yet broadly assessed">
+                    <span class="food-grade-new-label">NEW</span></span>`;
+        return `
+            <div class="food-score-hero food-grade-hero food-grade-hero-new">
+                <div class="food-grade-badge-col">
+                    <span class="food-grade-caption">Status</span>
+                    ${circle}
+                </div>
+                <div class="food-score-meta">
+                    <div class="food-score-grade food-score-grade-new">Permitted — not yet broadly assessed</div>
+                    <div class="text-muted small">${esc(detail)}</div>
+                </div>
+            </div>`;
+    }
+
     // No scored broad assessment → no grade. A neutral circle keeps the panel
     // shape, and the note says what a grade would need.
     _noGradeHero(latestView, sparkHtml = '') {
@@ -1306,15 +1376,19 @@ export class FoodDashboard {
     // Dated provenance as its own graphical objects below the hero: the broad
     // that anchors the grade, and the most recent visit of any kind.
     _gradeDates(baseDate, latestDate) {
+        if (!baseDate && !latestDate) return '';
+        // Both boxes always render when there's anything to show; a missing
+        // date is a dash — a newly-permitted place keeps "Last broad inspection"
+        // as "—" rather than dropping the box.
         const obj = (label, iso) => `
             <div class="food-grade-date">
                 <span class="food-grade-date-label">${label}</span>
-                <span class="food-grade-date-value">${fmtDateNum(iso)}</span>
+                <span class="food-grade-date-value">${iso ? fmtDateNum(iso) : '—'}</span>
             </div>`;
-        const objs = [];
-        if (baseDate) objs.push(obj('Last broad inspection', baseDate));
-        if (latestDate) objs.push(obj('Last visit', latestDate));
-        return objs.length ? `<div class="food-grade-dates">${objs.join('')}</div>` : '';
+        return `<div class="food-grade-dates">`
+            + obj('Last broad inspection', baseDate)
+            + obj('Last visit', latestDate)
+            + `</div>`;
     }
 
     // item#s by disposition, from a parsed checklist — used to badge violations
