@@ -726,6 +726,17 @@ body {
 .food-spark-focused { fill: var(--cp-surface); stroke: var(--food-outcome-border, #868e96); stroke-width: 1.8; }
 .food-spark-unknown { stroke: #868e96; stroke-width: 1.5; stroke-linecap: round; }
 .food-spark-legend { margin-top: -0.25rem; color: var(--cp-muted); font-size: 0.58rem; white-space: nowrap; }
+/* Hover-enlarge (desktop): transparent overlay captures the mouse; the nearest
+   node within the max radius is redrawn, enlarged, into the top .food-spark-hl
+   layer so it lifts above its neighbours. */
+.food-spark-overlay { fill: transparent; }
+.food-spark-hl-dot { stroke: var(--cp-surface); stroke-width: 1.4; }
+.food-spark-hl-dia { stroke-width: 2.2; }
+.food-spark-hl-tick { stroke: #495057; stroke-width: 2.6; }
+.theme-dark .food-spark-hl-tick { stroke: #adb5bd; }
+.food-spark-hl-label { font-weight: 700; }
+.food-spark-score.food-spark-hl-label { font-size: 11px; }
+.food-spark-raw.food-spark-hl-label { font-size: 9.5px; }
 
 .food-dispos {
     flex: 0 0 auto; font-size: 0.64rem; font-weight: 600; text-transform: uppercase;
