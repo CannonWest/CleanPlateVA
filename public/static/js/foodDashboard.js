@@ -926,7 +926,7 @@ export class FoodDashboard {
         let headlineHtml;
         if (!g) {
             headlineHtml = active
-                ? '<span class="food-tip-new">Newly permitted · not yet broadly assessed</span>'
+                ? '<span class="food-tip-new">Newly permitted · grade pending</span>'
                 : '<span class="food-tip-sub">No grade yet — no broad inspection</span>';
         } else if (g.adjusted) {
             headlineHtml = `<span class="food-tip-sub">${esc(`Grade ${g.letter} · ${g.score}`
@@ -1111,7 +1111,7 @@ export class FoodDashboard {
                     ? `Grade after ${g.followups} follow-up${g.followups === 1 ? '' : 's'} · from broad ${esc(g.baseScore)}${assessmentRecord.date ? ` on ${esc(fmtDate(assessmentRecord.date))}` : ''}`
                     : assessmentRecord.date ? `Grade from the broad inspection on ${esc(fmtDate(assessmentRecord.date))}` : 'Facility grade'}">${esc(g.letter)} ${esc(g.score)}</span>`
                     : this._isNew(f)
-                        ? '<span class="food-list-score food-list-score-new" title="Newly permitted — not yet broadly assessed">NEW</span>'
+                        ? '<span class="food-list-score food-list-score-new" title="Newly permitted; grade pending a broad inspection">NEW</span>'
                         : '<span class="food-list-score food-list-score-none" title="No broad inspection captured">—</span>'}</td>
                 <td class="food-list-full-only food-list-col-compliance">${assessmentRecord.compliance_rate != null ? Math.round(assessmentRecord.compliance_rate * 100) + '%' : '—'}</td>
                 <td class="food-list-full-only food-list-col-trend" style="color:${tcol}">${arrow || '—'}</td>
@@ -1253,7 +1253,9 @@ export class FoodDashboard {
                 <i class="bi bi-exclamation-triangle"></i> inspection page says: ${esc(fac.status_onpage)}</div>` : '';
 
         const flags = (latest?.red_flags || []);
-        const flagsHtml = latest ? (flags.length ? `
+        // Newly-permitted places have no real inspection to flag — skip the
+        // red-flag section entirely (it would only ever say "none").
+        const flagsHtml = (latest && !isNew) ? (flags.length ? `
             <div class="food-flags">
                 <div class="food-section-title">Biggest red flags — latest report</div>
                 ${flags.map((fl) => `
@@ -1333,9 +1335,9 @@ export class FoodDashboard {
     // and no trend: there's no broad-score history yet.
     _newHero(latestView) {
         const detail = latestView && latestView.scope === 'focused'
-            ? 'Its latest visit was a focused re-check — a broad inspection is still to come.'
-            : 'Cleared to open — its first broad inspection is still to come.';
-        const circle = `<span class="food-grade-circle food-grade-circle-new" style="--grade-color:${NEW_COLOR}" role="img" aria-label="Newly permitted, not yet broadly assessed">
+            ? 'Grade pending a broad inspection; latest visit was a focused re-check.'
+            : 'Cleared to open; grade pending its first broad inspection.';
+        const circle = `<span class="food-grade-circle food-grade-circle-new" style="--grade-color:${NEW_COLOR}" role="img" aria-label="Newly permitted, grade pending a broad inspection">
                     <span class="food-grade-new-label">NEW</span></span>`;
         return `
             <div class="food-score-hero food-grade-hero food-grade-hero-new">
@@ -1344,7 +1346,7 @@ export class FoodDashboard {
                     ${circle}
                 </div>
                 <div class="food-score-meta">
-                    <div class="food-score-grade food-score-grade-new">Permitted — not yet broadly assessed</div>
+                    <div class="food-score-grade food-score-grade-new">Permitted</div>
                     <div class="text-muted small">${esc(detail)}</div>
                 </div>
             </div>`;
