@@ -303,10 +303,11 @@ test('grade dates render as two labeled objects below the hero, numeric M/D/YYYY
     assert.match(both, /food-grade-dates/);
     assert.match(both, /Last broad inspection<\/span>\s*<span class="food-grade-date-value">1\/17\/2025/);
     assert.match(both, /Last visit<\/span>\s*<span class="food-grade-date-value">7\/5\/2025/);
-    // no broad date (no-grade facility) → only the visit object
+    // no broad date (newly-permitted facility) → the box stays, value is a dash
     const visitOnly = proto._gradeDates.call({}, null, '2025-07-05');
-    assert.doesNotMatch(visitOnly, /Last broad inspection/);
-    assert.match(visitOnly, /Last visit/);
+    assert.match(visitOnly, /Last broad inspection<\/span>\s*<span class="food-grade-date-value">—/);
+    assert.match(visitOnly, /Last visit<\/span>\s*<span class="food-grade-date-value">7\/5\/2025/);
+    // nothing to show at all → empty
     assert.equal(proto._gradeDates.call({}, null, null), '');
 });
 
@@ -317,4 +318,35 @@ test('grade filter, marker fill, and score sort all key off facility.grade', () 
     assert.match(src, /return gradeColor\(facilityPresentation\(f\)\.grade\?\.letter \|\| null\);/);
     assert.match(src, /case 'score': return fp\.grade\?\.score \?\? -1;/);
     assert.doesNotMatch(src, /\bstandingPresentation\b/);
+});
+
+test('newly permitted = an active permit with no grade; closed or graded is not', () => {
+    const proto = dashboard.FoodDashboard.prototype;
+    assert.equal(proto._isNew.call(proto, { status: 'Permitted' }), true);
+    assert.equal(proto._isNew.call(proto, { status: 'Permitted', grade: { score: 82, letter: 'B' } }), false);
+    assert.equal(proto._isNew.call(proto, { status: 'Business Closed' }), false);
+    assert.equal(proto._isNew.call(proto, {}), false);   // unknown status is not "permitted"
+});
+
+test('the newly-permitted hero is a blue NEW badge with simple copy and no sparkline', () => {
+    const proto = dashboard.FoodDashboard.prototype;
+    const html = proto._newHero.call(proto, { scope: 'unknown' });
+    assert.match(html, /food-grade-circle-new/);
+    assert.match(html, /food-grade-new-label">NEW</);
+    assert.match(html, /--grade-color:#1c7ed6/);
+    assert.match(html, /Permitted — not yet broadly assessed/);
+    assert.match(html, /food-grade-caption">Status</);   // "Status", not "Grade"
+    assert.match(html, /Cleared to open/);
+    assert.doesNotMatch(html, /food-spark/);             // no sparkline in this hero
+    // a focused-latest new facility gets the re-check variant of the copy
+    assert.match(proto._newHero.call(proto, { scope: 'focused', count: 3 }), /focused re-check/);
+});
+
+test('newly-permitted wiring: blue marker fill, a Show new filter, and the NEW list chip', () => {
+    const src = readFileSync(
+        new URL('../public/static/js/foodDashboard.js', import.meta.url), 'utf8');
+    assert.match(src, /const NEW_COLOR = '#1c7ed6';/);
+    assert.match(src, /this\._isNew\(f\) \? NEW_COLOR : this\._markerColor\(f\)/);
+    assert.match(src, /if \(!lite && !showNew && this\._isNew\(f\)\) return false;/);
+    assert.match(src, /food-list-score-new/);
 });

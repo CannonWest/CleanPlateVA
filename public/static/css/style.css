@@ -452,6 +452,17 @@ body {
 }
 .food-grade-circle-none .food-grade-score { font-size: 0.9rem; }
 .theme-dark .food-grade-circle-none { color: #adb5bd; }
+/* Newly permitted: a solid blue NEW badge (cleared to open, grade still to
+   come) — the positive counterpart to the neutral dashed "no grade" circle.
+   The blue is a data color (matches the map marker), theme-independent by
+   design; the hero border tints to the brand accent, which reads in both. */
+.food-grade-circle-new .food-grade-new-label {
+    font-size: 1.02rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+}
+.food-grade-hero-new { justify-content: flex-start; border-color: var(--cp-accent); }
+.food-score-grade-new { font-weight: 700; }
 /* Dated provenance objects below the hero: two little labeled cards. */
 .food-grade-dates { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.1rem 0 0.55rem; }
 .food-grade-date {
@@ -770,6 +781,8 @@ body {
 /* ── tooltip · list view ─────────────────────────────────────────────── */
 .food-tip-sub { opacity: 0.85; }
 .food-tip-closed { color: #e8590c; font-weight: 600; text-transform: uppercase; font-size: 0.82em; }
+.food-tip-new { color: #1c7ed6; font-weight: 600; font-size: 0.85em; }
+.theme-dark .food-tip-new { color: #74c0fc; }
 .food-list-table tr.food-closed { opacity: 0.5; }
 .food-list-table tr.food-closed:hover { opacity: 0.85; }
 
@@ -832,6 +845,7 @@ body {
     padding: 0.05rem 0.3rem; color: #fff; font-weight: 700; font-size: 0.76rem;
     text-shadow: 0 1px 1px rgba(0,0,0,0.3);
 }
+.food-list-score-new { background: #1c7ed6; letter-spacing: 0.04em; }
 .food-list-date { color: #6c757d; white-space: nowrap; }
 .theme-dark .food-list-date { color: var(--cp-muted); }
 .food-list-more td { text-align: center; color: #868e96; font-style: italic; cursor: default; padding: 0.5rem; }
