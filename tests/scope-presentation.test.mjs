@@ -334,9 +334,10 @@ test('the newly-permitted hero is a blue NEW badge with simple copy and no spark
     assert.match(html, /food-grade-circle-new/);
     assert.match(html, /food-grade-new-label">NEW</);
     assert.match(html, /--grade-color:#1c7ed6/);
-    assert.match(html, /Permitted — not yet broadly assessed/);
+    assert.match(html, /food-score-grade-new">Permitted</);   // headline is just "Permitted"
+    assert.match(html, /Cleared to open; grade pending its first broad inspection/);
+    assert.doesNotMatch(html, /—/);                      // no em-dashes (AI-copy tell)
     assert.match(html, /food-grade-caption">Status</);   // "Status", not "Grade"
-    assert.match(html, /Cleared to open/);
     assert.doesNotMatch(html, /food-spark/);             // no sparkline in this hero
     // a focused-latest new facility gets the re-check variant of the copy
     assert.match(proto._newHero.call(proto, { scope: 'focused', count: 3 }), /focused re-check/);
@@ -349,4 +350,5 @@ test('newly-permitted wiring: blue marker fill, a Show new filter, and the NEW l
     assert.match(src, /this\._isNew\(f\) \? NEW_COLOR : this\._markerColor\(f\)/);
     assert.match(src, /if \(!lite && !showNew && this\._isNew\(f\)\) return false;/);
     assert.match(src, /food-list-score-new/);
+    assert.match(src, /const flagsHtml = \(latest && !isNew\)/);   // red flags hidden for newly-permitted
 });
