@@ -1181,6 +1181,7 @@ export class FoodDashboard {
         inner.innerHTML = this._renderDetail(detail.facility, detail.inspections);
         inner.querySelector('.food-detail-close')
             ?.addEventListener('click', () => this._closeDetail());
+        this._bindSparkline(inner);
     }
 
     _closeDetail() {
@@ -1432,23 +1433,32 @@ export class FoodDashboard {
         const x = (i) => series.events.length === 1 ? W / 2
             : padX + i * ((W - padX * 2) / (series.events.length - 1));
         const y = (s) => padTop + (1 - s / 100) * innerH;
+        // Hover hit-test registry: one entry per plotted mark, in viewBox
+        // units. `_bindSparkline` reads this back off the DOM to enlarge the
+        // nearest node. Replaces the per-node <title> tooltips (pure-visual
+        // hover — the score labels already sit on-canvas).
+        const nodes = [];
         const coords = series.broad.map((event) =>
             `${x(event.index).toFixed(1)},${y(event.presentation.score).toFixed(1)}`);
         const broadDots = series.broad.map((event) => {
-            const px = x(event.index).toFixed(1), py = y(event.presentation.score).toFixed(1);
-            return `<circle cx="${px}" cy="${py}" r="2.2" fill="${this._scoreColor(event.presentation.score)}"><title>Broad assessment · ${event.presentation.score} · ${event.presentation.count} applicable items</title></circle>`;
+            const px = x(event.index), py = y(event.presentation.score);
+            const c = this._scoreColor(event.presentation.score);
+            nodes.push({ k: 'broad', x: +px.toFixed(1), y: +py.toFixed(1), s: event.presentation.score, c });
+            return `<circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="2.2" fill="${c}"/>`;
         }).join('');
         const broadLabels = series.broad.map((event) =>
             `<text class="food-spark-score" x="${x(event.index).toFixed(1)}" y="${(y(event.presentation.score) - 4).toFixed(1)}" text-anchor="middle">${event.presentation.score}</text>`).join('');
         const focusedMarks = series.focused.map((event) => {
             const px = x(event.index), py = y(event.presentation.score);
             const outcome = focusedOutcomePresentation(event.presentation);
-            return `<rect class="food-spark-focused food-outcome-${outcome.tone}" x="${(px - 2.8).toFixed(1)}" y="${(py - 2.8).toFixed(1)}" width="5.6" height="5.6" transform="rotate(45 ${px.toFixed(1)} ${py.toFixed(1)})"><title>Focused inspection · ${outcome.label} · raw formula ${event.presentation.score}</title></rect>`
+            nodes.push({ k: 'focused', x: +px.toFixed(1), y: +py.toFixed(1), s: event.presentation.score, tone: outcome.tone });
+            return `<rect class="food-spark-focused food-outcome-${outcome.tone}" x="${(px - 2.8).toFixed(1)}" y="${(py - 2.8).toFixed(1)}" width="5.6" height="5.6" transform="rotate(45 ${px.toFixed(1)} ${py.toFixed(1)})"/>`
                 + `<text class="food-spark-raw" x="${px.toFixed(1)}" y="${(py - 5).toFixed(1)}" text-anchor="middle">r${event.presentation.score}</text>`;
         }).join('');
         const unknownMarks = series.unknown.map((event) => {
-            const px = x(event.index).toFixed(1), py = (H - padBot + 1).toFixed(1);
-            return `<line class="food-spark-unknown" x1="${px}" y1="${py}" x2="${px}" y2="${H - 4}"><title>Inspection with unavailable checklist scope</title></line>`;
+            const px = x(event.index), y1 = H - padBot + 1, y2 = H - 4;
+            nodes.push({ k: 'unknown', x: +px.toFixed(1), y: +((y1 + y2) / 2).toFixed(1), y1, y2 });
+            return `<line class="food-spark-unknown" x1="${px.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${px.toFixed(1)}" y2="${y2.toFixed(1)}"/>`;
         }).join('');
         // Vertical gradient in user space: top (score 100) → bottom (score 0),
         // stops at the grade-band boundaries (A green · B lime · C amber · D
@@ -1471,7 +1481,7 @@ export class FoodDashboard {
             ? `Focused raw events: ${series.focused.map((event) => `${fmtDate(event.inspection.date)} ${focusedOutcomePresentation(event.presentation).label}, raw ${event.presentation.score}`).join('; ')}`
             : 'No focused raw events';
         const accessibleSummary = `${broadSummary}. ${focusedSummary}. ${series.unknown.length} unknown-scope event${series.unknown.length === 1 ? '' : 's'}.`;
-        return `<div class="food-spark" title="Broad assessments form the line; focused raw scores are unconnected diamonds">
+        return `<div class="food-spark" data-spark-nodes="${esc(JSON.stringify(nodes))}">
             <svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(accessibleSummary)}">
                 <defs>${grad}</defs>
                 ${line}
@@ -1479,9 +1489,78 @@ export class FoodDashboard {
                 ${broadLabels}
                 ${focusedMarks}
                 ${unknownMarks}
+                <g class="food-spark-hl" pointer-events="none"></g>
+                <rect class="food-spark-overlay" x="0" y="0" width="${W}" height="${H}"/>
             </svg>
             <span class="food-spark-legend">broad line · ◇ focused raw</span>
         </div>`;
+    }
+
+    // Enlarged foreground clone of the hovered node — pure visual, no text
+    // tooltip. Shape mirrors the base mark (dot / rotated square / baseline
+    // tick); painted into the top <g> so it lifts above its neighbours.
+    _sparkHighlight(n) {
+        if (n.k === 'broad') {
+            return `<circle class="food-spark-hl-dot" cx="${n.x}" cy="${n.y}" r="4.4" fill="${n.c}"/>`
+                + `<text class="food-spark-score food-spark-hl-label" x="${n.x}" y="${(n.y - 8.5).toFixed(1)}" text-anchor="middle">${n.s}</text>`;
+        }
+        if (n.k === 'focused') {
+            const h = 4.6;
+            return `<rect class="food-spark-focused food-spark-hl-dia food-outcome-${n.tone}" x="${(n.x - h).toFixed(1)}" y="${(n.y - h).toFixed(1)}" width="${(h * 2).toFixed(1)}" height="${(h * 2).toFixed(1)}" transform="rotate(45 ${n.x} ${n.y})"/>`
+                + `<text class="food-spark-raw food-spark-hl-label" x="${n.x}" y="${(n.y - 9.5).toFixed(1)}" text-anchor="middle">r${n.s}</text>`;
+        }
+        return `<line class="food-spark-unknown food-spark-hl-tick" x1="${n.x}" y1="${n.y1}" x2="${n.x}" y2="${n.y2}"/>`;
+    }
+
+    // Desktop hover: enlarge the single nearest node within a max radius and
+    // lift it to the foreground; nothing enlarges outside the radius. No-op on
+    // touch (no mousemove). Rebound on every detail render — a stale closure
+    // would address phantom points after a scope/facility change.
+    _bindSparkline(root) {
+        const container = root.querySelector('.food-spark');
+        if (!container) return;
+        const svg = container.querySelector('svg');
+        const hl = container.querySelector('.food-spark-hl');
+        const overlay = container.querySelector('.food-spark-overlay');
+        if (!svg || !hl || !overlay) return;
+        let nodes;
+        try { nodes = JSON.parse(container.dataset.sparkNodes || '[]'); }
+        catch { nodes = []; }
+        if (!nodes.length) return;
+        const vb = svg.viewBox.baseVal;
+        const MAX_R = 12;                 // max-boundary, viewBox units
+        // Base score labels: the active node's small label hides while its
+        // enlarged one shows, so the two sizes don't overlap and smear.
+        const baseLabels = [...svg.querySelectorAll('text.food-spark-score, text.food-spark-raw')];
+        let activeIdx = -1;
+        const clear = () => {
+            if (activeIdx === -1) return;
+            hl.textContent = '';
+            baseLabels.forEach((t) => { t.style.visibility = ''; });
+            activeIdx = -1;
+        };
+        overlay.addEventListener('mousemove', (evt) => {
+            const rect = svg.getBoundingClientRect();
+            if (!rect.width || !rect.height) return;
+            const px = (evt.clientX - rect.left) / rect.width * vb.width;
+            const py = (evt.clientY - rect.top) / rect.height * vb.height;
+            let best = -1, bestD = MAX_R * MAX_R;
+            for (let i = 0; i < nodes.length; i++) {
+                const dx = nodes[i].x - px, dy = nodes[i].y - py;
+                const d = dx * dx + dy * dy;
+                if (d <= bestD) { bestD = d; best = i; }
+            }
+            if (best === -1) { clear(); return; }
+            if (best !== activeIdx) {
+                hl.innerHTML = this._sparkHighlight(nodes[best]);
+                const nx = nodes[best].x;
+                baseLabels.forEach((t) => {
+                    t.style.visibility = Math.abs(parseFloat(t.getAttribute('x')) - nx) < 0.6 ? 'hidden' : '';
+                });
+                activeIdx = best;
+            }
+        });
+        overlay.addEventListener('mouseleave', clear);
     }
 
     _renderInspection(insp, openByDefault) {
