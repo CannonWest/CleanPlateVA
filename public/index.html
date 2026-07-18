@@ -206,14 +206,14 @@
                                 <b class="about-weight-amount" data-weight="3">−3</b>
                             </div>
                         </section>
-                        <p class="about-weight-note">A risk-factor violation costs three times a good-retail-practice one; a detected repeat costs half again (hollow blocks). “Corrected on site” still deducts. Rounded and floored at 0.</p>
+                        <p class="about-weight-note">A risk-factor violation costs three times a good-retail-practice one; a detected repeat costs half again (hollow blocks); a violation corrected on site while the inspector watched earns 25% of its deduction back. Rounded and floored at 0.</p>
                     </div>
 
                     <!-- Worked example: fixed numbers, receipt-style tally. The
                          data-points / data-example-total attributes are the honesty
                          contract the test suite re-adds up. -->
                     <div class="about-example">
-                        <div class="about-example-receipt" aria-label="Worked example: 100 minus 6 minus 9 minus 4 equals 81">
+                        <div class="about-example-receipt" aria-label="Worked example: 100 minus 6 minus 9 minus 3 equals 82">
                             <p class="about-example-title">Worked example — one routine inspection</p>
                             <div class="about-example-line about-example-start">
                                 <span>Every report starts at</span>
@@ -229,27 +229,27 @@
                                 <span class="about-weight-blocks" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i class="is-repeat"></i><i class="is-repeat"></i><i class="is-repeat"></i></span>
                                 <b>−9</b>
                             </div>
-                            <div class="about-example-line is-grp" data-family="grp" data-points="4">
-                                <span>2 good-retail-practice violations <small>2 × 2</small></span>
-                                <span class="about-weight-blocks" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
-                                <b>−4</b>
+                            <div class="about-example-line is-grp" data-family="grp" data-points="3">
+                                <span>2 good-retail-practice violations, corrected on site <small>2 × 2 × 0.75</small></span>
+                                <span class="about-weight-blocks" aria-hidden="true"><i></i><i></i><i></i></span>
+                                <b>−3</b>
                             </div>
                             <div class="about-example-total">
                                 <span>Inspection score</span>
-                                <b data-example-total="81">81</b>
+                                <b data-example-total="82">82</b>
                             </div>
-                            <p class="about-example-scope">This inspection assessed 24 distinct code items — broad — so its 81 can anchor the facility grade below.</p>
+                            <p class="about-example-scope">This inspection assessed 24 distinct code items — broad — so its 82 can anchor the facility grade below.</p>
                         </div>
                         <div class="about-example-result" style="--about-grade-color:#94be1b">
-                            <div class="about-score-ring" style="--about-score-angle:291.6deg;--about-score-color:#94be1b">
+                            <div class="about-score-ring" style="--about-score-angle:295.2deg;--about-score-color:#94be1b">
                                 <div class="about-score-ring-inner">
-                                    <strong>81</strong>
+                                    <strong>82</strong>
                                     <span>/ 100</span>
                                 </div>
                             </div>
-                            <div class="about-grade-pill" title="An inspection has no letter; a facility whose latest broad grade is 81 bands to B">as a facility grade → B</div>
-                            <div class="about-score-equation" aria-label="100 minus 15 risk-factor points minus 4 good-retail-practice points equals an inspection score of 81">
-                                <span>100</span><b>−</b><span data-risk-deduction="15">15</span><b>−</b><span data-grp-deduction="4">4</span><b>=</b><strong>81</strong>
+                            <div class="about-grade-pill" title="An inspection has no letter; a facility whose latest broad grade is 82 bands to B">as a facility grade → B</div>
+                            <div class="about-score-equation" aria-label="100 minus 15 risk-factor points minus 3 good-retail-practice points equals an inspection score of 82">
+                                <span>100</span><b>−</b><span data-risk-deduction="15">15</span><b>−</b><span data-grp-deduction="3">3</span><b>=</b><strong>82</strong>
                             </div>
                             <small>Start − risk-factor deductions − good-retail-practice deductions.</small>
                         </div>
@@ -300,10 +300,10 @@
                                 <span>+65%</span><div><strong>Re-checked IN</strong><small>Returns 65% of that item’s deduction</small></div>
                             </article>
                             <article class="about-scope-card is-grade-failed">
-                                <span>×1.5</span><div><strong>Still OUT</strong><small>A verified repeat — the deduction grows half again</small></div>
+                                <span>×1.5</span><div><strong>Still OUT</strong><small>A verified repeat — the full deduction grows half again</small></div>
                             </article>
                             <article class="about-scope-card is-grade-cos">
-                                <span>±0</span><div><strong>OUT, fixed on site</strong><small>No return, no growth — the deduction stands</small></div>
+                                <span>×1</span><div><strong>OUT, fixed on site</strong><small>Any on-site-correction credit is revoked — the full deduction stands, without the ×1.5</small></div>
                             </article>
                             <article class="about-scope-card is-grade-new">
                                 <span>−6/−2</span><div><strong>New finding</strong><small>Docks at normal category weight</small></div>
@@ -340,7 +340,7 @@
                         <div class="about-disclosure-grid">
                             <p><strong>Repeat source</strong><span>A structured VDH <em>Repeat</em> flag or the word “repeat” in the observation makes that violation 1.5×.</span></p>
                             <p><strong>Missing item number</strong><span>Defaults to the lower good-retail-practice deduction of 2 points.</span></p>
-                            <p><strong>Corrected on site</strong><span>Still deducts. The corrective action is shown separately; it does not erase the recorded violation.</span></p>
+                            <p><strong>Corrected on site</strong><span>Deducts 75% of its weight — the structured checklist’s COS marking (every OUT row for the item) earns 25% back. The credit is provisional: a later re-check that finds the item OUT again revokes it to the full deduction. It never erases the recorded violation or softens red-flag ranking.</span></p>
                             <p><strong>Follow-up reports</strong><span>Score like any report, but checklist breadth—not the word “follow-up”—decides their role. Their per-item IN/OUT verdicts adjust the facility grade above, joined on the form item number.</span></p>
                             <p><strong>Grade without follow-ups</strong><span>Identical to the latest broad score, banded to a letter. Items never re-checked keep their full deduction; undated or same-day reports never adjust.</span></p>
                         </div>
