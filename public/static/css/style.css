@@ -917,6 +917,11 @@ body {
 
 .food-lite-cta { margin: 1rem 0 0.5rem; }
 
+/* ?tier=lite dev/preview override (app.js FORCE_LITE): signing in cannot
+   change a forced tier, so the sign-in CTA is noise — keep it hidden even
+   after the dashboard's own lite-mode toggle would reveal it. */
+body.tier-forced-lite #signInBtn { display: none !important; }
+
 /* iOS zoom-on-focus guard: sub-16px inputs trigger a forced page zoom. */
 @media (max-width: 767.98px) {
     input.form-control,

@@ -71,7 +71,9 @@ python app.py
 Then open http://127.0.0.1:5001. Any static file server over `public/`
 works just as well (e.g. `python -m http.server -d public`). The committed
 lite payload renders the finder; to exercise full mode, place full-tier
-data under `public/data-full/` (gitignored).
+data under `public/data-full/` (gitignored). To preview the anonymous
+(lite) experience while full-tier data is on disk, append `?tier=lite` —
+the page then skips the full channel entirely and hides the sign-in CTA.
 
 ## Data source
 
