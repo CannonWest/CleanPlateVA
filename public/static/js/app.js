@@ -6,6 +6,16 @@ import { FoodDashboard } from './foodDashboard.js';
 
 const THEME_KEY = 'cleanplateva.theme';
 
+// Dev/preview override: ?tier=lite forces the public lite payload even when
+// the full channel is reachable (e.g. data-full/ on disk in a local checkout,
+// or a signed-in visitor in production). Used by the CannonAI Food tab —
+// which embeds this checkout as a dev copy — to preview exactly what
+// anonymous visitors see. Harmless to expose: lite is already the anonymous
+// floor, so forcing it never reveals anything. The sign-in CTA is hidden
+// under the override (styled off this body class) because signing in cannot
+// change a forced tier.
+const FORCE_LITE = new URLSearchParams(window.location.search).get('tier') === 'lite';
+
 // ── data client ─────────────────────────────────────────────────────────
 // The site is fully static and serves two tiers:
 //   FULL  — /data-full/* — the complete inspection archive (scores, grades,
@@ -75,10 +85,13 @@ function decodeChecklist(rows, standards) {
 }
 
 const api = {
-    /** The facility roster: full channel first, public lite as fallback. */
+    /** The facility roster: full channel first, public lite as fallback.
+     *  ?tier=lite skips the full channel outright (see FORCE_LITE). */
     async getFoodFacilities(forceRefresh = false) {
-        const full = await fetchJSON(`${FULL_BASE}/facilities.json`, forceRefresh, true);
-        if (full && full.available) return full;
+        if (!FORCE_LITE) {
+            const full = await fetchJSON(`${FULL_BASE}/facilities.json`, forceRefresh, true);
+            if (full && full.available) return full;
+        }
         return fetchJSON('data/facilities.json', forceRefresh);
     },
 
@@ -124,6 +137,7 @@ function initTheme() {
 // ── boot ────────────────────────────────────────────────────────────────
 
 initTheme();
+if (FORCE_LITE) document.body.classList.add('tier-forced-lite');
 const dashboard = new FoodDashboard(api);
 dashboard.init();
 dashboard.load();
