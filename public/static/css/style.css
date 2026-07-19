@@ -158,6 +158,71 @@ body {
 .food-toolbar { background: var(--cp-surface); border-color: var(--cp-border) !important; }
 .food-toolbar .food-search { max-width: 260px; }
 
+/* Toolbar clusters. Filters wrap among themselves; status never splits (its
+   three parts are one readout). min-width:0 lets filters shrink instead of
+   forcing an overflow.
+
+   flex-grow on the filters cluster is load-bearing, not cosmetic: a
+   flex-wrap container reports a max-content width that is already
+   wrap-folded (861px here, not the 942px it needs on one line), so at
+   flex-basis:auto it sizes itself to the folded figure and wraps its last
+   switch away while free space sits unused beside it. Growing into the row
+   gives it the width it actually asked for. */
+.food-toolbar-filters { flex: 1 1 auto; min-width: 0; }
+.food-toolbar-status { flex: 0 0 auto; }
+
+/* Match count — a pill so it reads as a value, not stray toolbar text. */
+.food-count {
+    font-size: 0.78rem;
+    line-height: 1;
+    white-space: nowrap;
+    padding: 0.36rem 0.6rem;
+    border-radius: 999px;
+    border: 1px solid var(--cp-border);
+    background: var(--cp-surface-3);
+    color: var(--cp-muted);
+}
+/* An active filter is the one toolbar state worth announcing — the pill goes
+   accent so a narrowed result set is legible without re-reading the number. */
+.food-count.is-filtered {
+    border-color: color-mix(in srgb, var(--cp-accent) 45%, transparent);
+    background: color-mix(in srgb, var(--cp-accent) 12%, transparent);
+    color: var(--cp-accent);
+    font-weight: 600;
+}
+
+.food-freshness { white-space: nowrap; }
+.food-freshness-short { display: none; }
+.food-refresh-btn { flex: 0 0 auto; }
+
+/* Toolbar width budget. The status readout is the whole problem: at full
+   length it needs ~1470px, so every 1366/1440 laptop wrapped the bar to two
+   rows — costing ~39px of map and tearing the readout apart. Rather than
+   permanently shortening it, the status degrades in two steps, each with the
+   next tier's width comfortably in hand (measured, filtered state):
+     >=1500  full text .................... needs ~1470
+     1220-1500  short dates, no unit,
+                narrower search ........... needs ~1190
+     <1220   freshness hides entirely ..... needs ~1010
+   Nothing is lost on the way down — the count and freshness both carry their
+   full phrasing in a tooltip, and About states the dates outright. Below
+   ~1010 the bar does wrap, which is correct at tablet/phone widths; the
+   status cluster stays intact when it does. */
+@media (max-width: 1499.98px) {
+    .food-freshness-full { display: none; }
+    .food-freshness-short { display: inline; }
+    .food-count-unit { display: none; }
+    .food-toolbar .food-search { max-width: 190px; }
+}
+@media (max-width: 1219.98px) {
+    .food-freshness { display: none; }
+}
+/* Lite is the public face and hides the grade chips + show-closed (~276px),
+   so its toolbar has room the full tier doesn't — a bare "17,286" in a pill
+   is needlessly cryptic when the word fits. Higher specificity than the
+   tier rule above, so it holds at every width. */
+.food-mode-lite .food-count-unit { display: inline; }
+
 /* Bootstrap controls pick up the chrome palette (their data-bs-theme
    defaults are neutral gray and clash with the blue-tinged dark). */
 .theme-dark .form-control,

@@ -56,8 +56,14 @@
     </header>
 
     <div class="food-container flex-grow-1" id="foodContainer">
-        <!-- Toolbar: search + zip + grade filters + counts + refresh -->
+        <!-- Toolbar: filter cluster (left) + status cluster (right).
+             The two clusters are separate flex children on purpose. Flat
+             siblings let an overflowing toolbar strand the count on row 1
+             (it carried the ms-auto) while freshness + refresh dropped to
+             row 2 — the status readout tore in half. Grouped, it wraps as
+             one intact unit or not at all. -->
         <div class="food-toolbar d-flex align-items-center gap-2 px-3 py-2 border-bottom flex-wrap" id="foodToolbar">
+          <div class="food-toolbar-filters d-flex align-items-center gap-2 flex-wrap">
             <input type="search" class="form-control form-control-sm food-search" id="foodSearch"
                    placeholder="Search restaurants…" aria-label="Search restaurants by name or address"
                    title="Filter facilities by name / address substring">
@@ -87,12 +93,18 @@
                 <input class="form-check-input" type="checkbox" role="switch" id="foodShowNew">
                 <label class="form-check-label small" for="foodShowNew">Show new</label>
             </div>
-            <span class="text-muted small ms-auto" id="foodCounts">Loading…</span>
-            <small class="text-muted" id="foodFetchedAt"></small>
-            <button class="btn btn-sm btn-outline-secondary" id="foodRefreshBtn"
+          </div>
+          <!-- Status: match count, archive freshness, refresh. flex-nowrap
+               so these three never split across rows; the freshness label
+               shortens under 1500px and hides under 1220px (see style.css). -->
+          <div class="food-toolbar-status d-flex align-items-center gap-2 flex-nowrap ms-auto">
+            <span class="food-count" id="foodCounts">Loading…</span>
+            <small class="text-muted food-freshness" id="foodFetchedAt"></small>
+            <button class="btn btn-sm btn-outline-secondary food-refresh-btn" id="foodRefreshBtn"
                     title="Re-read the inspection data">
                 <i class="bi bi-arrow-clockwise"></i>
             </button>
+          </div>
         </div>
         <!-- Map | List + detail panel split -->
         <div class="food-body d-flex flex-grow-1" id="foodBody">
