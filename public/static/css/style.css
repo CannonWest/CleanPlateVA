@@ -762,6 +762,11 @@ body {
 .food-spark-raw { font-size: 7px; font-weight: 700; fill: #1971c2; }
 .theme-dark .food-spark-raw { fill: #74c0fc; }
 .food-spark-focused { fill: var(--cp-surface); stroke: var(--food-outcome-border, #868e96); stroke-width: 1.8; }
+/* NARRATIVE arc: adjudicated written-verdict follow-ups plot as FILLED
+   diamonds in the baseline lane (hollow = focused checklist re-check at
+   score height; filled = comment verdict, no height claim). Tone rides the
+   .food-outcome-* custom properties, theme-dark pairs included. */
+.food-spark-narr { fill: var(--food-outcome-border, #868e96); stroke: var(--cp-surface); stroke-width: 1; }
 .food-spark-unknown { stroke: #868e96; stroke-width: 1.5; stroke-linecap: round; }
 .food-spark-legend { margin-top: -0.25rem; color: var(--cp-muted); font-size: 0.58rem; white-space: nowrap; }
 /* Hover-enlarge (desktop): transparent overlay captures the mouse; the nearest
