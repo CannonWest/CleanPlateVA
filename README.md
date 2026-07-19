@@ -46,9 +46,24 @@ in the browser.
 Each inspection is classified from its distinct applicable checklist items:
 `broad` (20+, grade/trend eligible), `focused` (1–19, targeted outcome with
 an OUT/applicable ratio colored by compliance and the raw formula shown
-secondarily), or `unknown` (zero/no checklist, no grade).
+secondarily), or `unknown` (zero/no checklist, no grade or breadth claim).
+A scope-unknown **follow-up whose verdict lives only in the inspector's
+written comment** may carry an `adjudication {status, verdict, items?}`
+block — the comment translated into a machine verdict by a separate,
+audited pipeline step. The UI renders it as the row's ✓/✗ badge and
+verdict chip, and as a filled diamond on the sparkline at the height the
+verdict describes ("all corrected" at the r100 line, "not corrected" at
+r0); hollow diamonds remain focused checklist re-checks.
+
 Facility records keep the chronological `latest` event, one
-`latest_assessment`, and one broad-only `score_trend` / `declining` signal.
+`latest_assessment`, a broad-only `score_trend` / `declining` signal, and
+the computed `grade` block — the facility's score + A–F letter: the latest
+broad assessment adjusted by follow-up re-checks through **both** channels
+(structured checklists and adjudicated written verdicts; the block's
+`narrative_followups` / `narrative_items` fields carry that provenance,
+surfaced as the grade hero's receipt line). The methodology view on the
+site documents the full formula, the adjustment ladder, and the
+written-verdict rules.
 
 The site never fetches from VDH or any live source; it reads only archived
 snapshots published by a separate collection pipeline.
