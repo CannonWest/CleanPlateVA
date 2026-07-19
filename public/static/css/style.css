@@ -624,6 +624,44 @@ body {
 .theme-dark .food-outcome-unknown { --food-outcome-bg: #2b303b; --food-outcome-border: #868e96; --food-outcome-color: #ced4da; }
 .food-insp-score-unknown { border: 1px solid #868e96; background: transparent; color: #6c757d; text-shadow: none; }
 .theme-dark .food-insp-score-unknown { color: #adb5bd; }
+
+/* NARRATIVE arc — a scope-unknown Follow-Up whose inspector comment was
+   adjudicated into a verdict. The badge swaps the neutral "?" for a toned
+   ✓/✗ square; the chip names the verdict on the summary row; the hero note
+   names the channel under the grade circle. All tone colors ride the
+   .food-outcome-* custom properties, which already carry .theme-dark pairs. */
+.food-insp-score-adj {
+    background: var(--food-outcome-bg, transparent);
+    border: 1px solid var(--food-outcome-border, #868e96);
+    color: var(--food-outcome-color, #5c636a);
+    text-shadow: none;
+    font-weight: 700;
+}
+.food-adj-chip {
+    display: inline-flex;
+    align-items: center;
+    max-width: 46%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding: 0.05rem 0.45rem;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    background: var(--food-outcome-bg, transparent);
+    border: 1px solid var(--food-outcome-border, #868e96);
+    color: var(--food-outcome-color, #5c636a);
+}
+.food-grade-narrative-note {
+    display: flex;
+    align-items: baseline;
+    gap: 0.35rem;
+    margin: 0.15rem 0 0.35rem;
+    font-size: 0.78rem;
+    color: #6c757d;
+}
+.theme-dark .food-grade-narrative-note { color: #adb5bd; }
+.food-grade-narrative-note .bi-quote { font-size: 0.9rem; }
 .food-insp-when { font-weight: 600; font-size: 0.85rem; color: #212529; }
 .theme-dark .food-insp-when { color: var(--cp-text); }
 .food-insp-kind, .food-insp-count { font-size: 0.78rem; }
