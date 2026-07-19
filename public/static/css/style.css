@@ -652,16 +652,6 @@ body {
     border: 1px solid var(--food-outcome-border, #868e96);
     color: var(--food-outcome-color, #5c636a);
 }
-.food-grade-narrative-note {
-    display: flex;
-    align-items: baseline;
-    gap: 0.35rem;
-    margin: 0.15rem 0 0.35rem;
-    font-size: 0.78rem;
-    color: #6c757d;
-}
-.theme-dark .food-grade-narrative-note { color: #adb5bd; }
-.food-grade-narrative-note .bi-quote { font-size: 0.9rem; }
 .food-insp-when { font-weight: 600; font-size: 0.85rem; color: #212529; }
 .theme-dark .food-insp-when { color: var(--cp-text); }
 .food-insp-kind, .food-insp-count { font-size: 0.78rem; }
