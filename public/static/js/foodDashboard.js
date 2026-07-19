@@ -1514,9 +1514,23 @@ export class FoodDashboard {
             return `<rect class="food-spark-focused food-outcome-${outcome.tone}" x="${(px - 2.8).toFixed(1)}" y="${(py - 2.8).toFixed(1)}" width="5.6" height="5.6" transform="rotate(45 ${px.toFixed(1)} ${py.toFixed(1)})"/>`
                 + `<text class="food-spark-raw" x="${px.toFixed(1)}" y="${(py - 5).toFixed(1)}" text-anchor="middle">r${event.presentation.score}</text>`;
         }).join('');
+        // Scope-unknown events live in the baseline lane — BELOW the score
+        // area, so they never read as a height claim. An adjudicated written
+        // verdict upgrades its tick to a filled diamond in the verdict's tone
+        // (◆ green "all corrected", red "not corrected"), mirroring how
+        // focused re-checks get diamonds at score height; un-adjudicated
+        // events keep the neutral tick.
+        let narrCount = 0;
         const unknownMarks = series.unknown.map((event) => {
             const px = x(event.index), y1 = H - padBot + 1, y2 = H - 4;
-            nodes.push({ k: 'unknown', x: +px.toFixed(1), y: +((y1 + y2) / 2).toFixed(1), y1, y2 });
+            const cy = (y1 + y2) / 2;
+            const adj = narrativeVerdictPresentation(event.inspection);
+            if (adj) {
+                narrCount += 1;
+                nodes.push({ k: 'narr', x: +px.toFixed(1), y: +cy.toFixed(1), tone: adj.tone, g: adj.glyph });
+                return `<rect class="food-spark-narr food-outcome-${adj.tone}" x="${(px - 2.8).toFixed(1)}" y="${(cy - 2.8).toFixed(1)}" width="5.6" height="5.6" transform="rotate(45 ${px.toFixed(1)} ${cy.toFixed(1)})"/>`;
+            }
+            nodes.push({ k: 'unknown', x: +px.toFixed(1), y: +cy.toFixed(1), y1, y2 });
             return `<line class="food-spark-unknown" x1="${px.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${px.toFixed(1)}" y2="${y2.toFixed(1)}"/>`;
         }).join('');
         // Vertical gradient in user space: top (score 100) → bottom (score 0),
@@ -1539,7 +1553,9 @@ export class FoodDashboard {
         const focusedSummary = series.focused.length
             ? `Focused raw events: ${series.focused.map((event) => `${fmtDate(event.inspection.date)} ${focusedOutcomePresentation(event.presentation).label}, raw ${event.presentation.score}`).join('; ')}`
             : 'No focused raw events';
-        const accessibleSummary = `${broadSummary}. ${focusedSummary}. ${series.unknown.length} unknown-scope event${series.unknown.length === 1 ? '' : 's'}.`;
+        const accessibleSummary = `${broadSummary}. ${focusedSummary}. `
+            + `${series.unknown.length} unknown-scope event${series.unknown.length === 1 ? '' : 's'}`
+            + (narrCount ? `, ${narrCount} with an adjudicated written verdict` : '') + '.';
         return `<div class="food-spark" data-spark-nodes="${esc(JSON.stringify(nodes))}">
             <svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(accessibleSummary)}">
                 <defs>${grad}</defs>
@@ -1551,7 +1567,7 @@ export class FoodDashboard {
                 <g class="food-spark-hl" pointer-events="none"></g>
                 <rect class="food-spark-overlay" x="0" y="0" width="${W}" height="${H}"/>
             </svg>
-            <span class="food-spark-legend">broad line · ◇ focused raw</span>
+            <span class="food-spark-legend">broad line · ◇ focused raw · ◆ written verdict</span>
         </div>`;
     }
 
@@ -1567,6 +1583,11 @@ export class FoodDashboard {
             const h = 4.6;
             return `<rect class="food-spark-focused food-spark-hl-dia food-outcome-${n.tone}" x="${(n.x - h).toFixed(1)}" y="${(n.y - h).toFixed(1)}" width="${(h * 2).toFixed(1)}" height="${(h * 2).toFixed(1)}" transform="rotate(45 ${n.x} ${n.y})"/>`
                 + `<text class="food-spark-raw food-spark-hl-label" x="${n.x}" y="${(n.y - 9.5).toFixed(1)}" text-anchor="middle">r${n.s}</text>`;
+        }
+        if (n.k === 'narr') {
+            const h = 4.6;
+            return `<rect class="food-spark-narr food-spark-hl-dia food-outcome-${n.tone}" x="${(n.x - h).toFixed(1)}" y="${(n.y - h).toFixed(1)}" width="${(h * 2).toFixed(1)}" height="${(h * 2).toFixed(1)}" transform="rotate(45 ${n.x} ${n.y})"/>`
+                + `<text class="food-spark-raw food-spark-hl-label" x="${n.x}" y="${(n.y - 9.5).toFixed(1)}" text-anchor="middle">${n.g}</text>`;
         }
         return `<line class="food-spark-unknown food-spark-hl-tick" x1="${n.x}" y1="${n.y1}" x2="${n.x}" y2="${n.y2}"/>`;
     }
