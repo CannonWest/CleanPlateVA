@@ -221,17 +221,22 @@ function focusedOutcomeBadge(view, hero = false) {
 export function narrativeVerdictPresentation(insp = null) {
     const adj = insp && insp.adjudication;
     if (!adj || adj.status !== 'adjudicated' || !adj.verdict) return null;
+    // `height` is the sparkline plot height (0-100): the verdict's analog on
+    // the raw-score axis. "All corrected" IS the checklist full-clear the
+    // comment claims, so it sits where an r100 would; "not corrected" is the
+    // all-OUT re-check, r0; priority-scoped sits high but not total, and an
+    // enumeration plots at its IN-share.
     switch (adj.verdict) {
         case 'all_corrected':
-            return { verdict: 'all_corrected', tone: 'clear', glyph: '✓',
+            return { verdict: 'all_corrected', tone: 'clear', glyph: '✓', height: 100,
                 label: 'All violations corrected',
                 detail: 'Inspector recorded every prior violation corrected on this follow-up.' };
         case 'priority_corrected':
-            return { verdict: 'priority_corrected', tone: 'good', glyph: '✓',
+            return { verdict: 'priority_corrected', tone: 'good', glyph: '✓', height: 85,
                 label: 'Priority violations corrected',
                 detail: 'Inspector recorded the priority (risk-factor) violations corrected; remaining items were not addressed.' };
         case 'none_corrected':
-            return { verdict: 'none_corrected', tone: 'severe', glyph: '✗',
+            return { verdict: 'none_corrected', tone: 'severe', glyph: '✗', height: 0,
                 label: 'Violations not corrected',
                 detail: 'Inspector recorded the prior violations NOT corrected on this follow-up.' };
         case 'items': {
@@ -249,6 +254,7 @@ export function narrativeVerdictPresentation(insp = null) {
                 : `Items ${ins.join(', ')} corrected`;
             return { verdict: 'items', glyph: ins.length ? '✓' : '✗',
                 tone: outs.length ? (ins.length ? 'watch' : 'severe') : 'good',
+                height: Math.round(100 * ins.length / (ins.length + outs.length)),
                 label,
                 detail: 'Inspector enumerated item-by-item outcomes in the comments.' };
         }
@@ -1514,23 +1520,26 @@ export class FoodDashboard {
             return `<rect class="food-spark-focused food-outcome-${outcome.tone}" x="${(px - 2.8).toFixed(1)}" y="${(py - 2.8).toFixed(1)}" width="5.6" height="5.6" transform="rotate(45 ${px.toFixed(1)} ${py.toFixed(1)})"/>`
                 + `<text class="food-spark-raw" x="${px.toFixed(1)}" y="${(py - 5).toFixed(1)}" text-anchor="middle">r${event.presentation.score}</text>`;
         }).join('');
-        // Scope-unknown events live in the baseline lane — BELOW the score
-        // area, so they never read as a height claim. An adjudicated written
-        // verdict upgrades its tick to a filled diamond in the verdict's tone
-        // (◆ green "all corrected", red "not corrected"), mirroring how
-        // focused re-checks get diamonds at score height; un-adjudicated
-        // events keep the neutral tick.
+        // Scope-unknown events: an adjudicated written verdict plots as a
+        // FILLED diamond at the height its verdict describes — "all
+        // corrected" up at the r100 line (it IS the full-clear the comment
+        // claims), "not corrected" down at r0, priority/enumerated between
+        // (adj.height). Filled = comment verdict; hollow = focused checklist
+        // re-check. Un-adjudicated events keep the neutral baseline tick,
+        // below the score area, claiming nothing.
         let narrCount = 0;
         const unknownMarks = series.unknown.map((event) => {
-            const px = x(event.index), y1 = H - padBot + 1, y2 = H - 4;
-            const cy = (y1 + y2) / 2;
+            const px = x(event.index);
             const adj = narrativeVerdictPresentation(event.inspection);
             if (adj) {
                 narrCount += 1;
-                nodes.push({ k: 'narr', x: +px.toFixed(1), y: +cy.toFixed(1), tone: adj.tone, g: adj.glyph });
-                return `<rect class="food-spark-narr food-outcome-${adj.tone}" x="${(px - 2.8).toFixed(1)}" y="${(cy - 2.8).toFixed(1)}" width="5.6" height="5.6" transform="rotate(45 ${px.toFixed(1)} ${cy.toFixed(1)})"/>`;
+                const py = y(adj.height);
+                nodes.push({ k: 'narr', x: +px.toFixed(1), y: +py.toFixed(1), tone: adj.tone, g: adj.glyph });
+                return `<rect class="food-spark-narr food-outcome-${adj.tone}" x="${(px - 2.8).toFixed(1)}" y="${(py - 2.8).toFixed(1)}" width="5.6" height="5.6" transform="rotate(45 ${px.toFixed(1)} ${py.toFixed(1)})"/>`
+                    + `<text class="food-spark-raw" x="${px.toFixed(1)}" y="${(py - 5).toFixed(1)}" text-anchor="middle">${adj.glyph}</text>`;
             }
-            nodes.push({ k: 'unknown', x: +px.toFixed(1), y: +cy.toFixed(1), y1, y2 });
+            const y1 = H - padBot + 1, y2 = H - 4;
+            nodes.push({ k: 'unknown', x: +px.toFixed(1), y: +((y1 + y2) / 2).toFixed(1), y1, y2 });
             return `<line class="food-spark-unknown" x1="${px.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${px.toFixed(1)}" y2="${y2.toFixed(1)}"/>`;
         }).join('');
         // Vertical gradient in user space: top (score 100) → bottom (score 0),
