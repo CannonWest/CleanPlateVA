@@ -24,20 +24,22 @@ const row = (adjudication) => ({
     violations: [], adjudication,
 });
 
-test('all_corrected reads as a clear ✓ verdict', () => {
+test('all_corrected reads as a clear ✓ verdict at the r100 line', () => {
     const v = narrativeVerdictPresentation(
         row({ status: 'adjudicated', verdict: 'all_corrected' }));
     assert.equal(v.tone, 'clear');
     assert.equal(v.glyph, '✓');
     assert.equal(v.label, 'All violations corrected');
+    assert.equal(v.height, 100); // sparkline: where the full-clear r100 lives
 });
 
-test('none_corrected reads as a severe ✗ verdict', () => {
+test('none_corrected reads as a severe ✗ verdict at r0', () => {
     const v = narrativeVerdictPresentation(
         row({ status: 'adjudicated', verdict: 'none_corrected' }));
     assert.equal(v.tone, 'severe');
     assert.equal(v.glyph, '✗');
     assert.equal(v.label, 'Violations not corrected');
+    assert.equal(v.height, 0);
 });
 
 test('priority_corrected names the scoping', () => {
@@ -63,11 +65,22 @@ test('items verdict with OUTs downgrades tone and says so', () => {
     }));
     assert.equal(v.tone, 'watch');
     assert.match(v.label, /#8 corrected · #14 still out/);
+    assert.equal(v.height, 50); // sparkline plots the IN-share
     const allOut = narrativeVerdictPresentation(row({
         status: 'adjudicated', verdict: 'items', items: { 14: 'OUT' },
     }));
     assert.equal(allOut.tone, 'severe');
     assert.equal(allOut.glyph, '✗');
+    assert.equal(allOut.height, 0);
+});
+
+test('sparkline heights: priority sits high, enumerated at IN-share', () => {
+    assert.equal(narrativeVerdictPresentation(
+        row({ status: 'adjudicated', verdict: 'priority_corrected' })).height, 85);
+    assert.equal(narrativeVerdictPresentation(row({
+        status: 'adjudicated', verdict: 'items',
+        items: { 3: 'IN', 28: 'IN', 41: 'IN', 51: 'IN' },
+    })).height, 100);
 });
 
 test('non-actionable and malformed blocks render nothing', () => {
