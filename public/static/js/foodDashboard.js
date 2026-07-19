@@ -211,6 +211,52 @@ function focusedOutcomeBadge(view, hero = false) {
         + '<small aria-hidden="true">OUT</small></span>';
 }
 
+/** NARRATIVE arc: some VDH follow-ups carry no checklist at all — the
+ *  verdict lives only in the inspector's comments ("ALL VIOLATIONS
+ *  CORRECTED"). The exporter ships those rows with an `adjudication` block
+ *  once the comment has been adjudicated into a machine verdict, and the
+ *  grade engine consumes them as synthetic re-checks. This presentation
+ *  drives the row's badge + chip so the history shows exactly what the
+ *  grade consumed. Returns null unless the verdict is actionable. */
+export function narrativeVerdictPresentation(insp = null) {
+    const adj = insp && insp.adjudication;
+    if (!adj || adj.status !== 'adjudicated' || !adj.verdict) return null;
+    switch (adj.verdict) {
+        case 'all_corrected':
+            return { verdict: 'all_corrected', tone: 'clear', glyph: '✓',
+                label: 'All violations corrected',
+                detail: 'Inspector recorded every prior violation corrected on this follow-up.' };
+        case 'priority_corrected':
+            return { verdict: 'priority_corrected', tone: 'good', glyph: '✓',
+                label: 'Priority violations corrected',
+                detail: 'Inspector recorded the priority (risk-factor) violations corrected; remaining items were not addressed.' };
+        case 'none_corrected':
+            return { verdict: 'none_corrected', tone: 'severe', glyph: '✗',
+                label: 'Violations not corrected',
+                detail: 'Inspector recorded the prior violations NOT corrected on this follow-up.' };
+        case 'items': {
+            const items = adj.items && typeof adj.items === 'object' ? adj.items : null;
+            if (!items) return null;
+            const byWord = (want) => Object.keys(items)
+                .filter((k) => String(items[k]).toUpperCase() === want)
+                .sort((a, b) => a - b).map((k) => `#${k}`);
+            const ins = byWord('IN');
+            const outs = byWord('OUT');
+            if (!ins.length && !outs.length) return null;
+            const label = outs.length
+                ? (ins.length ? `Items ${ins.join(', ')} corrected · ${outs.join(', ')} still out`
+                    : `Items ${outs.join(', ')} still out`)
+                : `Items ${ins.join(', ')} corrected`;
+            return { verdict: 'items', glyph: ins.length ? '✓' : '✗',
+                tone: outs.length ? (ins.length ? 'watch' : 'severe') : 'good',
+                label,
+                detail: 'Inspector enumerated item-by-item outcomes in the comments.' };
+        }
+        default:
+            return null;
+    }
+}
+
 /**
  * The facility grade — a SCORE plus an A-F LETTER, the latest broad assessment
  * adjusted by post-broad focused re-checks, computed by the exporter
@@ -238,6 +284,10 @@ export function gradePresentation(facility = {}) {
         unchecked: g.unchecked_items || [],
         restoredPoints: Number(g.restored_points) || 0,
         extraPoints: Number(g.extra_points) || 0,
+        // NARRATIVE arc: how many of the follow-ups were adjudicated from
+        // the inspector's written comments (and which items they governed).
+        narrativeFollowups: Number(g.narrative_followups) || 0,
+        narrativeItems: g.narrative_items || [],
     };
 }
 
@@ -1246,8 +1296,15 @@ export class FoodDashboard {
             : isNew
                 ? this._newHero(latestView)
                 : this._noGradeHero(latestView, sparkHtml);
+        // NARRATIVE arc receipt: when the grade consumed comment-adjudicated
+        // follow-ups, say so right under the circle — the chip on the history
+        // row shows the verdict; this names the channel.
+        const narrativeNote = grade && grade.narrativeFollowups
+            ? `<div class="food-grade-narrative-note" title="A follow-up with no published checklist, whose inspector comment was adjudicated into a verdict — it adjusts the grade like a re-check">
+                <i class="bi bi-quote"></i>Includes ${grade.narrativeFollowups === 1 ? 'a follow-up' : `${grade.narrativeFollowups} follow-ups`} adjudicated from the inspector's written comments</div>`
+            : '';
         const scoreHero = (latest || isNew)
-            ? `${gradeHero}${this._gradeDates(grade?.baseDate || null, latestDate)}`
+            ? `${gradeHero}${narrativeNote}${this._gradeDates(grade?.baseDate || null, latestDate)}`
             : '<div class="text-muted small mb-2">No inspection detail available yet.</div>';
 
         const statusNote = (fac.status_onpage && fac.status
@@ -1570,17 +1627,27 @@ export class FoodDashboard {
         const violations = insp.violations || [];
         const sets = this._disposSets(insp.checklist);
         const cs = insp.checklist_summary || null;
+        // Narrative verdict (adjudicated comment) — only ever present on
+        // scope-unknown Follow-Ups; it replaces the neutral "?" so the row
+        // reads what the facility grade actually consumed.
+        const adj = view.scope === 'unknown' ? narrativeVerdictPresentation(insp) : null;
         const badge = view.scope === 'broad'
             ? `<span class="food-insp-score" style="background:${view.score != null ? this._scoreColor(view.score) : GRADE_COLORS.none}" title="Inspection score (0–100, no letter — letters are a facility grade)">${view.score ?? '—'}</span>`
             : view.scope === 'focused'
                 ? focusedOutcomeBadge(view)
-                : '<span class="food-insp-score food-insp-score-unknown">?</span>';
+                : adj
+                    ? `<span class="food-insp-score food-insp-score-adj food-outcome-${adj.tone}" role="img" title="${esc(adj.detail)}" aria-label="${esc(adj.detail)}">${adj.glyph}</span>`
+                    : '<span class="food-insp-score food-insp-score-unknown">?</span>';
         const scopeBadge = `<span class="food-scope-badge food-scope-badge-${view.scope}">${view.scope === 'broad' ? 'Broad' : view.scope === 'focused' ? 'Focused' : 'Scope unknown'}</span>`;
+        const adjChip = adj
+            ? `<span class="food-adj-chip food-outcome-${adj.tone}" title="${esc(adj.detail)}">${esc(adj.label)}</span>` : '';
         const noViolations = view.scope === 'broad'
             ? `No violations recorded across ${view.count} distinct applicable code items.`
             : view.scope === 'focused'
                 ? `No violations recorded in this focused ${view.count}-item check.`
-                : 'No violations recorded; checklist breadth was not published.';
+                : adj
+                    ? `No checklist published — the inspector's written verdict below governs: ${adj.label.toLowerCase()}.`
+                    : 'No violations recorded; checklist breadth was not published.';
         return `
         <details class="food-insp"${openByDefault ? ' open' : ''}>
             <summary>
@@ -1588,9 +1655,10 @@ export class FoodDashboard {
                 <span class="food-insp-when">${fmtDate(insp.date)}</span>
                 <span class="food-insp-kind text-muted">${esc(insp.insp_type)} · ${esc(insp.purpose)}</span>
                 ${scopeBadge}
+                ${adjChip}
                 ${view.scope === 'broad' && cs && cs.compliance_rate != null
                     ? `<span class="food-insp-compliance" title="checklist compliance">${Math.round(cs.compliance_rate * 100)}%</span>` : ''}
-                <span class="food-insp-count text-muted">${violations.length} viol.</span>
+                ${adj ? '' : `<span class="food-insp-count text-muted">${violations.length} viol.</span>`}
             </summary>
             <div class="food-insp-body">
                 ${insp.report_url ? `<a class="food-insp-report" href="${esc(insp.report_url)}"
@@ -1599,6 +1667,8 @@ export class FoodDashboard {
                     <i class="bi bi-box-arrow-up-right"></i></a>` : ''}
                 ${view.scope === 'focused' && view.score != null
                     ? `<div class="food-raw-score">Score ${view.score} · focused re-check — it adjusts the facility grade item-by-item, it doesn't set it</div>` : ''}
+                ${adj
+                    ? `<div class="food-raw-score">${esc(adj.label)} — adjudicated from the inspector's written comments; like a re-check, it adjusts the facility grade, it doesn't set it</div>` : ''}
                 ${violations.length ? violations.map((v) => `
                     <div class="food-viol${(v.item != null && v.item <= 29) ? ' food-viol-rf' : ''}">
                         <div class="food-viol-head">
