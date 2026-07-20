@@ -718,7 +718,15 @@ body {
     color: var(--food-outcome-color, #5c636a);
     text-shadow: none;
     font-weight: 700;
+    /* ✓2 — glyph plus the item count a targeted verdict names. A bare ✓ is
+       the blanket clear; the digit is what makes "cleared two things"
+       readable at a glance. Same anatomy as the focused badge's ratio. */
+    display: inline-flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 0.05rem;
 }
+.food-insp-score-adj small { font-size: 0.72em; font-weight: 700; }
 .food-adj-chip {
     display: inline-flex;
     align-items: center;

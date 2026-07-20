@@ -226,17 +226,29 @@ export function narrativeVerdictPresentation(insp = null) {
     // comment claims, so it sits where an r100 would; "not corrected" is the
     // all-OUT re-check, r0; priority-scoped sits high but not total, and an
     // enumeration plots at its IN-share.
+    //
+    // `count` is how many ITEMS the verdict names — rendered on the badge
+    // (✓2) so a targeted credit is distinguishable at a glance from a
+    // blanket clear, which carries a bare ✓. Blankets are semantic (they
+    // resolve against whatever the base docketed), so they have no count:
+    // that absence is the signal. Targeted verdicts are the common case —
+    // they govern 270 of the 350 narrative-consuming facilities and name a
+    // median ~33% of the base docket, so reading identically to a full
+    // clear was actively misleading (Cannon, 2026-07-20).
     switch (adj.verdict) {
         case 'all_corrected':
             return { verdict: 'all_corrected', tone: 'clear', glyph: '✓', height: 100,
+                count: null,
                 label: 'All violations corrected',
                 detail: 'Inspector recorded every prior violation corrected on this follow-up.' };
         case 'priority_corrected':
             return { verdict: 'priority_corrected', tone: 'good', glyph: '✓', height: 85,
+                count: null,
                 label: 'Priority violations corrected',
                 detail: 'Inspector recorded the priority (risk-factor) violations corrected; remaining items were not addressed.' };
         case 'none_corrected':
             return { verdict: 'none_corrected', tone: 'severe', glyph: '✗', height: 0,
+                count: null,
                 label: 'Violations not corrected',
                 detail: 'Inspector recorded the prior violations NOT corrected on this follow-up.' };
         case 'items': {
@@ -252,11 +264,19 @@ export function narrativeVerdictPresentation(insp = null) {
                 ? (ins.length ? `Items ${ins.join(', ')} corrected · ${outs.join(', ')} still out`
                     : `Items ${outs.join(', ')} still out`)
                 : `Items ${ins.join(', ')} corrected`;
+            // The badge counts what the glyph asserts: items corrected when
+            // the verdict credits, items still out when it only charges.
+            const count = ins.length || outs.length;
+            const noun = ins.length
+                ? `${ins.length} item${ins.length === 1 ? '' : 's'} corrected`
+                : `${outs.length} item${outs.length === 1 ? '' : 's'} still out`;
             return { verdict: 'items', glyph: ins.length ? '✓' : '✗',
                 tone: outs.length ? (ins.length ? 'watch' : 'severe') : 'good',
                 height: Math.round(100 * ins.length / (ins.length + outs.length)),
-                label,
-                detail: 'Inspector enumerated item-by-item outcomes in the comments.' };
+                count, label,
+                detail: `Inspector enumerated item-by-item outcomes in the comments — ${noun}`
+                    + `${ins.length && outs.length ? `, ${outs.length} still out` : ''}.`
+                    + ' Only the named items adjust the grade; anything unmentioned keeps its full deduction.' };
         }
         default:
             return null;
@@ -1708,7 +1728,7 @@ export class FoodDashboard {
             : view.scope === 'focused'
                 ? focusedOutcomeBadge(view)
                 : adj
-                    ? `<span class="food-insp-score food-insp-score-adj food-outcome-${adj.tone}" role="img" title="${esc(adj.detail)}" aria-label="${esc(adj.detail)}">${adj.glyph}</span>`
+                    ? `<span class="food-insp-score food-insp-score-adj food-outcome-${adj.tone}" role="img" title="${esc(adj.detail)}" aria-label="${esc(adj.detail)}"><span aria-hidden="true">${adj.glyph}</span>${adj.count ? `<small aria-hidden="true">${adj.count}</small>` : ''}</span>`
                     : '<span class="food-insp-score food-insp-score-unknown">?</span>';
         // An adjudicated row shows its VERDICT chip instead of a scope label:
         // "Scope unknown" describes the missing checklist, which is exactly the

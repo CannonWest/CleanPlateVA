@@ -31,6 +31,39 @@ test('all_corrected reads as a clear ✓ verdict at the r100 line', () => {
     assert.equal(v.glyph, '✓');
     assert.equal(v.label, 'All violations corrected');
     assert.equal(v.height, 100); // sparkline: where the full-clear r100 lives
+    // A blanket carries a BARE ✓ — no count. The absence is the signal that
+    // separates "cleared everything" from a targeted "✓2".
+    assert.equal(v.count, null);
+});
+
+test('badge counts distinguish targeted credit from a blanket clear', () => {
+    const targeted = narrativeVerdictPresentation(row({
+        status: 'adjudicated', verdict: 'items', items: { 22: 'IN', 23: 'IN' },
+    }));
+    assert.equal(targeted.glyph, '✓');
+    assert.equal(targeted.count, 2);           // renders ✓2
+    assert.match(targeted.detail, /2 items corrected/);
+    assert.match(targeted.detail, /keeps its full deduction/);
+
+    // Mixed: the glyph asserts credit, so the count is the credited items.
+    const mixed = narrativeVerdictPresentation(row({
+        status: 'adjudicated', verdict: 'items', items: { 8: 'IN', 14: 'OUT' },
+    }));
+    assert.equal(mixed.glyph, '✓');
+    assert.equal(mixed.count, 1);
+    assert.match(mixed.detail, /1 item corrected, 1 still out/);
+
+    // All-OUT: the glyph charges, so the count is the items still out.
+    const allOut = narrativeVerdictPresentation(row({
+        status: 'adjudicated', verdict: 'items', items: { 14: 'OUT', 16: 'OUT' },
+    }));
+    assert.equal(allOut.glyph, '✗');
+    assert.equal(allOut.count, 2);
+    assert.match(allOut.detail, /2 items still out/);
+
+    // priority_corrected is a category-scoped blanket — semantic, uncounted.
+    assert.equal(narrativeVerdictPresentation(
+        row({ status: 'adjudicated', verdict: 'priority_corrected' })).count, null);
 });
 
 test('none_corrected reads as a severe ✗ verdict at r0', () => {
