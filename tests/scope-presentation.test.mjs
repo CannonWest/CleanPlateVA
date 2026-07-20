@@ -300,6 +300,34 @@ test('the grade hero is just the labeled circle and the trend line — no chips,
     assert.doesNotMatch(html, /standing/i);
 });
 
+test('hovering a trend mark always enlarges it — base and highlight sizes move together', () => {
+    const css = readFileSync(
+        new URL('../public/static/css/style.css', import.meta.url), 'utf8');
+    const num = (re, text, what) => {
+        const m = text.match(re);
+        assert.ok(m, `could not read ${what}`);
+        return parseFloat(m[1]);
+    };
+    // Marks live in viewBox units in the JS, their labels in the CSS. Resize
+    // one half and the other has to follow, or hover stops reading as "bigger".
+    const baseDot = num(/r="([\d.]+)" fill="\$\{c\}"/, source, 'base broad dot radius');
+    const hlDot = num(/food-spark-hl-dot"[^>]*r="([\d.]+)"/, source, 'hover dot radius');
+    assert.ok(hlDot > baseDot, `hover dot ${hlDot} must exceed base ${baseDot}`);
+    const baseDia = num(/x="\$\{\(px - ([\d.]+)\)/, source, 'base diamond half-size');
+    const hlDia = num(/const h = ([\d.]+);/, source, 'hover diamond half-size');
+    assert.ok(hlDia > baseDia, `hover diamond ${hlDia} must exceed base ${baseDia}`);
+    const baseScore = num(/\.food-spark-score \{ font-size: ([\d.]+)px/, css, 'base score label');
+    const hlScore = num(/\.food-spark-score\.food-spark-hl-label \{ font-size: ([\d.]+)px/, css, 'hover score label');
+    assert.ok(hlScore > baseScore, `hover label ${hlScore} must exceed base ${baseScore}`);
+    const baseRaw = num(/\.food-spark-raw \{ font-size: ([\d.]+)px/, css, 'base raw label');
+    const hlRaw = num(/\.food-spark-raw\.food-spark-hl-label \{ font-size: ([\d.]+)px/, css, 'hover raw label');
+    assert.ok(hlRaw > baseRaw, `hover raw label ${hlRaw} must exceed base ${baseRaw}`);
+    // Labels sit ABOVE their mark, so the top pad has to clear the tallest of
+    // them or a perfect-100 score gets its hover label clipped out of the box.
+    const padTop = num(/padTop = (\d+)/, source, 'padTop');
+    assert.ok(padTop >= hlScore + 12, `padTop ${padTop} must clear the hover label`);
+});
+
 test('the hero keeps badge and trend on one row — copy never pushes the trend off it', () => {
     const css = readFileSync(
         new URL('../public/static/css/style.css', import.meta.url), 'utf8');

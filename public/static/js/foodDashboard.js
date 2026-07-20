@@ -1559,8 +1559,11 @@ export class FoodDashboard {
         if (!series.events.length) return '';
         // viewBox units only — the box scales to the space beside the grade
         // badge (CSS `width: 100%`), so these set the plot's proportions and
-        // the label-to-mark ratio, not its rendered size.
-        const W = 200, H = 66, padX = 14, padTop = 18, padBot = 14;
+        // the label-to-mark ratio, not its rendered size. W is what maps to the
+        // card's width, so marks and labels grow by growing in these units
+        // while W holds; H and the pads grew with them to keep the same plot
+        // band (innerH 34) and stop the taller labels clipping out the top.
+        const W = 200, H = 84, padX = 18, padTop = 30, padBot = 20;
         const innerH = H - padTop - padBot;
         const x = (i) => series.events.length === 1 ? W / 2
             : padX + i * ((W - padX * 2) / (series.events.length - 1));
@@ -1576,16 +1579,16 @@ export class FoodDashboard {
             const px = x(event.index), py = y(event.presentation.score);
             const c = this._scoreColor(event.presentation.score);
             nodes.push({ k: 'broad', x: +px.toFixed(1), y: +py.toFixed(1), s: event.presentation.score, c });
-            return `<circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="2.2" fill="${c}"/>`;
+            return `<circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="3.3" fill="${c}"/>`;
         }).join('');
         const broadLabels = series.broad.map((event) =>
-            `<text class="food-spark-score" x="${x(event.index).toFixed(1)}" y="${(y(event.presentation.score) - 4).toFixed(1)}" text-anchor="middle">${event.presentation.score}</text>`).join('');
+            `<text class="food-spark-score" x="${x(event.index).toFixed(1)}" y="${(y(event.presentation.score) - 6).toFixed(1)}" text-anchor="middle">${event.presentation.score}</text>`).join('');
         const focusedMarks = series.focused.map((event) => {
             const px = x(event.index), py = y(event.presentation.score);
             const outcome = focusedOutcomePresentation(event.presentation);
             nodes.push({ k: 'focused', x: +px.toFixed(1), y: +py.toFixed(1), s: event.presentation.score, tone: outcome.tone });
-            return `<rect class="food-spark-focused food-outcome-${outcome.tone}" x="${(px - 2.8).toFixed(1)}" y="${(py - 2.8).toFixed(1)}" width="5.6" height="5.6" transform="rotate(45 ${px.toFixed(1)} ${py.toFixed(1)})"/>`
-                + `<text class="food-spark-raw" x="${px.toFixed(1)}" y="${(py - 5).toFixed(1)}" text-anchor="middle">r${event.presentation.score}</text>`;
+            return `<rect class="food-spark-focused food-outcome-${outcome.tone}" x="${(px - 4.2).toFixed(1)}" y="${(py - 4.2).toFixed(1)}" width="8.4" height="8.4" transform="rotate(45 ${px.toFixed(1)} ${py.toFixed(1)})"/>`
+                + `<text class="food-spark-raw" x="${px.toFixed(1)}" y="${(py - 7.5).toFixed(1)}" text-anchor="middle">r${event.presentation.score}</text>`;
         }).join('');
         // Scope-unknown events: an adjudicated written verdict plots as a
         // FILLED diamond at the height its verdict describes — "all
@@ -1602,10 +1605,10 @@ export class FoodDashboard {
                 narrCount += 1;
                 const py = y(adj.height);
                 nodes.push({ k: 'narr', x: +px.toFixed(1), y: +py.toFixed(1), tone: adj.tone, g: adj.glyph });
-                return `<rect class="food-spark-narr food-outcome-${adj.tone}" x="${(px - 2.8).toFixed(1)}" y="${(py - 2.8).toFixed(1)}" width="5.6" height="5.6" transform="rotate(45 ${px.toFixed(1)} ${py.toFixed(1)})"/>`
-                    + `<text class="food-spark-raw" x="${px.toFixed(1)}" y="${(py - 5).toFixed(1)}" text-anchor="middle">${adj.glyph}</text>`;
+                return `<rect class="food-spark-narr food-outcome-${adj.tone}" x="${(px - 4.2).toFixed(1)}" y="${(py - 4.2).toFixed(1)}" width="8.4" height="8.4" transform="rotate(45 ${px.toFixed(1)} ${py.toFixed(1)})"/>`
+                    + `<text class="food-spark-raw" x="${px.toFixed(1)}" y="${(py - 7.5).toFixed(1)}" text-anchor="middle">${adj.glyph}</text>`;
             }
-            const y1 = H - padBot + 1, y2 = H - 4;
+            const y1 = H - padBot + 1, y2 = H - 6;
             nodes.push({ k: 'unknown', x: +px.toFixed(1), y: +((y1 + y2) / 2).toFixed(1), y1, y2 });
             return `<line class="food-spark-unknown" x1="${px.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${px.toFixed(1)}" y2="${y2.toFixed(1)}"/>`;
         }).join('');
@@ -1656,18 +1659,18 @@ export class FoodDashboard {
     // tick); painted into the top <g> so it lifts above its neighbours.
     _sparkHighlight(n) {
         if (n.k === 'broad') {
-            return `<circle class="food-spark-hl-dot" cx="${n.x}" cy="${n.y}" r="4.4" fill="${n.c}"/>`
-                + `<text class="food-spark-score food-spark-hl-label" x="${n.x}" y="${(n.y - 8.5).toFixed(1)}" text-anchor="middle">${n.s}</text>`;
+            return `<circle class="food-spark-hl-dot" cx="${n.x}" cy="${n.y}" r="6.6" fill="${n.c}"/>`
+                + `<text class="food-spark-score food-spark-hl-label" x="${n.x}" y="${(n.y - 12.75).toFixed(1)}" text-anchor="middle">${n.s}</text>`;
         }
         if (n.k === 'focused') {
-            const h = 4.6;
+            const h = 6.9;
             return `<rect class="food-spark-focused food-spark-hl-dia food-outcome-${n.tone}" x="${(n.x - h).toFixed(1)}" y="${(n.y - h).toFixed(1)}" width="${(h * 2).toFixed(1)}" height="${(h * 2).toFixed(1)}" transform="rotate(45 ${n.x} ${n.y})"/>`
-                + `<text class="food-spark-raw food-spark-hl-label" x="${n.x}" y="${(n.y - 9.5).toFixed(1)}" text-anchor="middle">r${n.s}</text>`;
+                + `<text class="food-spark-raw food-spark-hl-label" x="${n.x}" y="${(n.y - 14.25).toFixed(1)}" text-anchor="middle">r${n.s}</text>`;
         }
         if (n.k === 'narr') {
-            const h = 4.6;
+            const h = 6.9;
             return `<rect class="food-spark-narr food-spark-hl-dia food-outcome-${n.tone}" x="${(n.x - h).toFixed(1)}" y="${(n.y - h).toFixed(1)}" width="${(h * 2).toFixed(1)}" height="${(h * 2).toFixed(1)}" transform="rotate(45 ${n.x} ${n.y})"/>`
-                + `<text class="food-spark-raw food-spark-hl-label" x="${n.x}" y="${(n.y - 9.5).toFixed(1)}" text-anchor="middle">${n.g}</text>`;
+                + `<text class="food-spark-raw food-spark-hl-label" x="${n.x}" y="${(n.y - 14.25).toFixed(1)}" text-anchor="middle">${n.g}</text>`;
         }
         return `<line class="food-spark-unknown food-spark-hl-tick" x1="${n.x}" y1="${n.y1}" x2="${n.x}" y2="${n.y2}"/>`;
     }
