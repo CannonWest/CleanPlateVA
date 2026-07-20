@@ -491,12 +491,18 @@ body {
     border-radius: 0.65rem;
     background: var(--cp-surface-2);
     justify-content: space-between;
-    /* Badge column and trend card ride inline; the trend drops to its own
-       full-width line only when the row genuinely can't hold both (the
-       no-grade hero, which carries an explanatory paragraph between them). */
-    flex-wrap: wrap;
 }
-.food-grade-hero-none { justify-content: flex-start; border-style: dashed; }
+/* The hero is ONE row, always: badge column, explanatory copy, trend card.
+   Copy is what makes that possible — it takes a zero flex-basis, so its
+   natural width never votes on the row's size and it re-wraps into whatever
+   column is left between the two fixed-shape objects. Give it `auto` basis
+   and a long sentence pushes the trend onto its own line. */
+.food-score-meta { flex: 1 1 0; min-width: 0; }
+/* The only hero carrying an explanation AND a trend. Badge and trend keep the
+   row (same shape as a graded facility); the sentence takes the line beneath —
+   it sits last in the DOM too, so visual and reading order agree. */
+.food-grade-hero-none { justify-content: flex-start; border-style: dashed; flex-wrap: wrap; }
+.food-grade-hero-none .food-score-meta { flex-basis: 100%; }
 /* Caption above the circle, a pill below ("computed" / "no grade yet") — a
    centered stack that reads as one labeled badge, same shape in every hero. */
 .food-grade-badge-col {
@@ -847,16 +853,16 @@ body {
 /* The trend card: a captioned, lightly-bordered peer of the grade badge
    column, sitting inline beside it. The SVG carries a viewBox and fills the
    card's width, so the plot grows into whatever room the panel leaves rather
-   than sitting at a fixed 200px — `flex-basis` is the floor below which the
-   card wraps to its own line instead of squeezing the marks together. */
+   than sitting at a fixed 200px. It shrinks with the row instead of wrapping
+   out of it — `min-width` is the floor under which the marks would collide. */
 .food-spark {
     margin-left: auto;
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 0.1rem;
-    flex: 1 1 11rem;
-    min-width: 0;
+    flex: 1.4 1 0;
+    min-width: 7.5rem;
     padding: 0.3rem 0.4rem 0.2rem;
     border: 1px solid var(--cp-border);
     border-radius: 0.55rem;
@@ -1970,7 +1976,4 @@ body.tier-forced-lite #signInBtn { display: none !important; }
     .about-verify-card > a { grid-column: 1 / -1; justify-content: center; }
     .food-source-footer { padding-inline: 0.55rem !important; font-size: 0.7rem; }
     .food-score-hero { flex-wrap: wrap; }
-    /* Phones: the trend card always takes its own full-width line under the
-       badge (flex-basis, not width — width loses to flex-basis in a row). */
-    .food-score-hero .food-spark { flex-basis: 100%; margin-left: 0; }
 }

@@ -300,6 +300,21 @@ test('the grade hero is just the labeled circle and the trend line — no chips,
     assert.doesNotMatch(html, /standing/i);
 });
 
+test('the hero keeps badge and trend on one row — copy never pushes the trend off it', () => {
+    const css = readFileSync(
+        new URL('../public/static/css/style.css', import.meta.url), 'utf8');
+    // Explanatory copy takes a zero basis so its natural width never votes on
+    // the row. With `auto` it wins the row and strands the trend on line two.
+    assert.match(css, /\.food-score-meta \{ flex: 1 1 0;/);
+    // The trend shrinks with the row rather than wrapping out of it.
+    assert.match(css, /\.food-spark \{[^}]*flex: [\d.]+ 1 0;/);
+    // Only the hero that carries BOTH copy and a trend wraps, and it wraps the
+    // copy (full basis) — never the trend.
+    assert.match(css, /\.food-grade-hero-none \{[^}]*flex-wrap: wrap;/);
+    assert.match(css, /\.food-grade-hero-none \.food-score-meta \{ flex-basis: 100%; \}/);
+    assert.doesNotMatch(css, /\.food-grade-hero \{[^}]*flex-wrap/);
+});
+
 test('the no-grade hero states its verdict in the badge pill, not as prose', () => {
     const proto = dashboard.FoodDashboard.prototype;
     const html = proto._noGradeHero.call(

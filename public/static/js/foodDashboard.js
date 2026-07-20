@@ -1492,13 +1492,16 @@ export class FoodDashboard {
                     <span class="food-grade-letter">–</span>
                     <span class="food-grade-score">n/a</span></span>`;
         const tag = '<span class="food-score-computed food-grade-tag-none">no grade yet</span>';
+        // Badge and trend take the row exactly as they do on a graded facility;
+        // the explanation follows on the line beneath. Three objects across a
+        // 400px panel would leave both the copy and the plot too narrow to read.
         return `
             <div class="food-score-hero food-grade-hero food-grade-hero-none">
                 ${this._gradeBadgeCol(circle, 'Grade', tag)}
+                ${sparkHtml}
                 <div class="food-score-meta">
                     <div class="text-muted small">${esc(detail)}</div>
                 </div>
-                ${sparkHtml}
             </div>`;
     }
 
