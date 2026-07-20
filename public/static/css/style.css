@@ -171,8 +171,14 @@ body {
 .food-toolbar-filters { flex: 1 1 auto; min-width: 0; }
 .food-toolbar-status { flex: 0 0 auto; }
 
-/* Match count — a pill so it reads as a value, not stray toolbar text. */
+/* Match count — a pill so it reads as a value, not stray toolbar text. The
+   buildings glyph is what the count is OF: it holds the noun when the tier
+   rules drop the word "facilities", so the narrow pill never reduces to a
+   bare number. Decorative (aria-hidden) — the title carries the phrasing. */
 .food-count {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.34rem;
     font-size: 0.78rem;
     line-height: 1;
     white-space: nowrap;
@@ -181,6 +187,11 @@ body {
     border: 1px solid var(--cp-border);
     background: var(--cp-surface-3);
     color: var(--cp-muted);
+}
+.food-count .bi {
+    font-size: 0.95em;
+    /* Optical: the glyph reads a touch heavier than the digits beside it. */
+    opacity: 0.8;
 }
 /* An active filter is the one toolbar state worth announcing — the pill goes
    accent so a narrowed result set is legible without re-reading the number. */
@@ -196,25 +207,31 @@ body {
 .food-refresh-btn { flex: 0 0 auto; }
 
 /* Toolbar width budget. The status readout is the whole problem: at full
-   length it needs ~1470px, so every 1366/1440 laptop wrapped the bar to two
+   length it needs ~1510px, so every 1366/1440 laptop wrapped the bar to two
    rows — costing ~39px of map and tearing the readout apart. Rather than
    permanently shortening it, the status degrades in two steps, each with the
-   next tier's width comfortably in hand (measured, filtered state):
-     >=1500  full text .................... needs ~1470
-     1220-1500  short dates, no unit,
-                narrower search ........... needs ~1190
-     <1220   freshness hides entirely ..... needs ~1010
+   next tier's width in hand with ~40px to spare.
+
+   Budget against the WORST-CASE count, never the convenient one. The widest
+   real string is a large filtered subset — "Restaurants only" alone gives
+   "14,636 of 19,147 facilities" — which is ~35px past the "8 of 19,147" you
+   get from a search box and was enough to wrap a tier sized on the latter:
+     >=1550  full text .................... needs ~1510
+     1260-1550  short dates, no unit,
+                narrower search ........... needs ~1220
+     <1260   freshness hides entirely ..... needs ~1065
    Nothing is lost on the way down — the count and freshness both carry their
-   full phrasing in a tooltip, and About states the dates outright. Below
-   ~1010 the bar does wrap, which is correct at tablet/phone widths; the
-   status cluster stays intact when it does. */
-@media (max-width: 1499.98px) {
+   full phrasing in a tooltip, the pill keeps its glyph so it never reduces
+   to a bare number, and About states the dates outright. Below ~1065 the bar
+   does wrap, which is correct at tablet/phone widths; the status cluster
+   stays intact when it does. */
+@media (max-width: 1549.98px) {
     .food-freshness-full { display: none; }
     .food-freshness-short { display: inline; }
     .food-count-unit { display: none; }
     .food-toolbar .food-search { max-width: 190px; }
 }
-@media (max-width: 1219.98px) {
+@media (max-width: 1259.98px) {
     .food-freshness { display: none; }
 }
 /* Lite is the public face and hides the grade chips + show-closed (~276px),

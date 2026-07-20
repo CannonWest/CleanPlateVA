@@ -1065,8 +1065,11 @@ export class FoodDashboard {
             ? `${filteredLen.toLocaleString()} of ${total.toLocaleString()}`
             : total.toLocaleString();
         // "facilities" is the first thing to go when the toolbar gets tight —
-        // the pill still reads as a count without it. CSS owns the breakpoint.
-        countsEl.innerHTML = `${esc(shown)}<span class="food-count-unit"> facilities</span>`;
+        // the glyph carries the noun once the word drops, so the narrow pill
+        // still reads as a count of places. CSS owns the breakpoint; the
+        // title carries the full phrasing at every width.
+        countsEl.innerHTML = '<i class="bi bi-buildings" aria-hidden="true"></i>'
+            + `${esc(shown)}<span class="food-count-unit"> facilities</span>`;
         countsEl.classList.toggle('is-filtered', filtered);
         countsEl.title = filtered
             ? `${filteredLen.toLocaleString()} of ${total.toLocaleString()} facilities match the active filters`

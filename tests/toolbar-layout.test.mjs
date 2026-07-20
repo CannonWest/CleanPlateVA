@@ -46,15 +46,15 @@ test('filters cluster grows rather than trusting its wrap-folded max-content', (
 });
 
 test('status degrades in tiers instead of wrapping the toolbar', () => {
-    // Tier 2 (<1500): short dates, count sheds its unit, narrower search.
-    const tier2 = css.match(/@media \(max-width: 1499\.98px\)\s*\{([\s\S]*?)\n\}/)?.[1] || '';
+    // Tier 2 (<1550): short dates, count sheds its unit, narrower search.
+    const tier2 = css.match(/@media \(max-width: 1549\.98px\)\s*\{([\s\S]*?)\n\}/)?.[1] || '';
     assert.match(tier2, /\.food-freshness-full\s*\{\s*display:\s*none/);
     assert.match(tier2, /\.food-freshness-short\s*\{\s*display:\s*inline/);
     assert.match(tier2, /\.food-count-unit\s*\{\s*display:\s*none/);
     assert.match(tier2, /\.food-search\s*\{\s*max-width/);
 
-    // Tier 3 (<1220): freshness hides outright.
-    const tier3 = css.match(/@media \(max-width: 1219\.98px\)\s*\{([\s\S]*?)\n\}/)?.[1] || '';
+    // Tier 3 (<1260): freshness hides outright.
+    const tier3 = css.match(/@media \(max-width: 1259\.98px\)\s*\{([\s\S]*?)\n\}/)?.[1] || '';
     assert.match(tier3, /\.food-freshness\s*\{\s*display:\s*none/);
 
     // Default state is the full phrasing; short is the exception.
@@ -76,4 +76,9 @@ test('counts read as a quantity, not a code', () => {
     // An active filter is announced on the pill, not just in the number.
     assert.match(dashboardSource, /classList\.toggle\('is-filtered', filtered\)/);
     assert.match(css, /\.food-count\.is-filtered\s*\{/);
+
+    // The glyph holds the noun once the tier rules drop "facilities", so the
+    // narrow pill never reduces to a bare number. Decorative, not announced.
+    assert.match(dashboardSource, /class="bi bi-buildings" aria-hidden="true"/);
+    assert.match(css, /\.food-count\s*\{[^}]*display:\s*inline-flex/);
 });
