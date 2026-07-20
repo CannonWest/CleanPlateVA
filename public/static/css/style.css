@@ -204,34 +204,34 @@ body {
 
 .food-freshness { white-space: nowrap; }
 .food-freshness-short { display: none; }
-.food-refresh-btn { flex: 0 0 auto; }
 
 /* Toolbar width budget. The status readout is the whole problem: at full
-   length it needs ~1510px, so every 1366/1440 laptop wrapped the bar to two
+   length it needs ~1470px, so every 1366/1440 laptop wrapped the bar to two
    rows — costing ~39px of map and tearing the readout apart. Rather than
-   permanently shortening it, the status degrades in two steps, each with the
-   next tier's width in hand with ~40px to spare.
+   permanently shortening it, the status degrades in two steps, each sized to
+   clear the next tier's trigger with room to spare.
 
    Budget against the WORST-CASE count, never the convenient one. The widest
    real string is a large filtered subset — "Restaurants only" alone gives
-   "14,636 of 19,147 facilities" — which is ~35px past the "8 of 19,147" you
-   get from a search box and was enough to wrap a tier sized on the latter:
-     >=1550  full text .................... needs ~1510
-     1260-1550  short dates, no unit,
-                narrower search ........... needs ~1220
-     <1260   freshness hides entirely ..... needs ~1065
+   "14,636 of 19,147 facilities" — which is ~35px past the "8 of 19,147" a
+   search box produces, and that gap was enough to wrap a tier sized on the
+   latter. Measured at the worst case:
+     >=1500  full text .................... needs ~1470
+     1250-1500  short dates, no unit,
+                narrower search ........... needs ~1200
+     <1250   freshness hides entirely ..... needs ~1035
    Nothing is lost on the way down — the count and freshness both carry their
    full phrasing in a tooltip, the pill keeps its glyph so it never reduces
-   to a bare number, and About states the dates outright. Below ~1065 the bar
+   to a bare number, and About states the dates outright. Below ~1035 the bar
    does wrap, which is correct at tablet/phone widths; the status cluster
    stays intact when it does. */
-@media (max-width: 1549.98px) {
+@media (max-width: 1499.98px) {
     .food-freshness-full { display: none; }
     .food-freshness-short { display: inline; }
     .food-count-unit { display: none; }
     .food-toolbar .food-search { max-width: 190px; }
 }
-@media (max-width: 1259.98px) {
+@media (max-width: 1249.98px) {
     .food-freshness { display: none; }
 }
 /* Lite is the public face and hides the grade chips + show-closed (~276px),

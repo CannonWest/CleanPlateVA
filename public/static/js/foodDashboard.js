@@ -405,9 +405,6 @@ export class FoodDashboard {
     }
 
     init() {
-        document.getElementById('foodRefreshBtn')
-            ?.addEventListener('click', () => this.forceRefresh());
-
         const search = document.getElementById('foodSearch');
         search?.addEventListener('input', () => {
             clearTimeout(this._searchDebounce);
@@ -518,11 +515,11 @@ export class FoodDashboard {
         }
     }
 
-    async refresh(forceRefresh = false) {
+    async refresh() {
         const countsEl = document.getElementById('foodCounts');
         if (countsEl) countsEl.textContent = 'Loading…';
 
-        const payload = await this.api.getFoodFacilities(forceRefresh);
+        const payload = await this.api.getFoodFacilities();
         if (!payload || !payload.available) {
             const reason = payload?.reason || payload?.error || 'data unreachable';
             if (countsEl) countsEl.textContent = `Unavailable — ${reason}`;
@@ -582,10 +579,6 @@ export class FoodDashboard {
             this._map.setPaintProperty(LYR_CLUSTERS, 'circle-color', this._clusterColors());
         }
         this._rebuildMarkers();
-    }
-
-    forceRefresh() {
-        this.refresh(true);
     }
 
     // ── map plumbing ────────────────────────────────────────────────────
@@ -1098,15 +1091,13 @@ export class FoodDashboard {
         el.innerHTML = `<span class="food-freshness-full">${esc(full.join(' · '))}</span>`
             + `<span class="food-freshness-short">${esc(short.join(' · '))}</span>`;
         // The tooltip always spells out the distinction the short form drops.
-        const spelled = [
+        // Below the narrowest tier the label hides outright and there is no
+        // hover target left — About states both dates in full, which is the
+        // durable home for them anyway.
+        el.title = [
             snapshotIso ? `Archive snapshot published ${fmtDate(snapshotIso)}` : null,
             latestIso ? `Newest inspection report in it: ${fmtDate(latestIso)}` : null,
         ].filter(Boolean).join('\n');
-        el.title = spelled;
-        // Under 1220px the label itself is hidden, so the refresh button —
-        // the other "how current is this?" affordance — carries the dates.
-        const refreshBtn = document.getElementById('foodRefreshBtn');
-        if (refreshBtn) refreshBtn.title = `Re-read the inspection data\n\n${spelled}`;
     }
 
     _updateAboutStatus(payload, lite) {

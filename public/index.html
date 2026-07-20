@@ -94,16 +94,12 @@
                 <label class="form-check-label small" for="foodShowNew">Show new</label>
             </div>
           </div>
-          <!-- Status: match count, archive freshness, refresh. flex-nowrap
-               so these three never split across rows; the freshness label
-               shortens under 1500px and hides under 1220px (see style.css). -->
+          <!-- Status: match count + archive freshness. flex-nowrap so the two
+               never split across rows; the freshness label shortens under
+               1500px and hides under 1220px (see style.css). -->
           <div class="food-toolbar-status d-flex align-items-center gap-2 flex-nowrap ms-auto">
             <span class="food-count" id="foodCounts">Loading…</span>
             <small class="text-muted food-freshness" id="foodFetchedAt"></small>
-            <button class="btn btn-sm btn-outline-secondary food-refresh-btn" id="foodRefreshBtn"
-                    title="Re-read the inspection data">
-                <i class="bi bi-arrow-clockwise"></i>
-            </button>
           </div>
         </div>
         <!-- Map | List + detail panel split -->

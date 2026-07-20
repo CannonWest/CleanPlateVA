@@ -1,9 +1,10 @@
 /** The toolbar is a one-row budget, and it used to blow it.
  *
  *  Nine flat flex children with the match count carrying `ms-auto` meant an
- *  overflowing toolbar stranded the count on row 1 while freshness + refresh
- *  dropped to row 2 — the status readout torn in half, ~39px of map gone. It
- *  overflowed at 1445px, i.e. on every 1366 and 1440 laptop.
+ *  overflowing toolbar stranded the count on row 1 while freshness (and the
+ *  since-removed refresh button) dropped to row 2 — the status readout torn
+ *  in half, ~39px of map gone. It overflowed at 1445px, i.e. on every 1366
+ *  and 1440 laptop.
  *
  *  These pin the two things that fixed it: the status parts are one
  *  non-splitting group, and the readout degrades by tier instead of wrapping.
@@ -18,17 +19,20 @@ const dashboardSource = readFileSync(
     new URL('../public/static/js/foodDashboard.js', import.meta.url),
     'utf8',
 );
+const appSource = readFileSync(
+    new URL('../public/static/js/app.js', import.meta.url),
+    'utf8',
+);
 
 test('toolbar splits into a filter cluster and a status cluster', () => {
     assert.match(html, /class="food-toolbar-filters[^"]*"/);
     assert.match(html, /class="food-toolbar-status[^"]*"/);
 
-    // The status cluster is one readout: count, freshness, refresh, no wrap.
+    // The status cluster is one readout: count + freshness, no wrap.
     const status = html.match(/<div class="food-toolbar-status[\s\S]*?<\/div>\s*<\/div>/)?.[0] || '';
     assert.match(status, /flex-nowrap/);
     assert.match(status, /id="foodCounts"/);
     assert.match(status, /id="foodFetchedAt"/);
-    assert.match(status, /id="foodRefreshBtn"/);
 
     // ms-auto belongs to the group, never to a member of it — that was the bug.
     assert.match(status, /ms-auto/);
@@ -46,15 +50,15 @@ test('filters cluster grows rather than trusting its wrap-folded max-content', (
 });
 
 test('status degrades in tiers instead of wrapping the toolbar', () => {
-    // Tier 2 (<1550): short dates, count sheds its unit, narrower search.
-    const tier2 = css.match(/@media \(max-width: 1549\.98px\)\s*\{([\s\S]*?)\n\}/)?.[1] || '';
+    // Tier 2 (<1500): short dates, count sheds its unit, narrower search.
+    const tier2 = css.match(/@media \(max-width: 1499\.98px\)\s*\{([\s\S]*?)\n\}/)?.[1] || '';
     assert.match(tier2, /\.food-freshness-full\s*\{\s*display:\s*none/);
     assert.match(tier2, /\.food-freshness-short\s*\{\s*display:\s*inline/);
     assert.match(tier2, /\.food-count-unit\s*\{\s*display:\s*none/);
     assert.match(tier2, /\.food-search\s*\{\s*max-width/);
 
-    // Tier 3 (<1260): freshness hides outright.
-    const tier3 = css.match(/@media \(max-width: 1259\.98px\)\s*\{([\s\S]*?)\n\}/)?.[1] || '';
+    // Tier 3 (<1250): freshness hides outright.
+    const tier3 = css.match(/@media \(max-width: 1249\.98px\)\s*\{([\s\S]*?)\n\}/)?.[1] || '';
     assert.match(tier3, /\.food-freshness\s*\{\s*display:\s*none/);
 
     // Default state is the full phrasing; short is the exception.
@@ -62,11 +66,25 @@ test('status degrades in tiers instead of wrapping the toolbar', () => {
 });
 
 test('nothing the tiers hide is lost — tooltips and About still carry it', () => {
-    // Freshness hides entirely under 1220px, so refresh inherits the dates.
-    assert.match(dashboardSource, /refreshBtn\.title = `Re-read the inspection data/);
+    // Freshness keeps the full phrasing in its own tooltip at every width it
+    // is visible; About carries both dates once it hides at the narrowest.
+    assert.match(dashboardSource, /Archive snapshot published/);
     // The count keeps its full phrasing regardless of the unit span.
     assert.match(dashboardSource, /countsEl\.title = filtered/);
     assert.match(dashboardSource, /facilities match the active filters/);
+});
+
+test('the refresh button is gone, and so is its plumbing', () => {
+    // It re-downloaded the 37MB roster with the HTTP cache bypassed to render
+    // what was almost always the identical snapshot: publishing is manual, so
+    // nothing changes between page load and a click. Scrapped 2026-07-19.
+    assert.doesNotMatch(html, /foodRefreshBtn/);
+    assert.doesNotMatch(dashboardSource, /foodRefreshBtn|forceRefresh/);
+    assert.doesNotMatch(css, /food-refresh-btn/);
+    // The button was the only caller that ever forced a reload, so the whole
+    // cache-busting path goes with it — no dead parameter left threaded
+    // through fetchJSON -> getFoodFacilities -> refresh.
+    assert.doesNotMatch(appSource, /forceRefresh|cache: 'reload'/);
 });
 
 test('counts read as a quantity, not a code', () => {

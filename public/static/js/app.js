@@ -29,9 +29,9 @@ const FORCE_LITE = new URLSearchParams(window.location.search).get('tier') === '
 
 const FULL_BASE = 'data-full';
 
-async function fetchJSON(path, forceRefresh, quiet = false) {
+async function fetchJSON(path, quiet = false) {
     try {
-        const response = await fetch(path, forceRefresh ? { cache: 'reload' } : undefined);
+        const response = await fetch(path);
         if (!response.ok) {
             return {
                 available: false,
@@ -87,12 +87,12 @@ function decodeChecklist(rows, standards) {
 const api = {
     /** The facility roster: full channel first, public lite as fallback.
      *  ?tier=lite skips the full channel outright (see FORCE_LITE). */
-    async getFoodFacilities(forceRefresh = false) {
+    async getFoodFacilities() {
         if (!FORCE_LITE) {
-            const full = await fetchJSON(`${FULL_BASE}/facilities.json`, forceRefresh, true);
+            const full = await fetchJSON(`${FULL_BASE}/facilities.json`, true);
             if (full && full.available) return full;
         }
-        return fetchJSON('data/facilities.json', forceRefresh);
+        return fetchJSON('data/facilities.json');
     },
 
     /** One facility + its full (pre-merged) inspection history.
