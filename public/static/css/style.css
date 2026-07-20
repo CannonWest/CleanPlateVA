@@ -492,9 +492,19 @@ body {
     background: var(--cp-surface-2);
     justify-content: space-between;
 }
-.food-grade-hero-none { justify-content: flex-start; border-style: dashed; }
-/* "Grade" caption above the circle, "computed" tag below — a centered stack
-   that reads as one labeled badge. */
+/* The hero is ONE row, always: badge column, explanatory copy, trend card.
+   Copy is what makes that possible — it takes a zero flex-basis, so its
+   natural width never votes on the row's size and it re-wraps into whatever
+   column is left between the two fixed-shape objects. Give it `auto` basis
+   and a long sentence pushes the trend onto its own line. */
+.food-score-meta { flex: 1 1 0; min-width: 0; }
+/* The only hero carrying an explanation AND a trend. Badge and trend keep the
+   row (same shape as a graded facility); the sentence takes the line beneath —
+   it sits last in the DOM too, so visual and reading order agree. */
+.food-grade-hero-none { justify-content: flex-start; border-style: dashed; flex-wrap: wrap; }
+.food-grade-hero-none .food-score-meta { flex-basis: 100%; }
+/* Caption above the circle, a pill below ("computed" / "no grade yet") — a
+   centered stack that reads as one labeled badge, same shape in every hero. */
 .food-grade-badge-col {
     display: flex;
     flex-direction: column;
@@ -515,8 +525,8 @@ body {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    width: 3.6rem;
-    height: 3.6rem;
+    width: 4.2rem;
+    height: 4.2rem;
     flex: 0 0 auto;
     border-radius: 50%;
     background: var(--grade-color, #868e96);
@@ -524,22 +534,22 @@ body {
     line-height: 1;
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
 }
-.food-grade-letter { font-size: 0.92rem; font-weight: 800; letter-spacing: 0.02em; }
-.food-grade-score { font-size: 1.5rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.food-grade-letter { font-size: 1.05rem; font-weight: 800; letter-spacing: 0.02em; }
+.food-grade-score { font-size: 1.75rem; font-weight: 700; font-variant-numeric: tabular-nums; }
 .food-grade-circle-none {
     background: transparent;
     border: 2px dashed #868e96;
     color: #6c757d;
     text-shadow: none;
 }
-.food-grade-circle-none .food-grade-score { font-size: 0.9rem; }
+.food-grade-circle-none .food-grade-score { font-size: 1.02rem; }
 .theme-dark .food-grade-circle-none { color: #adb5bd; }
 /* Newly permitted: a solid blue NEW badge (cleared to open, grade still to
    come) — the positive counterpart to the neutral dashed "no grade" circle.
    The blue is a data color (matches the map marker), theme-independent by
    design; the hero border tints to the brand accent, which reads in both. */
 .food-grade-circle-new .food-grade-new-label {
-    font-size: 1.02rem;
+    font-size: 1.18rem;
     font-weight: 800;
     letter-spacing: 0.08em;
 }
@@ -592,6 +602,10 @@ body {
     cursor: help;
 }
 .theme-dark .food-score-computed { border-color: #3d4759; color: var(--cp-muted); }
+/* Same pill slot, opposite content: "no grade yet" instead of "computed".
+   Dashed to echo the dashed circle above it, and no `help` cursor — it carries
+   no tooltip, the sentence beside it is the explanation. */
+.food-grade-tag-none { border-style: dashed; white-space: nowrap; cursor: default; }
 
 .food-section-title {
     font-size: 0.78rem;
@@ -836,31 +850,50 @@ body {
 .food-temp-scroll { overflow-x: auto; }
 
 /* ── sparkline · compliance · dispositions · checklist ──────────────────── */
-.food-spark { margin-left: auto; display: flex; flex-direction: column; align-items: center; }
-.food-spark-score { font-size: 8px; font-weight: 600; fill: #495057; }
+/* The trend card: a captioned, lightly-bordered peer of the grade badge
+   column, sitting inline beside it. The SVG carries a viewBox and fills the
+   card's width, so the plot grows into whatever room the panel leaves rather
+   than sitting at a fixed 200px. It shrinks with the row instead of wrapping
+   out of it — `min-width` is the floor under which the marks would collide. */
+.food-spark {
+    margin-left: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.1rem;
+    flex: 1.4 1 0;
+    min-width: 7.5rem;
+    padding: 0.3rem 0.4rem 0.2rem;
+    border: 1px solid var(--cp-border);
+    border-radius: 0.55rem;
+    background: var(--cp-surface);
+}
+.food-spark svg { width: 100%; height: auto; }
+/* Mark + label sizes are viewBox units, scaled with the SVG. They and the
+   geometry in `_sparkline` move together — 1.5x here needs 1.5x there. */
+.food-spark-score { font-size: 12px; font-weight: 600; fill: #495057; }
 .theme-dark .food-spark-score { fill: #c3cbd9; }
-.food-spark-raw { font-size: 7px; font-weight: 700; fill: #1971c2; }
+.food-spark-raw { font-size: 10.5px; font-weight: 700; fill: #1971c2; }
 .theme-dark .food-spark-raw { fill: #74c0fc; }
-.food-spark-focused { fill: var(--cp-surface); stroke: var(--food-outcome-border, #868e96); stroke-width: 1.8; }
+.food-spark-focused { fill: var(--cp-surface); stroke: var(--food-outcome-border, #868e96); stroke-width: 2.7; }
 /* NARRATIVE arc: adjudicated written-verdict follow-ups plot as FILLED
    diamonds at the height their verdict describes — "all corrected" at the
    r100 line, "not corrected" at r0 (hollow = focused checklist re-check;
    filled = comment verdict). Tone rides the .food-outcome-* custom
    properties, theme-dark pairs included. */
-.food-spark-narr { fill: var(--food-outcome-border, #868e96); stroke: var(--cp-surface); stroke-width: 1; }
-.food-spark-unknown { stroke: #868e96; stroke-width: 1.5; stroke-linecap: round; }
-.food-spark-legend { margin-top: -0.25rem; color: var(--cp-muted); font-size: 0.58rem; white-space: nowrap; }
+.food-spark-narr { fill: var(--food-outcome-border, #868e96); stroke: var(--cp-surface); stroke-width: 1.5; }
+.food-spark-unknown { stroke: #868e96; stroke-width: 2.25; stroke-linecap: round; }
 /* Hover-enlarge (desktop): transparent overlay captures the mouse; the nearest
    node within the max radius is redrawn, enlarged, into the top .food-spark-hl
    layer so it lifts above its neighbours. */
 .food-spark-overlay { fill: transparent; }
-.food-spark-hl-dot { stroke: var(--cp-surface); stroke-width: 1.4; }
-.food-spark-hl-dia { stroke-width: 2.2; }
-.food-spark-hl-tick { stroke: #495057; stroke-width: 2.6; }
+.food-spark-hl-dot { stroke: var(--cp-surface); stroke-width: 2.1; }
+.food-spark-hl-dia { stroke-width: 3.3; }
+.food-spark-hl-tick { stroke: #495057; stroke-width: 3.9; }
 .theme-dark .food-spark-hl-tick { stroke: #adb5bd; }
 .food-spark-hl-label { font-weight: 700; }
-.food-spark-score.food-spark-hl-label { font-size: 11px; }
-.food-spark-raw.food-spark-hl-label { font-size: 9.5px; }
+.food-spark-score.food-spark-hl-label { font-size: 16.5px; }
+.food-spark-raw.food-spark-hl-label { font-size: 14.25px; }
 
 .food-dispos {
     flex: 0 0 auto; font-size: 0.64rem; font-weight: 600; text-transform: uppercase;
@@ -1945,5 +1978,4 @@ body.tier-forced-lite #signInBtn { display: none !important; }
     .about-verify-card > a { grid-column: 1 / -1; justify-content: center; }
     .food-source-footer { padding-inline: 0.55rem !important; font-size: 0.7rem; }
     .food-score-hero { flex-wrap: wrap; }
-    .food-score-hero .food-spark { width: 100%; margin-left: 0; }
 }

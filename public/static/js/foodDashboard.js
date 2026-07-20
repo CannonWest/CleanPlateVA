@@ -1435,14 +1435,16 @@ export class FoodDashboard {
             <span class="food-grade-score">${esc(score)}</span></span>`;
     }
 
-    // "Grade" caption over the circle, "computed" tag under it — one centered
-    // stack that reads as a single labeled badge.
-    _gradeBadgeCol(circleHtml) {
+    // Caption over the circle, a pill under it — one centered stack that reads
+    // as a single labeled badge. The pill answers "where does this verdict
+    // come from": `computed` when there's a grade, `no grade yet` when there's
+    // nothing to compute from. Same slot, same shape, either way.
+    _gradeBadgeCol(circleHtml, caption = 'Grade', tagHtml = '') {
         return `
             <div class="food-grade-badge-col">
-                <span class="food-grade-caption">Grade</span>
+                <span class="food-grade-caption">${caption}</span>
                 ${circleHtml}
-                <span class="food-score-computed" title="CleanPlateVA formula; VDH publishes no numeric score">computed</span>
+                ${tagHtml}
             </div>`;
     }
 
@@ -1450,9 +1452,10 @@ export class FoodDashboard {
     // Just the badge and the broad-score trend line — the dated provenance
     // rides below in its own objects (_gradeDates).
     _gradeHero(g, sparkHtml = '') {
+        const tag = '<span class="food-score-computed" title="CleanPlateVA formula; VDH publishes no numeric score">computed</span>';
         return `
             <div class="food-score-hero food-grade-hero">
-                ${this._gradeBadgeCol(this._gradeCircle(g.letter, g.score))}
+                ${this._gradeBadgeCol(this._gradeCircle(g.letter, g.score), 'Grade', tag)}
                 ${sparkHtml}
             </div>`;
     }
@@ -1469,10 +1472,7 @@ export class FoodDashboard {
                     <span class="food-grade-new-label">NEW</span></span>`;
         return `
             <div class="food-score-hero food-grade-hero food-grade-hero-new">
-                <div class="food-grade-badge-col">
-                    <span class="food-grade-caption">Status</span>
-                    ${circle}
-                </div>
+                ${this._gradeBadgeCol(circle, 'Status')}
                 <div class="food-score-meta">
                     <div class="food-score-grade food-score-grade-new">Permitted</div>
                     <div class="text-muted small">${esc(detail)}</div>
@@ -1481,7 +1481,9 @@ export class FoodDashboard {
     }
 
     // No scored broad assessment → no grade. A neutral circle keeps the panel
-    // shape, and the note says what a grade would need.
+    // shape, and the note says what a grade would need. "No grade yet" rides in
+    // the pill slot where a graded facility says "computed" — the verdict sits
+    // with the badge, so the prose beside it is only the explanation.
     _noGradeHero(latestView, sparkHtml = '') {
         const detail = latestView.scope === 'focused'
             ? `The latest report is a focused ${latestView.count}-item check. A grade needs a broad inspection (20+ items).`
@@ -1489,17 +1491,17 @@ export class FoodDashboard {
         const circle = `<span class="food-grade-circle food-grade-circle-none" role="img" aria-label="No grade yet">
                     <span class="food-grade-letter">–</span>
                     <span class="food-grade-score">n/a</span></span>`;
+        const tag = '<span class="food-score-computed food-grade-tag-none">no grade yet</span>';
+        // Badge and trend take the row exactly as they do on a graded facility;
+        // the explanation follows on the line beneath. Three objects across a
+        // 400px panel would leave both the copy and the plot too narrow to read.
         return `
             <div class="food-score-hero food-grade-hero food-grade-hero-none">
-                <div class="food-grade-badge-col">
-                    <span class="food-grade-caption">Grade</span>
-                    ${circle}
-                </div>
+                ${this._gradeBadgeCol(circle, 'Grade', tag)}
+                ${sparkHtml}
                 <div class="food-score-meta">
-                    <div class="food-score-grade">No grade yet</div>
                     <div class="text-muted small">${esc(detail)}</div>
                 </div>
-                ${sparkHtml}
             </div>`;
     }
 
@@ -1555,7 +1557,13 @@ export class FoodDashboard {
     _sparkline(inspections) {
         const series = buildScopeSeries(inspections);
         if (!series.events.length) return '';
-        const W = 144, H = 52, padX = 12, padTop = 16, padBot = 12;
+        // viewBox units only — the box scales to the space beside the grade
+        // badge (CSS `width: 100%`), so these set the plot's proportions and
+        // the label-to-mark ratio, not its rendered size. W is what maps to the
+        // card's width, so marks and labels grow by growing in these units
+        // while W holds; H and the pads grew with them to keep the same plot
+        // band (innerH 34) and stop the taller labels clipping out the top.
+        const W = 200, H = 84, padX = 18, padTop = 30, padBot = 20;
         const innerH = H - padTop - padBot;
         const x = (i) => series.events.length === 1 ? W / 2
             : padX + i * ((W - padX * 2) / (series.events.length - 1));
@@ -1571,16 +1579,16 @@ export class FoodDashboard {
             const px = x(event.index), py = y(event.presentation.score);
             const c = this._scoreColor(event.presentation.score);
             nodes.push({ k: 'broad', x: +px.toFixed(1), y: +py.toFixed(1), s: event.presentation.score, c });
-            return `<circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="2.2" fill="${c}"/>`;
+            return `<circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="3.3" fill="${c}"/>`;
         }).join('');
         const broadLabels = series.broad.map((event) =>
-            `<text class="food-spark-score" x="${x(event.index).toFixed(1)}" y="${(y(event.presentation.score) - 4).toFixed(1)}" text-anchor="middle">${event.presentation.score}</text>`).join('');
+            `<text class="food-spark-score" x="${x(event.index).toFixed(1)}" y="${(y(event.presentation.score) - 6).toFixed(1)}" text-anchor="middle">${event.presentation.score}</text>`).join('');
         const focusedMarks = series.focused.map((event) => {
             const px = x(event.index), py = y(event.presentation.score);
             const outcome = focusedOutcomePresentation(event.presentation);
             nodes.push({ k: 'focused', x: +px.toFixed(1), y: +py.toFixed(1), s: event.presentation.score, tone: outcome.tone });
-            return `<rect class="food-spark-focused food-outcome-${outcome.tone}" x="${(px - 2.8).toFixed(1)}" y="${(py - 2.8).toFixed(1)}" width="5.6" height="5.6" transform="rotate(45 ${px.toFixed(1)} ${py.toFixed(1)})"/>`
-                + `<text class="food-spark-raw" x="${px.toFixed(1)}" y="${(py - 5).toFixed(1)}" text-anchor="middle">r${event.presentation.score}</text>`;
+            return `<rect class="food-spark-focused food-outcome-${outcome.tone}" x="${(px - 4.2).toFixed(1)}" y="${(py - 4.2).toFixed(1)}" width="8.4" height="8.4" transform="rotate(45 ${px.toFixed(1)} ${py.toFixed(1)})"/>`
+                + `<text class="food-spark-raw" x="${px.toFixed(1)}" y="${(py - 7.5).toFixed(1)}" text-anchor="middle">r${event.presentation.score}</text>`;
         }).join('');
         // Scope-unknown events: an adjudicated written verdict plots as a
         // FILLED diamond at the height its verdict describes — "all
@@ -1597,10 +1605,10 @@ export class FoodDashboard {
                 narrCount += 1;
                 const py = y(adj.height);
                 nodes.push({ k: 'narr', x: +px.toFixed(1), y: +py.toFixed(1), tone: adj.tone, g: adj.glyph });
-                return `<rect class="food-spark-narr food-outcome-${adj.tone}" x="${(px - 2.8).toFixed(1)}" y="${(py - 2.8).toFixed(1)}" width="5.6" height="5.6" transform="rotate(45 ${px.toFixed(1)} ${py.toFixed(1)})"/>`
-                    + `<text class="food-spark-raw" x="${px.toFixed(1)}" y="${(py - 5).toFixed(1)}" text-anchor="middle">${adj.glyph}</text>`;
+                return `<rect class="food-spark-narr food-outcome-${adj.tone}" x="${(px - 4.2).toFixed(1)}" y="${(py - 4.2).toFixed(1)}" width="8.4" height="8.4" transform="rotate(45 ${px.toFixed(1)} ${py.toFixed(1)})"/>`
+                    + `<text class="food-spark-raw" x="${px.toFixed(1)}" y="${(py - 7.5).toFixed(1)}" text-anchor="middle">${adj.glyph}</text>`;
             }
-            const y1 = H - padBot + 1, y2 = H - 4;
+            const y1 = H - padBot + 1, y2 = H - 6;
             nodes.push({ k: 'unknown', x: +px.toFixed(1), y: +((y1 + y2) / 2).toFixed(1), y1, y2 });
             return `<line class="food-spark-unknown" x1="${px.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${px.toFixed(1)}" y2="${y2.toFixed(1)}"/>`;
         }).join('');
@@ -1627,7 +1635,12 @@ export class FoodDashboard {
         const accessibleSummary = `${broadSummary}. ${focusedSummary}. `
             + `${series.unknown.length} unknown-scope event${series.unknown.length === 1 ? '' : 's'}`
             + (narrCount ? `, ${narrCount} with an adjudicated written verdict` : '') + '.';
+        // A captioned, lightly-bordered card — the graphical peer of the grade
+        // badge column beside it. No legend under the plot: the methodology
+        // page's own "Trend" card teaches the line-vs-◇ vocabulary, and the
+        // per-mark hover plus the aria summary carry the rest.
         return `<div class="food-spark" data-spark-nodes="${esc(JSON.stringify(nodes))}">
+            <span class="food-grade-caption">Trend</span>
             <svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(accessibleSummary)}">
                 <defs>${grad}</defs>
                 ${line}
@@ -1638,7 +1651,6 @@ export class FoodDashboard {
                 <g class="food-spark-hl" pointer-events="none"></g>
                 <rect class="food-spark-overlay" x="0" y="0" width="${W}" height="${H}"/>
             </svg>
-            <span class="food-spark-legend">broad line · ◇ focused raw · ◆ written verdict</span>
         </div>`;
     }
 
@@ -1647,18 +1659,18 @@ export class FoodDashboard {
     // tick); painted into the top <g> so it lifts above its neighbours.
     _sparkHighlight(n) {
         if (n.k === 'broad') {
-            return `<circle class="food-spark-hl-dot" cx="${n.x}" cy="${n.y}" r="4.4" fill="${n.c}"/>`
-                + `<text class="food-spark-score food-spark-hl-label" x="${n.x}" y="${(n.y - 8.5).toFixed(1)}" text-anchor="middle">${n.s}</text>`;
+            return `<circle class="food-spark-hl-dot" cx="${n.x}" cy="${n.y}" r="6.6" fill="${n.c}"/>`
+                + `<text class="food-spark-score food-spark-hl-label" x="${n.x}" y="${(n.y - 12.75).toFixed(1)}" text-anchor="middle">${n.s}</text>`;
         }
         if (n.k === 'focused') {
-            const h = 4.6;
+            const h = 6.9;
             return `<rect class="food-spark-focused food-spark-hl-dia food-outcome-${n.tone}" x="${(n.x - h).toFixed(1)}" y="${(n.y - h).toFixed(1)}" width="${(h * 2).toFixed(1)}" height="${(h * 2).toFixed(1)}" transform="rotate(45 ${n.x} ${n.y})"/>`
-                + `<text class="food-spark-raw food-spark-hl-label" x="${n.x}" y="${(n.y - 9.5).toFixed(1)}" text-anchor="middle">r${n.s}</text>`;
+                + `<text class="food-spark-raw food-spark-hl-label" x="${n.x}" y="${(n.y - 14.25).toFixed(1)}" text-anchor="middle">r${n.s}</text>`;
         }
         if (n.k === 'narr') {
-            const h = 4.6;
+            const h = 6.9;
             return `<rect class="food-spark-narr food-spark-hl-dia food-outcome-${n.tone}" x="${(n.x - h).toFixed(1)}" y="${(n.y - h).toFixed(1)}" width="${(h * 2).toFixed(1)}" height="${(h * 2).toFixed(1)}" transform="rotate(45 ${n.x} ${n.y})"/>`
-                + `<text class="food-spark-raw food-spark-hl-label" x="${n.x}" y="${(n.y - 9.5).toFixed(1)}" text-anchor="middle">${n.g}</text>`;
+                + `<text class="food-spark-raw food-spark-hl-label" x="${n.x}" y="${(n.y - 14.25).toFixed(1)}" text-anchor="middle">${n.g}</text>`;
         }
         return `<line class="food-spark-unknown food-spark-hl-tick" x1="${n.x}" y1="${n.y1}" x2="${n.x}" y2="${n.y2}"/>`;
     }

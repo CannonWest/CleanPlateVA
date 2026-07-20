@@ -208,7 +208,10 @@ test('detail copy does not claim a limited report is a clean full checklist', ()
     assert.doesNotMatch(source, /Full food-code checklist/i);
     assert.match(source, /No violations recorded in this focused/);
     assert.match(source, /focused re-check — it adjusts the facility grade/);
-    assert.match(source, /broad line · ◇ focused raw/);
+    // The under-plot legend was dropped; the trend card carries a caption and
+    // the methodology page teaches the mark vocabulary.
+    assert.doesNotMatch(source, /focused raw · ◆ written verdict/);
+    assert.match(source, /food-grade-caption">Trend</);
     assert.match(source, /Broad scores oldest to newest/);
     assert.match(source, /Broad compliance/);
 });
@@ -295,6 +298,65 @@ test('the grade hero is just the labeled circle and the trend line — no chips,
     assert.doesNotMatch(html, /still out/);
     assert.doesNotMatch(html, /Last broad inspection/);
     assert.doesNotMatch(html, /standing/i);
+});
+
+test('hovering a trend mark always enlarges it — base and highlight sizes move together', () => {
+    const css = readFileSync(
+        new URL('../public/static/css/style.css', import.meta.url), 'utf8');
+    const num = (re, text, what) => {
+        const m = text.match(re);
+        assert.ok(m, `could not read ${what}`);
+        return parseFloat(m[1]);
+    };
+    // Marks live in viewBox units in the JS, their labels in the CSS. Resize
+    // one half and the other has to follow, or hover stops reading as "bigger".
+    const baseDot = num(/r="([\d.]+)" fill="\$\{c\}"/, source, 'base broad dot radius');
+    const hlDot = num(/food-spark-hl-dot"[^>]*r="([\d.]+)"/, source, 'hover dot radius');
+    assert.ok(hlDot > baseDot, `hover dot ${hlDot} must exceed base ${baseDot}`);
+    const baseDia = num(/x="\$\{\(px - ([\d.]+)\)/, source, 'base diamond half-size');
+    const hlDia = num(/const h = ([\d.]+);/, source, 'hover diamond half-size');
+    assert.ok(hlDia > baseDia, `hover diamond ${hlDia} must exceed base ${baseDia}`);
+    const baseScore = num(/\.food-spark-score \{ font-size: ([\d.]+)px/, css, 'base score label');
+    const hlScore = num(/\.food-spark-score\.food-spark-hl-label \{ font-size: ([\d.]+)px/, css, 'hover score label');
+    assert.ok(hlScore > baseScore, `hover label ${hlScore} must exceed base ${baseScore}`);
+    const baseRaw = num(/\.food-spark-raw \{ font-size: ([\d.]+)px/, css, 'base raw label');
+    const hlRaw = num(/\.food-spark-raw\.food-spark-hl-label \{ font-size: ([\d.]+)px/, css, 'hover raw label');
+    assert.ok(hlRaw > baseRaw, `hover raw label ${hlRaw} must exceed base ${baseRaw}`);
+    // Labels sit ABOVE their mark, so the top pad has to clear the tallest of
+    // them or a perfect-100 score gets its hover label clipped out of the box.
+    const padTop = num(/padTop = (\d+)/, source, 'padTop');
+    assert.ok(padTop >= hlScore + 12, `padTop ${padTop} must clear the hover label`);
+});
+
+test('the hero keeps badge and trend on one row — copy never pushes the trend off it', () => {
+    const css = readFileSync(
+        new URL('../public/static/css/style.css', import.meta.url), 'utf8');
+    // Explanatory copy takes a zero basis so its natural width never votes on
+    // the row. With `auto` it wins the row and strands the trend on line two.
+    assert.match(css, /\.food-score-meta \{ flex: 1 1 0;/);
+    // The trend shrinks with the row rather than wrapping out of it.
+    assert.match(css, /\.food-spark \{[^}]*flex: [\d.]+ 1 0;/);
+    // Only the hero that carries BOTH copy and a trend wraps, and it wraps the
+    // copy (full basis) — never the trend.
+    assert.match(css, /\.food-grade-hero-none \{[^}]*flex-wrap: wrap;/);
+    assert.match(css, /\.food-grade-hero-none \.food-score-meta \{ flex-basis: 100%; \}/);
+    assert.doesNotMatch(css, /\.food-grade-hero \{[^}]*flex-wrap/);
+});
+
+test('the no-grade hero states its verdict in the badge pill, not as prose', () => {
+    const proto = dashboard.FoodDashboard.prototype;
+    const html = proto._noGradeHero.call(
+        { _gradeBadgeCol: proto._gradeBadgeCol },
+        { scope: 'focused', count: 4 }, '<svg data-spark></svg>');
+    // Same slot "computed" occupies on a graded facility — caption / circle / pill.
+    assert.match(html, /food-grade-caption">Grade</);
+    assert.match(html, /food-grade-circle-none/);
+    assert.match(html, /food-score-computed food-grade-tag-none">no grade yet</);
+    // The verdict lives in the pill now, so it is not ALSO a headline beside it.
+    assert.doesNotMatch(html, /food-score-grade">/);
+    // The explanation stays, and the trend rides along.
+    assert.match(html, /focused 4-item check/);
+    assert.match(html, /data-spark/);
 });
 
 test('grade dates render as two labeled objects below the hero, numeric M/D/YYYY', () => {
