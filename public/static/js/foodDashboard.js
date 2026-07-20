@@ -345,6 +345,16 @@ function fmtDate(iso) {
     return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
+// Year-less date (M/D) for the toolbar's narrow freshness variant. The
+// archive is always within the current year in practice, and the full
+// variant (plus the tooltip) still carries the year.
+function fmtDateShort(iso) {
+    if (!iso) return '—';
+    const d = new Date(iso + 'T12:00:00Z');
+    if (Number.isNaN(d.getTime())) return iso;
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
 // Compact numeric date (M/D/YYYY) for the grade hero's provenance lines.
 function fmtDateNum(iso) {
     if (!iso) return '—';
@@ -395,9 +405,6 @@ export class FoodDashboard {
     }
 
     init() {
-        document.getElementById('foodRefreshBtn')
-            ?.addEventListener('click', () => this.forceRefresh());
-
         const search = document.getElementById('foodSearch');
         search?.addEventListener('input', () => {
             clearTimeout(this._searchDebounce);
@@ -508,11 +515,11 @@ export class FoodDashboard {
         }
     }
 
-    async refresh(forceRefresh = false) {
+    async refresh() {
         const countsEl = document.getElementById('foodCounts');
         if (countsEl) countsEl.textContent = 'Loading…';
 
-        const payload = await this.api.getFoodFacilities(forceRefresh);
+        const payload = await this.api.getFoodFacilities();
         if (!payload || !payload.available) {
             const reason = payload?.reason || payload?.error || 'data unreachable';
             if (countsEl) countsEl.textContent = `Unavailable — ${reason}`;
@@ -542,19 +549,16 @@ export class FoodDashboard {
 
         const fetchedEl = document.getElementById('foodFetchedAt');
         if (fetchedEl) {
-            if (lite) {
-                fetchedEl.textContent = payload.fetched_at
-                    ? `snapshot ${fmtDate(payload.fetched_at.slice(0, 10))}` : '';
-            } else {
-                // Keep publication time and source-record recency distinct:
-                // export generation does not mean every report is that new.
+            const snap = payload.fetched_at ? payload.fetched_at.slice(0, 10) : null;
+            // Keep publication time and source-record recency distinct:
+            // export generation does not mean every report is that new.
+            // Lite ships no inspection dates, so it states snapshot alone.
+            let latest = null;
+            if (!lite) {
                 const dates = this._facilities.map((f) => f.latest?.date).filter(Boolean);
-                const latest = dates.length ? dates.reduce((a, b) => (a > b ? a : b)) : null;
-                const timing = [];
-                if (payload.fetched_at) timing.push(`snapshot ${fmtDate(payload.fetched_at.slice(0, 10))}`);
-                if (latest) timing.push(`newest report ${fmtDate(latest)}`);
-                fetchedEl.textContent = timing.join(' · ');
+                latest = dates.length ? dates.reduce((a, b) => (a > b ? a : b)) : null;
             }
+            this._renderFreshness(fetchedEl, snap, latest);
         }
 
         const coverageEl = document.getElementById('foodCoverage');
@@ -575,10 +579,6 @@ export class FoodDashboard {
             this._map.setPaintProperty(LYR_CLUSTERS, 'circle-color', this._clusterColors());
         }
         this._rebuildMarkers();
-    }
-
-    forceRefresh() {
-        this.refresh(true);
     }
 
     // ── map plumbing ────────────────────────────────────────────────────
@@ -1050,8 +1050,54 @@ export class FoodDashboard {
     _updateCounts(filteredLen) {
         const countsEl = document.getElementById('foodCounts');
         if (!countsEl) return;
-        const filterNote = filteredLen !== this._facilities.length ? `${filteredLen} of ` : '';
-        countsEl.textContent = `${filterNote}${this._facilities.length} facilities`;
+        const total = this._facilities.length;
+        const filtered = filteredLen !== total;
+        // Thousands separators: the statewide archive is five digits now, and
+        // "19147" reads as a code rather than a quantity without them.
+        const shown = filtered
+            ? `${filteredLen.toLocaleString()} of ${total.toLocaleString()}`
+            : total.toLocaleString();
+        // "facilities" is the first thing to go when the toolbar gets tight —
+        // the glyph carries the noun once the word drops, so the narrow pill
+        // still reads as a count of places. CSS owns the breakpoint; the
+        // title carries the full phrasing at every width.
+        countsEl.innerHTML = '<i class="bi bi-buildings" aria-hidden="true"></i>'
+            + `${esc(shown)}<span class="food-count-unit"> facilities</span>`;
+        countsEl.classList.toggle('is-filtered', filtered);
+        countsEl.title = filtered
+            ? `${filteredLen.toLocaleString()} of ${total.toLocaleString()} facilities match the active filters`
+            : `${total.toLocaleString()} facilities in this snapshot`;
+    }
+
+    // Freshness reads at two lengths: the full phrasing where the toolbar has
+    // room, a trimmed one under 1500px (CSS picks — see .food-freshness).
+    // Both stay in the DOM so the swap is layout-only, no re-render on resize.
+    _renderFreshness(el, snapshotIso, latestIso) {
+        if (!snapshotIso && !latestIso) {
+            el.innerHTML = '';
+            el.removeAttribute('title');
+            return;
+        }
+        const full = [];
+        const short = [];
+        if (snapshotIso) {
+            full.push(`snapshot ${fmtDate(snapshotIso)}`);
+            short.push(`snap ${fmtDateShort(snapshotIso)}`);
+        }
+        if (latestIso) {
+            full.push(`newest report ${fmtDate(latestIso)}`);
+            short.push(`report ${fmtDateShort(latestIso)}`);
+        }
+        el.innerHTML = `<span class="food-freshness-full">${esc(full.join(' · '))}</span>`
+            + `<span class="food-freshness-short">${esc(short.join(' · '))}</span>`;
+        // The tooltip always spells out the distinction the short form drops.
+        // Below the narrowest tier the label hides outright and there is no
+        // hover target left — About states both dates in full, which is the
+        // durable home for them anyway.
+        el.title = [
+            snapshotIso ? `Archive snapshot published ${fmtDate(snapshotIso)}` : null,
+            latestIso ? `Newest inspection report in it: ${fmtDate(latestIso)}` : null,
+        ].filter(Boolean).join('\n');
     }
 
     _updateAboutStatus(payload, lite) {
