@@ -93,8 +93,13 @@ test('transparency content draws the official/derived boundary and full pipeline
     assert.match(html, /marker is not operating-status proof/i);
     assert.doesNotMatch(html, /first occurrence/i);
     assert.doesNotMatch(html, /report JSON/);
-    assert.match(dashboardSource, /snapshot \$\{fmtDate\(payload\.fetched_at\.slice\(0, 10\)\)\}/);
-    assert.match(dashboardSource, /newest report \$\{fmtDate\(latest\)\}/);
+    // Publication time and source recency stay distinct facts. Both phrasings
+    // carry both, so the responsive short form cannot collapse the pair.
+    assert.match(dashboardSource, /snapshot \$\{fmtDate\(snapshotIso\)\}/);
+    assert.match(dashboardSource, /newest report \$\{fmtDate\(latestIso\)\}/);
+    assert.match(dashboardSource, /snap \$\{fmtDateShort\(snapshotIso\)\}/);
+    assert.match(dashboardSource, /report \$\{fmtDateShort\(latestIso\)\}/);
+    assert.match(dashboardSource, /Archive snapshot published \$\{fmtDate\(snapshotIso\)\}/);
     assert.match(dashboardSource, /Not exposed publicly/);
     assert.doesNotMatch(dashboardSource, /fetchedEl\.textContent = latest \? `as of/);
 });

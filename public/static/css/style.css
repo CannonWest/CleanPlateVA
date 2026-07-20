@@ -158,6 +158,88 @@ body {
 .food-toolbar { background: var(--cp-surface); border-color: var(--cp-border) !important; }
 .food-toolbar .food-search { max-width: 260px; }
 
+/* Toolbar clusters. Filters wrap among themselves; status never splits (its
+   three parts are one readout). min-width:0 lets filters shrink instead of
+   forcing an overflow.
+
+   flex-grow on the filters cluster is load-bearing, not cosmetic: a
+   flex-wrap container reports a max-content width that is already
+   wrap-folded (861px here, not the 942px it needs on one line), so at
+   flex-basis:auto it sizes itself to the folded figure and wraps its last
+   switch away while free space sits unused beside it. Growing into the row
+   gives it the width it actually asked for. */
+.food-toolbar-filters { flex: 1 1 auto; min-width: 0; }
+.food-toolbar-status { flex: 0 0 auto; }
+
+/* Match count — a pill so it reads as a value, not stray toolbar text. The
+   buildings glyph is what the count is OF: it holds the noun when the tier
+   rules drop the word "facilities", so the narrow pill never reduces to a
+   bare number. Decorative (aria-hidden) — the title carries the phrasing. */
+.food-count {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.34rem;
+    font-size: 0.78rem;
+    line-height: 1;
+    white-space: nowrap;
+    padding: 0.36rem 0.6rem;
+    border-radius: 999px;
+    border: 1px solid var(--cp-border);
+    background: var(--cp-surface-3);
+    color: var(--cp-muted);
+}
+.food-count .bi {
+    font-size: 0.95em;
+    /* Optical: the glyph reads a touch heavier than the digits beside it. */
+    opacity: 0.8;
+}
+/* An active filter is the one toolbar state worth announcing — the pill goes
+   accent so a narrowed result set is legible without re-reading the number. */
+.food-count.is-filtered {
+    border-color: color-mix(in srgb, var(--cp-accent) 45%, transparent);
+    background: color-mix(in srgb, var(--cp-accent) 12%, transparent);
+    color: var(--cp-accent);
+    font-weight: 600;
+}
+
+.food-freshness { white-space: nowrap; }
+.food-freshness-short { display: none; }
+
+/* Toolbar width budget. The status readout is the whole problem: at full
+   length it needs ~1470px, so every 1366/1440 laptop wrapped the bar to two
+   rows — costing ~39px of map and tearing the readout apart. Rather than
+   permanently shortening it, the status degrades in two steps, each sized to
+   clear the next tier's trigger with room to spare.
+
+   Budget against the WORST-CASE count, never the convenient one. The widest
+   real string is a large filtered subset — "Restaurants only" alone gives
+   "14,636 of 19,147 facilities" — which is ~35px past the "8 of 19,147" a
+   search box produces, and that gap was enough to wrap a tier sized on the
+   latter. Measured at the worst case:
+     >=1500  full text .................... needs ~1470
+     1250-1500  short dates, no unit,
+                narrower search ........... needs ~1200
+     <1250   freshness hides entirely ..... needs ~1035
+   Nothing is lost on the way down — the count and freshness both carry their
+   full phrasing in a tooltip, the pill keeps its glyph so it never reduces
+   to a bare number, and About states the dates outright. Below ~1035 the bar
+   does wrap, which is correct at tablet/phone widths; the status cluster
+   stays intact when it does. */
+@media (max-width: 1499.98px) {
+    .food-freshness-full { display: none; }
+    .food-freshness-short { display: inline; }
+    .food-count-unit { display: none; }
+    .food-toolbar .food-search { max-width: 190px; }
+}
+@media (max-width: 1249.98px) {
+    .food-freshness { display: none; }
+}
+/* Lite is the public face and hides the grade chips + show-closed (~276px),
+   so its toolbar has room the full tier doesn't — a bare "17,286" in a pill
+   is needlessly cryptic when the word fits. Higher specificity than the
+   tier rule above, so it holds at every width. */
+.food-mode-lite .food-count-unit { display: inline; }
+
 /* Bootstrap controls pick up the chrome palette (their data-bs-theme
    defaults are neutral gray and clash with the blue-tinged dark). */
 .theme-dark .form-control,
