@@ -1435,14 +1435,16 @@ export class FoodDashboard {
             <span class="food-grade-score">${esc(score)}</span></span>`;
     }
 
-    // "Grade" caption over the circle, "computed" tag under it — one centered
-    // stack that reads as a single labeled badge.
-    _gradeBadgeCol(circleHtml) {
+    // Caption over the circle, a pill under it — one centered stack that reads
+    // as a single labeled badge. The pill answers "where does this verdict
+    // come from": `computed` when there's a grade, `no grade yet` when there's
+    // nothing to compute from. Same slot, same shape, either way.
+    _gradeBadgeCol(circleHtml, caption = 'Grade', tagHtml = '') {
         return `
             <div class="food-grade-badge-col">
-                <span class="food-grade-caption">Grade</span>
+                <span class="food-grade-caption">${caption}</span>
                 ${circleHtml}
-                <span class="food-score-computed" title="CleanPlateVA formula; VDH publishes no numeric score">computed</span>
+                ${tagHtml}
             </div>`;
     }
 
@@ -1450,9 +1452,10 @@ export class FoodDashboard {
     // Just the badge and the broad-score trend line — the dated provenance
     // rides below in its own objects (_gradeDates).
     _gradeHero(g, sparkHtml = '') {
+        const tag = '<span class="food-score-computed" title="CleanPlateVA formula; VDH publishes no numeric score">computed</span>';
         return `
             <div class="food-score-hero food-grade-hero">
-                ${this._gradeBadgeCol(this._gradeCircle(g.letter, g.score))}
+                ${this._gradeBadgeCol(this._gradeCircle(g.letter, g.score), 'Grade', tag)}
                 ${sparkHtml}
             </div>`;
     }
@@ -1469,10 +1472,7 @@ export class FoodDashboard {
                     <span class="food-grade-new-label">NEW</span></span>`;
         return `
             <div class="food-score-hero food-grade-hero food-grade-hero-new">
-                <div class="food-grade-badge-col">
-                    <span class="food-grade-caption">Status</span>
-                    ${circle}
-                </div>
+                ${this._gradeBadgeCol(circle, 'Status')}
                 <div class="food-score-meta">
                     <div class="food-score-grade food-score-grade-new">Permitted</div>
                     <div class="text-muted small">${esc(detail)}</div>
@@ -1481,7 +1481,9 @@ export class FoodDashboard {
     }
 
     // No scored broad assessment → no grade. A neutral circle keeps the panel
-    // shape, and the note says what a grade would need.
+    // shape, and the note says what a grade would need. "No grade yet" rides in
+    // the pill slot where a graded facility says "computed" — the verdict sits
+    // with the badge, so the prose beside it is only the explanation.
     _noGradeHero(latestView, sparkHtml = '') {
         const detail = latestView.scope === 'focused'
             ? `The latest report is a focused ${latestView.count}-item check. A grade needs a broad inspection (20+ items).`
@@ -1489,14 +1491,11 @@ export class FoodDashboard {
         const circle = `<span class="food-grade-circle food-grade-circle-none" role="img" aria-label="No grade yet">
                     <span class="food-grade-letter">–</span>
                     <span class="food-grade-score">n/a</span></span>`;
+        const tag = '<span class="food-score-computed food-grade-tag-none">no grade yet</span>';
         return `
             <div class="food-score-hero food-grade-hero food-grade-hero-none">
-                <div class="food-grade-badge-col">
-                    <span class="food-grade-caption">Grade</span>
-                    ${circle}
-                </div>
+                ${this._gradeBadgeCol(circle, 'Grade', tag)}
                 <div class="food-score-meta">
-                    <div class="food-score-grade">No grade yet</div>
                     <div class="text-muted small">${esc(detail)}</div>
                 </div>
                 ${sparkHtml}
@@ -1555,7 +1554,10 @@ export class FoodDashboard {
     _sparkline(inspections) {
         const series = buildScopeSeries(inspections);
         if (!series.events.length) return '';
-        const W = 144, H = 52, padX = 12, padTop = 16, padBot = 12;
+        // viewBox units only — the box scales to the space beside the grade
+        // badge (CSS `width: 100%`), so these set the plot's proportions and
+        // the label-to-mark ratio, not its rendered size.
+        const W = 200, H = 66, padX = 14, padTop = 18, padBot = 14;
         const innerH = H - padTop - padBot;
         const x = (i) => series.events.length === 1 ? W / 2
             : padX + i * ((W - padX * 2) / (series.events.length - 1));
@@ -1627,7 +1629,12 @@ export class FoodDashboard {
         const accessibleSummary = `${broadSummary}. ${focusedSummary}. `
             + `${series.unknown.length} unknown-scope event${series.unknown.length === 1 ? '' : 's'}`
             + (narrCount ? `, ${narrCount} with an adjudicated written verdict` : '') + '.';
+        // A captioned, lightly-bordered card — the graphical peer of the grade
+        // badge column beside it. No legend under the plot: the methodology
+        // page's own "Trend" card teaches the line-vs-◇ vocabulary, and the
+        // per-mark hover plus the aria summary carry the rest.
         return `<div class="food-spark" data-spark-nodes="${esc(JSON.stringify(nodes))}">
+            <span class="food-grade-caption">Trend</span>
             <svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(accessibleSummary)}">
                 <defs>${grad}</defs>
                 ${line}
@@ -1638,7 +1645,6 @@ export class FoodDashboard {
                 <g class="food-spark-hl" pointer-events="none"></g>
                 <rect class="food-spark-overlay" x="0" y="0" width="${W}" height="${H}"/>
             </svg>
-            <span class="food-spark-legend">broad line · ◇ focused raw · ◆ written verdict</span>
         </div>`;
     }
 

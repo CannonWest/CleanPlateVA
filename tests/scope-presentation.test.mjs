@@ -208,7 +208,10 @@ test('detail copy does not claim a limited report is a clean full checklist', ()
     assert.doesNotMatch(source, /Full food-code checklist/i);
     assert.match(source, /No violations recorded in this focused/);
     assert.match(source, /focused re-check — it adjusts the facility grade/);
-    assert.match(source, /broad line · ◇ focused raw/);
+    // The under-plot legend was dropped; the trend card carries a caption and
+    // the methodology page teaches the mark vocabulary.
+    assert.doesNotMatch(source, /focused raw · ◆ written verdict/);
+    assert.match(source, /food-grade-caption">Trend</);
     assert.match(source, /Broad scores oldest to newest/);
     assert.match(source, /Broad compliance/);
 });
@@ -295,6 +298,22 @@ test('the grade hero is just the labeled circle and the trend line — no chips,
     assert.doesNotMatch(html, /still out/);
     assert.doesNotMatch(html, /Last broad inspection/);
     assert.doesNotMatch(html, /standing/i);
+});
+
+test('the no-grade hero states its verdict in the badge pill, not as prose', () => {
+    const proto = dashboard.FoodDashboard.prototype;
+    const html = proto._noGradeHero.call(
+        { _gradeBadgeCol: proto._gradeBadgeCol },
+        { scope: 'focused', count: 4 }, '<svg data-spark></svg>');
+    // Same slot "computed" occupies on a graded facility — caption / circle / pill.
+    assert.match(html, /food-grade-caption">Grade</);
+    assert.match(html, /food-grade-circle-none/);
+    assert.match(html, /food-score-computed food-grade-tag-none">no grade yet</);
+    // The verdict lives in the pill now, so it is not ALSO a headline beside it.
+    assert.doesNotMatch(html, /food-score-grade">/);
+    // The explanation stays, and the trend rides along.
+    assert.match(html, /focused 4-item check/);
+    assert.match(html, /data-spark/);
 });
 
 test('grade dates render as two labeled objects below the hero, numeric M/D/YYYY', () => {
