@@ -315,6 +315,360 @@ export function gradePresentation(facility = {}) {
         // the inspector's written comments (and which items they governed).
         narrativeFollowups: Number(g.narrative_followups) || 0,
         narrativeItems: g.narrative_items || [],
+        // The broad report that anchors the grade — the receipt modal joins
+        // it back to its full inspection row for the per-item breakdown.
+        baseInspectionId: g.base_inspection_id || null,
+    };
+}
+
+// ── grade receipt ───────────────────────────────────────────────────────
+// The per-facility "how was this grade computed" breakdown behind the hero's
+// grade circle: the methodology page's worked example, with this facility's
+// real numbers. It mirrors the engine's dock math (cf_lib.violation_dock_map
+// + facility_grade) over the SAME published rows the engine consumed, then
+// RECONCILES every derived figure against the published grade block —
+// base_score, final score, the 1-dp aggregates, bucket membership, follow-up
+// counts. Any mismatch flips `verified` off and the modal silently degrades
+// to bucket-level prose (published numbers only, no per-item points): the
+// engine stays the single authority; the mirror only ever ADDS resolution,
+// never contradicts. Membership shown to the user always comes from the
+// PUBLISHED buckets, even when verified.
+//
+// All arithmetic runs in integer TEN-THOUSANDTHS of a point: every weight
+// the formula can produce (6/2 · ×1.5 repeat · ×0.75 COS · ×0.65/×0.35
+// restore) is exact in that unit, so float drift can neither fabricate a
+// reconcile failure nor mask a real one.
+
+const RECEIPT_SCALE = 10000;                    // ten-thousandths of a point
+const W_RF_TT = 6 * RECEIPT_SCALE;              // risk-factor violation
+const W_GRP_TT = 2 * RECEIPT_SCALE;             // Good-Retail-Practice violation
+const RF_MAX_ITEM = 29;                         // cf_lib.RISK_FACTOR_MAX_ITEM
+
+const receiptIsRepeatText = (text) => /\brepeat\b/i.test(text || '');
+// cf_lib.is_followup: purpose/type marks the visit a re-check.
+const receiptIsFollowup = (insp) =>
+    /follow/.test(`${insp?.purpose || ''} ${insp?.insp_type || ''}`.toLowerCase());
+
+// cf_lib.doc_scope: the STORED scope wins (the exporter computed it with the
+// engine's own rules); breadth-derivation is only the legacy fallback. This
+// deliberately differs from inspectionPresentation's stale-label guard —
+// the receipt must see the rows exactly as the grade engine saw them.
+function receiptScope(insp) {
+    const scope = insp?.scope;
+    if (scope === 'broad' || scope === 'focused' || scope === 'unknown') return scope;
+    return inspectionPresentation(insp).scope;
+}
+
+// cf_lib.checklist_item_words: item → {word: IN|OUT|OUT_COS, repeat}. Any
+// OUT row makes the item OUT; it softens to OUT_COS only when every OUT row
+// was corrected on site. N/A and N/O rows do not address the item.
+function receiptItemWords(checklist) {
+    const seen = new Map();
+    for (const row of checklist || []) {
+        const item = Number.isInteger(row.item) ? row.item : null;
+        if (item == null || row.is_sentinel) continue;
+        if (!(row.compliant || row.violation)) continue;
+        const cur = seen.get(item) || { word: 'IN', repeat: false };
+        if (row.violation) {
+            if (cur.word === 'IN') cur.word = row.cos ? 'OUT_COS' : 'OUT';
+            else if (cur.word === 'OUT_COS' && !row.cos) cur.word = 'OUT';
+        }
+        cur.repeat = cur.repeat || !!row.repeat;
+        seen.set(item, cur);
+    }
+    return seen;
+}
+
+// cf_lib.violation_dock_map in ten-thousandths: item|null → the item's base
+// deduction. `pointsTT` carries the ×0.75 COS discount; `fullTT` is what a
+// failed re-check would revoke back to. Item-less observations ride under
+// null at face value — they can never be re-checked by item.
+function receiptDockMap(base) {
+    const rows = base.checklist || [];
+    const repeatItems = new Set(rows
+        .filter((r) => r.repeat && Number.isInteger(r.item)).map((r) => r.item));
+    const cosItems = new Set([...receiptItemWords(rows)]
+        .filter(([, w]) => w.word === 'OUT_COS').map(([item]) => item));
+    const docks = new Map();
+    for (const obs of base.violations || []) {
+        const item = Number.isInteger(obs.item) ? obs.item : null;
+        let weightTT = item != null && item <= RF_MAX_ITEM ? W_RF_TT : W_GRP_TT;
+        const repeat = receiptIsRepeatText(obs.text) || repeatItems.has(item);
+        if (repeat) weightTT = weightTT * 3 / 2;
+        const cos = item != null && cosItems.has(item);
+        const dock = docks.get(item)
+            || { pointsTT: 0, fullTT: 0, count: 0, repeat: false, cos: false, texts: [] };
+        dock.pointsTT += cos ? weightTT * 3 / 4 : weightTT;
+        dock.fullTT += weightTT;
+        dock.count += 1;
+        dock.repeat = dock.repeat || repeat;
+        dock.cos = dock.cos || cos;
+        if (obs.text) dock.texts.push(obs.text);
+        docks.set(item, dock);
+    }
+    return docks;
+}
+
+// cf_lib.narrative_item_words: an adjudicated verdict resolved against the
+// base dock map — narrative words can restore or re-charge an existing dock,
+// never mint one, and blankets skip item-less docks (checklist parity).
+function receiptNarrativeWords(insp, docks) {
+    const adj = insp.adjudication || {};
+    const words = new Map();
+    if (adj.status !== 'adjudicated') return words;
+    const docked = [...docks.keys()].filter((item) => item != null);
+    if (adj.verdict === 'all_corrected') {
+        docked.forEach((item) => words.set(item, { word: 'IN', repeat: false }));
+    } else if (adj.verdict === 'none_corrected') {
+        docked.forEach((item) => words.set(item, { word: 'OUT', repeat: false }));
+    } else if (adj.verdict === 'priority_corrected') {
+        docked.filter((item) => item <= RF_MAX_ITEM)
+            .forEach((item) => words.set(item, { word: 'IN', repeat: false }));
+    } else if (adj.verdict === 'items') {
+        for (const [k, v] of Object.entries(adj.items || {})) {
+            const item = Number(k);
+            const word = String(v).toUpperCase();
+            if (Number.isInteger(item) && docks.has(item)
+                && (word === 'IN' || word === 'OUT')) {
+                words.set(item, { word, repeat: false });
+            }
+        }
+    }
+    return words;
+}
+
+/**
+ * The grade-receipt model for one facility: the broad anchor's per-item
+ * docks, the post-broad re-checks and what each governed item's outcome did
+ * to the number, and the base → adjustments → grade ledger. Returns null
+ * when the facility has no grade (mirrors gradePresentation). Per-item point
+ * values are only trustworthy when `verified` is true.
+ */
+export function gradeReceiptPresentation(facility = {}, inspections = []) {
+    const grade = gradePresentation(facility);
+    if (!grade) return null;
+    const g = facility.grade || {};
+
+    const dated = (inspections || []).filter((i) => i && i.date);
+    let base = grade.baseInspectionId
+        ? dated.find((i) => i.inspection_id === grade.baseInspectionId) || null : null;
+    if (!base) {
+        // Legacy payloads without base_inspection_id: newest scored broad,
+        // exactly the engine's own base selection.
+        base = dated
+            .filter((i) => receiptScope(i) === 'broad' && Number.isFinite(Number(i.score)))
+            .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))[0] || null;
+    }
+
+    const isNarr = (i) => receiptScope(i) === 'unknown' && receiptIsFollowup(i)
+        && (i.adjudication || {}).status === 'adjudicated';
+
+    // cf_lib.facility_grade's follow-up selection: post-broad by date, or
+    // same-day when the purpose marks it a Follow-Up; newest first.
+    const docks = base ? receiptDockMap(base) : new Map();
+    const followups = base ? dated
+        .filter((i) => ((Array.isArray(i.checklist) && i.checklist.length
+            && receiptScope(i) === 'focused') || isNarr(i))
+            && (i.date > base.date || (i.date === base.date && receiptIsFollowup(i))))
+        .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0)) : [];
+
+    const latestWord = new Map();       // newest word per item, both channels
+    const narrativeItems = new Set();   // items whose governing word is narrative
+    let narrativeCount = 0;
+    const followupViews = [];
+    for (const fup of followups) {
+        const narrative = isNarr(fup);
+        if (narrative) {
+            narrativeCount += 1;
+            const v = narrativeVerdictPresentation(fup);
+            followupViews.push({
+                date: fup.date, kind: 'narrative', tone: v?.tone || 'unknown',
+                label: v?.label || 'Written verdict', detail: v?.detail || '',
+            });
+        } else {
+            const view = inspectionPresentation(fup);
+            const outcome = focusedOutcomePresentation(view);
+            followupViews.push({
+                date: fup.date, kind: 'checklist', tone: outcome.tone,
+                label: outcome.ratioKnown
+                    ? `${outcome.out}/${outcome.total} OUT` : outcome.label,
+                detail: outcome.description,
+            });
+        }
+        const words = narrative
+            ? receiptNarrativeWords(fup, docks) : receiptItemWords(fup.checklist);
+        for (const [item, w] of words) {
+            if (!latestWord.has(item)) {
+                latestWord.set(item, w);
+                if (narrative) narrativeItems.add(item);
+            }
+        }
+    }
+
+    // Base facts first — the anchor's total and its item-less riders exist
+    // whether or not anything re-checked them.
+    let baseTT = 0;
+    let itemless = null;
+    for (const [item, dock] of docks) {
+        baseTT += dock.pointsTT;
+        if (item == null) itemless = { count: dock.count, pointsTT: dock.pointsTT };
+    }
+
+    // Outcome walk — the exact branch structure of facility_grade, including
+    // its no-followup early return: with nothing to adjust, the buckets stay
+    // EMPTY (nothing is "unchecked" when no re-check ever happened) and the
+    // grade is the broad score, exactly.
+    let totalTT = 0, restoredTT = 0, extraTT = 0;
+    const derived = { restored: [], failed: [], cos: [], new: [], unchecked: [] };
+    if (followups.length) {
+        for (const [item, dock] of docks) {
+            const w = item != null ? latestWord.get(item) : undefined;
+            if (!w) {
+                totalTT += dock.pointsTT;
+                if (item != null) derived.unchecked.push(item);
+            } else if (w.word === 'IN') {
+                totalTT += dock.pointsTT * 35 / 100;
+                restoredTT += dock.pointsTT * 65 / 100;
+                derived.restored.push(item);
+            } else if (w.word === 'OUT_COS') {
+                totalTT += dock.fullTT;                 // credit revoked, no mult
+                extraTT += dock.fullTT - dock.pointsTT;
+                derived.cos.push(item);
+            } else {
+                totalTT += dock.fullTT * 3 / 2;         // revoked + structural repeat
+                extraTT += dock.fullTT * 3 / 2 - dock.pointsTT;
+                derived.failed.push(item);
+            }
+        }
+        for (const [item, w] of latestWord) {
+            if (docks.has(item) || w.word !== 'OUT') continue;  // OUT_COS new items dock nothing
+            let weightTT = item <= RF_MAX_ITEM ? W_RF_TT : W_GRP_TT;
+            if (w.repeat) weightTT = weightTT * 3 / 2;
+            totalTT += weightTT;
+            extraTT += weightTT;
+            derived.new.push(item);
+        }
+    }
+
+    // cf_lib.published_score / _one_dp, integer-exact (ROUND_HALF_UP).
+    const scoreTT = (tt) => {
+        const raw = 100 * RECEIPT_SCALE - tt;
+        if (raw <= 0) return 0;
+        const q = Math.floor(raw / RECEIPT_SCALE);
+        return raw % RECEIPT_SCALE >= RECEIPT_SCALE / 2 ? q + 1 : q;
+    };
+    const oneDpTT = (tt) => {
+        const q = Math.floor(tt / (RECEIPT_SCALE / 10));
+        return (tt % (RECEIPT_SCALE / 10) >= RECEIPT_SCALE / 20 ? q + 1 : q) / 10;
+    };
+    const derivedBase = scoreTT(baseTT);
+    const derivedScore = followups.length ? scoreTT(totalTT) : derivedBase;
+
+    const sameItems = (mine, published) => {
+        const a = [...mine].sort((m, n) => m - n);
+        const b = (published || []).map(Number).sort((m, n) => m - n);
+        return a.length === b.length && a.every((v, i) => v === b[i]);
+    };
+    const verified = !!base
+        && derivedBase === grade.baseScore
+        && derivedScore === grade.score
+        && followups.length === grade.followups
+        && (!!g.adjusted) === (followups.length > 0)
+        && narrativeCount === grade.narrativeFollowups
+        && oneDpTT(restoredTT) === grade.restoredPoints
+        && oneDpTT(extraTT) === grade.extraPoints
+        && sameItems(derived.restored, grade.restored)
+        && sameItems(derived.failed, grade.failed)
+        && sameItems(derived.cos, grade.cos)
+        && sameItems(derived.new, grade.newItems)
+        && sameItems(derived.unchecked, grade.unchecked)
+        && sameItems([...narrativeItems], grade.narrativeItems);
+
+    const clip = (t) => (t && t.length > 140 ? t.slice(0, 137) + '…' : t || '');
+    const textFor = (item) => {
+        const dock = docks.get(item);
+        if (dock && dock.texts.length) return clip(dock.texts[0]);
+        for (const fup of followups) {      // new items: found by a re-check
+            const hit = (fup.violations || []).find((v) => v.item === item && v.text);
+            if (hit) return clip(hit.text);
+        }
+        return '';
+    };
+    // Display membership is the PUBLISHED buckets; derived numbers decorate
+    // them only when the reconcile passed.
+    const publishedNarrative = new Set((grade.narrativeItems || []).map(Number));
+    const journey = (bucket, items) => items.map(Number).map((item) => {
+        const dock = docks.get(item);
+        const row = {
+            item, bucket, text: textFor(item),
+            category: item <= RF_MAX_ITEM ? 'risk_factor' : 'grp',
+            narrative: publishedNarrative.has(item),
+            repeat: !!dock?.repeat, cosBase: !!dock?.cos,
+            dockPts: null, delta: null,
+        };
+        if (verified && dock) {
+            row.dockPts = oneDpTT(dock.pointsTT);
+            if (bucket === 'restored') row.delta = oneDpTT(dock.pointsTT * 65 / 100);
+            else if (bucket === 'failed') row.delta = oneDpTT(dock.fullTT * 3 / 2 - dock.pointsTT);
+            else if (bucket === 'cos') row.delta = oneDpTT(dock.fullTT - dock.pointsTT);
+        }
+        if (verified && bucket === 'new') {
+            const w = latestWord.get(item);
+            let weightTT = item <= RF_MAX_ITEM ? W_RF_TT : W_GRP_TT;
+            if (w?.repeat) weightTT = weightTT * 3 / 2;
+            row.delta = oneDpTT(weightTT);
+            row.repeat = !!w?.repeat;
+        }
+        return row;
+    });
+
+    const baseItems = [...docks].filter(([item]) => item != null)
+        .sort((a, b) => a[0] - b[0])
+        .map(([item, dock]) => ({
+            item, category: item <= RF_MAX_ITEM ? 'risk_factor' : 'grp',
+            repeat: dock.repeat, cos: dock.cos, count: dock.count,
+            points: verified ? oneDpTT(dock.pointsTT) : null,
+            text: dock.texts.length ? clip(dock.texts[0]) : '',
+        }));
+
+    // The ledger states the published triplet; `exact` decides whether the
+    // round-once footnote appears (components are 1-dp receipts, the score
+    // rounds once at the end — they may not visibly sum).
+    const ledgerSum = Math.round(
+        (grade.baseScore + grade.restoredPoints - grade.extraPoints) * 10) / 10;
+    return {
+        grade,
+        verified,
+        adjusted: !!g.adjusted,
+        base: {
+            found: !!base,
+            inspectionId: base?.inspection_id || null,
+            date: grade.baseDate || base?.date || null,
+            score: grade.baseScore, letter: grade.baseLetter,
+            violationCount: base ? (base.violations || []).length : null,
+            rfCount: base ? (base.violations || [])
+                .filter((v) => Number.isInteger(v.item) && v.item <= RF_MAX_ITEM).length : null,
+            grpCount: base ? (base.violations || [])
+                .filter((v) => !(Number.isInteger(v.item) && v.item <= RF_MAX_ITEM)).length : null,
+            items: baseItems,
+            itemless: itemless
+                ? { count: itemless.count, points: verified ? oneDpTT(itemless.pointsTT) : null }
+                : null,
+        },
+        followups: followupViews,
+        journeys: {
+            restored: journey('restored', grade.restored),
+            failed: journey('failed', grade.failed),
+            cos: journey('cos', grade.cos),
+            new: journey('new', grade.newItems),
+            unchecked: journey('unchecked', grade.unchecked),
+        },
+        ledger: {
+            baseScore: grade.baseScore, baseLetter: grade.baseLetter,
+            restored: grade.restoredPoints, added: grade.extraPoints,
+            score: grade.score, letter: grade.letter,
+            exact: ledgerSum === grade.score,
+        },
     };
 }
 
@@ -432,6 +786,10 @@ export class FoodDashboard {
         this._mapNote = null;       // locate-feedback notice over the map
         this._geolocate = null;     // the GeolocateControl instance
         this._geoFollowing = false; // camera locked to the user's position?
+        this._receiptHost = null;   // grade-receipt modal DOM (body-appended)
+        this._receiptTrigger = null; // button to restore focus to on close
+        this._receiptKeydown = null;
+        this._receiptFocusin = null;
     }
 
     init() {
@@ -1319,6 +1677,7 @@ export class FoodDashboard {
     // ── detail panel ────────────────────────────────────────────────────
 
     async _select(f) {
+        this._closeReceipt();   // a stale receipt must not outlive its facility
         this._selectedPermit = f.permit_id;
         const panel = document.getElementById('foodDetail');
         const inner = document.getElementById('foodDetailInner');
@@ -1349,9 +1708,11 @@ export class FoodDashboard {
         inner.querySelector('.food-detail-close')
             ?.addEventListener('click', () => this._closeDetail());
         this._bindSparkline(inner);
+        this._bindGradeReceipt(inner, detail.facility, detail.inspections);
     }
 
     _closeDetail() {
+        this._closeReceipt();
         this._selectedPermit = null;
         document.getElementById('foodDetail')?.classList.add('d-none');
         setTimeout(() => this._map?.resize(), 60);
@@ -1494,12 +1855,20 @@ export class FoodDashboard {
 
     // The grade hero: the facility verdict, on top of every full detail panel.
     // Just the badge and the broad-score trend line — the dated provenance
-    // rides below in its own objects (_gradeDates).
+    // rides below in its own objects (_gradeDates). The circle and the
+    // `computed` pill are BUTTONS: both open the grade-receipt modal, the
+    // per-facility "how was this computed" breakdown (_openReceipt).
     _gradeHero(g, sparkHtml = '') {
         const tag = '<span class="food-score-computed" title="CleanPlateVA formula; VDH publishes no numeric score">computed</span>';
+        const circleBtn = `<button type="button" class="food-receipt-trigger" data-grade-receipt`
+            + ` aria-haspopup="dialog" title="See how this grade was computed"`
+            + ` aria-label="Grade ${esc(g.letter)}, score ${esc(g.score)} of 100 — open the score breakdown">`
+            + `${this._gradeCircle(g.letter, g.score)}</button>`;
+        const tagBtn = `<button type="button" class="food-receipt-trigger food-receipt-trigger-pill" data-grade-receipt`
+            + ` aria-haspopup="dialog" aria-label="Open the score breakdown">${tag}</button>`;
         return `
             <div class="food-score-hero food-grade-hero">
-                ${this._gradeBadgeCol(this._gradeCircle(g.letter, g.score), 'Grade', tag)}
+                ${this._gradeBadgeCol(circleBtn, 'Grade', tagBtn)}
                 ${sparkHtml}
             </div>`;
     }
@@ -1565,6 +1934,210 @@ export class FoodDashboard {
             + obj('Last broad inspection', baseDate)
             + obj('Last visit', latestDate)
             + `</div>`;
+    }
+
+    // ── grade-receipt modal ─────────────────────────────────────────────
+    // The breakdown behind the hero's grade circle: broad anchor → follow-up
+    // effects → ledger. Data model comes from gradeReceiptPresentation; when
+    // its engine-mirror reconcile failed (`verified` false), per-item point
+    // values are absent and the receipt leans on the published aggregates —
+    // membership and copy render either way.
+
+    _bindGradeReceipt(root, fac, inspections) {
+        root.querySelectorAll('[data-grade-receipt]').forEach((btn) => {
+            btn.addEventListener('click', () => this._openReceipt(fac, inspections, btn));
+        });
+    }
+
+    _openReceipt(fac, inspections, trigger = null) {
+        const receipt = gradeReceiptPresentation(fac, inspections);
+        if (!receipt) return;
+        this._closeReceipt();
+        const host = document.createElement('div');
+        host.className = 'food-receipt-host';
+        host.innerHTML = this._renderGradeReceipt(receipt, fac.name);
+        document.body.appendChild(host);
+        document.body.classList.add('food-receipt-open');
+        this._receiptHost = host;
+        this._receiptTrigger = trigger;
+        host.querySelectorAll('[data-receipt-close]').forEach((el) =>
+            el.addEventListener('click', () => this._closeReceipt()));
+        const backdrop = host.querySelector('.food-receipt-backdrop');
+        backdrop?.addEventListener('click', (e) => {
+            if (e.target === backdrop) this._closeReceipt();
+        });
+        this._receiptKeydown = (e) => {
+            if (e.key === 'Escape') this._closeReceipt();
+        };
+        document.addEventListener('keydown', this._receiptKeydown);
+        // Light focus containment: anything tabbing out of the dialog is
+        // pulled back to it (small dialog, no full trap machinery needed).
+        this._receiptFocusin = (e) => {
+            if (this._receiptHost && !this._receiptHost.contains(e.target)) {
+                this._receiptHost.querySelector('.food-receipt')?.focus();
+            }
+        };
+        document.addEventListener('focusin', this._receiptFocusin);
+        host.querySelector('.food-receipt')?.focus();
+    }
+
+    _closeReceipt() {
+        if (!this._receiptHost) return;
+        if (this._receiptKeydown) document.removeEventListener('keydown', this._receiptKeydown);
+        if (this._receiptFocusin) document.removeEventListener('focusin', this._receiptFocusin);
+        this._receiptKeydown = null;
+        this._receiptFocusin = null;
+        this._receiptHost.remove();
+        this._receiptHost = null;
+        document.body.classList.remove('food-receipt-open');
+        const trigger = this._receiptTrigger;
+        this._receiptTrigger = null;
+        if (trigger && trigger.isConnected) trigger.focus();
+    }
+
+    _renderGradeReceipt(r, name) {
+        const fmt1 = (n) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
+        const chip = (cls, text, title = '') =>
+            `<span class="${cls}"${title ? ` title="${esc(title)}"` : ''}>${esc(text)}</span>`;
+        const catChip = (category) => (category === 'risk_factor'
+            ? chip('food-receipt-cat food-receipt-cat-rf', 'risk factor −6',
+                'Foodborne-illness risk factor (form items 1–29) — 6 points per violation')
+            : chip('food-receipt-cat food-receipt-cat-grp', 'retail practice −2',
+                'Good Retail Practices (items 30+) — 2 points per violation'));
+
+        // One item row, shared by the base list and the journey groups.
+        const itemRow = (it, deltaHtml) => `
+            <div class="food-receipt-item${it.category === 'risk_factor' ? ' food-receipt-item-rf' : ''}">
+                <div class="food-receipt-item-head">
+                    <span class="food-receipt-item-no">#${esc(it.item)}</span>
+                    ${catChip(it.category)}
+                    ${it.count > 1 ? chip('food-receipt-cat', `×${it.count} findings`,
+                        'Multiple violations were cited under this item — their weights sum') : ''}
+                    ${it.repeat ? chip('food-flag-repeat', 'repeat ×1.5') : ''}
+                    ${it.cos || it.cosBase ? chip('food-dispos food-dispos-cos', 'fixed on site ×0.75',
+                        'Corrected while the inspector watched — docks 75% of its weight, provisionally') : ''}
+                    ${it.narrative ? chip('food-receipt-narr', 'written verdict',
+                        'Outcome read from the inspector\'s written comments (adjudicated)') : ''}
+                    ${deltaHtml}
+                </div>
+                ${it.text ? `<div class="food-receipt-item-text">${esc(it.text)}</div>` : ''}
+            </div>`;
+
+        // ── section 1: the broad anchor ────────────────────────────────
+        const b = r.base;
+        let baseBody;
+        if (!b.found) {
+            baseBody = `<div class="food-receipt-note">The anchoring broad inspection isn't in the
+                shipped history, so the per-item breakdown is unavailable — the published totals below still stand.</div>`;
+        } else if (!b.items.length && !b.itemless) {
+            baseBody = '<div class="food-receipt-note">No violations recorded — a clean 100-point inspection.</div>';
+        } else {
+            baseBody = b.items.map((it) => itemRow(it, it.points != null
+                ? `<span class="food-receipt-pts">−${fmt1(it.points)}</span>` : '')).join('')
+                + (b.itemless ? `<div class="food-receipt-note">${b.itemless.count} observation${b.itemless.count === 1 ? '' : 's'}
+                    without a form item number — dock${b.itemless.count === 1 ? 's' : ''} at face value${b.itemless.points != null
+                        ? ` (−${fmt1(b.itemless.points)})` : ''} and can't be re-checked by item.</div>` : '');
+        }
+        const baseCounts = b.found && (b.items.length || b.itemless)
+            ? `<div class="food-receipt-sub">${b.violationCount} violation${b.violationCount === 1 ? '' : 's'}
+                — ${b.rfCount} risk-factor at −6 · ${b.grpCount} retail-practice at −2</div>`
+            : '';
+        const baseSection = `
+            <div class="food-receipt-sec">
+                <div class="food-receipt-sec-title">
+                    <span>Broad inspection — ${fmtDate(b.date)}</span>
+                    <span class="food-insp-score" style="background:${this._scoreColor(b.score)}"
+                        title="This inspection's score — the grade's base">${esc(b.score)}</span>
+                </div>
+                ${baseCounts}
+                ${baseBody}
+            </div>`;
+
+        // ── section 2: follow-ups and their effects ────────────────────
+        let followupSection = '';
+        if (r.adjusted) {
+            const visits = r.followups.map((v) => `
+                <div class="food-receipt-visit">
+                    <span class="food-receipt-visit-date">${fmtDateNum(v.date)}</span>
+                    <span class="food-adj-chip food-outcome-${esc(v.tone)}" title="${esc(v.detail)}">${esc(v.label)}</span>
+                    <span class="food-receipt-visit-kind">${v.kind === 'narrative' ? 'written verdict' : 'focused re-check'}</span>
+                </div>`).join('');
+            const groups = [
+                ['restored', 'Verified fixed', 'restores 65% of the item\'s deduction',
+                    (row) => (row.delta != null
+                        ? `<span class="food-receipt-pts food-receipt-delta-pos">+${fmt1(row.delta)}</span>` : '')],
+                ['failed', 'Found OUT again', 'full weight ×1.5 — any on-site credit revoked',
+                    (row) => (row.delta != null
+                        ? `<span class="food-receipt-pts food-receipt-delta-neg">−${fmt1(row.delta)} more</span>` : '')],
+                ['cos', 'OUT again, re-fixed on the spot', 'full weight — the base on-site credit is revoked',
+                    // With no base COS credit to revoke, the charge is unchanged: ±0.
+                    (row) => (row.delta != null
+                        ? (row.delta > 0
+                            ? `<span class="food-receipt-pts food-receipt-delta-neg">−${fmt1(row.delta)} more</span>`
+                            : '<span class="food-receipt-pts food-receipt-delta-mut">±0</span>') : '')],
+                ['new', 'New findings on re-checks', 'dock at category weight',
+                    (row) => (row.delta != null
+                        ? `<span class="food-receipt-pts food-receipt-delta-neg">−${fmt1(row.delta)}</span>` : '')],
+                ['unchecked', 'Not re-checked', 'the deduction stands as-is',
+                    (row) => (row.dockPts != null
+                        ? `<span class="food-receipt-pts food-receipt-delta-mut">−${fmt1(row.dockPts)} carried</span>` : '')],
+            ];
+            const journeyHtml = groups
+                .filter(([bucket]) => r.journeys[bucket].length)
+                .map(([bucket, title, sub, delta]) => `
+                    <div class="food-receipt-group">${title} <small>${sub}</small></div>
+                    ${r.journeys[bucket].map((row) => itemRow(row, delta(row))).join('')}`)
+                .join('');
+            followupSection = `
+                <div class="food-receipt-sec">
+                    <div class="food-receipt-sec-title"><span>Since then —
+                        ${r.followups.length} re-check${r.followups.length === 1 ? '' : 's'}</span></div>
+                    ${visits}
+                    <div class="food-receipt-sub">For each item the broad visit docked, the newest re-check governs:</div>
+                    ${journeyHtml}
+                </div>`;
+        } else {
+            followupSection = `
+                <div class="food-receipt-sec">
+                    <div class="food-receipt-note">No grade-adjusting re-checks since — the facility grade
+                        is this broad inspection's score, exactly.</div>
+                </div>`;
+        }
+
+        // ── section 3: the ledger ──────────────────────────────────────
+        const ledger = r.adjusted ? `
+            <div class="food-receipt-ledger">
+                <div class="food-receipt-ledger-row"><span>Base broad score</span><b>${r.ledger.baseScore}</b></div>
+                <div class="food-receipt-ledger-row"><span>Restored by verified fixes</span>
+                    <b class="food-receipt-delta-pos">+${fmt1(r.ledger.restored)}</b></div>
+                <div class="food-receipt-ledger-row"><span>Added by failed re-checks &amp; new findings</span>
+                    <b class="food-receipt-delta-neg">−${fmt1(r.ledger.added)}</b></div>
+                <div class="food-receipt-ledger-row food-receipt-ledger-total"><span>Facility grade</span>
+                    <span class="food-receipt-ledger-grade" style="--grade-color:${gradeColor(r.ledger.letter)}">${r.ledger.score} ${esc(r.ledger.letter)}</span></div>
+                ${r.ledger.exact ? '' : `<div class="food-receipt-foot">Components are shown to one decimal;
+                    the score itself rounds once, at the end (halves up) — so the lines may not visibly sum.</div>`}
+            </div>` : '';
+
+        return `
+            <div class="food-receipt-backdrop">
+                <div class="food-receipt" role="dialog" aria-modal="true" aria-labelledby="foodReceiptTitle" tabindex="-1">
+                    <div class="food-receipt-head">
+                        <div>
+                            <div class="food-receipt-kicker">How this grade was computed</div>
+                            <h5 id="foodReceiptTitle">${esc(name)}</h5>
+                        </div>
+                        ${this._gradeCircle(r.grade.letter, r.grade.score, 'food-grade-circle-sm')}
+                        <button type="button" class="btn-close" data-receipt-close aria-label="Close"></button>
+                    </div>
+                    <div class="food-receipt-body">
+                        ${baseSection}
+                        ${followupSection}
+                        ${ledger}
+                        <div class="food-receipt-foot">CleanPlateVA's computed formula — VDH publishes no
+                            numeric score. The full method lives on the Methodology tab.</div>
+                    </div>
+                </div>
+            </div>`;
     }
 
     // item#s by disposition, from a parsed checklist — used to badge violations
