@@ -60,8 +60,11 @@ test('the score explainer visibly gates grades by assessment breadth', () => {
     assert.match(html, /Which inspections anchor the grade\?/);
     // The gate itself lives in the production presentation path.
     assert.match(dashboardSource, /count >= BROAD_MIN_APPLICABLE_ITEMS \? 'broad' : 'focused'/);
-    assert.match(html, /◇ r100/);
-    assert.match(html, /Focused inspections remain visible as unconnected raw-formula event markers/);
+    assert.match(html, /◇ 3\/3/);
+    assert.match(html, /at the share of its re-examined items in compliance, labeled with that OUT ratio/);
+    // The page must keep teaching WHY the report score is off this chart, or
+    // the raw-formula plotting is one "simplification" away from returning.
+    assert.match(html, /subtracts only the handful of items the visit looked at/);
     // The explainer is deliberately static — no interactive controls, no
     // score-demo wiring anywhere in the About view.
     const aboutView = html.match(/<main class="food-about-wrap[\s\S]*?<\/main>/)?.[0] || '';
