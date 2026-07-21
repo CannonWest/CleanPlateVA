@@ -250,6 +250,40 @@ test('a focused re-check with no trustworthy ratio claims no height at all', () 
     assert.doesNotMatch(html, /r52|>52</);
 });
 
+test('no surface pairs a focused re-check with its raw report score', () => {
+    const proto = dashboard.FoodDashboard.prototype;
+    // The Lakeside Grill roster shape: a compact `latest` marker with a raw
+    // score of 92 and no distinct-OUT count to build a ratio from. The score is
+    // the one number that must NOT appear — it reads near 100 on any focused
+    // docket regardless of outcome, so beside a real signal it wins the glance.
+    const facility = {
+        permit_id: 'CF6DE8B6', name: 'Lakeside Grill', address: '6920 Lakeside Ave',
+        status: 'Permitted', zip: '23228',
+        latest: {
+            scope: 'focused', applicable_item_count: 3, score: 92,
+            checklist_present: true, date: '2026-04-02',
+        },
+        latest_assessment: {
+            scope: 'broad', applicable_item_count: 35, score: 25, date: '2026-02-04',
+        },
+        grade: { score: 20, letter: 'F', base_score: 25, base_letter: 'F', adjusted: true },
+        score_trend: [25, 94, 68],
+    };
+    const tooltip = proto._tooltipHTML.call(
+        { _mode: 'full', _isActive: () => true }, facility);
+    assert.doesNotMatch(tooltip, /raw 92|score 92/, 'tooltip still prints the raw score');
+    assert.doesNotMatch(tooltip, /\b92\b/, 'tooltip still prints 92 somewhere');
+    assert.match(tooltip, /OUT count unavailable/);   // the honest signal survives
+
+    // The list row is built inline inside `_rebuildList`, so pin it at the
+    // source: the focused branch must carry the ratio alone, with no score
+    // interpolated beside it.
+    assert.match(source,
+        /const eventLine = latest\.scope === 'focused'\s*\n\s*\? `Latest: focused · \$\{focusedOutcomePresentation\(latest\)\.label\}`/);
+    assert.doesNotMatch(source, /· raw \$\{latest\.score\}/);
+    assert.doesNotMatch(source, /sub\.push\(`score \$\{latest\.score\}`\)/);
+});
+
 test('detail copy does not claim a limited report is a clean full checklist', () => {
     assert.doesNotMatch(source, /clean report/i);
     assert.doesNotMatch(source, /Full food-code checklist/i);
