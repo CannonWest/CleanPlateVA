@@ -203,6 +203,53 @@ test('scope series connects only broad scores and preserves focused event positi
     assert.deepEqual(series.unknown.map((event) => event.index), [0]);
 });
 
+test('a focused re-check plots at its compliance, never at its raw report score', () => {
+    const proto = dashboard.FoodDashboard.prototype;
+    // The Lakeside Grill shape (6920 Lakeside Ave, 2026-04-02): a 3-item
+    // follow-up docket with every one of them OUT and nothing corrected — yet a
+    // raw VDH score of 92, because that formula only ever subtracts the weight
+    // of the items the visit actually looked at. Plotted on the raw score this
+    // total failure sat at the TOP of the chart, inside the A band, above a
+    // broad 25. It belongs at the floor.
+    const html = proto._sparkline.call({ _scoreColor: proto._scoreColor }, [
+        {
+            date: '2026-04-02', scope: 'focused', score: 92,
+            checklist_present: true, checklist: checklist(3, 3),
+        },
+        { date: '2026-02-04', scope: 'broad', applicable_item_count: 35, score: 25 },
+    ]);
+    const nodes = JSON.parse(
+        html.match(/data-spark-nodes="([^"]*)"/)[1].replace(/&quot;/g, '"'));
+    const focused = nodes.find((n) => n.k === 'focused');
+    const broad = nodes.find((n) => n.k === 'broad');
+    assert.equal(focused.s, '3/3');          // the X/Y OUT ratio, not "r92"
+    assert.equal(focused.tone, 'severe');
+    // y grows downward: 0% compliance must sit BELOW even a broad score of 25.
+    assert.ok(focused.y > broad.y,
+        `3/3 OUT (y=${focused.y}) must plot below a broad score of 25 (y=${broad.y})`);
+    // The raw score appears nowhere in the chart — not as a label, not as a
+    // position.
+    assert.doesNotMatch(html, /r92|>92</);
+});
+
+test('a focused re-check with no trustworthy ratio claims no height at all', () => {
+    const proto = dashboard.FoodDashboard.prototype;
+    // Row-counted OUT (not distinct items) can't produce an honest compliance
+    // share, so the mark drops to the neutral baseline tick rather than
+    // inventing a position from the raw score.
+    const html = proto._sparkline.call({ _scoreColor: proto._scoreColor }, [
+        {
+            date: '2026-04-02', scope: 'focused', applicable_item_count: 3,
+            checklist_out: 4, checklist_present: true, score: 52,
+        },
+    ]);
+    const nodes = JSON.parse(
+        html.match(/data-spark-nodes="([^"]*)"/)[1].replace(/&quot;/g, '"'));
+    assert.deepEqual(nodes.map((n) => n.k), ['unknown']);
+    assert.doesNotMatch(html, /food-spark-focused/);
+    assert.doesNotMatch(html, /r52|>52</);
+});
+
 test('detail copy does not claim a limited report is a clean full checklist', () => {
     assert.doesNotMatch(source, /clean report/i);
     assert.doesNotMatch(source, /Full food-code checklist/i);
@@ -319,9 +366,9 @@ test('hovering a trend mark always enlarges it — base and highlight sizes move
     const baseScore = num(/\.food-spark-score \{ font-size: ([\d.]+)px/, css, 'base score label');
     const hlScore = num(/\.food-spark-score\.food-spark-hl-label \{ font-size: ([\d.]+)px/, css, 'hover score label');
     assert.ok(hlScore > baseScore, `hover label ${hlScore} must exceed base ${baseScore}`);
-    const baseRaw = num(/\.food-spark-raw \{ font-size: ([\d.]+)px/, css, 'base raw label');
-    const hlRaw = num(/\.food-spark-raw\.food-spark-hl-label \{ font-size: ([\d.]+)px/, css, 'hover raw label');
-    assert.ok(hlRaw > baseRaw, `hover raw label ${hlRaw} must exceed base ${baseRaw}`);
+    const baseRaw = num(/\.food-spark-mark-label \{ font-size: ([\d.]+)px/, css, 'base mark label');
+    const hlRaw = num(/\.food-spark-mark-label\.food-spark-hl-label \{ font-size: ([\d.]+)px/, css, 'hover mark label');
+    assert.ok(hlRaw > baseRaw, `hover mark label ${hlRaw} must exceed base ${baseRaw}`);
     // Labels sit ABOVE their mark, so the top pad has to clear the tallest of
     // them or a perfect-100 score gets its hover label clipped out of the box.
     const padTop = num(/padTop = (\d+)/, source, 'padTop');
