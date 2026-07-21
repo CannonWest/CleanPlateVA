@@ -1060,11 +1060,21 @@ body {
 /* ── lite (public finder) mode ────────────────────────────────────────── */
 /* body.food-mode-lite is set from the payload's mode marker. The public
    tier has no scores/grades/history, so every judgment surface hides:
-   grade chips, show-closed, the whole second toolbar (color-by + legend
-   are its only remaining occupants), and the list view's full-only
-   score/compliance/trend/date columns. */
+   grade chips, the whole second toolbar (color-by + legend are its only
+   remaining occupants), and the list view's full-only
+   score/compliance/trend/date columns.
+
+   The three switches hide for a plainer reason — the lite record is ten
+   fields and carries none of what they filter on (no `status`, no
+   `newly_permitted`, no `permit_type`), so each one is inert there. Their
+   guards in _matchesFilters are all `!lite`; a visible switch that moves
+   nothing is worse than no switch. Keep this list in step with those
+   guards — Show new shipped without its entry here and rendered dead on
+   the public site until 2026-07-21. */
 .food-mode-lite #foodGradeChips,
 .food-mode-lite #foodShowClosedWrap,
+.food-mode-lite #foodShowNewWrap,
+.food-mode-lite #foodShowMobileWrap,
 .food-mode-lite .food-list-full-only {
     display: none;
 }

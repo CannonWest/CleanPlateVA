@@ -30,6 +30,7 @@
 const RESTAURANTS_ONLY_KEY = 'cleanplateva.food.restaurantsOnly';
 const SHOW_CLOSED_KEY = 'cleanplateva.food.showClosed';
 const SHOW_NEW_KEY = 'cleanplateva.food.showNew';
+const SHOW_MOBILE_KEY = 'cleanplateva.food.showMobile';
 
 const PORTAL_PERMIT_URL =
     'https://inspections.myhealthdepartment.com/virginia/permit/?permitID=';
@@ -417,6 +418,12 @@ export class FoodDashboard {
             // and show by default; the toggle lets a graded-only view hide them.
             // Default ON — a missing key means show.
             showNew: localStorage.getItem(SHOW_NEW_KEY) !== '0',
+            // Mobile food units (trucks, carts, trailers) answer a different
+            // question than the rest of the map: their pin is the permit's
+            // filing address, not a place you can drive to tonight. Hidden by
+            // default so the map stays "where can we eat"; the toggle brings
+            // them back. Default OFF — a missing key means hide.
+            showMobile: localStorage.getItem(SHOW_MOBILE_KEY) === '1',
         };
         this._viewMode = 'map';     // 'map' | 'list' | 'about'
         this._sort = { key: 'score', dir: 'asc' };  // list sort — worst-first default
@@ -486,6 +493,19 @@ export class FoodDashboard {
                 try {
                     localStorage.setItem(SHOW_NEW_KEY,
                         newToggle.checked ? '1' : '0');
+                } catch (_) { /* private mode */ }
+                this._rebuildMarkers();
+            });
+        }
+
+        const mobileToggle = document.getElementById('foodShowMobile');
+        if (mobileToggle) {
+            mobileToggle.checked = this._filters.showMobile;
+            mobileToggle.addEventListener('change', () => {
+                this._filters.showMobile = mobileToggle.checked;
+                try {
+                    localStorage.setItem(SHOW_MOBILE_KEY,
+                        mobileToggle.checked ? '1' : '0');
                 } catch (_) { /* private mode */ }
                 this._rebuildMarkers();
             });
@@ -946,8 +966,17 @@ export class FoodDashboard {
         return f.newly_permitted === true;
     }
 
+    // Mobile food unit = VDH's permit type, verbatim from the exporter. Matched
+    // lowercase-substring (same idiom as _isActive) so a VDH pluralization or
+    // class suffix still lands; no other permit type contains "mobile food".
+    // Lite records carry no permit_type at all, so this is full-tier-only —
+    // see the `!lite` guard in _matchesFilters.
+    _isMobileUnit(f) {
+        return (f.permit_type || '').toLowerCase().includes('mobile food');
+    }
+
     _matchesFilters(f) {
-        const { q, zip, grade, restaurantsOnly, showClosed, showNew } = this._filters;
+        const { q, zip, grade, restaurantsOnly, showClosed, showNew, showMobile } = this._filters;
         const lite = this._mode === 'lite';
         // Explicit === false so payloads without the field pass through
         // rather than blanking the map.
@@ -957,6 +986,9 @@ export class FoodDashboard {
         if (!lite && !showClosed && !this._isActive(f)) return false;
         // Newly-permitted (active, ungraded) places get their own toggle.
         if (!lite && !showNew && this._isNew(f)) return false;
+        // Mobile food units are hidden unless asked for. Lite has no
+        // permit_type, so there they stay visible — the toggle hides itself.
+        if (!lite && !showMobile && this._isMobileUnit(f)) return false;
         if (!lite && grade) {
             const letter = facilityPresentation(f).grade?.letter || null;
             if (letter !== grade) return false;
