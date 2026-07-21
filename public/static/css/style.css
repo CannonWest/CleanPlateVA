@@ -704,10 +704,30 @@ body.food-receipt-open { overflow: hidden; }
     gap: 0.45rem;
 }
 .food-receipt-item-no { font-weight: 800; font-variant-numeric: tabular-nums; }
+/* Full-strength text: this is the detailed report card, not a caption. */
 .food-receipt-item-text {
     margin-top: 0.2rem;
-    font-size: 0.8rem;
-    color: var(--cp-muted);
+    font-size: 0.82rem;
+    color: var(--cp-text);
+}
+/* Base-inspection counts as a chip row; the total box is white-on-data-hue
+   (red any / green zero, background inline from JS), theme-independent by
+   design like the grade circle. */
+.food-receipt-counts {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+    margin: 0.15rem 0 0.55rem;
+}
+.food-receipt-count {
+    padding: 0.12rem 0.5rem;
+    border-radius: 0.4rem;
+    color: #fff;
+    font-size: 0.72rem;
+    font-weight: 700;
+    white-space: nowrap;
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
 }
 .food-receipt-pts {
     margin-left: auto;
