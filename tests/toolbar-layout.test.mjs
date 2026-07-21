@@ -28,15 +28,33 @@ test('toolbar splits into a filter cluster and a status cluster', () => {
     assert.match(html, /class="food-toolbar-filters[^"]*"/);
     assert.match(html, /class="food-toolbar-status[^"]*"/);
 
-    // The status cluster is one readout: count + freshness, no wrap.
+    // The status cluster is the count. Freshness moved to the footer (see
+    // below); the cluster stays a group so anything added here wraps intact.
     const status = html.match(/<div class="food-toolbar-status[\s\S]*?<\/div>\s*<\/div>/)?.[0] || '';
     assert.match(status, /flex-nowrap/);
     assert.match(status, /id="foodCounts"/);
-    assert.match(status, /id="foodFetchedAt"/);
+    assert.doesNotMatch(status, /id="foodFetchedAt"/);
 
     // ms-auto belongs to the group, never to a member of it — that was the bug.
     assert.match(status, /ms-auto/);
     assert.doesNotMatch(html, /class="text-muted small ms-auto" id="foodCounts"/);
+});
+
+test('freshness lives in the footer, opposite the provenance line', () => {
+    const footer = html.match(/<div class="food-source-footer[\s\S]*?\n {8}<\/div>/)?.[0] || '';
+    assert.ok(footer, 'footer markup found');
+    assert.match(footer, /id="foodFetchedAt"/);
+    assert.match(footer, /class="food-freshness"/);
+    // text-muted would beat --cp-muted via Bootstrap's !important; the footer
+    // comment says so, and the moved element must not drag it along.
+    assert.doesNotMatch(footer, /text-muted/);
+
+    // Provenance and dates are two flex children pushed apart, allowed to
+    // wrap onto separate rows rather than either side truncating.
+    const rule = css.match(/\.food-source-footer\s*\{([^}]*)\}/)?.[1] || '';
+    assert.match(rule, /display:\s*flex/);
+    assert.match(rule, /flex-wrap:\s*wrap/);
+    assert.match(rule, /justify-content:\s*space-between/);
 });
 
 test('filters cluster grows rather than trusting its wrap-folded max-content', () => {
@@ -50,28 +68,44 @@ test('filters cluster grows rather than trusting its wrap-folded max-content', (
 });
 
 test('status degrades in tiers instead of wrapping the toolbar', () => {
-    // Tier 2 (<1500): short dates, count sheds its unit, narrower search.
-    const tier2 = css.match(/@media \(max-width: 1499\.98px\)\s*\{([\s\S]*?)\n\}/)?.[1] || '';
-    assert.match(tier2, /\.food-freshness-full\s*\{\s*display:\s*none/);
-    assert.match(tier2, /\.food-freshness-short\s*\{\s*display:\s*inline/);
-    assert.match(tier2, /\.food-count-unit\s*\{\s*display:\s*none/);
-    assert.match(tier2, /\.food-search\s*\{\s*max-width/);
+    // Under 1500 the count sheds its unit and the search narrows, buying the
+    // filter cluster room for its four switches.
+    const blocks = [...css.matchAll(/@media \(max-width: 1499\.98px\)\s*\{([\s\S]*?)\n\}/g)]
+        .map((m) => m[1]).join('\n');
+    assert.match(blocks, /\.food-count-unit\s*\{\s*display:\s*none/);
+    assert.match(blocks, /\.food-search\s*\{\s*max-width/);
 
-    // Tier 3 (<1250): freshness hides outright.
-    const tier3 = css.match(/@media \(max-width: 1249\.98px\)\s*\{([\s\S]*?)\n\}/)?.[1] || '';
-    assert.match(tier3, /\.food-freshness\s*\{\s*display:\s*none/);
+    // Same width drops the dates to their short form before the footer wraps.
+    assert.match(blocks, /\.food-freshness-full\s*\{\s*display:\s*none/);
+    assert.match(blocks, /\.food-freshness-short\s*\{\s*display:\s*inline/);
 
     // Default state is the full phrasing; short is the exception.
     assert.match(css, /\.food-freshness-short\s*\{\s*display:\s*none/);
 });
 
+test('freshness is never hidden outright — that is why it left the toolbar', () => {
+    // The old tier 3 dropped the dates entirely under 1250px because the bar
+    // had no room. In the footer they wrap instead, so no rule may hide them.
+    assert.doesNotMatch(css, /\.food-freshness\s*\{[^}]*display:\s*none/);
+    // And nothing hides the footer that now holds them.
+    assert.doesNotMatch(css, /\.food-source-footer\s*\{[^}]*display:\s*none/);
+});
+
 test('nothing the tiers hide is lost — tooltips and About still carry it', () => {
-    // Freshness keeps the full phrasing in its own tooltip at every width it
-    // is visible; About carries both dates once it hides at the narrowest.
+    // Freshness keeps the full phrasing in its own tooltip at every width.
     assert.match(dashboardSource, /Archive snapshot published/);
     // The count keeps its full phrasing regardless of the unit span.
     assert.match(dashboardSource, /countsEl\.title = filtered/);
     assert.match(dashboardSource, /facilities match the active filters/);
+});
+
+test('the footer states coverage as ZIPs; the facility total is the pill and About', () => {
+    // The footer used to repeat the total the toolbar pill already shows
+    // live against the active filters. ZIP coverage is the fact only it had.
+    assert.match(dashboardSource, /coverageEl\.textContent = ` · \$\{zips\}/);
+    assert.doesNotMatch(dashboardSource, /coverageEl\.textContent =[\s\S]{0,120}facilities/);
+    // About remains the durable record of both numbers.
+    assert.match(dashboardSource, /setText\('aboutCoverageCount'/);
 });
 
 test('the refresh button is gone, and so is its plumbing', () => {

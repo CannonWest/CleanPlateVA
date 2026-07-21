@@ -99,12 +99,12 @@
                 <label class="form-check-label small" for="foodShowMobile">Show mobile food units</label>
             </div>
           </div>
-          <!-- Status: match count + archive freshness. flex-nowrap so the two
-               never split across rows; the freshness label shortens under
-               1500px and hides under 1220px (see style.css). -->
+          <!-- Status: the match count. Archive freshness used to sit beside it
+               and drove the whole toolbar width budget; it now lives in the
+               footer's right corner. Kept as a group (ms-auto on the wrapper,
+               never on a member) so anything added here wraps intact. -->
           <div class="food-toolbar-status d-flex align-items-center gap-2 flex-nowrap ms-auto">
             <span class="food-count" id="foodCounts">Loading…</span>
-            <small class="text-muted food-freshness" id="foodFetchedAt"></small>
           </div>
         </div>
         <!-- Map | List + detail panel split -->
@@ -570,14 +570,19 @@
             </div>
         </main>
 
-        <!-- Compact source footer; methodology lives in the first-class About view. -->
+        <!-- Compact source footer: provenance left, archive freshness right.
+             Methodology is reached from the header About tab, not from here.
+             Freshness lives in this corner rather than the toolbar so it has
+             room to state both dates instead of degrading away under 1250px. -->
         <!-- No text-muted here: Bootstrap's !important would beat the
              palette's --cp-muted footer color. -->
         <div class="food-source-footer small px-3 py-1" id="foodSourceFooter">
-            Data snapshot: <a href="https://inspections.myhealthdepartment.com/virginia"
-               target="_blank" rel="noopener">VDH via MyHealthDepartment</a> · archived, not live ·
-            source IDs retained · VDH links where available <span id="foodCoverage"></span> ·
-            <button type="button" class="food-footer-about" data-view-link="about">methodology &amp; provenance</button>
+            <span>
+                Data snapshot: <a href="https://inspections.myhealthdepartment.com/virginia"
+                   target="_blank" rel="noopener">VDH via MyHealthDepartment</a> · archived, not live ·
+                source IDs retained<span id="foodCoverage"></span>
+            </span>
+            <span class="food-freshness" id="foodFetchedAt"></span>
         </div>
     </div>
 
