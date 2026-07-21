@@ -1963,6 +1963,14 @@ export class FoodDashboard {
         this._receiptTrigger = trigger;
         host.querySelectorAll('[data-receipt-close]').forEach((el) =>
             el.addEventListener('click', () => this._closeReceipt()));
+        // The About link routes through the real header tab so its
+        // scroll-to-top + focus-the-title behavior runs; the modal closes
+        // first so focus restoration can't fight the About handoff.
+        host.querySelector('[data-receipt-about]')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            this._closeReceipt();
+            document.querySelector('#foodViewToggle button[data-view="about"]')?.click();
+        });
         const backdrop = host.querySelector('.food-receipt-backdrop');
         backdrop?.addEventListener('click', (e) => {
             if (e.target === backdrop) this._closeReceipt();
@@ -2031,7 +2039,7 @@ export class FoodDashboard {
             baseBody = `<div class="food-receipt-note">The anchoring broad inspection isn't in the
                 shipped history, so the per-item breakdown is unavailable — the published totals below still stand.</div>`;
         } else if (!b.items.length && !b.itemless) {
-            baseBody = '<div class="food-receipt-note">No violations recorded — a clean 100-point inspection.</div>';
+            baseBody = '<div class="food-receipt-note">No violations recorded: a clean 100-point inspection.</div>';
         } else {
             baseBody = b.items.map((it) => itemRow(it, it.points != null
                 ? `<span class="food-receipt-pts">−${fmt1(it.points)}</span>` : '')).join('')
@@ -2106,13 +2114,9 @@ export class FoodDashboard {
                     <div class="food-receipt-sub">For each item the broad visit docked, the newest re-check governs:</div>
                     ${journeyHtml}
                 </div>`;
-        } else {
-            followupSection = `
-                <div class="food-receipt-sec">
-                    <div class="food-receipt-note">No grade-adjusting re-checks since — the facility grade
-                        is this broad inspection's score, exactly.</div>
-                </div>`;
         }
+        // Unadjusted: no follow-up section at all — the base IS the grade,
+        // and the header circle already says so.
 
         // ── section 3: the ledger ──────────────────────────────────────
         const ledger = r.adjusted ? `
@@ -2125,7 +2129,7 @@ export class FoodDashboard {
                 <div class="food-receipt-ledger-row food-receipt-ledger-total"><span>Facility grade</span>
                     <span class="food-receipt-ledger-grade" style="--grade-color:${gradeColor(r.ledger.letter)}">${r.ledger.score} ${esc(r.ledger.letter)}</span></div>
                 ${r.ledger.exact ? '' : `<div class="food-receipt-foot">Components are shown to one decimal;
-                    the score itself rounds once, at the end (halves up) — so the lines may not visibly sum.</div>`}
+                    the score itself rounds once, at the end (halves up), so the lines may not visibly sum.</div>`}
             </div>` : '';
 
         return `
@@ -2143,8 +2147,9 @@ export class FoodDashboard {
                         ${baseSection}
                         ${followupSection}
                         ${ledger}
-                        <div class="food-receipt-foot">CleanPlateVA's computed formula — VDH publishes no
-                            numeric score. The full method lives on the Methodology tab.</div>
+                        <div class="food-receipt-foot">CleanPlateVA computes this score and grade;
+                            VDH publishes no numeric score of its own.
+                            Read the full method on the <a href="#about" data-receipt-about>About</a> tab.</div>
                     </div>
                 </div>
             </div>`;
