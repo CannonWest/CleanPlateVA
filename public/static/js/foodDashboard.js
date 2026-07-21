@@ -584,13 +584,14 @@ export function gradeReceiptPresentation(facility = {}, inspections = []) {
         && sameItems(derived.unchecked, grade.unchecked)
         && sameItems([...narrativeItems], grade.narrativeItems);
 
-    const clip = (t) => (t && t.length > 140 ? t.slice(0, 137) + '…' : t || '');
+    // Full text, no truncation — this is the detailed report card; the modal
+    // body scrolls, so long observations are welcome.
     const textFor = (item) => {
         const dock = docks.get(item);
-        if (dock && dock.texts.length) return clip(dock.texts[0]);
+        if (dock && dock.texts.length) return dock.texts[0];
         for (const fup of followups) {      // new items: found by a re-check
             const hit = (fup.violations || []).find((v) => v.item === item && v.text);
-            if (hit) return clip(hit.text);
+            if (hit) return hit.text;
         }
         return '';
     };
@@ -628,7 +629,7 @@ export function gradeReceiptPresentation(facility = {}, inspections = []) {
             item, category: item <= RF_MAX_ITEM ? 'risk_factor' : 'grp',
             repeat: dock.repeat, cos: dock.cos, count: dock.count,
             points: verified ? oneDpTT(dock.pointsTT) : null,
-            text: dock.texts.length ? clip(dock.texts[0]) : '',
+            text: dock.texts.length ? dock.texts[0] : '',
         }));
 
     // The ledger states the published triplet; `exact` decides whether the
@@ -2038,10 +2039,19 @@ export class FoodDashboard {
                     without a form item number — dock${b.itemless.count === 1 ? 's' : ''} at face value${b.itemless.points != null
                         ? ` (−${fmt1(b.itemless.points)})` : ''} and can't be re-checked by item.</div>` : '');
         }
-        const baseCounts = b.found && (b.items.length || b.itemless)
-            ? `<div class="food-receipt-sub">${b.violationCount} violation${b.violationCount === 1 ? '' : 's'}
-                — ${b.rfCount} risk-factor at −6 · ${b.grpCount} retail-practice at −2</div>`
-            : '';
+        // Counts as a chip row: total in a filled box (red when any, green at
+        // zero — data hues, inline like every grade color), category counts
+        // in the same red/amber bubbles the item rows use, weights omitted
+        // (the items below carry the −6/−2).
+        const n = b.violationCount || 0;
+        const baseCounts = b.found ? `
+            <div class="food-receipt-counts">
+                <span class="food-receipt-count" style="background:${n ? GRADE_COLORS.F : GRADE_COLORS.A}">${n} violation${n === 1 ? '' : 's'}</span>
+                ${b.rfCount ? chip('food-receipt-cat food-receipt-cat-rf', `${b.rfCount} risk factor`,
+                    'Foodborne-illness risk factors (form items 1–29)') : ''}
+                ${b.grpCount ? chip('food-receipt-cat food-receipt-cat-grp', `${b.grpCount} retail practice`,
+                    'Good Retail Practices (items 30+)') : ''}
+            </div>` : '';
         const baseSection = `
             <div class="food-receipt-sec">
                 <div class="food-receipt-sec-title">
