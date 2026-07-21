@@ -990,8 +990,12 @@ export class FoodDashboard {
         const assessmentRecord = fp.assessmentRecord || {};
         const sub = [];
         if (latest.scope === 'focused') {
+            // The X/Y OUT ratio and nothing else. A focused report's raw score
+            // subtracts only the handful of items the visit actually looked at,
+            // so it reads near 100 even when every one of them failed — the
+            // same reason `_sparkline` stopped plotting it. Never pair it with
+            // the ratio: the big friendly number wins the glance.
             sub.push(focusedOutcomePresentation(latest).label);
-            if (latest.score != null) sub.push(`score ${latest.score}`);
         } else if (latest.scope === 'unknown') {
             sub.push('latest checklist scope unavailable');
         }
@@ -1222,8 +1226,10 @@ export class FoodDashboard {
             const t = fp.trend;
             const arrow = t.length >= 2 ? (t[0] < t[1] ? '▼' : t[0] > t[1] ? '▲' : '▬') : '';
             const tcol = t.length >= 2 ? '#228be6' : '';
+            // Focused rows carry the OUT ratio only — no raw score. See the
+            // note in `_tooltipHTML`.
             const eventLine = latest.scope === 'focused'
-                ? `Latest: focused · ${focusedOutcomePresentation(latest).label}${latest.score != null ? ` · raw ${latest.score}` : ''}`
+                ? `Latest: focused · ${focusedOutcomePresentation(latest).label}`
                 : latest.scope === 'broad'
                     ? `Latest: broad · ${latest.count ?? '?'} items`
                     : 'Latest: checklist scope unavailable';
