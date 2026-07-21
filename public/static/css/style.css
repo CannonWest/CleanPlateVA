@@ -590,6 +590,212 @@ body {
     color: #212529;
 }
 .theme-dark .food-grade-date-value { color: var(--cp-text); }
+
+/* ── grade-receipt modal ─────────────────────────────────────────────── */
+/* The hero's grade circle + `computed` pill are buttons that open the
+   per-facility score breakdown. The trigger resets to look exactly like the
+   content it wraps; affordance = cursor + an accent ring on hover/focus. */
+.food-receipt-trigger {
+    display: inline-flex;
+    background: none;
+    border: 0;
+    padding: 0;
+    margin: 0;
+    cursor: pointer;
+    border-radius: 50%;
+}
+.food-receipt-trigger:hover .food-grade-circle,
+.food-receipt-trigger:focus-visible .food-grade-circle {
+    box-shadow: 0 0 0 3px var(--cp-accent);
+}
+.food-receipt-trigger:focus-visible { outline: none; }
+.food-receipt-trigger-pill { border-radius: 1rem; }
+.food-receipt-trigger-pill:hover .food-score-computed,
+.food-receipt-trigger-pill:focus-visible .food-score-computed {
+    box-shadow: 0 0 0 2px var(--cp-accent);
+}
+body.food-receipt-open { overflow: hidden; }
+.food-receipt-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    background: rgba(33, 37, 41, 0.45);
+}
+.theme-dark .food-receipt-backdrop { background: rgba(0, 0, 0, 0.62); }
+.food-receipt {
+    display: flex;
+    flex-direction: column;
+    width: min(35rem, 100%);
+    max-height: min(86vh, 100%);
+    background: var(--cp-surface-2);
+    color: var(--cp-text);
+    border: 1px solid var(--cp-border);
+    border-radius: 0.8rem;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.30);
+    outline: none;
+}
+.theme-dark .food-receipt { box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55); }
+/* Mobile: bottom sheet — full width, pinned to the bottom edge. */
+@media (max-width: 576px) {
+    .food-receipt-backdrop { padding: 0; align-items: flex-end; }
+    .food-receipt {
+        width: 100%;
+        max-height: 94vh;
+        border-radius: 0.8rem 0.8rem 0 0;
+        border-bottom: 0;
+    }
+}
+.food-receipt-head {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid var(--cp-border);
+}
+.food-receipt-head h5 { margin: 0; font-size: 1.02rem; }
+.food-receipt-head > div:first-child { flex: 1 1 auto; min-width: 0; }
+.food-receipt-kicker {
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--cp-muted);
+}
+.food-grade-circle-sm { width: 2.9rem; height: 2.9rem; }
+.food-grade-circle-sm .food-grade-letter { font-size: 0.78rem; }
+.food-grade-circle-sm .food-grade-score { font-size: 1.15rem; }
+.food-receipt-body {
+    overflow-y: auto;
+    padding: 0.9rem 1rem 1rem;
+}
+.food-receipt-sec { margin-bottom: 1rem; }
+.food-receipt-sec-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 700;
+    font-size: 0.92rem;
+    margin-bottom: 0.15rem;
+}
+.food-receipt-sub {
+    color: var(--cp-muted);
+    font-size: 0.8rem;
+    margin-bottom: 0.5rem;
+}
+.food-receipt-note { color: var(--cp-muted); font-size: 0.85rem; }
+.food-receipt-item {
+    padding: 0.42rem 0.55rem;
+    border: 1px solid var(--cp-border);
+    border-left-width: 3px;
+    border-radius: 0.45rem;
+    background: var(--cp-surface);
+    margin-bottom: 0.4rem;
+}
+/* Risk-factor accent matches the violation cards' red family (data hue). */
+.food-receipt-item-rf { border-left-color: #c92a2a; }
+.food-receipt-item-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.45rem;
+}
+.food-receipt-item-no { font-weight: 800; font-variant-numeric: tabular-nums; }
+.food-receipt-item-text {
+    margin-top: 0.2rem;
+    font-size: 0.8rem;
+    color: var(--cp-muted);
+}
+.food-receipt-pts {
+    margin-left: auto;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+.food-receipt-delta-pos { color: #2b8a3e; }
+.theme-dark .food-receipt-delta-pos { color: #69db7c; }
+.food-receipt-delta-neg { color: #c92a2a; }
+.theme-dark .food-receipt-delta-neg { color: #ff8787; }
+.food-receipt-delta-mut { color: var(--cp-muted); }
+.food-receipt-cat {
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 0.06rem 0.4rem;
+    border-radius: 0.5rem;
+    background: var(--cp-surface-3);
+    color: var(--cp-muted);
+    white-space: nowrap;
+}
+.food-receipt-cat-rf { background: rgba(201, 42, 42, 0.12); color: #c92a2a; }
+.theme-dark .food-receipt-cat-rf { background: rgba(250, 82, 82, 0.16); color: #ff8787; }
+/* Retail-practice chips run amber (same family as the `watch` outcome tone);
+   the bare .food-receipt-cat (e.g. the ×N findings chip) stays neutral. */
+.food-receipt-cat-grp { background: rgba(245, 159, 0, 0.16); color: #7a4e00; }
+.theme-dark .food-receipt-cat-grp { background: rgba(252, 196, 25, 0.15); color: #ffd43b; }
+.food-receipt-narr {
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 0.06rem 0.4rem;
+    border-radius: 0.5rem;
+    background: rgba(28, 126, 214, 0.12);
+    color: #1971c2;
+    white-space: nowrap;
+}
+.theme-dark .food-receipt-narr { background: rgba(77, 171, 247, 0.15); color: #74c0fc; }
+.food-receipt-visit {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.28rem 0;
+    font-size: 0.85rem;
+}
+.food-receipt-visit-date { font-variant-numeric: tabular-nums; font-weight: 600; }
+.food-receipt-visit-kind {
+    margin-left: auto;
+    color: var(--cp-muted);
+    font-size: 0.75rem;
+    white-space: nowrap;
+}
+.food-receipt-group {
+    margin: 0.6rem 0 0.35rem;
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+.food-receipt-group small {
+    font-weight: 400;
+    color: var(--cp-muted);
+}
+.food-receipt-ledger {
+    border: 1px solid var(--cp-border);
+    border-radius: 0.55rem;
+    background: var(--cp-surface);
+    padding: 0.55rem 0.7rem;
+    margin-bottom: 0.6rem;
+}
+.food-receipt-ledger-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.18rem 0;
+    font-size: 0.88rem;
+}
+.food-receipt-ledger-total {
+    border-top: 1px solid var(--cp-border);
+    margin-top: 0.25rem;
+    padding-top: 0.45rem;
+    font-weight: 700;
+}
+/* Data hue via --grade-color, set inline from JS like the hero circle. */
+.food-receipt-ledger-grade { color: var(--grade-color, inherit); font-weight: 800; }
+.food-receipt-foot {
+    margin-top: 0.4rem;
+    font-size: 0.74rem;
+    color: var(--cp-muted);
+}
+
 .food-raw-score { margin: 0.25rem 0; color: #1971c2; font-size: 0.74rem; font-weight: 600; }
 .theme-dark .food-raw-score { color: #74c0fc; }
 .food-score-grade {
