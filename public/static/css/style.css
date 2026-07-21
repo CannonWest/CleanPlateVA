@@ -205,34 +205,35 @@ body {
 .food-freshness { white-space: nowrap; }
 .food-freshness-short { display: none; }
 
-/* Toolbar width budget. The status readout is the whole problem: at full
-   length it needs ~1470px, so every 1366/1440 laptop wrapped the bar to two
-   rows — costing ~39px of map and tearing the readout apart. Rather than
-   permanently shortening it, the status degrades in two steps, each sized to
-   clear the next tier's trigger with room to spare.
+/* Footer freshness length. The dates share one row with the provenance line;
+   under ~1500px the pair stops fitting, so they drop to the short form
+   ("snap Jul 19 · report Jul 10") before the footer wraps. Below that the
+   flex-wrap takes over and freshness gets its own row.
+
+   It is never hidden. That is the point of moving it out of the toolbar,
+   where a third tier used to drop it entirely under 1250px for want of
+   space. The tooltip still spells both dates out at every width. */
+@media (max-width: 1499.98px) {
+    .food-freshness-full { display: none; }
+    .food-freshness-short { display: inline; }
+}
+
+/* Toolbar width budget. The bar is a one-row target and the filter cluster
+   is what spends it — four switches now, "Show mobile food units" being the
+   widest. Freshness used to sit up here too and dominated the budget (~1470px
+   at full length, wrapping every 1366/1440 laptop); with it in the footer the
+   status cluster is just the count pill, so the two survivors below are about
+   the switches, not the readout.
 
    Budget against the WORST-CASE count, never the convenient one. The widest
    real string is a large filtered subset — "Restaurants only" alone gives
    "14,636 of 19,147 facilities" — which is ~35px past the "8 of 19,147" a
    search box produces, and that gap was enough to wrap a tier sized on the
-   latter. Measured at the worst case:
-     >=1500  full text .................... needs ~1470
-     1250-1500  short dates, no unit,
-                narrower search ........... needs ~1200
-     <1250   freshness hides entirely ..... needs ~1035
-   Nothing is lost on the way down — the count and freshness both carry their
-   full phrasing in a tooltip, the pill keeps its glyph so it never reduces
-   to a bare number, and About states the dates outright. Below ~1035 the bar
-   does wrap, which is correct at tablet/phone widths; the status cluster
-   stays intact when it does. */
+   latter. The count keeps its full phrasing in a tooltip and keeps its glyph,
+   so dropping the unit never reduces the pill to a bare number. */
 @media (max-width: 1499.98px) {
-    .food-freshness-full { display: none; }
-    .food-freshness-short { display: inline; }
     .food-count-unit { display: none; }
     .food-toolbar .food-search { max-width: 190px; }
-}
-@media (max-width: 1249.98px) {
-    .food-freshness { display: none; }
 }
 /* Lite is the public face and hides the grade chips + show-closed (~276px),
    so its toolbar has room the full tier doesn't — a bare "17,286" in a pill
@@ -260,7 +261,15 @@ body {
 }
 
 /* Footer floats on the page canvas below the inset map — no chrome box. */
+/* Provenance left, archive freshness right. Wraps to two rows rather than
+   letting either side hide or truncate — the footer's whole job is that the
+   dates always have somewhere to sit. */
 .food-source-footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.15rem 1rem;
     background: transparent;
     line-height: 1.35;
     color: var(--cp-muted);
@@ -1906,18 +1915,6 @@ body.tier-forced-lite #signInBtn { display: none !important; }
     white-space: nowrap;
 }
 .about-verify-card > a:hover { background: #1864ab; }
-.food-footer-about {
-    display: inline;
-    margin: 0;
-    padding: 0;
-    border: 0;
-    color: var(--cp-accent);
-    background: transparent;
-    font: inherit;
-    text-decoration: underline;
-    cursor: pointer;
-}
-.food-footer-about:focus-visible,
 .about-verify-card > a:focus-visible,
 .cp-tab:focus-visible,
 .about-disclosure summary:focus-visible {

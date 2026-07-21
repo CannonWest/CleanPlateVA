@@ -511,24 +511,27 @@ export class FoodDashboard {
             });
         }
 
-        // View toggle (Map | List)
+        // View toggle (Map | List | About)
         document.getElementById('foodViewToggle')
             ?.querySelectorAll('button[data-view]').forEach((btn) => {
-                btn.addEventListener('click', () => this._setView(btn.dataset.view));
+                btn.addEventListener('click', () => {
+                    const view = btn.dataset.view;
+                    this._setView(view);
+                    // About is a document, not a pane: send it back to the top
+                    // and put focus on its title so keyboard and screen-reader
+                    // users land in the content rather than wherever the last
+                    // view left them. This used to hang off the footer's
+                    // methodology link — the only [data-view-link] on the page
+                    // — so it moved here when the footer shed it.
+                    if (view === 'about') {
+                        const wrap = document.getElementById('foodAboutWrap');
+                        if (wrap) wrap.scrollTop = 0;
+                        requestAnimationFrame(() => {
+                            document.getElementById('foodAboutTitle')?.focus({ preventScroll: true });
+                        });
+                    }
+                });
             });
-        document.querySelectorAll('[data-view-link]').forEach((link) => {
-            link.addEventListener('click', () => {
-                const view = link.dataset.viewLink;
-                this._setView(view);
-                if (view === 'about') {
-                    const wrap = document.getElementById('foodAboutWrap');
-                    if (wrap) wrap.scrollTop = 0;
-                    requestAnimationFrame(() => {
-                        document.getElementById('foodAboutTitle')?.focus({ preventScroll: true });
-                    });
-                }
-            });
-        });
 
         if (window.location.hash.toLowerCase() === '#about') this._setView('about', false);
 
@@ -604,13 +607,13 @@ export class FoodDashboard {
             this._renderFreshness(fetchedEl, snap, latest);
         }
 
+        // Coverage in the footer is the ZIP count alone. The facility total
+        // was redundant with the toolbar pill, which states it live against
+        // the active filters; About carries both for the record.
         const coverageEl = document.getElementById('foodCoverage');
         if (coverageEl && this._counts) {
             const zips = Object.keys(this._counts.by_zip || {}).filter((z) => z !== '?').length;
-            const total = Number(this._counts.total || 0);
-            coverageEl.textContent =
-                ` · ${total.toLocaleString()} ${total === 1 ? 'facility' : 'facilities'}, `
-                + `${zips} ${zips === 1 ? 'ZIP' : 'ZIPs'}`;
+            coverageEl.textContent = ` · ${zips} ${zips === 1 ? 'ZIP' : 'ZIPs'}`;
         }
 
         this._updateAboutStatus(payload, lite);
@@ -1128,7 +1131,7 @@ export class FoodDashboard {
             : `${total.toLocaleString()} facilities in this snapshot`;
     }
 
-    // Freshness reads at two lengths: the full phrasing where the toolbar has
+    // Freshness reads at two lengths: the full phrasing where the footer has
     // room, a trimmed one under 1500px (CSS picks — see .food-freshness).
     // Both stay in the DOM so the swap is layout-only, no re-render on resize.
     _renderFreshness(el, snapshotIso, latestIso) {
@@ -1150,9 +1153,9 @@ export class FoodDashboard {
         el.innerHTML = `<span class="food-freshness-full">${esc(full.join(' · '))}</span>`
             + `<span class="food-freshness-short">${esc(short.join(' · '))}</span>`;
         // The tooltip always spells out the distinction the short form drops.
-        // Below the narrowest tier the label hides outright and there is no
-        // hover target left — About states both dates in full, which is the
-        // durable home for them anyway.
+        // In the footer the label never hides outright — it wraps to its own
+        // row instead — so the hover target survives at every width. About
+        // still states both dates in full as the durable record.
         el.title = [
             snapshotIso ? `Archive snapshot published ${fmtDate(snapshotIso)}` : null,
             latestIso ? `Newest inspection report in it: ${fmtDate(latestIso)}` : null,

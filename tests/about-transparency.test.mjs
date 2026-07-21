@@ -12,16 +12,33 @@ const dashboardSource = readFileSync(
 test('the About view is public, directly linkable, and replaces the footer formula', () => {
     assert.match(html, /data-view="about"/);
     assert.match(html, /id="foodAboutWrap"/);
-    assert.match(html, /data-view-link="about"/);
     assert.match(html, /Every marker has a source ID\. Every score has math\./);
     assert.match(html, /not affiliated with or endorsed by VDH or MyHealthDepartment/);
     assert.match(dashboardSource, /window\.location\.hash\.toLowerCase\(\) === '#about'/);
 
-    const footer = html.match(/<div class="food-source-footer[\s\S]*?<\/div>\s*<\/div>/)?.[0] || '';
-    assert.match(footer, /methodology &amp; provenance/);
+    const footer = html.match(/<div class="food-source-footer[\s\S]*?\n {8}<\/div>/)?.[0] || '';
+    assert.ok(footer, 'footer markup found');
     assert.doesNotMatch(footer, /100\s*[−-]\s*6 per risk-factor/);
     assert.doesNotMatch(html, /food-footer-full/);
     assert.doesNotMatch(css, /food-mode-lite[^}]*foodAboutWrap/);
+});
+
+test('the header tab is the only way into About, and it lands you in the content', () => {
+    // The footer's methodology link was the page's only [data-view-link]. It
+    // is gone; the header tab is now the sole entry point, so the scroll-top
+    // and title-focus it used to own had to move onto the tab handler or be
+    // silently lost.
+    assert.doesNotMatch(html, /data-view-link/);
+    assert.doesNotMatch(html, /food-footer-about/);
+    assert.doesNotMatch(css, /\.food-footer-about/);
+    assert.doesNotMatch(html, /methodology &amp; provenance/);
+
+    const handler = dashboardSource.match(
+        /querySelectorAll\('button\[data-view\]'\)[\s\S]*?\n {12}\}\);/)?.[0] || '';
+    assert.ok(handler, 'view-toggle handler found');
+    assert.match(handler, /view === 'about'/);
+    assert.match(handler, /wrap\.scrollTop = 0/);
+    assert.match(handler, /foodAboutTitle'\)\?\.focus\(\{ preventScroll: true \}\)/);
 });
 
 test('the static score explainer states the production scoring coefficients', () => {
