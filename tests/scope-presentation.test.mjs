@@ -115,6 +115,39 @@ test('focused history renders one colored X/Y OUT signal', () => {
     assert.doesNotMatch(html, /food-insp-compliance/);
 });
 
+test('a focused detail row shows its OUT ratio and no score line at all', () => {
+    const context = {
+        _disposSets: dashboard.FoodDashboard.prototype._disposSets,
+        _renderChecklist: () => '',
+        _renderTemps: () => '',
+    };
+    const render = (insp) => dashboard.FoodDashboard.prototype._renderInspection
+        .call(context, insp, true);
+
+    // Lakeside Grill's 2026-04-02 follow-up: raw 92, 3/3 OUT.
+    const focused = render({
+        date: '2026-04-02', insp_type: 'Fast Food', purpose: 'Follow-Up',
+        score: 92, checklist: checklist(3, 3), checklist_present: true,
+        violations: [],
+    });
+    assert.match(focused, />3\/3<\/span><small aria-hidden="true">OUT/);
+    assert.doesNotMatch(focused, /food-raw-score/);   // the score line is gone
+    assert.doesNotMatch(focused, /\b92\b/);
+    assert.doesNotMatch(focused, /item-by-item/);
+
+    // The narrative twin keeps a line, reworded: it explains the missing
+    // checklist without lecturing about grade mechanics.
+    const narrative = render({
+        date: '2026-05-01', insp_type: 'Fast Food', purpose: 'Follow-Up',
+        score: 100, checklist: [], checklist_present: false, violations: [],
+        adjudication: { status: 'adjudicated', verdict: 'none_corrected' },
+    });
+    assert.match(narrative,
+        /food-raw-score">No checklist published; verdict read from the inspector's written comments\./);
+    assert.doesNotMatch(narrative, /item-by-item/);
+    assert.doesNotMatch(narrative, /\b100\b/);        // and still no raw score
+});
+
 test('an inspection has a score but never a letter', () => {
     const withScore = dashboard.inspectionPresentation({
         scope: 'broad', applicable_item_count: 24, score: 81,
@@ -288,7 +321,12 @@ test('detail copy does not claim a limited report is a clean full checklist', ()
     assert.doesNotMatch(source, /clean report/i);
     assert.doesNotMatch(source, /Full food-code checklist/i);
     assert.match(source, /No violations recorded in this focused/);
-    assert.match(source, /focused re-check — it adjusts the facility grade/);
+    // The focused row's score line is gone outright. A focused raw score is
+    // printed nowhere in the app now (#42 chart, #43 list/tooltip, this row),
+    // and the grade-mechanics lecture that rode along with it went too — the
+    // scope badge and the methodology page already carry that.
+    assert.doesNotMatch(source, /Score \$\{view\.score\}/);
+    assert.doesNotMatch(source, /adjusts the facility grade item-by-item/);
     // The under-plot legend was dropped; the trend card carries a caption and
     // the methodology page teaches the mark vocabulary.
     assert.doesNotMatch(source, /focused raw · ◆ written verdict/);

@@ -1810,10 +1810,8 @@ export class FoodDashboard {
                     target="_blank" rel="noopener" title="Open the official VDH report for this inspection">
                     <i class="bi bi-file-earmark-text"></i><span>View full VDH report</span>
                     <i class="bi bi-box-arrow-up-right"></i></a>` : ''}
-                ${view.scope === 'focused' && view.score != null
-                    ? `<div class="food-raw-score">Score ${view.score} · focused re-check — it adjusts the facility grade item-by-item, it doesn't set it</div>` : ''}
                 ${adj
-                    ? `<div class="food-raw-score">No checklist published — the inspector's written verdict adjusts the facility grade item-by-item, it doesn't set it</div>` : ''}
+                    ? `<div class="food-raw-score">No checklist published; verdict read from the inspector's written comments.</div>` : ''}
                 ${violations.length ? violations.map((v) => `
                     <div class="food-viol${(v.item != null && v.item <= 29) ? ' food-viol-rf' : ''}">
                         <div class="food-viol-head">
