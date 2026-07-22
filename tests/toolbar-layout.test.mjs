@@ -24,6 +24,18 @@ const appSource = readFileSync(
     'utf8',
 );
 
+// When the window is too narrow for a side panel, the detail view stacks under
+// the map. An open facility is the point, so the panel takes the MAJORITY of the
+// height (map is context) — lock the intent, not the exact number (2026-07-22).
+test('narrow layout: the stacked detail panel gets the majority of the height', () => {
+    const stackQuery = css.match(/@media \(max-width: 900px\)\s*\{([\s\S]*?)\n\}/);
+    assert.ok(stackQuery, 'the max-width:900px stacking query exists');
+    const maxH = stackQuery[1].match(/\.food-detail\s*\{[\s\S]*?max-height:\s*(\d+)%/);
+    assert.ok(maxH, '.food-detail sets a max-height in the stacking query');
+    assert.ok(Number(maxH[1]) > 50,
+        `stacked panel should take >50% of the body (map is context); got ${maxH[1]}%`);
+});
+
 test('toolbar splits into a filter cluster and a status cluster', () => {
     assert.match(html, /class="food-toolbar-filters[^"]*"/);
     assert.match(html, /class="food-toolbar-status[^"]*"/);
