@@ -1115,25 +1115,34 @@ body.food-receipt-open { overflow: hidden; }
 .food-temp-scroll { overflow-x: auto; }
 
 /* ── sparkline · compliance · dispositions · checklist ──────────────────── */
-/* The trend card: a captioned, lightly-bordered peer of the grade badge
-   column, sitting inline beside it. The SVG carries a viewBox and fills the
-   card's width, so the plot grows into whatever room the panel leaves rather
-   than sitting at a fixed 200px. It shrinks with the row instead of wrapping
-   out of it — `min-width` is the floor under which the marks would collide. */
+/* The trend card: a captioned, lightly-bordered peer of the grade badge column.
+   Its SVG is locked to a FIXED height (the grade circle's 4.2rem) so the plot
+   never grows vertically with the panel. It grows SIDEWAYS instead: the card
+   flex-grows to fill the row and `_bindSparkline` keeps the SVG's viewBox WIDTH
+   matched to the rendered width, so the data points spread to fill it while the
+   marks keep their exact size (uniform scale — no squashing). It keeps stretching
+   with the window until the panel switches to the fixed-width side layout (>900px).
+   flex-BASIS 0 (not auto) is load-bearing: at ≤576px the hero is flex-wrap, and an
+   `auto` basis hands the item the svg's full intrinsic width as its wrap size and
+   bumps the trend onto its own line far too early — basis 0 lets it shrink to
+   min-width first. NO max-width, so it fills the row inline next to the badge. */
 .food-spark {
-    margin-left: auto;
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 0.1rem;
-    flex: 1.4 1 0;
-    min-width: 7.5rem;
+    flex: 1 1 0;
+    min-width: 5rem;
     padding: 0.3rem 0.4rem 0.2rem;
     border: 1px solid var(--cp-border);
     border-radius: 0.55rem;
     background: var(--cp-surface);
 }
-.food-spark svg { width: 100%; height: auto; }
+/* width:auto = the svg sizes to its viewBox aspect at the locked height, so the
+   content fills the box with NO letterbox and NO distortion (uniform scale).
+   _bindSparkline sets the viewBox width so that intrinsic width ≈ the card's
+   available width — that's what spreads the points. max-width caps any rounding. */
+.food-spark svg { height: 4.2rem; width: auto; max-width: 100%; display: block; }
 /* Mark + label sizes are viewBox units, scaled with the SVG. They and the
    geometry in `_sparkline` move together — 1.5x here needs 1.5x there. */
 .food-spark-score { font-size: 12px; font-weight: 600; fill: #495057; }

@@ -1731,7 +1731,7 @@ export class FoodDashboard {
         // click on it from also toggling the row open/closed.
         inner.querySelectorAll('.food-insp-report').forEach((a) =>
             a.addEventListener('click', (e) => e.stopPropagation()));
-        this._bindSparkline(inner);
+        this._bindSparkline(inner, detail.inspections);
         this._bindGradeReceipt(inner, detail.facility, detail.inspections);
     }
 
@@ -2217,13 +2217,25 @@ export class FoodDashboard {
     _sparkline(inspections) {
         const series = buildScopeSeries(inspections);
         if (!series.events.length) return '';
-        // viewBox units only — the box scales to the space beside the grade
-        // badge (CSS `width: 100%`), so these set the plot's proportions and
-        // the label-to-mark ratio, not its rendered size. W is what maps to the
-        // card's width, so marks and labels grow by growing in these units
-        // while W holds; H and the pads grew with them to keep the same plot
-        // band (innerH 34) and stop the taller labels clipping out the top.
-        const W = 200, H = 84, padX = 18, padTop = 30, padBot = 20;
+        // Initial render at the default viewBox width; _bindSparkline re-renders
+        // at a width matched to the card's rendered size so the points spread to
+        // fill it (the height stays locked — see _sparkSvg and the CSS).
+        const { svg, nodes } = this._sparkSvg(series, 200);
+        return `<div class="food-spark" data-spark-nodes="${esc(JSON.stringify(nodes))}">
+            <span class="food-grade-caption">Trend</span>
+            ${svg}
+        </div>`;
+    }
+
+    // The trend SVG for a given viewBox width W, plus the hover node registry.
+    // Only the x-spacing depends on W: the vertical geometry (H and the pads) is
+    // fixed, so the plot HEIGHT is locked (CSS renders the svg at the grade
+    // circle's 4.2rem). Re-running with a wider W — _bindSparkline matches it to
+    // the rendered width — spreads the points to fill the room WITHOUT resizing
+    // the marks, because the scale stays uniform. `padTop = 30` clears the
+    // tallest hover label; innerH 34 is the score band.
+    _sparkSvg(series, W) {
+        const H = 84, padX = 18, padTop = 30, padBot = 20;
         const innerH = H - padTop - padBot;
         const x = (i) => series.events.length === 1 ? W / 2
             : padX + i * ((W - padX * 2) / (series.events.length - 1));
@@ -2321,13 +2333,11 @@ export class FoodDashboard {
         const accessibleSummary = `${broadSummary}. ${focusedSummary}. `
             + `${series.unknown.length} unknown-scope event${series.unknown.length === 1 ? '' : 's'}`
             + (narrCount ? `, ${narrCount} with an adjudicated written verdict` : '') + '.';
-        // A captioned, lightly-bordered card — the graphical peer of the grade
-        // badge column beside it. No legend under the plot: the methodology
-        // page's own "Trend" card teaches the line-vs-◇ vocabulary, and the
-        // per-mark hover plus the aria summary carry the rest.
-        return `<div class="food-spark" data-spark-nodes="${esc(JSON.stringify(nodes))}">
-            <span class="food-grade-caption">Trend</span>
-            <svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(accessibleSummary)}">
+        // No width/height attrs — CSS sizes the svg (fixed height, 100% width);
+        // the viewBox width W (matched to the render by _bindSparkline) is what
+        // spreads the points. No legend under the plot: the About page teaches
+        // the line-vs-◇ vocabulary, and hover + the aria summary carry the rest.
+        const svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(accessibleSummary)}">
                 <defs>${grad}</defs>
                 ${line}
                 ${broadDots}
@@ -2336,8 +2346,8 @@ export class FoodDashboard {
                 ${unknownMarks}
                 <g class="food-spark-hl" pointer-events="none"></g>
                 <rect class="food-spark-overlay" x="0" y="0" width="${W}" height="${H}"/>
-            </svg>
-        </div>`;
+            </svg>`;
+        return { svg, nodes };
     }
 
     // Enlarged foreground clone of the hovered node — pure visual, no text
@@ -2365,51 +2375,97 @@ export class FoodDashboard {
     // lift it to the foreground; nothing enlarges outside the radius. No-op on
     // touch (no mousemove). Rebound on every detail render — a stale closure
     // would address phantom points after a scope/facility change.
-    _bindSparkline(root) {
+    _bindSparkline(root, inspections) {
         const container = root.querySelector('.food-spark');
         if (!container) return;
-        const svg = container.querySelector('svg');
-        const hl = container.querySelector('.food-spark-hl');
-        const overlay = container.querySelector('.food-spark-overlay');
-        if (!svg || !hl || !overlay) return;
-        let nodes;
-        try { nodes = JSON.parse(container.dataset.sparkNodes || '[]'); }
-        catch { nodes = []; }
-        if (!nodes.length) return;
-        const vb = svg.viewBox.baseVal;
-        const MAX_R = 12;                 // max-boundary, viewBox units
-        // Base score labels: the active node's small label hides while its
-        // enlarged one shows, so the two sizes don't overlap and smear.
-        const baseLabels = [...svg.querySelectorAll('text.food-spark-score, text.food-spark-mark-label')];
-        let activeIdx = -1;
-        const clear = () => {
-            if (activeIdx === -1) return;
-            hl.textContent = '';
-            baseLabels.forEach((t) => { t.style.visibility = ''; });
-            activeIdx = -1;
+        const series = buildScopeSeries(inspections || []);
+        if (!series.events.length) return;
+
+        // Enlarge the single nearest node within a max radius and lift it to the
+        // foreground. Re-queries the current svg each call, so it re-binds
+        // cleanly after a resize re-render — the old overlay (and its listener)
+        // is replaced, never stacked.
+        const bindHover = () => {
+            const svg = container.querySelector('svg');
+            const hl = container.querySelector('.food-spark-hl');
+            const overlay = container.querySelector('.food-spark-overlay');
+            if (!svg || !hl || !overlay) return;
+            let nodes;
+            try { nodes = JSON.parse(container.dataset.sparkNodes || '[]'); }
+            catch { nodes = []; }
+            if (!nodes.length) return;
+            const vb = svg.viewBox.baseVal;
+            const MAX_R = 12;                 // max-boundary, viewBox units
+            // Base score labels: the active node's small label hides while its
+            // enlarged one shows, so the two sizes don't overlap and smear.
+            const baseLabels = [...svg.querySelectorAll('text.food-spark-score, text.food-spark-mark-label')];
+            let activeIdx = -1;
+            const clear = () => {
+                if (activeIdx === -1) return;
+                hl.textContent = '';
+                baseLabels.forEach((t) => { t.style.visibility = ''; });
+                activeIdx = -1;
+            };
+            overlay.addEventListener('mousemove', (evt) => {
+                const rect = svg.getBoundingClientRect();
+                if (!rect.width || !rect.height) return;
+                const px = (evt.clientX - rect.left) / rect.width * vb.width;
+                const py = (evt.clientY - rect.top) / rect.height * vb.height;
+                let best = -1, bestD = MAX_R * MAX_R;
+                for (let i = 0; i < nodes.length; i++) {
+                    const dx = nodes[i].x - px, dy = nodes[i].y - py;
+                    const d = dx * dx + dy * dy;
+                    if (d <= bestD) { bestD = d; best = i; }
+                }
+                if (best === -1) { clear(); return; }
+                if (best !== activeIdx) {
+                    hl.innerHTML = this._sparkHighlight(nodes[best]);
+                    const nx = nodes[best].x;
+                    baseLabels.forEach((t) => {
+                        t.style.visibility = Math.abs(parseFloat(t.getAttribute('x')) - nx) < 0.6 ? 'hidden' : '';
+                    });
+                    activeIdx = best;
+                }
+            });
+            overlay.addEventListener('mouseleave', clear);
         };
-        overlay.addEventListener('mousemove', (evt) => {
-            const rect = svg.getBoundingClientRect();
-            if (!rect.width || !rect.height) return;
-            const px = (evt.clientX - rect.left) / rect.width * vb.width;
-            const py = (evt.clientY - rect.top) / rect.height * vb.height;
-            let best = -1, bestD = MAX_R * MAX_R;
-            for (let i = 0; i < nodes.length; i++) {
-                const dx = nodes[i].x - px, dy = nodes[i].y - py;
-                const d = dx * dx + dy * dy;
-                if (d <= bestD) { bestD = d; best = i; }
-            }
-            if (best === -1) { clear(); return; }
-            if (best !== activeIdx) {
-                hl.innerHTML = this._sparkHighlight(nodes[best]);
-                const nx = nodes[best].x;
-                baseLabels.forEach((t) => {
-                    t.style.visibility = Math.abs(parseFloat(t.getAttribute('x')) - nx) < 0.6 ? 'hidden' : '';
-                });
-                activeIdx = best;
-            }
-        });
-        overlay.addEventListener('mouseleave', clear);
+
+        // Match the viewBox width to the rendered width so the points spread to
+        // fill the card while the marks keep their size (uniform scale) and the
+        // height stays locked. Returns true when it actually re-rendered.
+        const H = 84;
+        const fit = () => {
+            const svg = container.querySelector('svg');
+            if (!svg) return false;
+            const svgH = svg.getBoundingClientRect().height;   // the locked height, px
+            if (!svgH) return false;
+            const cs = getComputedStyle(container);
+            const availW = container.clientWidth
+                - parseFloat(cs.paddingLeft || 0) - parseFloat(cs.paddingRight || 0);
+            if (availW <= 0) return false;
+            // The viewBox width tracks the available px width at the locked height,
+            // so the svg's intrinsic size (width:auto) fills the card — the points
+            // spread and the scale stays uniform. Round DOWN so intrinsic ≤ availW.
+            const W = Math.max(120, Math.floor(availW * H / svgH));
+            if (Math.abs(svg.viewBox.baseVal.width - W) < 1) return false;
+            const next = this._sparkSvg(series, W);
+            container.dataset.sparkNodes = JSON.stringify(next.nodes);
+            svg.outerHTML = next.svg;      // old svg + its hover listener go with it
+            return true;
+        };
+
+        bindHover();                       // wire the initial (default-width) svg
+        if (fit()) bindHover();            // fit to the render, re-wire if it changed
+        // Keep it fitted as the panel/viewport changes width (rAF-debounced; a
+        // re-render never changes the container width, so this can't loop).
+        if (typeof ResizeObserver !== 'undefined') {
+            let raf = 0;
+            const ro = new ResizeObserver(() => {
+                cancelAnimationFrame(raf);
+                raf = requestAnimationFrame(() => { if (fit()) bindHover(); });
+            });
+            ro.observe(container);
+        }
     }
 
     _renderInspection(insp, openByDefault) {
