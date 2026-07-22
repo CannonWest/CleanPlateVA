@@ -303,7 +303,7 @@ test('a focused re-check plots at its compliance, never at its raw report score'
     // of the items the visit actually looked at. Plotted on the raw score this
     // total failure sat at the TOP of the chart, inside the A band, above a
     // broad 25. It belongs at the floor.
-    const html = proto._sparkline.call({ _scoreColor: proto._scoreColor }, [
+    const html = proto._sparkline.call({ _scoreColor: proto._scoreColor, _sparkSvg: proto._sparkSvg }, [
         {
             date: '2026-04-02', scope: 'focused', score: 92,
             checklist_present: true, checklist: checklist(3, 3),
@@ -329,7 +329,7 @@ test('a focused re-check with no trustworthy ratio claims no height at all', () 
     // Row-counted OUT (not distinct items) can't produce an honest compliance
     // share, so the mark drops to the neutral baseline tick rather than
     // inventing a position from the raw score.
-    const html = proto._sparkline.call({ _scoreColor: proto._scoreColor }, [
+    const html = proto._sparkline.call({ _scoreColor: proto._scoreColor, _sparkSvg: proto._sparkSvg }, [
         {
             date: '2026-04-02', scope: 'focused', applicable_item_count: 3,
             checklist_out: 4, checklist_present: true, score: 52,
@@ -512,8 +512,15 @@ test('the hero keeps badge and trend on one row — copy never pushes the trend 
     // Explanatory copy takes a zero basis so its natural width never votes on
     // the row. With `auto` it wins the row and strands the trend on line two.
     assert.match(css, /\.food-score-meta \{ flex: 1 1 0;/);
-    // The trend shrinks with the row rather than wrapping out of it.
-    assert.match(css, /\.food-spark \{[^}]*flex: [\d.]+ 1 0;/);
+    // The trend is height-locked to the grade circle but grows sideways to fill
+    // the row (flex-grow); _bindSparkline re-spaces the points to the width, so it
+    // stays on the row and never wraps off it — only the copy (full basis) wraps.
+    assert.match(css, /\.food-spark \{[^}]*flex: 1 1 0;/);
+    assert.match(css, /\.food-spark svg \{ height: [\d.]+rem; width: auto;/);
+    // The height-lock-with-sideways-spread is driven in JS: the sparkline
+    // re-renders at a viewBox width matched to the render, kept fitted on resize.
+    assert.match(source, /_sparkSvg\(series, /);
+    assert.match(source, /new ResizeObserver\(/);
     // Only the hero that carries BOTH copy and a trend wraps, and it wraps the
     // copy (full basis) — never the trend.
     assert.match(css, /\.food-grade-hero-none \{[^}]*flex-wrap: wrap;/);
