@@ -155,6 +155,25 @@ export function inspectionPresentation(insp = null) {
     };
 }
 
+/** The violation-count chip row for an inspection summary — the same total +
+ *  risk-factor / retail-practice split the grade receipt shows on its anchor,
+ *  ported down onto every history row (replaces the old "N viol." text).
+ *  Classification matches the receipt: an integer item ≤ RF_MAX_ITEM is a
+ *  risk factor; everything else (higher items, item-less rows) is retail
+ *  practice. `show` is false ONLY on a scope-unknown row with nothing
+ *  recorded: a green "0 violations" there reads as "verified clean" when the
+ *  breadth is simply unknown — the misleading skim the narrative channel was
+ *  built to avoid. Unknown rows WITH findings still show the red badge, and
+ *  broad/focused keep an honest green zero (there, zero is a real clean docket). */
+export function inspectionCountsPresentation(insp = null) {
+    const violations = (insp && insp.violations) || [];
+    const n = violations.length;
+    const rf = violations.filter((v) => Number.isInteger(v.item) && v.item <= RF_MAX_ITEM).length;
+    const grp = n - rf;
+    const show = n > 0 || inspectionPresentation(insp).scope !== 'unknown';
+    return { n, rf, grp, show };
+}
+
 /** Compliance-colored focused outcome, deliberately separate from grading. */
 export function focusedOutcomePresentation(view = {}) {
     const totalValue = Number(view.count);
@@ -2408,6 +2427,17 @@ export class FoodDashboard {
             : `<span class="food-scope-badge food-scope-badge-${view.scope}">${view.scope === 'broad' ? 'Broad' : view.scope === 'focused' ? 'Focused' : 'Scope unknown'}</span>`;
         const adjChip = adj
             ? `<span class="food-adj-chip food-outcome-${adj.tone}" title="${esc(adj.detail)}">${esc(adj.label)}</span>` : '';
+        // Violation counts as the grade-receipt chip row, ported onto the summary
+        // (replaces the old muted "N viol." text). The count split + the
+        // scope-unknown-zero suppression live in inspectionCountsPresentation so
+        // they're a tested contract; here we just paint it — a filled box (red for
+        // any, green at zero) then the rf / retail-practice bubbles the receipt uses.
+        const counts = inspectionCountsPresentation(insp);
+        const inspCounts = !counts.show ? '' : `<span class="food-insp-counts">
+                <span class="food-receipt-count" style="background:${counts.n ? GRADE_COLORS.F : GRADE_COLORS.A}">${counts.n} violation${counts.n === 1 ? '' : 's'}</span>
+                ${counts.rf ? `<span class="food-receipt-cat food-receipt-cat-rf" title="Foodborne-illness risk factors (form items 1–29)">${counts.rf} risk factor</span>` : ''}
+                ${counts.grp ? `<span class="food-receipt-cat food-receipt-cat-grp" title="Good Retail Practices (items 30+)">${counts.grp} retail practice</span>` : ''}
+            </span>`;
         const noViolations = view.scope === 'broad'
             ? `No violations recorded across ${view.count} distinct applicable code items.`
             : view.scope === 'focused'
@@ -2426,7 +2456,7 @@ export class FoodDashboard {
                 ${adjChip}
                 ${view.scope === 'broad' && cs && cs.compliance_rate != null
                     ? `<span class="food-insp-compliance" title="checklist compliance">${Math.round(cs.compliance_rate * 100)}%</span>` : ''}
-                ${adj ? '' : `<span class="food-insp-count text-muted">${violations.length} viol.</span>`}
+                ${adj ? '' : inspCounts}
             </summary>
             <div class="food-insp-body">
                 ${insp.report_url ? `<a class="food-insp-report" href="${esc(insp.report_url)}"
