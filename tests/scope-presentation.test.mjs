@@ -193,6 +193,20 @@ test('the VDH link is a compact "Source" in the summary, and badges get their ow
     assert.match(summary, /food-insp-r1"[\s\S]*?food-insp-counts/);               // badges are a sibling AFTER row 1
 });
 
+// The facility detail header pins only the title row: name + a compact "Source"
+// link (replacing the inline "VDH record" text) + the close button. Address, type,
+// and permit status move OUT of the sticky head into a scrolling sub-block
+// (2026-07-22). _renderDetail needs the whole grade-hero machinery to render, so
+// this pins the wiring at the source level, like the other layout tripwires.
+test('the detail header pins only title + Source; address/type scroll in a sub-block', () => {
+    assert.doesNotMatch(source, /VDH record<\/a>/);   // the inline text link (label) is gone
+    // the Source chip (both glyphs) sits in the title's right cluster, by the close button
+    assert.match(source, /food-detail-title-right"[\s\S]*?food-detail-source[\s\S]*?>Source<[\s\S]*?food-detail-close/);
+    // the sticky head closes BEFORE the secondary lines, which live in .food-detail-sub
+    assert.match(source, /<\/div>\s*<div class="food-detail-sub">/);
+    assert.match(source, /food-detail-sub"[\s\S]*?permit_type[\s\S]*?status/);
+});
+
 test('an inspection has a score but never a letter', () => {
     const withScore = dashboard.inspectionPresentation({
         scope: 'broad', applicable_item_count: 24, score: 81,

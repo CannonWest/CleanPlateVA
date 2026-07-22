@@ -394,11 +394,12 @@ body {
 }
 .food-detail-inner { padding: 0.9rem; }
 
-/* Pin the identity block (name → address → VDH-record link, with the close
-   button) to the top of the scrolling panel so it stays put while the score
-   hero, red flags, and inspection history scroll beneath it. Negative margins
-   span the inner padding so the opaque background reaches the panel edges;
-   the bottom border draws a clean seam against the scrolling content. */
+/* Pin ONLY the title row (name + Source link + close button) to the top of the
+   scrolling panel, so it stays put while the address/type sub-block, score hero,
+   red flags, and inspection history scroll beneath it. Negative margins span the
+   inner padding so the opaque background reaches the panel edges; the bottom
+   border draws a clean seam against the scrolling content. (Lite keeps its whole
+   identity block pinned — no Source link there; it hands off via the CTA below.) */
 .food-detail-head {
     position: sticky;
     top: 0;
@@ -418,6 +419,19 @@ body {
 .food-detail-title h5 { margin-bottom: 0.15rem; }
 .theme-dark .food-detail-title h5 { color: var(--cp-text); }
 .theme-dark .food-detail .btn-close { filter: invert(1) grayscale(100%) brightness(160%); }
+/* Right cluster of the pinned title row: the compact "Source" chip + the close
+   button, kept together on the right (justify-content on .food-detail-title). */
+.food-detail-title-right {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex: 0 0 auto;
+}
+.food-detail-source { flex: 0 0 auto; }
+/* The secondary identity lines (address, type · permit status), lifted out of the
+   pinned header so they scroll away beneath it — inset by the panel padding like
+   the rest of the scrolling content, with a small gap under the seam. */
+.food-detail-sub { padding-top: 0.55rem; }
 
 .food-approx {
     margin-left: 0.4rem;

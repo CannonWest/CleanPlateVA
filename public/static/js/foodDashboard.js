@@ -1833,15 +1833,20 @@ export class FoodDashboard {
             <div class="food-detail-head">
                 <div class="food-detail-title">
                     <h5>${esc(fac.name)}</h5>
-                    <button type="button" class="btn-close food-detail-close" aria-label="Close"></button>
+                    <div class="food-detail-title-right">
+                        <a class="food-insp-report food-detail-source" href="${PORTAL_PERMIT_URL}${encodeURIComponent(fac.permit_id)}"
+                            target="_blank" rel="noopener" title="Open this facility's VDH record"><i class="bi bi-file-earmark-text"></i><span>Source</span><i class="bi bi-box-arrow-up-right"></i></a>
+                        <button type="button" class="btn-close food-detail-close" aria-label="Close"></button>
+                    </div>
                 </div>
+            </div>
+            <div class="food-detail-sub">
                 <div class="text-muted small">
                     ${esc(fac.address)}${fac.address2 ? ' ' + esc(fac.address2) : ''}, ${esc(fac.city)}, ${esc(fac.state)} ${esc(fac.zip)}
                     ${geoNote}
                 </div>
                 <div class="text-muted small">
-                    ${esc(fac.permit_type)} · ${esc(fac.status)} ·
-                    <a href="${PORTAL_PERMIT_URL}${encodeURIComponent(fac.permit_id)}" target="_blank" rel="noopener">VDH record</a>
+                    ${esc(fac.permit_type)} · ${esc(fac.status)}
                 </div>
                 ${statusNote}
                 ${(fac.merged_from || []).length ? `
