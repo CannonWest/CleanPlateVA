@@ -148,6 +148,51 @@ test('a focused detail row shows its OUT ratio and no score line at all', () => 
     assert.doesNotMatch(narrative, /\b100\b/);        // and still no raw score
 });
 
+// The summary row keeps only per-inspection signal: purpose stays, but the
+// establishment category (insp_type, e.g. "Fast Food" — already in the panel
+// header) and the checklist compliance % are dropped (2026-07-22).
+test('the inspection summary drops the establishment category and the compliance %', () => {
+    const context = {
+        _disposSets: dashboard.FoodDashboard.prototype._disposSets,
+        _renderChecklist: () => '',
+        _renderTemps: () => '',
+        _scoreColor: () => '#000',
+    };
+    const html = dashboard.FoodDashboard.prototype._renderInspection.call(context, {
+        date: '2026-05-26', insp_type: 'Fast Food', purpose: 'Routine',
+        score: 80, checklist: checklist(20), checklist_present: true,
+        checklist_summary: { compliance_rate: 0.81, compliant: 17, out: 3 },
+        violations: [],
+    }, false);
+    assert.match(html, />Routine<\/span>/);              // the purpose stays
+    assert.doesNotMatch(html, /Fast Food/);              // establishment category is gone
+    assert.doesNotMatch(html, /food-insp-compliance/);   // and so is the compliance %
+    assert.doesNotMatch(html, /81%/);
+});
+
+// The VDH link rides up into the collapsed summary's right cluster (next to the
+// caret) as a compact "Source" keeping both glyphs, and the violation badges get
+// their own line below row 1 — both still visible while collapsed (2026-07-22).
+test('the VDH link is a compact "Source" in the summary, and badges get their own line', () => {
+    const context = {
+        _disposSets: dashboard.FoodDashboard.prototype._disposSets,
+        _renderChecklist: () => '',
+        _renderTemps: () => '',
+        _scoreColor: () => '#000',
+    };
+    const html = dashboard.FoodDashboard.prototype._renderInspection.call(context, {
+        date: '2026-05-26', insp_type: 'Fast Food', purpose: 'Routine',
+        score: 80, checklist: checklist(20), checklist_present: true,
+        report_url: 'https://henrico.example.gov/report/42', violations: [],
+    }, false);
+    const summary = html.slice(html.indexOf('<summary>'), html.indexOf('</summary>'));
+    assert.match(summary, /food-insp-report[\s\S]*?henrico\.example\.gov/);       // the link moved into the summary
+    assert.match(summary, /bi-file-earmark-text[\s\S]*?>Source<[\s\S]*?bi-box-arrow-up-right/);  // relabeled, both glyphs kept
+    assert.doesNotMatch(html, /View full VDH report/);
+    assert.match(summary, /food-insp-r1-right[\s\S]*?food-insp-report[\s\S]*?food-insp-caret/);  // right cluster, next to the caret
+    assert.match(summary, /food-insp-r1"[\s\S]*?food-insp-counts/);               // badges are a sibling AFTER row 1
+});
+
 test('an inspection has a score but never a letter', () => {
     const withScore = dashboard.inspectionPresentation({
         scope: 'broad', applicable_item_count: 24, score: 81,
