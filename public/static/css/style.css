@@ -993,7 +993,7 @@ body.food-receipt-open { overflow: hidden; }
 }
 .food-insp-when { font-weight: 600; font-size: 0.85rem; color: #212529; }
 .theme-dark .food-insp-when { color: var(--cp-text); }
-.food-insp-kind, .food-insp-count { font-size: 0.78rem; }
+.food-insp-kind { font-size: 0.78rem; }
 .food-insp-body { padding: 0.3rem 0.6rem 0.6rem; }
 
 /* "View full VDH report" — first thing in an expanded inspection. A quiet
@@ -1151,6 +1151,17 @@ body.food-receipt-open { overflow: hidden; }
     font-size: 0.72rem; font-weight: 600; color: #6c757d; font-variant-numeric: tabular-nums;
 }
 .theme-dark .food-insp-compliance { color: var(--cp-muted); }
+
+/* Violation-count chip group in an inspection summary — the grade-receipt count
+   row (.food-receipt-count / .food-receipt-cat) ported inline. inline-flex so the
+   whole group wraps as one unit inside the summary's flex row; no block margins
+   (the receipt's own .food-receipt-counts carries those). */
+.food-insp-counts {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+}
 
 .food-checklist { margin-top: 0.45rem; }
 .food-checklist > summary { cursor: pointer; }
