@@ -901,22 +901,38 @@ body.food-receipt-open { overflow: hidden; }
 .theme-dark .food-insp { border-color: var(--cp-border); background: var(--cp-surface-2); }
 .food-insp > summary {
     display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.5rem;
+    flex-direction: column;
+    gap: 0.35rem;
     padding: 0.45rem 0.6rem;
     cursor: pointer;
     list-style: none;
     user-select: none;
 }
 .food-insp > summary::-webkit-details-marker { display: none; }
-.food-insp > summary::after {
-    content: '\25B8';
+/* Line 1: the score/date/purpose/scope metadata, with a right-aligned cluster
+   (the "Source" link + the disclosure caret). The violation-count badges sit on
+   their own line below (.food-insp-counts). */
+.food-insp-r1 {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+}
+.food-insp-r1-right {
     margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.food-insp-caret {
+    display: inline-block;
     color: #adb5bd;
+    font-size: 0.9rem;
+    line-height: 1;
     transition: transform 0.12s ease;
 }
-.food-insp[open] > summary::after { transform: rotate(90deg); }
+.food-insp-caret::before { content: '\25B8'; }
+.food-insp[open] > summary .food-insp-caret { transform: rotate(90deg); }
 .food-insp-score {
     flex: 0 0 auto;
     min-width: 2rem;
@@ -998,28 +1014,28 @@ body.food-receipt-open { overflow: hidden; }
 
 /* "View full VDH report" — first thing in an expanded inspection. A quiet
    accent-tinted button that hands off to the official per-inspection page. */
+/* Compact "Source" chip in the summary's right cluster (was a full-width body
+   button). Icon · Source · launch-icon, sized to sit inline next to the caret. */
 .food-insp-report {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: 0.4rem;
-    margin: 0.15rem 0 0.5rem;
-    padding: 0.4rem 0.55rem;
+    gap: 0.28rem;
+    padding: 0.1rem 0.4rem;
     border: 1px solid var(--cp-border);
     border-radius: 0.35rem;
     background: color-mix(in srgb, var(--cp-accent) 8%, transparent);
     color: var(--cp-accent);
-    font-size: 0.82rem;
+    font-size: 0.72rem;
     font-weight: 600;
     text-decoration: none;
+    white-space: nowrap;
 }
 .food-insp-report:hover {
     background: color-mix(in srgb, var(--cp-accent) 16%, transparent);
     border-color: var(--cp-accent);
 }
-/* The middle span takes the slack so the launch icon sits flush right. */
-.food-insp-report span { flex: 1; }
-.food-insp-report .bi-file-earmark-text { font-size: 0.9rem; }
-.food-insp-report .bi-box-arrow-up-right { font-size: 0.72rem; opacity: 0.75; }
+.food-insp-report .bi-file-earmark-text { font-size: 0.82rem; }
+.food-insp-report .bi-box-arrow-up-right { font-size: 0.66rem; opacity: 0.75; }
 
 .food-viol {
     padding: 0.3rem 0.4rem;
@@ -1147,17 +1163,12 @@ body.food-receipt-open { overflow: hidden; }
 .food-status-note { margin-top: 0.3rem; font-size: 0.78rem; color: #e8590c; }
 .theme-dark .food-status-note { color: #ffa94d; }
 
-.food-insp-compliance {
-    font-size: 0.72rem; font-weight: 600; color: #6c757d; font-variant-numeric: tabular-nums;
-}
-.theme-dark .food-insp-compliance { color: var(--cp-muted); }
-
 /* Violation-count chip group in an inspection summary — the grade-receipt count
    row (.food-receipt-count / .food-receipt-cat) ported inline. inline-flex so the
    whole group wraps as one unit inside the summary's flex row; no block margins
    (the receipt's own .food-receipt-counts carries those). */
 .food-insp-counts {
-    display: inline-flex;
+    display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: 0.4rem;
