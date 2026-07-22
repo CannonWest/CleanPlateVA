@@ -1727,6 +1727,10 @@ export class FoodDashboard {
         inner.innerHTML = this._renderDetail(detail.facility, detail.inspections);
         inner.querySelector('.food-detail-close')
             ?.addEventListener('click', () => this._closeDetail());
+        // The per-inspection "Source" link now lives inside the <summary>; keep a
+        // click on it from also toggling the row open/closed.
+        inner.querySelectorAll('.food-insp-report').forEach((a) =>
+            a.addEventListener('click', (e) => e.stopPropagation()));
         this._bindSparkline(inner);
         this._bindGradeReceipt(inner, detail.facility, detail.inspections);
     }
@@ -2407,7 +2411,6 @@ export class FoodDashboard {
         const view = inspectionPresentation(insp);
         const violations = insp.violations || [];
         const sets = this._disposSets(insp.checklist);
-        const cs = insp.checklist_summary || null;
         // Narrative verdict (adjudicated comment) — only ever present on
         // scope-unknown Follow-Ups; it replaces the neutral "?" so the row
         // reads what the facility grade actually consumed.
@@ -2446,23 +2449,31 @@ export class FoodDashboard {
                 // raw-score line states the missing checklist and the chip
                 // states the verdict.
                 : 'No violations recorded; checklist breadth was not published.';
+        // The VDH report link rides up into the collapsed summary row (right of
+        // the metadata, next to the caret), relabeled to a compact "Source" that
+        // keeps its two glyphs. stopPropagation is bound in _select so a click
+        // opens VDH without also toggling the row.
+        const sourceLink = insp.report_url
+            ? `<a class="food-insp-report" href="${esc(insp.report_url)}" target="_blank" rel="noopener"
+                title="Open the official VDH report for this inspection"><i class="bi bi-file-earmark-text"></i><span>Source</span><i class="bi bi-box-arrow-up-right"></i></a>`
+            : '';
         return `
         <details class="food-insp"${openByDefault ? ' open' : ''}>
             <summary>
-                ${badge}
-                <span class="food-insp-when">${fmtDate(insp.date)}</span>
-                <span class="food-insp-kind text-muted">${esc(insp.insp_type)} · ${esc(insp.purpose)}</span>
-                ${scopeBadge}
-                ${adjChip}
-                ${view.scope === 'broad' && cs && cs.compliance_rate != null
-                    ? `<span class="food-insp-compliance" title="checklist compliance">${Math.round(cs.compliance_rate * 100)}%</span>` : ''}
+                <span class="food-insp-r1">
+                    ${badge}
+                    <span class="food-insp-when">${fmtDate(insp.date)}</span>
+                    <span class="food-insp-kind text-muted">${esc(insp.purpose)}</span>
+                    ${scopeBadge}
+                    ${adjChip}
+                    <span class="food-insp-r1-right">
+                        ${sourceLink}
+                        <span class="food-insp-caret" aria-hidden="true"></span>
+                    </span>
+                </span>
                 ${adj ? '' : inspCounts}
             </summary>
             <div class="food-insp-body">
-                ${insp.report_url ? `<a class="food-insp-report" href="${esc(insp.report_url)}"
-                    target="_blank" rel="noopener" title="Open the official VDH report for this inspection">
-                    <i class="bi bi-file-earmark-text"></i><span>View full VDH report</span>
-                    <i class="bi bi-box-arrow-up-right"></i></a>` : ''}
                 ${adj
                     ? `<div class="food-raw-score">No checklist published; verdict read from the inspector's written comments.</div>` : ''}
                 ${violations.length ? violations.map((v) => `
