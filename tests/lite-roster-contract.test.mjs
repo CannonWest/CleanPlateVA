@@ -30,7 +30,7 @@ const roster = JSON.parse(readFileSync(
 // are absent BY DESIGN — lite is a finder, not a grader.
 const FIELDS = [
     'address', 'address2', 'approx', 'city', 'is_restaurant', 'lat', 'lon',
-    'mobile', 'name', 'permit_id', 'zip',
+    'mobile', 'name', 'permit_id', 'tenant', 'zip',
 ];
 
 test('the committed roster is a lite payload with facilities in it', () => {
@@ -41,7 +41,7 @@ test('the committed roster is a lite payload with facilities in it', () => {
         `only ${roster.facilities.length} facilities — a truncated export?`);
 });
 
-test('every record carries exactly the 11-field lite contract', () => {
+test('every record carries exactly the 12-field lite contract', () => {
     const seen = new Set();
     for (const f of roster.facilities) for (const k of Object.keys(f)) seen.add(k);
     assert.deepEqual([...seen].sort(), FIELDS,
@@ -69,6 +69,25 @@ test('mobile is a real boolean and actually flags trucks', () => {
     // default view would hide the whole map.
     assert.ok(trucks < roster.facilities.length * 0.25,
         `${trucks} of ${roster.facilities.length} flagged mobile — over-matching?`);
+});
+
+test('tenant routes the VDH permit link to the right district', () => {
+    // The permit deep link is tenant-scoped. A roster without `tenant` sends
+    // every district-claimed facility to the /virginia/ aggregate, which shows
+    // a stale husk — the exact bug Golden Unicorn surfaced (2026-07-24). Lite's
+    // ONE call to action is that link, so a missing tenant breaks the tier's
+    // whole purpose.
+    let districted = 0;
+    for (const f of roster.facilities) {
+        assert.equal(typeof f.tenant, 'string', f.permit_id);
+        assert.match(f.tenant, /^(virginia|va-[a-z-]+)$/, f.permit_id);
+        if (f.tenant !== 'virginia') districted++;
+    }
+    // Post-union-rescrape, districts claim the overwhelming majority. A roster
+    // that is mostly `virginia` means the export ran against pre-union docs.
+    assert.ok(districted > roster.facilities.length * 0.5,
+        `only ${districted} of ${roster.facilities.length} district-claimed — `
+        + 'did this export run before the tenant field was persisted?');
 });
 
 test('no judgment field leaked into the public tier', () => {
