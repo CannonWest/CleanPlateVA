@@ -736,6 +736,58 @@ export function buildScopeSeries(inspections = []) {
     };
 }
 
+/** The roster marker's compact `trend` tuples → pseudo-inspections, NEWEST
+ *  first (the order every real inspections array arrives in), so the hover
+ *  card feeds the exact `_sparkline`/`buildScopeSeries` pipeline the detail
+ *  panel uses — one renderer, two data sources, no parallel drawing code.
+ *
+ *  Tuple kinds (cf_export_site._trend_event, oldest-first on the wire):
+ *      ["b", d, score, count]      broad — score may be null (an unscored
+ *                                  broad docket still holds its x slot)
+ *      ["f", d, out, total]        focused — out is DISTINCT items or null
+ *                                  (null → the ratio-unknown baseline tick)
+ *      ["n", d, verdict(, items)]  adjudicated written verdict ◆
+ *      ["u", d]                    scope-unknown baseline tick
+ *  d = yyyymmdd int, 0 when unknown.
+ *
+ *  Each pseudo-inspection carries exactly the fields inspectionPresentation
+ *  and narrativeVerdictPresentation read, nothing else. Degenerate stored
+ *  scopes (a "b"/"f" whose count is null) degrade to the baseline tick here
+ *  while the panel — which holds the real checklist rows — can still derive
+ *  a count; that divergence is confined to pre-v2 straggler documents. */
+export function trendInspections(trend = []) {
+    const iso = (d) => {
+        const s = String(d || '');
+        return s.length === 8
+            ? `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}` : null;
+    };
+    const events = [];
+    for (const t of Array.isArray(trend) ? trend : []) {
+        if (!Array.isArray(t) || !t.length) continue;
+        const [kind, d] = t;
+        const date = iso(d);
+        if (kind === 'b') {
+            events.push({
+                date, score: t[2] ?? null,
+                applicable_item_count: t[3] ?? null, checklist_present: true,
+            });
+        } else if (kind === 'f') {
+            events.push({
+                date, score: null,
+                applicable_item_count: t[3] ?? null,
+                out_item_count: t[2] ?? null, checklist_present: true,
+            });
+        } else if (kind === 'n') {
+            const adjudication = { status: 'adjudicated', verdict: t[2] || null };
+            if (t[3] && typeof t[3] === 'object') adjudication.items = t[3];
+            events.push({ date, checklist_present: false, adjudication });
+        } else {
+            events.push({ date, checklist_present: false });
+        }
+    }
+    return events.reverse();
+}
+
 function fmtDate(iso) {
     if (!iso) return '—';
     const d = new Date(iso + 'T12:00:00Z');
@@ -773,6 +825,8 @@ export class FoodDashboard {
         this._mapReady = false;      // first style.load has run (source exists)
         this._styleIsDark = null;
         this._hoverPopup = null;
+        this._hoverPid = null;       // permit under the open hover card
+        this._hoverHideTimer = 0;    // grace-period timer (sticky hover card)
         this._geojson = null;        // last-built FeatureCollection (re-applied on style swaps)
         this._facilities = [];
         this._byPermit = new Map();
@@ -1201,8 +1255,13 @@ export class FoodDashboard {
         const map = this._map;
         const coarse = window.matchMedia('(pointer: coarse)').matches;
 
-        // Hover tooltip (skipped on touch devices — tap opens the detail
-        // panel directly).
+        // Hover card (skipped on touch devices — tap opens the detail panel
+        // directly). Not a transient tooltip: the card is STICKY — leaving
+        // the marker starts a short grace timer, and entering the card
+        // cancels it, so the cursor can travel INTO the card and use it (the
+        // trend's enlarge-on-hover, the grade circle as a button). Full tier
+        // renders the grade hero from the roster's `trend` payload — hover
+        // never fetches; only a click does (the same contract as the map).
         if (!coarse) {
             this._hoverPopup = new maplibregl.Popup({
                 closeButton: false, closeOnClick: false,
@@ -1214,14 +1273,16 @@ export class FoodDashboard {
                 const f = feat && this._byPermit.get(feat.properties.pid);
                 if (!f) return;
                 map.getCanvas().style.cursor = 'pointer';
-                this._hoverPopup
-                    .setLngLat(feat.geometry.coordinates.slice())
-                    .setHTML(this._tooltipHTML(f))
-                    .addTo(map);
+                this._cancelHoverHide();
+                // Same facility → leave the card alone. Re-rendering on every
+                // mousemove (the old behavior) would destroy the spark's
+                // hover listeners and any element mid-click.
+                if (this._hoverPid === f.permit_id) return;
+                this._showHoverCard(feat.geometry.coordinates.slice(), f);
             });
             map.on('mouseleave', LYR_POINTS, () => {
                 map.getCanvas().style.cursor = '';
-                this._hoverPopup?.remove();
+                this._scheduleHoverHide();
             });
             map.on('mouseenter', LYR_CLUSTERS, () => {
                 map.getCanvas().style.cursor = 'pointer';
@@ -1234,7 +1295,10 @@ export class FoodDashboard {
         map.on('click', LYR_POINTS, (e) => {
             const feat = e.features?.[0];
             const f = feat && this._byPermit.get(feat.properties.pid);
-            if (f) this._select(f);
+            if (f) {
+                this._hideHoverCard();   // the panel takes over
+                this._select(f);
+            }
         });
 
         // Cluster click → zoom to the level where it breaks apart
@@ -1242,11 +1306,73 @@ export class FoodDashboard {
         map.on('click', LYR_CLUSTERS, async (e) => {
             const feat = e.features?.[0];
             if (!feat) return;
+            this._hideHoverCard();   // the anchor marker is about to dissolve
             try {
                 const zoom = await map.getSource(SRC)
                     .getClusterExpansionZoom(feat.properties.cluster_id);
                 map.easeTo({ center: feat.geometry.coordinates, zoom: zoom + 0.5 });
             } catch (_) { /* cluster dissolved mid-click */ }
+        });
+    }
+
+    // ── sticky hover card ───────────────────────────────────────────────
+    // The grace timer is what makes the card a surface instead of a tooltip:
+    // marker-leave arms it, card-enter disarms it, card-leave re-arms it. The
+    // delay only needs to cover the cursor's hop across the popup's 12px
+    // offset gap.
+
+    _cancelHoverHide() {
+        clearTimeout(this._hoverHideTimer);
+        this._hoverHideTimer = 0;
+    }
+
+    _scheduleHoverHide() {
+        this._cancelHoverHide();
+        this._hoverHideTimer = setTimeout(() => this._hideHoverCard(), 180);
+    }
+
+    _hideHoverCard() {
+        this._cancelHoverHide();
+        this._hoverPid = null;
+        this._hoverPopup?.remove();
+    }
+
+    _showHoverCard(lngLat, f) {
+        const popup = this._hoverPopup;
+        if (!popup) return;
+        this._hoverPid = f.permit_id;
+        const lite = this._mode === 'lite';
+        // Lite keeps the slim name+address tip; the hero card needs the room.
+        popup.setMaxWidth(lite ? '280px' : '340px');
+        popup.setLngLat(lngLat).setHTML(this._hoverCardHTML(f)).addTo(this._map);
+        const el = popup.getElement();
+        if (el && !el._cpHoverWired) {
+            // The popup container is created by addTo and destroyed by
+            // remove(); while it stays open across marker changes, setHTML
+            // swaps only the content — so wire the container once per open.
+            el._cpHoverWired = true;
+            el.addEventListener('mouseenter', () => this._cancelHoverHide());
+            el.addEventListener('mouseleave', () => this._scheduleHoverHide());
+        }
+        if (!lite) this._bindHoverCard(el, f);
+    }
+
+    // Wire the card's interactive layer: the trend's enlarge-on-hover (the
+    // same _bindSparkline the detail panel uses, fed by the trend adapter)
+    // and the grade circle / computed pill as buttons. Their receipt promise
+    // holds — clicking selects the facility (the one fetch, same as a marker
+    // click) and opens the score breakdown on top once it renders.
+    _bindHoverCard(el, f) {
+        if (!el) return;
+        this._bindSparkline(el, trendInspections(f.trend));
+        el.querySelectorAll('[data-grade-receipt]').forEach((btn) => {
+            btn.addEventListener('click', async () => {
+                this._hideHoverCard();
+                await this._select(f);
+                if (this._selectedPermit !== f.permit_id) return; // clicked away
+                document.querySelector('#foodDetailInner [data-grade-receipt]')
+                    ?.click();
+            });
         });
     }
 
@@ -1350,10 +1476,12 @@ export class FoodDashboard {
     // Mobile food unit = VDH's permit type, verbatim from the exporter. Matched
     // lowercase-substring (same idiom as _isActive) so a VDH pluralization or
     // class suffix still lands; no other permit type contains "mobile food".
-    // Lite records carry no permit_type at all, so this is full-tier-only —
-    // see the `!lite` guard in _matchesFilters.
+    // Lite records carry no permit_type but DO carry the exporter's `mobile`
+    // boolean (the same predicate, applied at export time) — so the switch
+    // works on both tiers off this one test.
     _isMobileUnit(f) {
-        return (f.permit_type || '').toLowerCase().includes('mobile food');
+        return f.mobile === true
+            || (f.permit_type || '').toLowerCase().includes('mobile food');
     }
 
     _matchesFilters(f) {
@@ -1367,9 +1495,11 @@ export class FoodDashboard {
         if (!lite && !showClosed && !this._isActive(f)) return false;
         // Newly-permitted (active, ungraded) places get their own toggle.
         if (!lite && !showNew && this._isNew(f)) return false;
-        // Mobile food units are hidden unless asked for. Lite has no
-        // permit_type, so there they stay visible — the toggle hides itself.
-        if (!lite && !showMobile && this._isMobileUnit(f)) return false;
+        // Mobile food units are hidden unless asked for — BOTH tiers: the
+        // lite record carries the exporter's `mobile` boolean precisely so
+        // this filter works on the public site too (a truck's pin is the
+        // permit's filing address, not where it parks).
+        if (!showMobile && this._isMobileUnit(f)) return false;
         if (!lite && grade) {
             const letter = facilityPresentation(f).grade?.letter || null;
             if (letter !== grade) return false;
@@ -1387,60 +1517,45 @@ export class FoodDashboard {
         return gradeColor(facilityPresentation(f).grade?.letter || null);
     }
 
-    _tooltipHTML(f) {
+    // The hover card IS the detail panel's grade hero, rendered from the
+    // roster alone: name + address, then the same circle / NEW badge /
+    // no-grade dash, the same sparkline (via the trend-tuple adapter feeding
+    // the same renderer), the same date cards. No flat "Grade A · 94" text —
+    // the circle is the verdict, and a focused raw score prints nowhere
+    // (the #42/#43 invariant carries over by construction: the shared
+    // sparkline plots ratios, not raw scores).
+    _hoverCardHTML(f) {
         if (this._mode === 'lite') {
             return `<strong>${esc(f.name)}</strong><br>`
                 + `${esc(f.address || '')}${f.city ? ', ' + esc(f.city) : ''}`
                 + (f.approx ? '<br><span class="food-tip-sub">≈ approximate location</span>' : '');
         }
-        const lt = f.latest || {};
-        const fp = facilityPresentation(f);
-        const latest = fp.latest;
-        const trend = fp.trend;
-        const arrow = trend.length >= 2
-            ? (trend[0] < trend[1] ? ' ▼' : trend[0] > trend[1] ? ' ▲' : '') : '';
+        const grade = gradePresentation(f);
+        const latestView = inspectionPresentation(f.latest || null);
+        const isNew = this._isNew(f);
         const active = this._isActive(f);
-        const assessmentRecord = fp.assessmentRecord || {};
-        const sub = [];
-        if (latest.scope === 'focused') {
-            // The X/Y OUT ratio and nothing else. A focused report's raw score
-            // subtracts only the handful of items the visit actually looked at,
-            // so it reads near 100 even when every one of them failed — the
-            // same reason `_sparkline` stopped plotting it. Never pair it with
-            // the ratio: the big friendly number wins the glance.
-            sub.push(focusedOutcomePresentation(latest).label);
-        } else if (latest.scope === 'unknown') {
-            sub.push('latest checklist scope unavailable');
-        }
-        if (assessmentRecord.compliance_rate != null) {
-            sub.push(`Broad compliance ${Math.round(assessmentRecord.compliance_rate * 100)}%`);
-        }
-        if (lt.open_repeat) sub.push(`${lt.open_repeat} open repeat`);
-        // Headline = the facility grade (letter + score). When follow-ups moved
-        // it, a second line names the broad inspection it came from — score
-        // only, because inspections never carry a letter.
-        const g = fp.grade;
-        let headlineHtml;
-        if (!g) {
-            headlineHtml = active
-                ? '<span class="food-tip-new">Newly permitted · grade pending</span>'
-                : '<span class="food-tip-sub">No grade yet — no broad inspection</span>';
-        } else if (g.adjusted) {
-            headlineHtml = `<span class="food-tip-sub">${esc(`Grade ${g.letter} · ${g.score}`
-                + ` · after ${g.followups} follow-up${g.followups === 1 ? '' : 's'}`)}</span>`
-                + `<br><span class="food-tip-sub">${esc(`Latest broad inspection: ${g.baseScore}${arrow}`)}`
-                + `${assessmentRecord.date ? ` · ${esc(fmtDate(assessmentRecord.date))}` : ''}</span>`;
-        } else {
-            headlineHtml = `<span class="food-tip-sub">${esc(`Grade ${g.letter} · ${g.score}${arrow}`)}`
-                + `${assessmentRecord.date ? ` · ${esc(fmtDate(assessmentRecord.date))}` : ''}</span>`;
-        }
-        return `<strong>${esc(f.name)}</strong><br>`
-            + `${esc(latest.scope === 'focused' ? 'Latest: focused inspection'
-                : latest.scope === 'broad' ? 'Latest: broad inspection'
-                    : 'Latest report')} — ${esc(lt.date ? fmtDate(lt.date) : 'n/a')}`
-            + `<br>${headlineHtml}`
-            + (active ? '' : `<br><span class="food-tip-closed">${esc(f.status || 'closed')}</span>`)
-            + (sub.length ? `<br><span class="food-tip-sub">${esc(sub.join(' · '))}</span>` : '');
+        const pseudo = trendInspections(f.trend);
+        const sparkHtml = (pseudo.length && !isNew) ? this._sparkline(pseudo) : '';
+        const hero = grade
+            ? this._gradeHero(grade, sparkHtml)
+            : isNew
+                ? this._newHero(latestView)
+                : this._noGradeHero(latestView, sparkHtml);
+        // A pre-`trend` payload (or a facility with real history whose tuples
+        // are somehow absent) still gets its hero — circle + dates, just no
+        // sparkline. Only a facility with nothing at all says so.
+        const heroBlock = (grade || isNew || pseudo.length || f.latest?.date)
+            ? `${hero}${this._gradeDates(grade?.baseDate || null, f.latest?.date || null)}`
+            : '<div class="text-muted small mb-2">No inspection detail available yet.</div>';
+        return `
+            <div class="food-hover-card">
+                <div class="food-hover-card-head">
+                    <strong>${esc(f.name)}</strong>
+                    ${active ? '' : `<span class="food-tip-closed">${esc(f.status || 'closed')}</span>`}
+                    <div class="food-tip-sub">${esc(f.address || '')}${f.address2 ? ' ' + esc(f.address2) : ''}${f.city ? ', ' + esc(f.city) : ''}</div>
+                </div>
+                ${heroBlock}
+            </div>`;
     }
 
     /** Filtered facilities → FeatureCollection with per-feature paint props. */
@@ -1478,6 +1593,9 @@ export class FoodDashboard {
     _rebuildMarkers() {
         if (this._viewMode === 'list') { this._rebuildList(); return; }
         if (!this._map) return;
+        // A filter flip can remove the very marker the open card anchors to;
+        // don't leave the card floating over nothing.
+        this._hideHoverCard();
 
         const filtered = this._facilities.filter((f) => this._matchesFilters(f));
         this._geojson = this._toGeoJSON(filtered);
