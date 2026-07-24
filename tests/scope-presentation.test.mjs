@@ -257,9 +257,10 @@ test('a focused-only facility has no fabricated assessment or grade', () => {
     assert.deepEqual(view.trend, []);
 });
 
-test('an unadjusted grade leads the marker tooltip; broad compliance discloses below', () => {
+test('the hover card leads with the grade CIRCLE — the flat grade text is gone', () => {
+    const proto = dashboard.FoodDashboard.prototype;
     const facility = {
-        name: 'Example', status: 'Permitted',
+        name: 'Example', status: 'Permitted', address: '1 Main St', city: 'Richmond',
         latest: {
             scope: 'focused', applicable_item_count: 2, score: 100,
             checklist_out: 0, date: '2026-06-05', checklist_present: true,
@@ -268,17 +269,25 @@ test('an unadjusted grade leads the marker tooltip; broad compliance discloses b
             scope: 'broad', applicable_item_count: 31, score: 58,
             compliance_rate: 0.7667, date: '2026-05-21',
         },
-        grade: { score: 58, letter: 'F', base_score: 58, base_letter: 'F', adjusted: false },
+        grade: { score: 58, letter: 'F', base_score: 58, base_letter: 'F',
+            base_date: '2026-05-21', adjusted: false },
         score_trend: [58, 54],
+        trend: [['b', 20260521, 58, 31], ['f', 20260605, 0, 2]],
     };
-    const html = dashboard.FoodDashboard.prototype._tooltipHTML.call({
-        _mode: 'full',
-        _isActive: () => true,
-    }, facility);
-    assert.match(html, /Latest: focused inspection/);
-    assert.match(html, /Grade F · 58/);
-    assert.doesNotMatch(html, /Grade F · 58 · after/);   // unadjusted: one line, no follow-up
-    assert.match(html, /Broad compliance 77%/);
+    const html = proto._hoverCardHTML.call(
+        Object.assign(Object.create(proto), { _mode: 'full', _isActive: () => true }),
+        facility);
+    // The circle is the verdict — letter over score, aria for the rest.
+    assert.match(html, /food-grade-letter">F</);
+    assert.match(html, /food-grade-score">58</);
+    assert.match(html, /aria-label="Grade F, score 58 of 100/);
+    // The old "Grade F · 58" line (and its follow-up suffix) never renders.
+    assert.doesNotMatch(html, /Grade F · 58/);
+    // Provenance rides as the date cards, not prose.
+    assert.match(html, /Last broad inspection/);
+    assert.match(html, /5\/21\/2026/);
+    assert.match(html, /Last visit/);
+    assert.match(html, /6\/5\/2026/);
 });
 
 test('scope series connects only broad scores and preserves focused event positions', () => {
@@ -361,11 +370,12 @@ test('no surface pairs a focused re-check with its raw report score', () => {
         grade: { score: 20, letter: 'F', base_score: 25, base_letter: 'F', adjusted: true },
         score_trend: [25, 94, 68],
     };
-    const tooltip = proto._tooltipHTML.call(
-        { _mode: 'full', _isActive: () => true }, facility);
-    assert.doesNotMatch(tooltip, /raw 92|score 92/, 'tooltip still prints the raw score');
-    assert.doesNotMatch(tooltip, /\b92\b/, 'tooltip still prints 92 somewhere');
-    assert.match(tooltip, /OUT count unavailable/);   // the honest signal survives
+    const card = proto._hoverCardHTML.call(
+        Object.assign(Object.create(proto), { _mode: 'full', _isActive: () => true }),
+        { ...facility, trend: [['b', 20260204, 25, 35], ['f', 20260402, 3, 3]] });
+    assert.doesNotMatch(card, /raw 92|score 92/, 'card still prints the raw score');
+    assert.doesNotMatch(card, /\b92\b/, 'card still prints 92 somewhere');
+    assert.match(card, /3\/3/);   // the honest signal survives — on the diamond
 
     // The list row is built inline inside `_rebuildList`, so pin it at the
     // source: the focused branch must carry the ratio alone, with no score
@@ -391,7 +401,11 @@ test('detail copy does not claim a limited report is a clean full checklist', ()
     assert.doesNotMatch(source, /focused raw · ◆ written verdict/);
     assert.match(source, /food-grade-caption">Trend</);
     assert.match(source, /Broad scores oldest to newest/);
-    assert.match(source, /Broad compliance/);
+    // The compliance disclosure survives in the list view's column (the
+    // hover card dropped the old "Broad compliance NN%" prose line when it
+    // became the hero — the trend now shows the whole broad history instead).
+    assert.match(source, /food-list-col-compliance/);
+    assert.match(source, /compliance_rate \* 100/);
 });
 
 test('gradePresentation reads the facility grade block; letters band from the score', () => {
@@ -428,9 +442,10 @@ test('no grade block means no grade — the assessment never stands in for one',
     assert.equal(none.grade, null);
 });
 
-test('an adjusted grade leads the tooltip; the broad line names a score, not a letter', () => {
+test('an adjusted grade circles its FINAL score; the base letter never leaks', () => {
+    const proto = dashboard.FoodDashboard.prototype;
     const facility = {
-        name: 'Example', status: 'Permitted',
+        name: 'Example', status: 'Permitted', address: '1 Main St', city: 'Richmond',
         latest: {
             scope: 'focused', applicable_item_count: 2, score: 100,
             checklist_out: 0, date: '2025-07-05', checklist_present: true,
@@ -444,14 +459,17 @@ test('an adjusted grade leads the tooltip; the broad line names a score, not a l
             base_date: '2025-01-17', followups: 1, followup_date: '2025-07-05',
         },
         score_trend: [82, 90],
+        trend: [['b', 20250117, 82, 31], ['f', 20250705, 0, 2]],
     };
-    const html = dashboard.FoodDashboard.prototype._tooltipHTML.call({
-        _mode: 'full',
-        _isActive: () => true,
-    }, facility);
-    assert.match(html, /Grade D · 62 · after 1 follow-up/);
-    assert.match(html, /Latest broad inspection: 82 ▼/);
-    assert.doesNotMatch(html, /Grade B/);   // the broad inspection shows its score, never a letter
+    const html = proto._hoverCardHTML.call(
+        Object.assign(Object.create(proto), { _mode: 'full', _isActive: () => true }),
+        facility);
+    // The circle carries the ADJUSTED verdict — the follow-ups' work shows.
+    assert.match(html, /food-grade-letter">D</);
+    assert.match(html, /food-grade-score">62</);
+    // The base broad's 82 appears only as a trend point, never lettered.
+    assert.doesNotMatch(html, /Grade B/);
+    assert.doesNotMatch(html, /food-grade-letter">B</);
 });
 
 test('the grade hero is just the labeled circle and the trend line — no chips, no dates', () => {
