@@ -2,12 +2,14 @@
  *
  *  A mobile unit's pin is the permit's filing address, not where it parks, so
  *  it answers a different question than the rest of the map and stays hidden
- *  until asked for. The toggle is FULL-TIER ONLY: the lite record is ten
- *  fields and `permit_type` is not one of them, so lite can neither filter
- *  them out nor honestly offer the switch.
+ *  until asked for. BOTH TIERS since 2026-07-24: the lite record's 11th
+ *  field is the exporter's `mobile` boolean (same predicate, applied at
+ *  export time), so the public site filters trucks too. Full tier still
+ *  reads `permit_type` directly.
  *
  *  Archive shape these pin against (frozen 2026-07-20): 1,881 of 19,147
- *  facilities carry permit_type "Mobile Food Unit", 1,525 of them active.
+ *  facilities carry permit_type "Mobile Food Unit", 1,525 of them active
+ *  (1,862 flagged on the 19,511-place lite roster after the union sweep).
  */
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -65,6 +67,18 @@ test('_isMobileUnit reads permit_type, and nothing else in the archive collides'
     assert.equal(proto._isMobileUnit({ permit_type: null }), false);
 });
 
+test('_isMobileUnit reads the lite mobile boolean — strictly', () => {
+    // The lite record carries no permit_type; the exporter's boolean is the
+    // whole signal there. `=== true` so a truthy accident (a string, a 1)
+    // from some future payload drift can't hide real places.
+    assert.equal(proto._isMobileUnit({ mobile: true }), true);
+    assert.equal(proto._isMobileUnit({ mobile: false }), false);
+    assert.equal(proto._isMobileUnit({ mobile: 1 }), false);
+    assert.equal(proto._isMobileUnit({ mobile: 'true' }), false);
+    // Either signal suffices; full-tier records may carry both.
+    assert.equal(proto._isMobileUnit({ mobile: true, permit_type: 'Fast Food' }), true);
+});
+
 test('trucks are hidden by default and return when the switch goes on', () => {
     assert.equal(matches(TRUCK), false);
     assert.equal(matches(TRUCK, { showMobile: true }), true);
@@ -87,17 +101,21 @@ test('hiding trucks does not smuggle in the other filters', () => {
     assert.equal(matches(TRUCK, { showMobile: true, q: 'sushi' }), false);
 });
 
-test('lite is untouched: no permit_type to filter on, so nothing is hidden', () => {
-    // The lite record has no permit_type at all. Filtering there would either
-    // do nothing (best case) or blank real places, so the guard is `!lite`.
-    const liteRecord = { name: 'Taco Truck', zip: '23220', is_restaurant: true };
-    assert.equal(matches(liteRecord, {}, 'lite'), true);
-    // Even a record that somehow carried the type stays visible in lite.
-    assert.equal(matches(TRUCK, {}, 'lite'), true);
-    assert.match(
-        source,
-        /if \(!lite && !showMobile && this\._isMobileUnit\(f\)\) return false;/,
-    );
+test('lite hides trucks too — the mobile boolean made the switch live there', () => {
+    // The lite record's `mobile` boolean (11th field) is the filter signal on
+    // the public tier: flagged trucks hide by default and return with the
+    // switch, exactly like full tier.
+    const liteTruck = { name: 'Taco Truck', zip: '23220', is_restaurant: true, mobile: true };
+    assert.equal(matches(liteTruck, {}, 'lite'), false);
+    assert.equal(matches(liteTruck, { showMobile: true }, 'lite'), true);
+    // Unflagged (or pre-boolean) lite records always stay visible.
+    const liteBrick = { name: 'Kyoto', zip: '23220', is_restaurant: true, mobile: false };
+    assert.equal(matches(liteBrick, {}, 'lite'), true);
+    const preBoolean = { name: 'Old Payload', zip: '23220', is_restaurant: true };
+    assert.equal(matches(preBoolean, {}, 'lite'), true);
+    // The guard is tier-blind now — no `!lite` on the mobile line.
+    assert.match(source, /if \(!showMobile && this\._isMobileUnit\(f\)\) return false;/);
+    assert.doesNotMatch(source, /!lite && !showMobile/);
 });
 
 test('the switch is wired, persisted, and off unless the key says otherwise', () => {
@@ -120,12 +138,15 @@ test('every inert lite switch hides — the list matches the !lite guards', () =
     // without its entry here and rendered dead on the public site; this test
     // is the tripwire so the next one does not.
     const rule = css.match(/\.food-mode-lite #foodGradeChips,([\s\S]*?)\}/)?.[1] || '';
-    for (const id of ['#foodShowClosedWrap', '#foodShowNewWrap', '#foodShowMobileWrap']) {
+    for (const id of ['#foodShowClosedWrap', '#foodShowNewWrap']) {
         assert.match(rule, new RegExp(`\\.food-mode-lite ${id},`), id);
     }
     assert.match(rule, /display:\s*none/);
+    // Show mobile LEFT the hide-list when the lite boolean made it live —
+    // hiding a working switch is the same lie in the other direction.
+    assert.doesNotMatch(rule, /#foodShowMobileWrap/);
 
     // Each hidden switch must have a matching `!lite` guard, and vice versa.
     const guards = [...source.matchAll(/if \(!lite && !(\w+) &&/g)].map((m) => m[1]);
-    assert.deepEqual(guards.sort(), ['showClosed', 'showMobile', 'showNew']);
+    assert.deepEqual(guards.sort(), ['showClosed', 'showNew']);
 });
