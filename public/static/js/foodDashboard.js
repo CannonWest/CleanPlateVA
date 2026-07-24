@@ -32,8 +32,28 @@ const SHOW_CLOSED_KEY = 'cleanplateva.food.showClosed';
 const SHOW_NEW_KEY = 'cleanplateva.food.showNew';
 const SHOW_MOBILE_KEY = 'cleanplateva.food.showMobile';
 
-const PORTAL_PERMIT_URL =
-    'https://inspections.myhealthdepartment.com/virginia/permit/?permitID=';
+const PORTAL_BASE = 'https://inspections.myhealthdepartment.com';
+// The `virginia` aggregate: correct only for facilities no district claimed.
+const AGGREGATE_TENANT = 'virginia';
+
+/** Deep link to a facility's official VDH permit page.
+ *
+ *  Tenant-SCOPED, exactly like the per-inspection `report_url` the exporter
+ *  bakes: VDH renders each district under its own path, and a facility a
+ *  district claimed is ABSENT from the `virginia` aggregate — that URL returns
+ *  an identity-less husk whose permit status is stale (Golden Unicorn read
+ *  "Pending" on the aggregate while va-henrico had it Permitted). So route by
+ *  the exporter's `tenant` field, present on marker, lite, and detail records.
+ *
+ *  `f` may be a full/lite marker, a detail facility, or a merged_from entry.
+ *  Pre-tenant payloads degrade to the aggregate — the old behaviour, never a
+ *  broken link.
+ */
+export function permitUrl(f, tenant) {
+    const t = tenant || f?.tenant || AGGREGATE_TENANT;
+    return `${PORTAL_BASE}/${encodeURIComponent(t)}/permit/?permitID=`
+        + encodeURIComponent(f?.permit_id ?? '');
+}
 
 // Grade palette — fixed hues that read on light + dark (data color, not
 // chrome; chrome themes via CSS).
@@ -1779,7 +1799,7 @@ export class FoodDashboard {
                 <td class="food-list-full-only food-list-col-compliance">${assessmentRecord.compliance_rate != null ? Math.round(assessmentRecord.compliance_rate * 100) + '%' : '—'}</td>
                 <td class="food-list-full-only food-list-col-trend" style="color:${tcol}">${arrow || '—'}</td>
                 <td class="food-list-date food-list-full-only food-list-col-date">${fmtDate(lt.date)}</td>
-                <td class="food-list-col-vdh"><a class="food-list-vdh-link" href="${PORTAL_PERMIT_URL}${encodeURIComponent(f.permit_id)}" target="_blank" rel="noopener" aria-label="View ${esc(f.name)} on VDH" title="View ${esc(f.name)} on VDH"><i class="bi bi-box-arrow-up-right" aria-hidden="true"></i></a></td>
+                <td class="food-list-col-vdh"><a class="food-list-vdh-link" href="${permitUrl(f)}" target="_blank" rel="noopener" aria-label="View ${esc(f.name)} on VDH" title="View ${esc(f.name)} on VDH"><i class="bi bi-box-arrow-up-right" aria-hidden="true"></i></a></td>
             </tr>`;
         }).join('') + (filtered.length > CAP
             ? `<tr class="food-list-more"><td colspan="${this._mode === 'lite' ? 4 : 8}">Showing first ${CAP} of ${filtered.length} — narrow the filters to see the rest.</td></tr>` : '');
@@ -1875,7 +1895,7 @@ export class FoodDashboard {
             </div>
             <div class="food-lite-cta">
                 <a class="btn btn-sm btn-primary" target="_blank" rel="noopener"
-                   href="${PORTAL_PERMIT_URL}${encodeURIComponent(f.permit_id)}">
+                   href="${permitUrl(f)}">
                     View inspections on VDH <i class="bi bi-box-arrow-up-right"></i>
                 </a>
                 <div class="text-muted small mt-2">
@@ -1952,7 +1972,7 @@ export class FoodDashboard {
                 <div class="food-detail-title">
                     <h5>${esc(fac.name)}</h5>
                     <div class="food-detail-title-right">
-                        <a class="food-insp-report food-detail-source" href="${PORTAL_PERMIT_URL}${encodeURIComponent(fac.permit_id)}"
+                        <a class="food-insp-report food-detail-source" href="${permitUrl(fac)}"
                             target="_blank" rel="noopener" title="Open this facility's VDH record"><i class="bi bi-file-earmark-text"></i><span>Source</span><i class="bi bi-box-arrow-up-right"></i></a>
                         <button type="button" class="btn-close food-detail-close" aria-label="Close"></button>
                     </div>
@@ -1971,7 +1991,11 @@ export class FoodDashboard {
                 <div class="text-muted small" title="Same address, near-identical name — a re-issued permit. History below spans all permits.">
                     Includes earlier permit${fac.merged_from.length === 1 ? '' : 's'}:
                     ${fac.merged_from.map((m) =>
-                        `<a href="${PORTAL_PERMIT_URL}${encodeURIComponent(m.permit_id)}" target="_blank" rel="noopener">${esc(m.name)}</a>`).join(' · ')}
+                        // A merged_from entry carries no tenant of its own —
+                        // a re-permit group shares one address, so the
+                        // surviving facility's district fixes the path for all
+                        // (mirrors the exporter's claimed_tenant grouping).
+                        `<a href="${permitUrl(m, fac.tenant)}" target="_blank" rel="noopener">${esc(m.name)}</a>`).join(' · ')}
                 </div>` : ''}
             </div>
             ${scoreHero}
