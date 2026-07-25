@@ -152,6 +152,13 @@ test('a focused detail row shows its OUT ratio and no score line at all', () => 
     assert.match(narrative, /food-insp-score-adj food-insp-signal/);
     assert.doesNotMatch(narrative, /item-by-item/);
     assert.doesNotMatch(narrative, /\b100\b/);        // and still no raw score
+
+    const targeted = render({
+        date: '2026-05-02', insp_type: 'Fast Food', purpose: 'Follow-Up',
+        score: 100, checklist: [], checklist_present: false, violations: [],
+        adjudication: { status: 'adjudicated', verdict: 'items', items: { 47: 'IN' } },
+    });
+    assert.match(targeted, /<span aria-hidden="true">✓<\/span><small aria-hidden="true">1<\/small>/);
 });
 
 // The summary row keeps only per-inspection signal: purpose stays, but the
@@ -203,6 +210,9 @@ test('the inspection signal is a two-row circle and the VDH link stays icon-only
     assert.match(summary, /food-insp-r1"[\s\S]*?food-insp-counts/);               // badges are a sibling AFTER row 1
     assert.match(styles, /grid-template-areas:\s*"signal meta"\s*"signal counts"/);
     assert.match(styles, /\.food-insp-signal\s*\{[\s\S]*?border-radius:\s*50%/);
+    assert.match(styles, /\.food-insp-signal\s*\{[\s\S]*?font-size:\s*1\.1rem/);
+    assert.match(styles, /\.food-insp-signal\.food-insp-score-adj\s*\{[\s\S]*?flex-direction:\s*row/);
+    assert.match(styles, /\.food-insp-signal\.food-insp-score-adj > span,\s*\n\.food-insp-signal\.food-insp-score-adj > small\s*\{[\s\S]*?font-size:\s*1\.08rem/);
 });
 
 // The facility detail header pins only the title row: name + a compact "Source"
