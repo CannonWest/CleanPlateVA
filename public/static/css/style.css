@@ -1224,6 +1224,7 @@ body.food-receipt-open { overflow: hidden; }
    node within the max radius is redrawn, enlarged, into the top .food-spark-hl
    layer so it lifts above its neighbours. */
 .food-spark-overlay { fill: transparent; }
+.food-spark-overlay-active { cursor: pointer; }
 .food-spark-hl-dot { stroke: var(--cp-surface); stroke-width: 2.1; }
 .food-spark-hl-dia { stroke-width: 3.3; }
 .food-spark-hl-tick { stroke: #495057; stroke-width: 3.9; }
