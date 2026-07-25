@@ -6,6 +6,10 @@ const source = readFileSync(
     new URL('../public/static/js/foodDashboard.js', import.meta.url),
     'utf8',
 );
+const styles = readFileSync(
+    new URL('../public/static/css/style.css', import.meta.url),
+    'utf8',
+);
 const dashboard = await import(
     `data:text/javascript;base64,${Buffer.from(source).toString('base64')}`
 );
@@ -107,6 +111,7 @@ test('focused history renders one colored X/Y OUT signal', () => {
     }, false);
 
     assert.match(html, /food-outcome-clear/);
+    assert.match(html, /food-insp-score-focused food-insp-signal/);
     assert.match(html, />0\/2<\/span><small aria-hidden="true">OUT/);
     assert.match(html, /role="img"/);
     assert.match(html, /aria-label="0 of 2 focused items marked OUT; 100% in compliance"/);
@@ -144,6 +149,7 @@ test('a focused detail row shows its OUT ratio and no score line at all', () => 
     });
     assert.match(narrative,
         /food-raw-score">No checklist published; verdict read from the inspector's written comments\./);
+    assert.match(narrative, /food-insp-score-adj food-insp-signal/);
     assert.doesNotMatch(narrative, /item-by-item/);
     assert.doesNotMatch(narrative, /\b100\b/);        // and still no raw score
 });
@@ -170,10 +176,10 @@ test('the inspection summary drops the establishment category and the compliance
     assert.doesNotMatch(html, /81%/);
 });
 
-// The VDH link rides in the collapsed summary's right cluster (next to the
-// caret) as an icon-only control, and the violation badges get their own line
-// below row 1 — both still visible while collapsed.
-test('the VDH link is icon-only in the summary, and badges get their own line', () => {
+// The inspection-only score/outcome becomes a mini circle in its own grid
+// column, spanning the metadata and chip rows. The VDH link stays icon-only in
+// the top-right cluster.
+test('the inspection signal is a two-row circle and the VDH link stays icon-only', () => {
     const context = {
         _disposSets: dashboard.FoodDashboard.prototype._disposSets,
         _renderChecklist: () => '',
@@ -186,6 +192,8 @@ test('the VDH link is icon-only in the summary, and badges get their own line', 
         report_url: 'https://henrico.example.gov/report/42', violations: [],
     }, false);
     const summary = html.slice(html.indexOf('<summary>'), html.indexOf('</summary>'));
+    assert.match(summary, /<summary>\s*<span class="food-insp-score food-insp-signal"/);
+    assert.match(summary, /food-insp-signal[\s\S]*?food-insp-r1[\s\S]*?food-insp-counts/);
     assert.match(summary, /food-insp-report[\s\S]*?henrico\.example\.gov/);       // the link moved into the summary
     assert.match(summary, /aria-label="Open the official VDH report for this inspection"/);
     assert.match(summary, /bi-file-earmark-text[\s\S]*?bi-box-arrow-up-right/);    // both glyphs stay
@@ -193,6 +201,8 @@ test('the VDH link is icon-only in the summary, and badges get their own line', 
     assert.doesNotMatch(html, /View full VDH report/);
     assert.match(summary, /food-insp-r1-right[\s\S]*?food-insp-report[\s\S]*?food-insp-caret/);  // right cluster, next to the caret
     assert.match(summary, /food-insp-r1"[\s\S]*?food-insp-counts/);               // badges are a sibling AFTER row 1
+    assert.match(styles, /grid-template-areas:\s*"signal meta"\s*"signal counts"/);
+    assert.match(styles, /\.food-insp-signal\s*\{[\s\S]*?border-radius:\s*50%/);
 });
 
 // The facility detail header pins only the title row: name + a compact "Source"
