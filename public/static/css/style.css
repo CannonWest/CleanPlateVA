@@ -519,10 +519,9 @@ body {
 .theme-dark .food-scope-badge-focused { color: #74c0fc; }
 .theme-dark .food-scope-badge-unknown { color: #adb5bd; }
 
-/* The facility GRADE circle — the detail-panel headline. One circle: small
-   letter over big score, tinted by the grade color. It is the ONLY round,
-   only letter-bearing badge; every inspection below is a rounded SQUARE
-   score with no letter, so shape alone says "verdict vs. evidence". */
+/* The facility GRADE circle — the detail-panel headline. Small letter over big
+   score, tinted by the grade color. Inspection rows use smaller circles with
+   no letter, so size + the letter still distinguish grade from evidence. */
 .food-grade-hero {
     padding: 0.55rem;
     border: 1px solid var(--cp-border);
@@ -929,19 +928,24 @@ body.food-receipt-open { overflow: hidden; }
 }
 .theme-dark .food-insp { border-color: var(--cp-border); background: var(--cp-surface-2); }
 .food-insp > summary {
-    display: flex;
-    flex-direction: column;
-    gap: 0.35rem;
+    display: grid;
+    grid-template-columns: 2.85rem minmax(0, 1fr);
+    grid-template-areas:
+        "signal meta"
+        "signal counts";
+    column-gap: 0.55rem;
+    row-gap: 0.35rem;
     padding: 0.45rem 0.6rem;
     cursor: pointer;
     list-style: none;
     user-select: none;
 }
 .food-insp > summary::-webkit-details-marker { display: none; }
-/* Line 1: the score/date/purpose/scope metadata, with a right-aligned cluster
-   (the icon-only report link + the disclosure caret). The violation-count
-   badges sit on their own line below (.food-insp-counts). */
+/* The inspection signal owns the left column across both summary lines. Line 1
+   holds date/purpose/scope + report/caret; line 2 holds counts or the narrative
+   verdict chip. */
 .food-insp-r1 {
+    grid-area: meta;
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -1021,6 +1025,36 @@ body.food-receipt-open { overflow: hidden; }
     gap: 0.05rem;
 }
 .food-insp-score-adj small { font-size: 0.72em; font-weight: 700; }
+/* Mini inspection circle: the row's own score/outcome only — never a facility
+   grade letter. It spans the metadata and chip rows, echoing the hero without
+   competing with its larger 4.2rem grade circle. Focused ratios and targeted
+   narrative verdicts stack their qualifier/count onto a second line. */
+.food-insp-signal {
+    grid-area: signal;
+    align-self: center;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 2.85rem;
+    height: 2.85rem;
+    min-width: 2.85rem;
+    box-sizing: border-box;
+    padding: 0;
+    border-radius: 50%;
+    gap: 0.05rem;
+    font-size: 0.92rem;
+    line-height: 1;
+}
+.food-insp-signal small {
+    margin: 0;
+    font-size: 0.52rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    line-height: 1;
+}
+.food-insp-signal.food-insp-score-focused > span { font-size: 0.76rem; }
+.food-insp-signal.food-insp-score-adj > span { font-size: 1rem; }
 .food-adj-chip {
     display: inline-flex;
     align-items: center;
@@ -1201,16 +1235,16 @@ body.food-receipt-open { overflow: hidden; }
 .food-status-note { margin-top: 0.3rem; font-size: 0.78rem; color: #e8590c; }
 .theme-dark .food-status-note { color: #ffa94d; }
 
-/* Violation-count chip group in an inspection summary — the grade-receipt count
-   row (.food-receipt-count / .food-receipt-cat) ported inline. inline-flex so the
-   whole group wraps as one unit inside the summary's flex row; no block margins
-   (the receipt's own .food-receipt-counts carries those). */
+/* Violation-count chip group in the inspection summary's second grid row. The
+   grade-receipt count/category chips are reused without the receipt's margins. */
 .food-insp-counts {
+    grid-area: counts;
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: 0.4rem;
 }
+.food-insp-counts .food-adj-chip { max-width: 100%; }
 
 .food-checklist { margin-top: 0.45rem; }
 .food-checklist > summary { cursor: pointer; }
