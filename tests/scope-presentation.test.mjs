@@ -170,10 +170,10 @@ test('the inspection summary drops the establishment category and the compliance
     assert.doesNotMatch(html, /81%/);
 });
 
-// The VDH link rides up into the collapsed summary's right cluster (next to the
-// caret) as a compact "Source" keeping both glyphs, and the violation badges get
-// their own line below row 1 — both still visible while collapsed (2026-07-22).
-test('the VDH link is a compact "Source" in the summary, and badges get their own line', () => {
+// The VDH link rides in the collapsed summary's right cluster (next to the
+// caret) as an icon-only control, and the violation badges get their own line
+// below row 1 — both still visible while collapsed.
+test('the VDH link is icon-only in the summary, and badges get their own line', () => {
     const context = {
         _disposSets: dashboard.FoodDashboard.prototype._disposSets,
         _renderChecklist: () => '',
@@ -187,7 +187,9 @@ test('the VDH link is a compact "Source" in the summary, and badges get their ow
     }, false);
     const summary = html.slice(html.indexOf('<summary>'), html.indexOf('</summary>'));
     assert.match(summary, /food-insp-report[\s\S]*?henrico\.example\.gov/);       // the link moved into the summary
-    assert.match(summary, /bi-file-earmark-text[\s\S]*?>Source<[\s\S]*?bi-box-arrow-up-right/);  // relabeled, both glyphs kept
+    assert.match(summary, /aria-label="Open the official VDH report for this inspection"/);
+    assert.match(summary, /bi-file-earmark-text[\s\S]*?bi-box-arrow-up-right/);    // both glyphs stay
+    assert.doesNotMatch(summary, />Source</);                                      // no visible text
     assert.doesNotMatch(html, /View full VDH report/);
     assert.match(summary, /food-insp-r1-right[\s\S]*?food-insp-report[\s\S]*?food-insp-caret/);  // right cluster, next to the caret
     assert.match(summary, /food-insp-r1"[\s\S]*?food-insp-counts/);               // badges are a sibling AFTER row 1

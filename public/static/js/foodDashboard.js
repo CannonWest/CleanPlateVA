@@ -1865,8 +1865,8 @@ export class FoodDashboard {
         inner.innerHTML = this._renderDetail(detail.facility, detail.inspections);
         inner.querySelector('.food-detail-close')
             ?.addEventListener('click', () => this._closeDetail());
-        // The per-inspection "Source" link now lives inside the <summary>; keep a
-        // click on it from also toggling the row open/closed.
+        // The per-inspection report link lives inside the <summary>; keep a click
+        // on it from also toggling the row open/closed.
         inner.querySelectorAll('.food-insp-report').forEach((a) =>
             a.addEventListener('click', (e) => e.stopPropagation()));
         this._bindSparkline(inner, detail.inspections);
@@ -2652,13 +2652,13 @@ export class FoodDashboard {
                 // raw-score line states the missing checklist and the chip
                 // states the verdict.
                 : 'No violations recorded; checklist breadth was not published.';
-        // The VDH report link rides up into the collapsed summary row (right of
-        // the metadata, next to the caret), relabeled to a compact "Source" that
-        // keeps its two glyphs. stopPropagation is bound in _select so a click
-        // opens VDH without also toggling the row.
+        // The VDH report link rides in the collapsed summary row (right of the
+        // metadata, next to the caret) as an icon-only control. stopPropagation
+        // is bound in _select so a click opens VDH without also toggling the row.
         const sourceLink = insp.report_url
             ? `<a class="food-insp-report" href="${esc(insp.report_url)}" target="_blank" rel="noopener"
-                title="Open the official VDH report for this inspection"><i class="bi bi-file-earmark-text"></i><span>Source</span><i class="bi bi-box-arrow-up-right"></i></a>`
+                aria-label="Open the official VDH report for this inspection"
+                title="Open the official VDH report for this inspection"><i class="bi bi-file-earmark-text" aria-hidden="true"></i><i class="bi bi-box-arrow-up-right" aria-hidden="true"></i></a>`
             : '';
         return `
         <details class="food-insp"${openByDefault ? ' open' : ''}>
