@@ -743,6 +743,10 @@ export function buildScopeSeries(inspections = []) {
         inspection,
         presentation: inspectionPresentation(inspection),
         index,
+        // Exact position in the newest-first inspection history. Dates and
+        // report IDs are not guaranteed unique, so trend clicks use this
+        // render-order identity instead of a best-effort content match.
+        historyIndex: inspections.length - 1 - index,
     }));
     return {
         events,
@@ -1915,7 +1919,7 @@ export class FoodDashboard {
 
         const history = inspections.length ? `
             <div class="food-section-title">Inspection history (${inspections.length})</div>
-            ${inspections.map((insp, i) => this._renderInspection(insp, i === 0)).join('')}`
+            ${inspections.map((insp, i) => this._renderInspection(insp, i === 0, i)).join('')}`
             : '';
 
         return `
@@ -2348,16 +2352,23 @@ export class FoodDashboard {
         const broadDots = series.broad.map((event) => {
             const px = x(event.index), py = y(event.presentation.score);
             const c = this._scoreColor(event.presentation.score);
-            nodes.push({ k: 'broad', x: +px.toFixed(1), y: +py.toFixed(1), s: event.presentation.score, c });
+            nodes.push({
+                k: 'broad', x: +px.toFixed(1), y: +py.toFixed(1),
+                s: event.presentation.score, c, historyIndex: event.historyIndex,
+            });
             return `<circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="3.3" fill="${c}"/>`;
         }).join('');
         const broadLabels = series.broad.map((event) =>
             `<text class="food-spark-score" x="${x(event.index).toFixed(1)}" y="${(y(event.presentation.score) - 6).toFixed(1)}" text-anchor="middle">${event.presentation.score}</text>`).join('');
         // Neutral baseline tick, below the score band: an event happened here
         // and the record doesn't support claiming how it went.
-        const baselineTick = (px) => {
+        const baselineTick = (px, event) => {
             const y1 = H - padBot + 1, y2 = H - 6;
-            nodes.push({ k: 'unknown', x: +px.toFixed(1), y: +((y1 + y2) / 2).toFixed(1), y1, y2 });
+            nodes.push({
+                k: 'unknown', x: +px.toFixed(1),
+                y: +((y1 + y2) / 2).toFixed(1), y1, y2,
+                historyIndex: event.historyIndex,
+            });
             return `<line class="food-spark-unknown" x1="${px.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${px.toFixed(1)}" y2="${y2.toFixed(1)}"/>`;
         };
         // A focused re-check plots at its COMPLIANCE — the IN-share of the few
@@ -2381,10 +2392,13 @@ export class FoodDashboard {
             const px = x(event.index);
             const outcome = focusedOutcomePresentation(event.presentation);
             // No trustworthy distinct-OUT ratio ⇒ no height to claim.
-            if (!outcome.ratioKnown) return baselineTick(px);
+            if (!outcome.ratioKnown) return baselineTick(px, event);
             const py = y(outcome.complianceRate * 100);
             const label = `${outcome.out}/${outcome.total}`;
-            nodes.push({ k: 'focused', x: +px.toFixed(1), y: +py.toFixed(1), s: label, tone: outcome.tone });
+            nodes.push({
+                k: 'focused', x: +px.toFixed(1), y: +py.toFixed(1),
+                s: label, tone: outcome.tone, historyIndex: event.historyIndex,
+            });
             return `<rect class="food-spark-focused food-outcome-${outcome.tone}" x="${(px - 4.2).toFixed(1)}" y="${(py - 4.2).toFixed(1)}" width="8.4" height="8.4" transform="rotate(45 ${px.toFixed(1)} ${py.toFixed(1)})"/>`
                 + `<text class="food-spark-mark-label" x="${px.toFixed(1)}" y="${(py - 7.5).toFixed(1)}" text-anchor="middle">${label}</text>`;
         }).join('');
@@ -2402,11 +2416,14 @@ export class FoodDashboard {
             if (adj) {
                 narrCount += 1;
                 const py = y(adj.height);
-                nodes.push({ k: 'narr', x: +px.toFixed(1), y: +py.toFixed(1), tone: adj.tone, g: adj.glyph });
+                nodes.push({
+                    k: 'narr', x: +px.toFixed(1), y: +py.toFixed(1),
+                    tone: adj.tone, g: adj.glyph, historyIndex: event.historyIndex,
+                });
                 return `<rect class="food-spark-narr food-outcome-${adj.tone}" x="${(px - 4.2).toFixed(1)}" y="${(py - 4.2).toFixed(1)}" width="8.4" height="8.4" transform="rotate(45 ${px.toFixed(1)} ${py.toFixed(1)})"/>`
                     + `<text class="food-spark-mark-label" x="${px.toFixed(1)}" y="${(py - 7.5).toFixed(1)}" text-anchor="middle">${adj.glyph}</text>`;
             }
-            return baselineTick(px);
+            return baselineTick(px, event);
         }).join('');
         // Vertical gradient in user space: top (score 100) → bottom (score 0),
         // stops at the grade-band boundaries (A green · B lime · C amber · D
@@ -2469,10 +2486,31 @@ export class FoodDashboard {
         return `<line class="food-spark-unknown food-spark-hl-tick" x1="${n.x}" y1="${n.y1}" x2="${n.x}" y2="${n.y2}"/>`;
     }
 
+    // Open the exact history row represented by a trend node, then bring the
+    // expanded card into view inside the scrolling detail panel.
+    _openInspectionFromTrend(root, historyIndex) {
+        if (!Number.isInteger(historyIndex) || historyIndex < 0) return false;
+        const target = root.querySelector(
+            `.food-insp[data-inspection-index="${historyIndex}"]`);
+        if (!target) return false;
+        target.open = true;
+        // Scroll the compact summary, not the potentially multi-screen details
+        // body; centering a tall inspection card can land halfway through its
+        // violation copy and hide the date/score row the user chose.
+        const anchor = target.querySelector('summary') || target;
+        requestAnimationFrame(() => anchor.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center',
+        }));
+        return true;
+    }
+
     // Desktop hover: enlarge the single nearest node within a max radius and
-    // lift it to the foreground; nothing enlarges outside the radius. No-op on
-    // touch (no mousemove). Rebound on every detail render — a stale closure
-    // would address phantom points after a scope/facility change.
+    // lift it to the foreground; clicking that highlighted node expands and
+    // scrolls to its exact inspection row. Nothing activates outside the
+    // radius. No-op on touch (no mousemove). Rebound on every detail render —
+    // a stale closure would address phantom points after a scope/facility
+    // change.
     _bindSparkline(root, inspections) {
         const container = root.querySelector('.food-spark');
         if (!container) return;
@@ -2499,6 +2537,7 @@ export class FoodDashboard {
             const baseLabels = [...svg.querySelectorAll('text.food-spark-score, text.food-spark-mark-label')];
             let activeIdx = -1;
             const clear = () => {
+                overlay.classList.remove('food-spark-overlay-active');
                 if (activeIdx === -1) return;
                 hl.textContent = '';
                 baseLabels.forEach((t) => { t.style.visibility = ''; });
@@ -2523,7 +2562,12 @@ export class FoodDashboard {
                         t.style.visibility = Math.abs(parseFloat(t.getAttribute('x')) - nx) < 0.6 ? 'hidden' : '';
                     });
                     activeIdx = best;
+                    overlay.classList.add('food-spark-overlay-active');
                 }
+            });
+            overlay.addEventListener('click', () => {
+                const node = nodes[activeIdx];
+                if (node) this._openInspectionFromTrend(root, node.historyIndex);
             });
             overlay.addEventListener('mouseleave', clear);
         };
@@ -2566,7 +2610,7 @@ export class FoodDashboard {
         }
     }
 
-    _renderInspection(insp, openByDefault) {
+    _renderInspection(insp, openByDefault, historyIndex = null) {
         const view = inspectionPresentation(insp);
         const violations = insp.violations || [];
         const sets = this._disposSets(insp.checklist);
@@ -2617,7 +2661,7 @@ export class FoodDashboard {
                 title="Open the official VDH report for this inspection"><i class="bi bi-file-earmark-text" aria-hidden="true"></i><i class="bi bi-box-arrow-up-right" aria-hidden="true"></i></a>`
             : '';
         return `
-        <details class="food-insp"${openByDefault ? ' open' : ''}>
+        <details class="food-insp"${Number.isInteger(historyIndex) ? ` data-inspection-index="${historyIndex}"` : ''}${openByDefault ? ' open' : ''}>
             <summary>
                 ${badge}
                 <span class="food-insp-r1">

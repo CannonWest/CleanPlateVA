@@ -197,8 +197,9 @@ test('the inspection signal is a two-row circle and the VDH link stays icon-only
         date: '2026-05-26', insp_type: 'Fast Food', purpose: 'Routine',
         score: 80, checklist: checklist(20), checklist_present: true,
         report_url: 'https://henrico.example.gov/report/42', violations: [],
-    }, false);
+    }, false, 7);
     const summary = html.slice(html.indexOf('<summary>'), html.indexOf('</summary>'));
+    assert.match(html, /<details class="food-insp" data-inspection-index="7">/);
     assert.match(summary, /<summary>\s*<span class="food-insp-score food-insp-signal"/);
     assert.match(summary, /food-insp-signal[\s\S]*?food-insp-r1[\s\S]*?food-insp-counts/);
     assert.match(summary, /food-insp-report[\s\S]*?henrico\.example\.gov/);       // the link moved into the summary
@@ -324,6 +325,74 @@ test('scope series connects only broad scores and preserves focused event positi
     assert.deepEqual(series.broad.map((event) => event.index), [1, 3]);
     assert.deepEqual(series.focused.map((event) => event.index), [2]);
     assert.deepEqual(series.unknown.map((event) => event.index), [0]);
+    assert.deepEqual(series.events.map((event) => event.historyIndex), [3, 2, 1, 0]);
+});
+
+test('every plotted trend mark keeps the exact history row even when dates repeat', () => {
+    const proto = dashboard.FoodDashboard.prototype;
+    const sameDate = '2026-05-26';
+    const html = proto._sparkline.call({
+        _scoreColor: proto._scoreColor,
+        _sparkSvg: proto._sparkSvg,
+    }, [
+        { date: sameDate, scope: 'broad', applicable_item_count: 30, score: 76 },
+        {
+            date: sameDate, scope: 'focused', checklist_present: true,
+            checklist: checklist(2, 1), score: 98,
+        },
+        {
+            date: sameDate, scope: 'unknown', checklist_present: false,
+            score: null,
+        },
+        { date: sameDate, scope: 'broad', applicable_item_count: 31, score: 68 },
+    ]);
+    const nodes = JSON.parse(
+        html.match(/data-spark-nodes="([^"]*)"/)[1].replace(/&quot;/g, '"'));
+    assert.deepEqual(
+        nodes.map((node) => [node.historyIndex, node.k])
+            .sort((a, b) => a[0] - b[0]),
+        [[0, 'broad'], [1, 'focused'], [2, 'unknown'], [3, 'broad']],
+    );
+});
+
+test('a trend jump expands the exact inspection row before smooth-scrolling it', () => {
+    const proto = dashboard.FoodDashboard.prototype;
+    let selector = '';
+    let scrollOptions = null;
+    const target = {
+        open: false,
+        querySelector(value) {
+            assert.equal(value, 'summary');
+            return this.summary;
+        },
+        summary: {
+            scrollIntoView(options) { scrollOptions = options; },
+        },
+        scrollIntoView() {
+            assert.fail('the multi-screen details body must not be centered');
+        },
+    };
+    const root = {
+        querySelector(value) {
+            selector = value;
+            return target;
+        },
+    };
+    const previousRaf = globalThis.requestAnimationFrame;
+    globalThis.requestAnimationFrame = (callback) => {
+        callback();
+        return 1;
+    };
+    try {
+        assert.equal(proto._openInspectionFromTrend(root, 4), true);
+    } finally {
+        if (previousRaf === undefined) delete globalThis.requestAnimationFrame;
+        else globalThis.requestAnimationFrame = previousRaf;
+    }
+    assert.equal(selector, '.food-insp[data-inspection-index="4"]');
+    assert.equal(target.open, true);
+    assert.deepEqual(scrollOptions, { behavior: 'smooth', block: 'center' });
+    assert.match(styles, /\.food-spark-overlay-active\s*\{\s*cursor:\s*pointer/);
 });
 
 test('a focused re-check plots at its compliance, never at its raw report score', () => {
