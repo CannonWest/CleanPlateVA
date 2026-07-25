@@ -356,10 +356,17 @@ test('every plotted trend mark keeps the exact history row even when dates repea
     );
 });
 
-test('a trend jump expands the exact inspection row before smooth-scrolling it', () => {
+test('a trend jump expands the exact row and pins its header below the sticky title', () => {
     const proto = dashboard.FoodDashboard.prototype;
     let selector = '';
     let scrollOptions = null;
+    const stickyHead = {
+        getBoundingClientRect() { return { bottom: 120 }; },
+    };
+    const scroller = {
+        scrollTop: 80,
+        scrollTo(options) { scrollOptions = options; },
+    };
     const target = {
         open: false,
         querySelector(value) {
@@ -367,16 +374,24 @@ test('a trend jump expands the exact inspection row before smooth-scrolling it',
             return this.summary;
         },
         summary: {
-            scrollIntoView(options) { scrollOptions = options; },
+            getBoundingClientRect() { return { top: 520 }; },
+            scrollIntoView() {
+                assert.fail('the normal detail panel should use its exact sticky-title offset');
+            },
         },
         scrollIntoView() {
-            assert.fail('the multi-screen details body must not be centered');
+            assert.fail('the multi-screen details body must not be scrolled directly');
         },
     };
     const root = {
         querySelector(value) {
+            if (value === '.food-detail-head') return stickyHead;
             selector = value;
             return target;
+        },
+        closest(value) {
+            assert.equal(value, '.food-detail');
+            return scroller;
         },
     };
     const previousRaf = globalThis.requestAnimationFrame;
@@ -392,7 +407,7 @@ test('a trend jump expands the exact inspection row before smooth-scrolling it',
     }
     assert.equal(selector, '.food-insp[data-inspection-index="4"]');
     assert.equal(target.open, true);
-    assert.deepEqual(scrollOptions, { behavior: 'smooth', block: 'center' });
+    assert.deepEqual(scrollOptions, { top: 479, behavior: 'smooth' });
     assert.match(styles, /\.food-spark-overlay-active\s*\{\s*cursor:\s*pointer/);
 });
 

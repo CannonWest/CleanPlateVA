@@ -2495,13 +2495,23 @@ export class FoodDashboard {
         if (!target) return false;
         target.open = true;
         // Scroll the compact summary, not the potentially multi-screen details
-        // body; centering a tall inspection card can land halfway through its
-        // violation copy and hide the date/score row the user chose.
+        // body. Pin it directly below the sticky facility title so the selected
+        // inspection reads as the new top of the view, regardless of title
+        // height or how tall the expanded violation copy is.
         const anchor = target.querySelector('summary') || target;
-        requestAnimationFrame(() => anchor.scrollIntoView({
-            behavior: 'smooth',
-            block: 'center',
-        }));
+        const scroller = root.closest?.('.food-detail');
+        const stickyHead = root.querySelector('.food-detail-head');
+        requestAnimationFrame(() => {
+            if (!scroller || !stickyHead) {
+                anchor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                return;
+            }
+            const top = scroller.scrollTop
+                + anchor.getBoundingClientRect().top
+                - stickyHead.getBoundingClientRect().bottom
+                - 1; // clear the sticky header's bottom border after subpixel rounding
+            scroller.scrollTo({ top, behavior: 'smooth' });
+        });
         return true;
     }
 
