@@ -244,7 +244,7 @@ function focusedOutcomeBadge(view, hero = false) {
     const outcome = focusedOutcomePresentation(view);
     const classes = hero
         ? 'food-score-badge food-focused-outcome'
-        : 'food-insp-score food-insp-score-focused';
+        : 'food-insp-score food-insp-score-focused food-insp-signal';
     return `<span class="${classes} food-outcome-${outcome.tone}" role="img"`
         + ` title="${esc(outcome.description)}" aria-label="${esc(outcome.description)}">`
         + `<span aria-hidden="true">${esc(outcome.out ?? '?')}/${esc(outcome.total ?? '?')}</span>`
@@ -2619,12 +2619,12 @@ export class FoodDashboard {
         // reads what the facility grade actually consumed.
         const adj = view.scope === 'unknown' ? narrativeVerdictPresentation(insp) : null;
         const badge = view.scope === 'broad'
-            ? `<span class="food-insp-score" style="background:${view.score != null ? this._scoreColor(view.score) : GRADE_COLORS.none}" title="Inspection score (0–100, no letter — letters are a facility grade)">${view.score ?? '—'}</span>`
+            ? `<span class="food-insp-score food-insp-signal" style="background:${view.score != null ? this._scoreColor(view.score) : GRADE_COLORS.none}" title="Inspection score (0–100, no letter — letters are a facility grade)">${view.score ?? '—'}</span>`
             : view.scope === 'focused'
                 ? focusedOutcomeBadge(view)
                 : adj
-                    ? `<span class="food-insp-score food-insp-score-adj food-outcome-${adj.tone}" role="img" title="${esc(adj.detail)}" aria-label="${esc(adj.detail)}"><span aria-hidden="true">${adj.glyph}</span>${adj.count ? `<small aria-hidden="true">${adj.count}</small>` : ''}</span>`
-                    : '<span class="food-insp-score food-insp-score-unknown">?</span>';
+                    ? `<span class="food-insp-score food-insp-score-adj food-insp-signal food-outcome-${adj.tone}" role="img" title="${esc(adj.detail)}" aria-label="${esc(adj.detail)}"><span aria-hidden="true">${adj.glyph}</span>${adj.count ? `<small aria-hidden="true">${adj.count}</small>` : ''}</span>`
+                    : '<span class="food-insp-score food-insp-score-unknown food-insp-signal">?</span>';
         // An adjudicated row shows its VERDICT chip instead of a scope label:
         // "Scope unknown" describes the missing checklist, which is exactly the
         // thing the adjudication resolved — showing both reads as a
@@ -2663,18 +2663,17 @@ export class FoodDashboard {
         return `
         <details class="food-insp"${openByDefault ? ' open' : ''}>
             <summary>
+                ${badge}
                 <span class="food-insp-r1">
-                    ${badge}
                     <span class="food-insp-when">${fmtDate(insp.date)}</span>
                     <span class="food-insp-kind text-muted">${esc(insp.purpose)}</span>
                     ${scopeBadge}
-                    ${adjChip}
                     <span class="food-insp-r1-right">
                         ${sourceLink}
                         <span class="food-insp-caret" aria-hidden="true"></span>
                     </span>
                 </span>
-                ${adj ? '' : inspCounts}
+                ${adj ? `<span class="food-insp-counts">${adjChip}</span>` : inspCounts}
             </summary>
             <div class="food-insp-body">
                 ${adj
