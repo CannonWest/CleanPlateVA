@@ -1055,7 +1055,7 @@ body.food-receipt-open { overflow: hidden; }
 .food-insp-signal.food-insp-score-focused > span { font-size: 0.76rem; }
 .food-insp-signal.food-insp-score-adj {
     flex-direction: row;
-    align-items: baseline;
+    align-items: center;
     gap: 0.12rem;
 }
 .food-insp-signal.food-insp-score-adj > span,
