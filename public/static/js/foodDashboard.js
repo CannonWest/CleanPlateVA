@@ -846,7 +846,6 @@ export class FoodDashboard {
         this._styleIsDark = null;
         this._hoverPopup = null;
         this._hoverPid = null;       // permit under the open hover card
-        this._hoverHideTimer = 0;    // grace-period timer (sticky hover card)
         this._geojson = null;        // last-built FeatureCollection (re-applied on style swaps)
         this._facilities = [];
         this._byPermit = new Map();
@@ -1275,13 +1274,11 @@ export class FoodDashboard {
         const map = this._map;
         const coarse = window.matchMedia('(pointer: coarse)').matches;
 
-        // Hover card (skipped on touch devices — tap opens the detail panel
-        // directly). Not a transient tooltip: the card is STICKY — leaving
-        // the marker starts a short grace timer, and entering the card
-        // cancels it, so the cursor can travel INTO the card and use it (the
-        // trend's enlarge-on-hover, the grade circle as a button). Full tier
-        // renders the grade hero from the roster's `trend` payload — hover
-        // never fetches; only a click does (the same contract as the map).
+        // Marker-bound hover preview (skipped on touch devices — tap opens the
+        // detail panel directly). The popup is display-only and mouse-
+        // transparent: leaving the marker removes it immediately. Full tier
+        // still renders the grade hero from the roster's `trend` payload, but
+        // interactive trend/receipt behavior belongs only to the clicked panel.
         if (!coarse) {
             this._hoverPopup = new maplibregl.Popup({
                 closeButton: false, closeOnClick: false,
@@ -1293,16 +1290,15 @@ export class FoodDashboard {
                 const f = feat && this._byPermit.get(feat.properties.pid);
                 if (!f) return;
                 map.getCanvas().style.cursor = 'pointer';
-                this._cancelHoverHide();
                 // Same facility → leave the card alone. Re-rendering on every
-                // mousemove (the old behavior) would destroy the spark's
-                // hover listeners and any element mid-click.
+                // mousemove is needless work while the pointer stays on its
+                // marker.
                 if (this._hoverPid === f.permit_id) return;
                 this._showHoverCard(feat.geometry.coordinates.slice(), f);
             });
             map.on('mouseleave', LYR_POINTS, () => {
                 map.getCanvas().style.cursor = '';
-                this._scheduleHoverHide();
+                this._hideHoverCard();
             });
             map.on('mouseenter', LYR_CLUSTERS, () => {
                 map.getCanvas().style.cursor = 'pointer';
@@ -1335,24 +1331,8 @@ export class FoodDashboard {
         });
     }
 
-    // ── sticky hover card ───────────────────────────────────────────────
-    // The grace timer is what makes the card a surface instead of a tooltip:
-    // marker-leave arms it, card-enter disarms it, card-leave re-arms it. The
-    // delay only needs to cover the cursor's hop across the popup's 12px
-    // offset gap.
-
-    _cancelHoverHide() {
-        clearTimeout(this._hoverHideTimer);
-        this._hoverHideTimer = 0;
-    }
-
-    _scheduleHoverHide() {
-        this._cancelHoverHide();
-        this._hoverHideTimer = setTimeout(() => this._hideHoverCard(), 180);
-    }
-
+    // ── marker-bound hover card ────────────────────────────────────────
     _hideHoverCard() {
-        this._cancelHoverHide();
         this._hoverPid = null;
         this._hoverPopup?.remove();
     }
@@ -1365,35 +1345,6 @@ export class FoodDashboard {
         // Lite keeps the slim name+address tip; the hero card needs the room.
         popup.setMaxWidth(lite ? '280px' : '340px');
         popup.setLngLat(lngLat).setHTML(this._hoverCardHTML(f)).addTo(this._map);
-        const el = popup.getElement();
-        if (el && !el._cpHoverWired) {
-            // The popup container is created by addTo and destroyed by
-            // remove(); while it stays open across marker changes, setHTML
-            // swaps only the content — so wire the container once per open.
-            el._cpHoverWired = true;
-            el.addEventListener('mouseenter', () => this._cancelHoverHide());
-            el.addEventListener('mouseleave', () => this._scheduleHoverHide());
-        }
-        if (!lite) this._bindHoverCard(el, f);
-    }
-
-    // Wire the card's interactive layer: the trend's enlarge-on-hover (the
-    // same _bindSparkline the detail panel uses, fed by the trend adapter)
-    // and the grade circle / computed pill as buttons. Their receipt promise
-    // holds — clicking selects the facility (the one fetch, same as a marker
-    // click) and opens the score breakdown on top once it renders.
-    _bindHoverCard(el, f) {
-        if (!el) return;
-        this._bindSparkline(el, trendInspections(f.trend));
-        el.querySelectorAll('[data-grade-receipt]').forEach((btn) => {
-            btn.addEventListener('click', async () => {
-                this._hideHoverCard();
-                await this._select(f);
-                if (this._selectedPermit !== f.permit_id) return; // clicked away
-                document.querySelector('#foodDetailInner [data-grade-receipt]')
-                    ?.click();
-            });
-        });
     }
 
     // ── locate feedback ─────────────────────────────────────────────────
@@ -1537,13 +1488,13 @@ export class FoodDashboard {
         return gradeColor(facilityPresentation(f).grade?.letter || null);
     }
 
-    // The hover card IS the detail panel's grade hero, rendered from the
-    // roster alone: name + address, then the same circle / NEW badge /
-    // no-grade dash, the same sparkline (via the trend-tuple adapter feeding
-    // the same renderer), the same date cards. No flat "Grade A · 94" text —
-    // the circle is the verdict, and a focused raw score prints nowhere
+    // The hover card previews the detail panel's grade hero from the roster
+    // alone: name + address, then the same circle / NEW badge / no-grade dash,
+    // static sparkline, and date cards. No flat "Grade A · 94" text — the
+    // circle is the verdict, and a focused raw score prints nowhere
     // (the #42/#43 invariant carries over by construction: the shared
-    // sparkline plots ratios, not raw scores).
+    // sparkline plots ratios, not raw scores). Controls are deliberately
+    // omitted here; those belong to the clicked detail panel.
     _hoverCardHTML(f) {
         if (this._mode === 'lite') {
             return `<strong>${esc(f.name)}</strong><br>`
@@ -1557,7 +1508,7 @@ export class FoodDashboard {
         const pseudo = trendInspections(f.trend);
         const sparkHtml = (pseudo.length && !isNew) ? this._sparkline(pseudo) : '';
         const hero = grade
-            ? this._gradeHero(grade, sparkHtml)
+            ? this._gradeHero(grade, sparkHtml, false)
             : isNew
                 ? this._newHero(latestView)
                 : this._noGradeHero(latestView, sparkHtml);
@@ -2026,20 +1977,25 @@ export class FoodDashboard {
 
     // The grade hero: the facility verdict, on top of every full detail panel.
     // Just the badge and the broad-score trend line — the dated provenance
-    // rides below in its own objects (_gradeDates). The circle and the
-    // `computed` pill are BUTTONS: both open the grade-receipt modal, the
-    // per-facility "how was this computed" breakdown (_openReceipt).
-    _gradeHero(g, sparkHtml = '') {
+    // rides below in its own objects (_gradeDates). In the detail panel the
+    // circle and `computed` pill are buttons that open the grade-receipt modal;
+    // the hover preview requests the same visuals without those controls.
+    _gradeHero(g, sparkHtml = '', interactive = true) {
         const tag = '<span class="food-score-computed" title="CleanPlateVA formula; VDH publishes no numeric score">computed</span>';
-        const circleBtn = `<button type="button" class="food-receipt-trigger" data-grade-receipt`
-            + ` aria-haspopup="dialog" title="See how this grade was computed"`
-            + ` aria-label="Grade ${esc(g.letter)}, score ${esc(g.score)} of 100 — open the score breakdown">`
-            + `${this._gradeCircle(g.letter, g.score)}</button>`;
-        const tagBtn = `<button type="button" class="food-receipt-trigger food-receipt-trigger-pill" data-grade-receipt`
-            + ` aria-haspopup="dialog" aria-label="Open the score breakdown">${tag}</button>`;
+        const circle = this._gradeCircle(g.letter, g.score);
+        const circleControl = interactive
+            ? `<button type="button" class="food-receipt-trigger" data-grade-receipt`
+                + ` aria-haspopup="dialog" title="See how this grade was computed"`
+                + ` aria-label="Grade ${esc(g.letter)}, score ${esc(g.score)} of 100 — open the score breakdown">`
+                + `${circle}</button>`
+            : circle;
+        const tagControl = interactive
+            ? `<button type="button" class="food-receipt-trigger food-receipt-trigger-pill" data-grade-receipt`
+                + ` aria-haspopup="dialog" aria-label="Open the score breakdown">${tag}</button>`
+            : tag;
         return `
             <div class="food-score-hero food-grade-hero">
-                ${this._gradeBadgeCol(circleBtn, 'Grade', tagBtn)}
+                ${this._gradeBadgeCol(circleControl, 'Grade', tagControl)}
                 ${sparkHtml}
             </div>`;
     }

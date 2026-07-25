@@ -274,7 +274,7 @@ test('missing base row degrades but keeps published totals', () => {
 
 test('the hero circle AND the computed pill both trigger the receipt', () => {
     // Anchor on the method DEFINITIONS (the call sites appear earlier).
-    const heroStart = source.indexOf("_gradeHero(g, sparkHtml = '')");
+    const heroStart = source.indexOf("_gradeHero(g, sparkHtml = '', interactive = true)");
     assert.ok(heroStart !== -1, '_gradeHero definition found');
     const hero = source.slice(heroStart,
         source.indexOf('_newHero(latestView)', heroStart));
