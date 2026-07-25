@@ -939,8 +939,8 @@ body.food-receipt-open { overflow: hidden; }
 }
 .food-insp > summary::-webkit-details-marker { display: none; }
 /* Line 1: the score/date/purpose/scope metadata, with a right-aligned cluster
-   (the "Source" link + the disclosure caret). The violation-count badges sit on
-   their own line below (.food-insp-counts). */
+   (the icon-only report link + the disclosure caret). The violation-count
+   badges sit on their own line below (.food-insp-counts). */
 .food-insp-r1 {
     display: flex;
     flex-wrap: wrap;
@@ -1043,8 +1043,8 @@ body.food-receipt-open { overflow: hidden; }
 
 /* "View full VDH report" — first thing in an expanded inspection. A quiet
    accent-tinted button that hands off to the official per-inspection page. */
-/* Compact "Source" chip in the summary's right cluster (was a full-width body
-   button). Icon · Source · launch-icon, sized to sit inline next to the caret. */
+/* Compact report chip. Inspection summaries show document + launch icons only;
+   the facility header reuses the base style with its visible "Source" label. */
 .food-insp-report {
     display: inline-flex;
     align-items: center;
