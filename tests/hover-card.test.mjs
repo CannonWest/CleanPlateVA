@@ -1,5 +1,5 @@
-/** The sticky hover card: the detail panel's grade hero rendered from the
- *  roster alone.
+/** The marker-bound hover card: a display-only preview of the detail panel's
+ *  grade hero rendered from the roster alone.
  *
  *  The roster marker ships a compact `trend` array (cf_export_site
  *  ._trend_event — one oldest-first tuple per inspection), and
@@ -10,9 +10,9 @@
  *  a facility rendered from full checklist rows and from its exporter tuples
  *  must produce byte-identical trend SVGs.
  *
- *  Hover never fetches. The card's grade circle is a button that SELECTS the
- *  facility (the one fetch, same as clicking its marker) and opens the grade
- *  receipt on top — a click contract, not a hover one.
+ *  Hover never fetches and never owns interaction. Leaving the marker removes
+ *  the card immediately; clicking the marker opens the detail panel, where the
+ *  trend and grade receipt remain interactive.
  */
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -171,7 +171,7 @@ test('the hover card is the hero: circle + trend + date cards, no flat grade tex
     assert.match(html, /food-grade-circle/);
     assert.match(html, /food-grade-letter">F</);
     assert.match(html, /food-grade-score">20</);
-    assert.match(html, /data-grade-receipt/);          // …and it is a button
+    assert.doesNotMatch(html, /data-grade-receipt/);   // display-only preview
     // …the trend is the real sparkline with the honest ratio labels…
     assert.match(html, /food-spark/);
     assert.match(html, /3\/3/);
@@ -236,25 +236,22 @@ test('lite keeps the slim finder tip — no hero, no judgment', () => {
     }
 });
 
-// ── stickiness + click wiring (source pins) ────────────────────────────
+// ── marker-bound dismissal + panel-only interaction (source pins) ─────
 
-test('the card is sticky: grace timer, cancel-on-enter, single render per pid', () => {
-    // Marker-leave arms the grace timer instead of removing the popup…
-    assert.match(source, /map\.on\('mouseleave', LYR_POINTS[\s\S]{0,120}?_scheduleHoverHide\(\)/);
-    // …entering the card disarms it, leaving re-arms it…
-    assert.match(source, /el\.addEventListener\('mouseenter', \(\) => this\._cancelHoverHide\(\)\)/);
-    assert.match(source, /el\.addEventListener\('mouseleave', \(\) => this\._scheduleHoverHide\(\)\)/);
-    // …and hovering within the same marker never re-renders the open card
-    // (a re-render would destroy the spark's listeners mid-interaction).
+test('the card exists only while the pointer remains on its marker', () => {
+    assert.match(source, /map\.on\('mouseleave', LYR_POINTS[\s\S]{0,120}?_hideHoverCard\(\)/);
+    assert.doesNotMatch(source, /_scheduleHoverHide|_cancelHoverHide|_hoverHideTimer/);
+    // Hovering within the same marker still avoids needless re-renders.
     assert.match(source, /if \(this\._hoverPid === f\.permit_id\) return;/);
 });
 
-test('the card circle click selects the facility, then opens the receipt', () => {
-    assert.match(source, /_bindHoverCard\(el, f\)/);
-    assert.match(source, /await this\._select\(f\);/);
-    assert.match(source, /#foodDetailInner \[data-grade-receipt\]/);
-    // The fetch belongs to the click — hover itself must never call the API.
+test('hover is display-only; trend and receipt interactions stay in the clicked panel', () => {
+    assert.doesNotMatch(source, /_bindHoverCard/);
     assert.doesNotMatch(source, /_showHoverCard[\s\S]{0,600}?getFoodFacilityDetail/);
+    assert.match(source, /this\._bindSparkline\(inner, detail\.inspections\)/);
+    assert.match(source, /this\._bindGradeReceipt\(inner, detail\.facility, detail\.inspections\)/);
+    const interactiveHero = proto._gradeHero.call(cardCtx(), { letter: 'A', score: 97 }, '');
+    assert.match(interactiveHero, /data-grade-receipt/);
 });
 
 test('the card dismisses when its ground shifts: select, cluster zoom, rebuild', () => {
@@ -267,6 +264,7 @@ test('the popup sizes per tier and the hero card gets its width', () => {
     assert.match(source, /setMaxWidth\(lite \? '280px' : '340px'\)/);
     const css = readFileSync(
         new URL('../public/static/css/style.css', import.meta.url), 'utf8');
+    assert.match(css, /\.food-tip,\s*\n\.food-tip \.maplibregl-popup-content \{ pointer-events: none; \}/);
     assert.match(css, /\.food-tip \.food-hover-card \{ width: 312px/);
     assert.match(css, /\.food-tip:has\(\.food-hover-card\) \.maplibregl-popup-content/);
 });
