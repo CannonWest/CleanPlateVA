@@ -213,6 +213,7 @@ test('the inspection signal is a two-row circle and the VDH link stays icon-only
     assert.match(styles, /\.food-insp-signal\s*\{[\s\S]*?border-radius:\s*50%/);
     assert.match(styles, /\.food-insp-signal\s*\{[\s\S]*?font-size:\s*1\.1rem/);
     assert.match(styles, /\.food-insp-signal\.food-insp-score-adj\s*\{[\s\S]*?flex-direction:\s*row/);
+    assert.match(styles, /\.food-insp-signal\.food-insp-score-adj\s*\{[\s\S]*?align-items:\s*center/);
     assert.match(styles, /\.food-insp-signal\.food-insp-score-adj > span,\s*\n\.food-insp-signal\.food-insp-score-adj > small\s*\{[\s\S]*?font-size:\s*1\.08rem/);
 });
 
