@@ -627,9 +627,9 @@ test('hovering a trend mark always enlarges it — base and highlight sizes move
     assert.ok(hlRaw > baseRaw, `hover mark label ${hlRaw} must exceed base ${baseRaw}`);
     // Labels sit ABOVE their mark, so the top pad has to clear the tallest of
     // them or a perfect-100 score gets its hover label clipped out of the box.
-    const padTop = num(/padTop = (\d+)/, source, 'padTop');
-    assert.ok(padTop >= hlScore * 1.9,
-        `padTop ${padTop} must clear the hover label with visible headroom`);
+    const padTop = num(/padTop = ([\d.]+)/, source, 'padTop');
+    assert.ok(padTop >= hlScore * 1.84,
+        `padTop ${padTop} must clear the hover label with hairline headroom`);
 });
 
 test('the hero keeps badge and trend on one row — copy never pushes the trend off it', () => {

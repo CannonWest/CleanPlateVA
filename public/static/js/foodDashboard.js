@@ -2331,13 +2331,13 @@ export class FoodDashboard {
 
     // The trend SVG for a given viewBox width W, plus the hover node registry.
     // Only the x-spacing depends on W: the vertical geometry (H and the pads) is
-    // fixed, so the plot HEIGHT is locked (CSS renders the svg at 5.2rem).
+    // fixed, so the plot HEIGHT is locked (CSS renders the svg at 5.0775rem).
     // Re-running with a wider W — _bindSparkline matches it to
     // the rendered width — spreads the points to fill the room WITHOUT resizing
-    // the marks, because the scale stays uniform. `padTop = 48` leaves a slim
-    // headroom above the 1.5x hover label; innerH 34 is the score band.
+    // the marks, because the scale stays uniform. `padTop = 45.55` leaves
+    // hairline headroom above the 1.5x hover label; innerH 34 is the score band.
     _sparkSvg(series, W) {
-        const H = 104, padX = 27, padTop = 48, padBot = 22;
+        const H = 101.55, padX = 27, padTop = 45.55, padBot = 22;
         const innerH = H - padTop - padBot;
         const x = (i) => series.events.length === 1 ? W / 2
             : padX + i * ((W - padX * 2) / (series.events.length - 1));
