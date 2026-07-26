@@ -1174,7 +1174,7 @@ body.food-receipt-open { overflow: hidden; }
 
 /* ── sparkline · compliance · dispositions · checklist ──────────────────── */
 /* The trend card: a captioned, lightly-bordered peer of the grade badge column.
-   Its SVG is locked to a FIXED 5.4rem height: enough room for the larger marks
+   Its SVG is locked to a FIXED 5.2rem height: enough room for the larger marks
    and hover labels without letting the plot grow vertically with the panel.
    It grows SIDEWAYS instead: the card
    flex-grows to fill the row and `_bindSparkline` keeps the SVG's viewBox WIDTH
@@ -1201,7 +1201,7 @@ body.food-receipt-open { overflow: hidden; }
    content fills the box with NO letterbox and NO distortion (uniform scale).
    _bindSparkline sets the viewBox width so that intrinsic width ≈ the card's
    available width — that's what spreads the points. max-width caps any rounding. */
-.food-spark svg { height: 5.4rem; width: auto; max-width: 100%; display: block; }
+.food-spark svg { height: 5.2rem; width: auto; max-width: 100%; display: block; }
 /* Mark + label sizes are viewBox units, scaled with the SVG. They and the
    geometry in `_sparkline` move together — 1.5x here needs 1.5x there. */
 .food-spark-score { font-size: 18px; font-weight: 600; fill: #495057; }
