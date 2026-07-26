@@ -261,10 +261,13 @@ test('the card dismisses when its ground shifts: select, cluster zoom, rebuild',
 });
 
 test('the popup sizes per tier and the hero card gets its width', () => {
-    assert.match(source, /setMaxWidth\(lite \? '280px' : '340px'\)/);
+    assert.match(source, /setMaxWidth\(lite \? '280px' : '380px'\)/);
+    // The static preview never runs _bindSparkline, so its initial viewBox must
+    // carry enough horizontal room for the enlarged labels to remain distinct.
+    assert.match(source, /this\._sparkSvg\(series, 280\)/);
     const css = readFileSync(
         new URL('../public/static/css/style.css', import.meta.url), 'utf8');
     assert.match(css, /\.food-tip,\s*\n\.food-tip \.maplibregl-popup-content \{ pointer-events: none; \}/);
-    assert.match(css, /\.food-tip \.food-hover-card \{ width: 312px/);
+    assert.match(css, /\.food-tip \.food-hover-card \{ width: 352px/);
     assert.match(css, /\.food-tip:has\(\.food-hover-card\) \.maplibregl-popup-content/);
 });

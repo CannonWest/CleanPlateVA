@@ -1347,7 +1347,7 @@ export class FoodDashboard {
         this._hoverPid = f.permit_id;
         const lite = this._mode === 'lite';
         // Lite keeps the slim name+address tip; the hero card needs the room.
-        popup.setMaxWidth(lite ? '280px' : '340px');
+        popup.setMaxWidth(lite ? '280px' : '380px');
         popup.setLngLat(lngLat).setHTML(this._hoverCardHTML(f)).addTo(this._map);
     }
 
@@ -2322,7 +2322,7 @@ export class FoodDashboard {
         // Initial render at the default viewBox width; _bindSparkline re-renders
         // at a width matched to the card's rendered size so the points spread to
         // fill it (the height stays locked — see _sparkSvg and the CSS).
-        const { svg, nodes } = this._sparkSvg(series, 200);
+        const { svg, nodes } = this._sparkSvg(series, 280);
         return `<div class="food-spark" data-spark-nodes="${esc(JSON.stringify(nodes))}">
             <span class="food-grade-caption">Trend</span>
             ${svg}
@@ -2331,13 +2331,13 @@ export class FoodDashboard {
 
     // The trend SVG for a given viewBox width W, plus the hover node registry.
     // Only the x-spacing depends on W: the vertical geometry (H and the pads) is
-    // fixed, so the plot HEIGHT is locked (CSS renders the svg at the grade
-    // circle's 4.2rem). Re-running with a wider W — _bindSparkline matches it to
+    // fixed, so the plot HEIGHT is locked (CSS renders the svg at 5.4rem).
+    // Re-running with a wider W — _bindSparkline matches it to
     // the rendered width — spreads the points to fill the room WITHOUT resizing
-    // the marks, because the scale stays uniform. `padTop = 30` clears the
-    // tallest hover label; innerH 34 is the score band.
+    // the marks, because the scale stays uniform. `padTop = 52` leaves visible
+    // headroom above the 1.5x hover label; innerH 34 is the score band.
     _sparkSvg(series, W) {
-        const H = 84, padX = 18, padTop = 30, padBot = 20;
+        const H = 108, padX = 27, padTop = 52, padBot = 22;
         const innerH = H - padTop - padBot;
         const x = (i) => series.events.length === 1 ? W / 2
             : padX + i * ((W - padX * 2) / (series.events.length - 1));
@@ -2356,10 +2356,10 @@ export class FoodDashboard {
                 k: 'broad', x: +px.toFixed(1), y: +py.toFixed(1),
                 s: event.presentation.score, c, historyIndex: event.historyIndex,
             });
-            return `<circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="3.3" fill="${c}"/>`;
+            return `<circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="4.95" fill="${c}"/>`;
         }).join('');
         const broadLabels = series.broad.map((event) =>
-            `<text class="food-spark-score" x="${x(event.index).toFixed(1)}" y="${(y(event.presentation.score) - 6).toFixed(1)}" text-anchor="middle">${event.presentation.score}</text>`).join('');
+            `<text class="food-spark-score" x="${x(event.index).toFixed(1)}" y="${(y(event.presentation.score) - 9).toFixed(1)}" text-anchor="middle">${event.presentation.score}</text>`).join('');
         // Neutral baseline tick, below the score band: an event happened here
         // and the record doesn't support claiming how it went.
         const baselineTick = (px, event) => {
@@ -2399,8 +2399,8 @@ export class FoodDashboard {
                 k: 'focused', x: +px.toFixed(1), y: +py.toFixed(1),
                 s: label, tone: outcome.tone, historyIndex: event.historyIndex,
             });
-            return `<rect class="food-spark-focused food-outcome-${outcome.tone}" x="${(px - 4.2).toFixed(1)}" y="${(py - 4.2).toFixed(1)}" width="8.4" height="8.4" transform="rotate(45 ${px.toFixed(1)} ${py.toFixed(1)})"/>`
-                + `<text class="food-spark-mark-label" x="${px.toFixed(1)}" y="${(py - 7.5).toFixed(1)}" text-anchor="middle">${label}</text>`;
+            return `<rect class="food-spark-focused food-outcome-${outcome.tone}" x="${(px - 6.3).toFixed(1)}" y="${(py - 6.3).toFixed(1)}" width="12.6" height="12.6" transform="rotate(45 ${px.toFixed(1)} ${py.toFixed(1)})"/>`
+                + `<text class="food-spark-mark-label" x="${px.toFixed(1)}" y="${(py - 11.25).toFixed(1)}" text-anchor="middle">${label}</text>`;
         }).join('');
         // Scope-unknown events: an adjudicated written verdict plots as a
         // FILLED diamond at the height its verdict describes — "all
@@ -2420,8 +2420,8 @@ export class FoodDashboard {
                     k: 'narr', x: +px.toFixed(1), y: +py.toFixed(1),
                     tone: adj.tone, g: adj.glyph, historyIndex: event.historyIndex,
                 });
-                return `<rect class="food-spark-narr food-outcome-${adj.tone}" x="${(px - 4.2).toFixed(1)}" y="${(py - 4.2).toFixed(1)}" width="8.4" height="8.4" transform="rotate(45 ${px.toFixed(1)} ${py.toFixed(1)})"/>`
-                    + `<text class="food-spark-mark-label" x="${px.toFixed(1)}" y="${(py - 7.5).toFixed(1)}" text-anchor="middle">${adj.glyph}</text>`;
+                return `<rect class="food-spark-narr food-outcome-${adj.tone}" x="${(px - 6.3).toFixed(1)}" y="${(py - 6.3).toFixed(1)}" width="12.6" height="12.6" transform="rotate(45 ${px.toFixed(1)} ${py.toFixed(1)})"/>`
+                    + `<text class="food-spark-mark-label" x="${px.toFixed(1)}" y="${(py - 11.25).toFixed(1)}" text-anchor="middle">${adj.glyph}</text>`;
             }
             return baselineTick(px, event);
         }).join('');
@@ -2438,7 +2438,7 @@ export class FoodDashboard {
             + `<stop offset="1" stop-color="${GRADE_COLORS.F}"/>`
             + `</linearGradient>`;
         const line = coords.length > 1
-            ? `<polyline points="${coords.join(' ')}" fill="none" stroke="url(#food-spark-grad)" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round"/>` : '';
+            ? `<polyline points="${coords.join(' ')}" fill="none" stroke="url(#food-spark-grad)" stroke-width="2.625" stroke-linejoin="round" stroke-linecap="round"/>` : '';
         const broadSummary = series.broad.length
             ? `Broad scores oldest to newest: ${series.broad.map((event) => `${fmtDate(event.inspection.date)} ${event.presentation.score}`).join(', ')}`
             : 'No broad scores captured';
@@ -2470,18 +2470,18 @@ export class FoodDashboard {
     // tick); painted into the top <g> so it lifts above its neighbours.
     _sparkHighlight(n) {
         if (n.k === 'broad') {
-            return `<circle class="food-spark-hl-dot" cx="${n.x}" cy="${n.y}" r="6.6" fill="${n.c}"/>`
-                + `<text class="food-spark-score food-spark-hl-label" x="${n.x}" y="${(n.y - 12.75).toFixed(1)}" text-anchor="middle">${n.s}</text>`;
+            return `<circle class="food-spark-hl-dot" cx="${n.x}" cy="${n.y}" r="9.9" fill="${n.c}"/>`
+                + `<text class="food-spark-score food-spark-hl-label" x="${n.x}" y="${(n.y - 19.125).toFixed(1)}" text-anchor="middle">${n.s}</text>`;
         }
         if (n.k === 'focused') {
-            const h = 6.9;
+            const h = 10.35;
             return `<rect class="food-spark-focused food-spark-hl-dia food-outcome-${n.tone}" x="${(n.x - h).toFixed(1)}" y="${(n.y - h).toFixed(1)}" width="${(h * 2).toFixed(1)}" height="${(h * 2).toFixed(1)}" transform="rotate(45 ${n.x} ${n.y})"/>`
-                + `<text class="food-spark-mark-label food-spark-hl-label" x="${n.x}" y="${(n.y - 14.25).toFixed(1)}" text-anchor="middle">${n.s}</text>`;
+                + `<text class="food-spark-mark-label food-spark-hl-label" x="${n.x}" y="${(n.y - 21.375).toFixed(1)}" text-anchor="middle">${n.s}</text>`;
         }
         if (n.k === 'narr') {
-            const h = 6.9;
+            const h = 10.35;
             return `<rect class="food-spark-narr food-spark-hl-dia food-outcome-${n.tone}" x="${(n.x - h).toFixed(1)}" y="${(n.y - h).toFixed(1)}" width="${(h * 2).toFixed(1)}" height="${(h * 2).toFixed(1)}" transform="rotate(45 ${n.x} ${n.y})"/>`
-                + `<text class="food-spark-mark-label food-spark-hl-label" x="${n.x}" y="${(n.y - 14.25).toFixed(1)}" text-anchor="middle">${n.g}</text>`;
+                + `<text class="food-spark-mark-label food-spark-hl-label" x="${n.x}" y="${(n.y - 21.375).toFixed(1)}" text-anchor="middle">${n.g}</text>`;
         }
         return `<line class="food-spark-unknown food-spark-hl-tick" x1="${n.x}" y1="${n.y1}" x2="${n.x}" y2="${n.y2}"/>`;
     }
@@ -2585,12 +2585,12 @@ export class FoodDashboard {
         // Match the viewBox width to the rendered width so the points spread to
         // fill the card while the marks keep their size (uniform scale) and the
         // height stays locked. Returns true when it actually re-rendered.
-        const H = 84;
         const fit = () => {
             const svg = container.querySelector('svg');
             if (!svg) return false;
             const svgH = svg.getBoundingClientRect().height;   // the locked height, px
             if (!svgH) return false;
+            const H = svg.viewBox.baseVal.height;
             const cs = getComputedStyle(container);
             const availW = container.clientWidth
                 - parseFloat(cs.paddingLeft || 0) - parseFloat(cs.paddingRight || 0);

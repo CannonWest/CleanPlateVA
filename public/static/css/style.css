@@ -293,7 +293,7 @@ body {
    panel's grade hero (circle + trend + date cards). It gets enough width for
    the badge column + sparkline row. Content colors ride the .food-tip theme
    pair below; the hero's own elements carry their .theme-dark pairs already. */
-.food-tip .food-hover-card { width: 312px; max-width: 100%; }
+.food-tip .food-hover-card { width: 352px; max-width: 100%; }
 .food-tip:has(.food-hover-card) .maplibregl-popup-content { padding: 10px 12px 8px; }
 .food-hover-card-head { margin-bottom: 0.45rem; }
 .food-hover-card-head strong { font-size: 0.9rem; }
@@ -1174,8 +1174,9 @@ body.food-receipt-open { overflow: hidden; }
 
 /* ── sparkline · compliance · dispositions · checklist ──────────────────── */
 /* The trend card: a captioned, lightly-bordered peer of the grade badge column.
-   Its SVG is locked to a FIXED height (the grade circle's 4.2rem) so the plot
-   never grows vertically with the panel. It grows SIDEWAYS instead: the card
+   Its SVG is locked to a FIXED 5.4rem height: enough room for the larger marks
+   and hover labels without letting the plot grow vertically with the panel.
+   It grows SIDEWAYS instead: the card
    flex-grows to fill the row and `_bindSparkline` keeps the SVG's viewBox WIDTH
    matched to the rendered width, so the data points spread to fill it while the
    marks keep their exact size (uniform scale — no squashing). It keeps stretching
@@ -1200,38 +1201,38 @@ body.food-receipt-open { overflow: hidden; }
    content fills the box with NO letterbox and NO distortion (uniform scale).
    _bindSparkline sets the viewBox width so that intrinsic width ≈ the card's
    available width — that's what spreads the points. max-width caps any rounding. */
-.food-spark svg { height: 4.2rem; width: auto; max-width: 100%; display: block; }
+.food-spark svg { height: 5.4rem; width: auto; max-width: 100%; display: block; }
 /* Mark + label sizes are viewBox units, scaled with the SVG. They and the
    geometry in `_sparkline` move together — 1.5x here needs 1.5x there. */
-.food-spark-score { font-size: 12px; font-weight: 600; fill: #495057; }
+.food-spark-score { font-size: 18px; font-weight: 600; fill: #495057; }
 .theme-dark .food-spark-score { fill: #c3cbd9; }
 /* The label above a diamond mark: a focused re-check's X/Y OUT ratio, or a
    narrative verdict's glyph. Blue, so it never reads as one of the grey broad
    SCORE labels on the line — a diamond carries a ratio or a verdict, never a
    score. (Was `.food-spark-raw` while focused marks plotted the raw VDH score;
    they plot compliance now, and no raw score appears in this chart.) */
-.food-spark-mark-label { font-size: 10.5px; font-weight: 700; fill: #1971c2; }
+.food-spark-mark-label { font-size: 15.75px; font-weight: 700; fill: #1971c2; }
 .theme-dark .food-spark-mark-label { fill: #74c0fc; }
-.food-spark-focused { fill: var(--cp-surface); stroke: var(--food-outcome-border, #868e96); stroke-width: 2.7; }
+.food-spark-focused { fill: var(--cp-surface); stroke: var(--food-outcome-border, #868e96); stroke-width: 4.05; }
 /* NARRATIVE arc: adjudicated written-verdict follow-ups plot as FILLED
    diamonds at the height their verdict describes — "all corrected" at the
    100 line, "not corrected" at 0 (hollow = focused checklist re-check;
    filled = comment verdict). Tone rides the .food-outcome-* custom
    properties, theme-dark pairs included. */
-.food-spark-narr { fill: var(--food-outcome-border, #868e96); stroke: var(--cp-surface); stroke-width: 1.5; }
-.food-spark-unknown { stroke: #868e96; stroke-width: 2.25; stroke-linecap: round; }
+.food-spark-narr { fill: var(--food-outcome-border, #868e96); stroke: var(--cp-surface); stroke-width: 2.25; }
+.food-spark-unknown { stroke: #868e96; stroke-width: 3.375; stroke-linecap: round; }
 /* Hover-enlarge (desktop): transparent overlay captures the mouse; the nearest
    node within the max radius is redrawn, enlarged, into the top .food-spark-hl
    layer so it lifts above its neighbours. */
 .food-spark-overlay { fill: transparent; }
 .food-spark-overlay-active { cursor: pointer; }
-.food-spark-hl-dot { stroke: var(--cp-surface); stroke-width: 2.1; }
-.food-spark-hl-dia { stroke-width: 3.3; }
-.food-spark-hl-tick { stroke: #495057; stroke-width: 3.9; }
+.food-spark-hl-dot { stroke: var(--cp-surface); stroke-width: 3.15; }
+.food-spark-hl-dia { stroke-width: 4.95; }
+.food-spark-hl-tick { stroke: #495057; stroke-width: 5.85; }
 .theme-dark .food-spark-hl-tick { stroke: #adb5bd; }
 .food-spark-hl-label { font-weight: 700; }
-.food-spark-score.food-spark-hl-label { font-size: 16.5px; }
-.food-spark-mark-label.food-spark-hl-label { font-size: 14.25px; }
+.food-spark-score.food-spark-hl-label { font-size: 24.75px; }
+.food-spark-mark-label.food-spark-hl-label { font-size: 21.375px; }
 
 .food-dispos {
     flex: 0 0 auto; font-size: 0.64rem; font-weight: 600; text-transform: uppercase;
