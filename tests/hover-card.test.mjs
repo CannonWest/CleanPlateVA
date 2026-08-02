@@ -46,10 +46,12 @@ const rows = (count, out = 0, dupes = 0) => {
 // ── tuple decoding ─────────────────────────────────────────────────────
 
 test('broad tuples decode to grade-eligible pseudo-inspections, dated', () => {
-    const [b] = trendInspections([['b', 20260204, 25, 35]]);
+    const [b] = trendInspections([['b', 20260204, 25, 0, 35]]);
     assert.equal(b.date, '2026-02-04');
     const view = inspectionPresentation(b);
     assert.equal(view.scope, 'broad');
+    assert.equal(view.formCount, 35);
+    assert.equal(view.count, 0);
     assert.equal(view.gradeEligible, true);
     assert.equal(view.score, 25);
 });
@@ -62,9 +64,10 @@ test('an unscored broad tuple still holds its slot without joining the line', ()
 });
 
 test('focused tuples carry the distinct-OUT ratio the diamonds plot', () => {
-    const [f] = trendInspections([['f', 20260306, 3, 3]]);
+    const [f] = trendInspections([['f', 20260306, 3, 3, 10]]);
     const view = inspectionPresentation(f);
     assert.equal(view.scope, 'focused');
+    assert.equal(view.formCount, 10);
     assert.equal(view.out, 3);
     assert.equal(view.outIsDistinct, true);
     const outcome = focusedOutcomePresentation(view);

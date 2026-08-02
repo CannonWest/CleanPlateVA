@@ -22,7 +22,7 @@ const checklist = (count, out = 0) => Array.from({ length: count }, (_, index) =
     is_sentinel: false,
 }));
 
-test('inspection scope changes exactly at 20 distinct applicable code items', () => {
+test('inspection scope changes exactly at 20 distinct numbered form items', () => {
     const { inspectionPresentation } = dashboard;
     assert.equal(inspectionPresentation({ checklist: checklist(20), score: 90 }).scope, 'broad');
     assert.equal(inspectionPresentation({ checklist: checklist(19), score: 90 }).scope, 'focused');
@@ -30,7 +30,7 @@ test('inspection scope changes exactly at 20 distinct applicable code items', ()
     assert.equal(inspectionPresentation({ checklist_present: false, score: 100 }).scope, 'unknown');
 });
 
-test('duplicates, non-applicable rows, missing IDs, and item 99 do not inflate scope', () => {
+test('form breadth is separate from the applicable IN/OUT denominator', () => {
     const rows = [
         { item: 1, disposition: 'IN', compliant: true },
         { item: 1, disposition: 'OUT', violation: true },
@@ -41,11 +41,26 @@ test('duplicates, non-applicable rows, missing IDs, and item 99 do not inflate s
         { item: null, disposition: 'IN', compliant: true },
     ];
     const view = dashboard.inspectionPresentation({ checklist: rows, score: 0 });
+    assert.equal(view.formCount, 4);
     assert.equal(view.count, 2);
     assert.equal(view.out, 1);
     assert.equal(view.scope, 'focused');
     assert.equal(view.score, 0);
     assert.equal('grade' in view, false);   // an inspection never carries a letter
+});
+
+test('N/A and N/O can prove form breadth without becoming compliant passes', () => {
+    const rows = Array.from({ length: 20 }, (_, index) => ({
+        item: index + 1,
+        disposition: index % 2 ? 'N/A' : 'N/O',
+        compliant: true, // the exact stale pre-M3 portal-token projection
+        is_sentinel: false,
+    }));
+    const view = dashboard.inspectionPresentation({ checklist: rows, score: 100 });
+    assert.equal(view.scope, 'broad');
+    assert.equal(view.formCount, 20);
+    assert.equal(view.count, 0);
+    assert.equal(view.compliant, 0);
 });
 
 test('focused X/Y outcomes reserve green for zero OUT and escalate by compliance', () => {
@@ -244,12 +259,12 @@ test('an inspection has a score but never a letter', () => {
     assert.equal(noScore.gradeEligible, false);
 });
 
-test('the hard count gate wins over contradictory scope labels', () => {
+test('the hard form-count gate wins over contradictory scope and applicable counts', () => {
     const { inspectionPresentation } = dashboard;
-    assert.equal(inspectionPresentation({ scope: 'broad', applicable_item_count: 0, score: 90 }).scope, 'unknown');
-    assert.equal(inspectionPresentation({ scope: 'broad', applicable_item_count: 19, score: 90 }).scope, 'focused');
-    assert.equal(inspectionPresentation({ scope: 'focused', applicable_item_count: 20, score: 90 }).scope, 'broad');
-    assert.equal(inspectionPresentation({ scope: 'broad', applicable_item_count: 20, checklist_present: false, score: 90 }).scope, 'unknown');
+    assert.equal(inspectionPresentation({ scope: 'broad', form_item_count: 0, applicable_item_count: 20, score: 90 }).scope, 'unknown');
+    assert.equal(inspectionPresentation({ scope: 'broad', form_item_count: 19, applicable_item_count: 20, score: 90 }).scope, 'focused');
+    assert.equal(inspectionPresentation({ scope: 'focused', form_item_count: 20, applicable_item_count: 0, score: 90 }).scope, 'broad');
+    assert.equal(inspectionPresentation({ scope: 'broad', form_item_count: 20, checklist_present: false, score: 90 }).scope, 'unknown');
 });
 
 test('facility presentation pairs newest event with one assessment, one grade, one trend', () => {
