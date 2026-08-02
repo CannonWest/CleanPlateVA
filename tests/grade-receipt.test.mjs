@@ -28,9 +28,9 @@ const { gradeReceiptPresentation } = dashboard;
 const baseA = {
     inspection_id: 'B1', date: '2026-03-01', scope: 'broad', score: 85,
     checklist: [
-        { item: 8, violation: true, cos: true },
-        { item: 14, violation: true },
-        { item: 35, violation: true },
+        { item: 8, disposition: 'OUT', violation: true, cos: true },
+        { item: 14, disposition: 'OUT', violation: true },
+        { item: 35, disposition: 'OUT', violation: true },
     ],
     violations: [
         { item: 8, text: 'Raw chicken stored over ready-to-eat lettuce' },
@@ -51,9 +51,9 @@ const gradeA = {
 const baseB = {
     inspection_id: 'B1', date: '2026-03-01', scope: 'broad', score: 88,
     checklist: [
-        { item: 8, violation: true, cos: true },
-        { item: 14, violation: true },
-        { item: 35, violation: true },
+        { item: 8, disposition: 'OUT', violation: true, cos: true },
+        { item: 14, disposition: 'OUT', violation: true },
+        { item: 35, disposition: 'OUT', violation: true },
     ],
     violations: [
         { item: 8, text: 'Raw chicken stored over ready-to-eat lettuce' },
@@ -65,9 +65,9 @@ const fupB = {
     inspection_id: 'F1', date: '2026-04-01', scope: 'focused',
     purpose: 'Follow-Up', score: 94,
     checklist: [
-        { item: 8, compliant: true },
-        { item: 14, violation: true },
-        { item: 22, violation: true, repeat: true },
+        { item: 8, disposition: 'IN', compliant: true },
+        { item: 14, disposition: 'OUT', violation: true },
+        { item: 22, disposition: 'OUT', violation: true, repeat: true },
     ],
     violations: [
         { item: 14, text: 'Sink still blocked' },
@@ -86,7 +86,8 @@ const gradeB = {
 // Case C — narrative blanket clear: both docks restored by the written verdict.
 const baseC = {
     inspection_id: 'B2', date: '2026-02-09', scope: 'broad', score: 88,
-    checklist: [{ item: 8, violation: true }, { item: 21, violation: true }],
+    checklist: [{ item: 8, disposition: 'OUT', violation: true },
+        { item: 21, disposition: 'OUT', violation: true }],
     violations: [
         { item: 8, text: 'No soap at handwash station' },
         { item: 21, text: 'Cold holding at 47F' },
@@ -110,12 +111,12 @@ const gradeC = {
 // purpose marks it a Follow-Up (VDH dates carry no time).
 const baseE = {
     inspection_id: 'B3', date: '2026-05-01', scope: 'broad', score: 98,
-    checklist: [{ item: 35, violation: true }],
+    checklist: [{ item: 35, disposition: 'OUT', violation: true }],
     violations: [{ item: 35, text: 'Dusty vent hood' }],
 };
 const sameDay = (purpose) => ({
     inspection_id: 'F2', date: '2026-05-01', scope: 'focused', purpose,
-    score: 100, checklist: [{ item: 35, compliant: true }], violations: [],
+    score: 100, checklist: [{ item: 35, disposition: 'IN', compliant: true }], violations: [],
 });
 const gradeE1 = {
     score: 98, letter: 'A', base_score: 98, base_letter: 'A',
@@ -135,13 +136,13 @@ const gradeE2 = {
 // Case F — OUT+COS on a re-check: base credit revoked, full weight, no mult.
 const baseF = {
     inspection_id: 'B4', date: '2026-01-10', scope: 'broad', score: 96,
-    checklist: [{ item: 8, violation: true, cos: true }],
+    checklist: [{ item: 8, disposition: 'OUT', violation: true, cos: true }],
     violations: [{ item: 8, text: 'Raw over RTE' }],
 };
 const fupF = {
     inspection_id: 'F3', date: '2026-02-10', scope: 'focused',
     purpose: 'Follow-Up', score: 94,
-    checklist: [{ item: 8, violation: true, cos: true }],
+    checklist: [{ item: 8, disposition: 'OUT', violation: true, cos: true }],
     violations: [{ item: 8, text: 'Raw over RTE again, moved on the spot' }],
 };
 const gradeF = {

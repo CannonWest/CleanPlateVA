@@ -76,7 +76,8 @@ test('the score explainer visibly gates grades by assessment breadth', () => {
     assert.match(html, /0 \/ no checklist/);
     assert.match(html, /Which inspections anchor the grade\?/);
     // The gate itself lives in the production presentation path.
-    assert.match(dashboardSource, /count >= BROAD_MIN_APPLICABLE_ITEMS \? 'broad' : 'focused'/);
+    assert.match(dashboardSource, /formCount >= BROAD_MIN_FORM_ITEMS \? 'broad' : 'focused'/);
+    assert.match(html, /Distinct numbered items present on the report/);
     assert.match(html, /◇ 3\/3/);
     assert.match(html, /at the share of its re-examined items in compliance, labeled with that OUT ratio/);
     // The page must keep teaching WHY the report score is off this chart, or
