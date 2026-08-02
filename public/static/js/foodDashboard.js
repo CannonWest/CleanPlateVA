@@ -110,14 +110,23 @@ function gradeForScore(score) {
     return 'F';
 }
 
-const BROAD_MIN_APPLICABLE_ITEMS = 20;
+const BROAD_MIN_FORM_ITEMS = 20;
+
+function distinctFormItems(checklist) {
+    const items = new Set();
+    for (const row of (checklist || [])) {
+        const item = Number.isInteger(row.item) ? row.item : null;
+        if (item != null && item !== 99 && !row.is_sentinel) items.add(item);
+    }
+    return items.size;
+}
 
 function distinctApplicableItems(checklist) {
     const items = new Set();
     for (const row of (checklist || [])) {
         const item = Number.isInteger(row.item) ? row.item : null;
-        const applicable = row.compliant || row.violation
-            || ['IN', 'OUT'].includes(String(row.disposition || '').toUpperCase());
+        const applicable = ['IN', 'OUT'].includes(
+            String(row.disposition || '').toUpperCase());
         if (item != null && item !== 99 && !row.is_sentinel && applicable) items.add(item);
     }
     return items.size;
@@ -139,27 +148,38 @@ function distinctOutItems(checklist) {
  *  report is broad + scored (eligible to ANCHOR the facility grade). */
 export function inspectionPresentation(insp = null) {
     if (!insp) return {
-        scope: 'unknown', count: null, broadEligible: false, gradeEligible: false,
+        scope: 'unknown', count: null, formCount: null,
+        broadEligible: false, gradeEligible: false,
         score: null, compliant: null, out: null, outIsDistinct: false,
     };
     const cs = insp.checklist_summary || {};
     let count = insp.applicable_item_count ?? cs.applicable_item_count ?? null;
-    if (count == null && Array.isArray(insp.checklist)
-        && (insp.checklist.length || insp.checklist_present)) {
+    let formCount = insp.form_item_count ?? cs.form_item_count ?? null;
+    const hasChecklistShape = Array.isArray(insp.checklist)
+        && (insp.checklist.length || insp.checklist_present);
+    if (count == null && hasChecklistShape) {
         count = distinctApplicableItems(insp.checklist);
     }
+    if (formCount == null && hasChecklistShape) {
+        formCount = distinctFormItems(insp.checklist);
+    }
+    // Pre-M3 compact records carried only the historical breadth count under
+    // applicable_item_count. Preserve that contract while old payloads age out.
+    if (formCount == null) formCount = count;
     if (count != null) count = Math.max(0, Number(count) || 0);
+    if (formCount != null) formCount = Math.max(0, Number(formCount) || 0);
     // Breadth is the gate. Never let a stale/contradictory scope label promote
-    // a zero- or 1–19-item report into a grade.
-    const scope = insp.checklist_present === false || count == null || count === 0
-        ? 'unknown' : count >= BROAD_MIN_APPLICABLE_ITEMS ? 'broad' : 'focused';
+    // a zero- or 1–19-form-item report into a grade.
+    const scope = insp.checklist_present === false || formCount == null || formCount === 0
+        ? 'unknown' : formCount >= BROAD_MIN_FORM_ITEMS ? 'broad' : 'focused';
     const score = Number.isFinite(Number(insp.score)) && insp.score !== null
         ? Number(insp.score) : null;
     const broadEligible = scope === 'broad';
     const gradeEligible = broadEligible && score != null;
     const compliant = insp.checklist_compliant ?? cs.compliant
         ?? (Array.isArray(insp.checklist)
-            ? insp.checklist.filter((row) => row.compliant).length : null);
+            ? insp.checklist.filter((row) =>
+                String(row.disposition || '').toUpperCase() === 'IN').length : null);
     // The focused X/Y signal compares like with like: distinct OUT item IDs
     // over distinct applicable item IDs. Compact marker records have no rows,
     // so retain their published summary as a fallback.
@@ -170,7 +190,7 @@ export function inspectionPresentation(insp = null) {
         ? distinctOutItems(insp.checklist)
         : publishedDistinctOut ?? insp.checklist_out ?? cs.out ?? null;
     return {
-        scope, count, broadEligible, gradeEligible, score,
+        scope, count, formCount, broadEligible, gradeEligible, score,
         compliant, out, outIsDistinct,
     };
 }
@@ -766,10 +786,8 @@ export function buildScopeSeries(inspections = []) {
  *  panel uses — one renderer, two data sources, no parallel drawing code.
  *
  *  Tuple kinds (cf_export_site._trend_event, oldest-first on the wire):
- *      ["b", d, score, count]      broad — score may be null (an unscored
- *                                  broad docket still holds its x slot)
- *      ["f", d, out, total]        focused — out is DISTINCT items or null
- *                                  (null → the ratio-unknown baseline tick)
+ *      ["b", d, score, applicable, form]  broad — form gates breadth
+ *      ["f", d, out, applicable, form]    focused — OUT/applicable ratio
  *      ["n", d, verdict(, items)]  adjudicated written verdict ◆
  *      ["u", d]                    scope-unknown baseline tick
  *  d = yyyymmdd int, 0 when unknown.
@@ -793,12 +811,15 @@ export function trendInspections(trend = []) {
         if (kind === 'b') {
             events.push({
                 date, score: t[2] ?? null,
-                applicable_item_count: t[3] ?? null, checklist_present: true,
+                applicable_item_count: t[3] ?? null,
+                form_item_count: t[4] ?? t[3] ?? null,
+                checklist_present: true,
             });
         } else if (kind === 'f') {
             events.push({
                 date, score: null,
                 applicable_item_count: t[3] ?? null,
+                form_item_count: t[4] ?? t[3] ?? null,
                 out_item_count: t[2] ?? null, checklist_present: true,
             });
         } else if (kind === 'n') {
