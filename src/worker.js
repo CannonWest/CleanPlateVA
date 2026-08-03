@@ -18,7 +18,17 @@ export default {
         if (url.pathname.startsWith(DATA_PREFIX)) {
             return serveFullData(request, env, url);
         }
-        return env.ASSETS.fetch(request);
+        const response = await env.ASSETS.fetch(request);
+        if (url.pathname === '/data/manifest.json') {
+            const headers = new Headers(response.headers);
+            headers.set('Cache-Control', 'public, max-age=60, must-revalidate');
+            return new Response(response.body, {
+                status: response.status,
+                statusText: response.statusText,
+                headers,
+            });
+        }
+        return response;
     },
 };
 
@@ -49,9 +59,17 @@ async function serveFullData(request, env, url) {
             'ETag': object.httpEtag,
             // Browser-private caching only — gated data must not land in
             // shared caches.
-            'Cache-Control': 'private, max-age=300',
+            'Cache-Control': fullDataCacheControl(key),
         },
     });
+}
+
+function fullDataCacheControl(key) {
+    if (key === 'manifest.json') return 'private, max-age=60, must-revalidate';
+    if (/^(finder|signals)\/[0-9a-f]+-[0-9a-f]{12}\.json$/.test(key)) {
+        return 'private, max-age=31536000, immutable';
+    }
+    return 'private, max-age=300';
 }
 
 function json(payload, status) {

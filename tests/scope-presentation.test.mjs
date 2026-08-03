@@ -285,6 +285,18 @@ test('facility presentation pairs newest event with one assessment, one grade, o
     assert.equal('standing' in view, false);
 });
 
+test('facility presentation derives its broad score series from compact trend events', () => {
+    const view = dashboard.facilityPresentation({
+        trend: [
+            ['b', 20250101, 68, 31],
+            ['f', 20250201, 0, 3],
+            ['b', 20250301, 61, 30],
+        ],
+    });
+    assert.deepEqual(view.trend, [61, 68]);
+    assert.equal(view.declining, true);
+});
+
 test('a focused-only facility has no fabricated assessment or grade', () => {
     const view = dashboard.facilityPresentation({
         latest: { scope: 'focused', applicable_item_count: 2, score: 100 },

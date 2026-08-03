@@ -467,14 +467,14 @@
                             <span class="about-pipeline-step">5</span>
                             <i class="bi bi-diagram-3"></i>
                             <h3>Merge &amp; whitelist</h3>
-                            <p>At export, likely re-permits are presentation-merged. Explicit field lists shape the roster and per-facility history while retaining lineage.</p>
-                            <div><code>lineage</code><code>facility JSON</code><code>facility-history JSON</code></div>
+                            <p>At export, likely re-permits are presentation-merged. Explicit field lists shape finder, signal, and per-facility history records while retaining lineage.</p>
+                            <div><code>lineage</code><code>finder + signal shards</code><code>facility history</code></div>
                         </li>
                         <li>
                             <span class="about-pipeline-step">6</span>
                             <i class="bi bi-cloud-arrow-up"></i>
                             <h3>Publish two contracts</h3>
-                            <p>Public finder JSON ships with the site. Full archive JSON syncs to private R2 and is served through the Access-gated Worker.</p>
+                            <p>Small manifests name each prepared snapshot. Data objects publish first and the manifest flips last; full archive JSON lives in private R2 behind the Access-gated Worker.</p>
                             <div><code>static lite</code><code>private full</code><code>full → lite fallback</code></div>
                         </li>
                     </ol>

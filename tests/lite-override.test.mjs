@@ -12,6 +12,10 @@ const appSource = readFileSync(
     new URL('../public/static/js/app.js', import.meta.url),
     'utf8',
 );
+const clientSource = readFileSync(
+    new URL('../public/static/js/dataClient.js', import.meta.url),
+    'utf8',
+);
 const css = readFileSync(
     new URL('../public/static/css/style.css', import.meta.url),
     'utf8',
@@ -25,15 +29,18 @@ test('FORCE_LITE keys off ?tier=lite exactly, read once at boot', () => {
 });
 
 test('the full channel is gated behind !FORCE_LITE; the lite fallback is not', () => {
-    const fn = appSource.match(/async getFoodFacilities\([^)]*\) \{([\s\S]*?)\n {4}\},/);
+    assert.match(appSource, /createFoodApi\(\{ forceLite: FORCE_LITE \}\)/);
+    const fn = clientSource.match(/async getFoodFacilities\([^)]*\) \{([\s\S]*?)\n {8}\},/);
     assert.ok(fn, 'getFoodFacilities found');
     const body = fn[1];
-    const gate = body.indexOf('if (!FORCE_LITE)');
-    const full = body.indexOf('FULL_BASE');
-    const lite = body.indexOf("'data/facilities.json'");
-    assert.ok(gate !== -1, 'the !FORCE_LITE gate exists');
+    const gate = body.indexOf('if (!forceLite)');
+    const full = body.indexOf('loadFullV2');
+    const legacy = body.indexOf('loadLegacyFull');
+    const lite = body.indexOf('loadLite');
+    assert.ok(gate !== -1, 'the !forceLite gate exists');
     assert.ok(full !== -1 && gate < full, 'the full-channel fetch sits inside the gate');
-    assert.ok(lite !== -1 && lite > full, 'the lite fallback stays unconditional, after the gate');
+    assert.ok(legacy > full, 'the legacy full fallback follows V2');
+    assert.ok(lite > legacy, 'the public fallback stays unconditional, after the full gate');
 });
 
 test('forced lite marks the body and keeps the sign-in CTA hidden', () => {
