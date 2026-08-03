@@ -1,4 +1,4 @@
-/** CleanPlateVA prepared-data client with Contract V2 + V1 fallbacks. */
+/** CleanPlateVA prepared-data client for manifest-led Contract V2. */
 
 const DEFAULT_FULL_BASE = 'data-full';
 const DEFAULT_LITE_BASE = 'data';
@@ -26,7 +26,6 @@ function join(base, path) {
 }
 
 function shardDescriptors(resource) {
-    if (Array.isArray(resource)) return resource;
     return resource?.shards || [];
 }
 
@@ -71,8 +70,10 @@ export function createFoodApi({
         }
         const finderDescriptors = shardDescriptors(manifest.resources?.finder);
         const signalDescriptors = shardDescriptors(manifest.resources?.signals);
-        if (!finderDescriptors.length || !signalDescriptors.length) {
-            throw new Error('full manifest has no roster shards');
+        if (!finderDescriptors.length || !signalDescriptors.length
+            || !manifest.resources?.standards?.path
+            || !manifest.resources?.details?.path_template) {
+            throw new Error('full manifest has incomplete resources');
         }
         const [finderShards, signalShards] = await Promise.all([
             Promise.all(finderDescriptors.map((item) => read(join(fullBase, item.path), true))),
@@ -101,7 +102,7 @@ export function createFoodApi({
             }
         }
         const facilities = [...byPermit.values()];
-        const expected = manifest.counts?.total ?? manifest.counts?.facilities;
+        const expected = manifest.counts?.total;
         if (Number.isFinite(expected) && facilities.length !== expected) {
             throw new Error(`full roster count mismatch: ${facilities.length}/${expected}`);
         }
@@ -114,31 +115,24 @@ export function createFoodApi({
         return { ...manifest, facilities };
     }
 
-    async function loadLegacyFull() {
-        const result = await read(join(fullBase, 'facilities.json'), true);
-        if (!result?.available || !Array.isArray(result.facilities)) {
-            throw new Error('legacy full roster unavailable');
-        }
-        remember(result.facilities);
-        return result;
-    }
-
     async function loadLite() {
-        let manifest = null;
         try {
-            const candidate = await read(join(liteBase, 'manifest.json'), true);
-            if (candidate?.contract === 'cleanplateva.finder-manifest.v2'
-                && candidate?.schema_version === 2) manifest = candidate;
-        } catch (_) { /* V1 public export has no manifest. */ }
-        const finderPath = manifest?.resources?.finder?.path || 'facilities.json';
-        try {
+            const manifest = await read(join(liteBase, 'manifest.json'), true);
+            if (manifest?.contract !== 'cleanplateva.finder-manifest.v2'
+                || manifest?.schema_version !== 2) {
+                throw new Error('unsupported public manifest');
+            }
+            const finderPath = manifest.resources?.finder?.path;
+            if (!finderPath) throw new Error('public manifest has no finder resource');
             const finder = await read(join(liteBase, finderPath));
-            const merged = manifest
-                ? { ...manifest, ...finder,
-                    snapshot_id: manifest.snapshot_id,
-                    fetched_at: manifest.fetched_at,
-                    counts: manifest.counts || finder.counts }
-                : finder;
+            if (finder?.contract !== 'cleanplateva.finder.v2'
+                || finder?.schema_version !== 2) {
+                throw new Error('unsupported public finder');
+            }
+            const merged = { ...manifest, ...finder,
+                snapshot_id: manifest.snapshot_id,
+                fetched_at: manifest.fetched_at,
+                counts: manifest.counts || finder.counts };
             remember(merged.facilities);
             return merged;
         } catch (error) {
@@ -152,7 +146,7 @@ export function createFoodApi({
 
     async function getStandards() {
         if (!standardsPromise) {
-            const path = fullManifest?.resources?.standards?.path || 'standards.json';
+            const path = fullManifest.resources.standards.path;
             standardsPromise = read(join(fullBase, path), true)
                 .then((value) => value.standards || value)
                 .catch(() => ({}));
@@ -163,16 +157,19 @@ export function createFoodApi({
     return {
         async getFoodFacilities() {
             if (!forceLite) {
-                try { return await loadFullV2(); } catch (_) { /* compatibility fallback */ }
-                try { return await loadLegacyFull(); } catch (_) { /* public fallback */ }
+                try { return await loadFullV2(); } catch (_) { /* public-tier fallback */ }
             }
             return loadLite();
         },
 
         async getFoodFacilityDetail(permitID) {
-            const template = fullManifest?.resources?.details?.path_template
-                || fullManifest?.resources?.facility_detail?.path_template
-                || 'facility/{permit_id}.json';
+            if (!fullManifest) {
+                return {
+                    available: false,
+                    reason: 'full Contract V2 manifest unavailable',
+                };
+            }
+            const template = fullManifest.resources.details.path_template;
             const encoded = encodeURIComponent(permitID);
             const relative = template.replace('{permit_id}', encoded);
             try {

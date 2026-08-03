@@ -32,18 +32,18 @@ const fullManifest = {
     mode: 'full',
     snapshot_id: 'snapshot-1',
     fetched_at: '2026-08-02T12:00:00Z',
-    counts: { facilities: 2, inspections: 4 },
+    counts: { total: 2, inspections: 4 },
     resources: {
-        finder: [
+        finder: { shards: [
             { path: 'finder/00-a.json' },
             { path: 'finder/01-b.json' },
-        ],
-        signals: [
+        ] },
+        signals: { shards: [
             { path: 'signals/00-c.json' },
             { path: 'signals/01-d.json' },
-        ],
+        ] },
         standards: { path: 'standards.json' },
-        facility_detail: { path_template: 'facility/{permit_id}.json' },
+        details: { path_template: 'facility/{permit_id}.json' },
     },
 };
 
@@ -92,12 +92,12 @@ test('detail merges the cached roster row and decodes compact checklist rows', a
     const fetchImpl = fakeFetch({
         'data-full/manifest.json': {
             ...fullManifest,
-            counts: { facilities: 1, inspections: 1 },
+            counts: { total: 1, inspections: 1 },
             resources: {
-                finder: [{ path: 'finder/00-a.json' }],
-                signals: [{ path: 'signals/00-c.json' }],
+                finder: { shards: [{ path: 'finder/00-a.json' }] },
+                signals: { shards: [{ path: 'signals/00-c.json' }] },
                 standards: { path: 'vocab/standards-a.json' },
-                facility_detail: { path_template: 'facility/{permit_id}.json' },
+                details: { path_template: 'facility/{permit_id}.json' },
             },
         },
         'data-full/finder/00-a.json': {
@@ -139,22 +139,52 @@ test('detail merges the cached roster row and decodes compact checklist rows', a
     });
 });
 
-test('missing or incomplete V2 falls back to the legacy full roster', async () => {
+test('incomplete full V2 drops directly to the public V2 tier', async () => {
     const fetchImpl = fakeFetch({
         'data-full/manifest.json': fullManifest,
         'data-full/finder/00-a.json': new Error('shard unavailable'),
         'data-full/finder/01-b.json': { facilities: [] },
         'data-full/signals/00-c.json': { facilities: [] },
         'data-full/signals/01-d.json': { facilities: [] },
-        'data-full/facilities.json': {
-            available: true, mode: 'full', facilities: [{ permit_id: 'legacy' }],
+        'data/manifest.json': {
+            contract: 'cleanplateva.finder-manifest.v2', schema_version: 2,
+            resources: { finder: { path: 'facilities.json' } },
+        },
+        'data/facilities.json': {
+            contract: 'cleanplateva.finder.v2', schema_version: 2,
+            available: true, mode: 'lite', facilities: [{ permit_id: 'public' }],
         },
     });
     const result = await createFoodApi({ fetchImpl }).getFoodFacilities();
-    assert.deepEqual(result.facilities, [{ permit_id: 'legacy' }]);
+    assert.deepEqual(result.facilities, [{ permit_id: 'public' }]);
+    assert.equal(fetchImpl.calls.includes('data-full/facilities.json'), false);
 });
 
-test('forced lite skips both full contracts and attaches public manifest freshness', async () => {
+test('noncanonical full resource arrays are rejected rather than normalized', async () => {
+    const fetchImpl = fakeFetch({
+        'data-full/manifest.json': {
+            ...fullManifest,
+            resources: {
+                ...fullManifest.resources,
+                finder: [{ path: 'finder/00-a.json' }],
+                signals: [{ path: 'signals/00-c.json' }],
+            },
+        },
+        'data/manifest.json': {
+            contract: 'cleanplateva.finder-manifest.v2', schema_version: 2,
+            resources: { finder: { path: 'facilities.json' } },
+        },
+        'data/facilities.json': {
+            contract: 'cleanplateva.finder.v2', schema_version: 2,
+            available: true, mode: 'lite', facilities: [{ permit_id: 'public' }],
+        },
+    });
+    const result = await createFoodApi({ fetchImpl }).getFoodFacilities();
+    assert.deepEqual(result.facilities, [{ permit_id: 'public' }]);
+    assert.equal(fetchImpl.calls.some((path) => path.startsWith('data-full/finder/')), false);
+});
+
+test('forced lite skips the full tier and attaches public manifest freshness', async () => {
     const fetchImpl = fakeFetch({
         'data/manifest.json': {
             contract: 'cleanplateva.finder-manifest.v2', schema_version: 2,
@@ -173,14 +203,14 @@ test('forced lite skips both full contracts and attaches public manifest freshne
     assert.deepEqual(fetchImpl.calls, ['data/manifest.json', 'data/facilities.json']);
 });
 
-test('legacy public finder remains usable when the public manifest is absent', async () => {
+test('a public finder is not loaded without its V2 manifest', async () => {
     const fetchImpl = fakeFetch({
         'data/facilities.json': {
-            available: true, mode: 'lite', fetched_at: 'legacy-time',
-            facilities: [{ permit_id: 'public-v1' }],
+            contract: 'cleanplateva.finder.v2', schema_version: 2,
+            available: true, mode: 'lite', facilities: [{ permit_id: 'public' }],
         },
     });
     const result = await createFoodApi({ fetchImpl, forceLite: true }).getFoodFacilities();
-    assert.equal(result.fetched_at, 'legacy-time');
-    assert.deepEqual(result.facilities, [{ permit_id: 'public-v1' }]);
+    assert.equal(result.available, false);
+    assert.deepEqual(fetchImpl.calls, ['data/manifest.json']);
 });

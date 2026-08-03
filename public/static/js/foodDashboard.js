@@ -746,16 +746,13 @@ export function facilityPresentation(facility = {}) {
         assessment = latest;
         assessmentRecord = facility.latest;
     }
-    // V2 carries one oldest-first compact event stream; the historical
-    // score_trend field is a V1 fallback. Derive the newest-first broad series
-    // here so storage never has to duplicate the same scores.
-    const compactTrend = (facility.trend || [])
+    // V2 carries one oldest-first compact event stream. Derive the
+    // newest-first broad series here so storage never duplicates scores.
+    const trend = (facility.trend || [])
         .filter((event) => event?.[0] === 'b' && Number.isFinite(event[2]))
         .map((event) => event[2])
         .reverse()
         .slice(0, 6);
-    const trend = (compactTrend.length ? compactTrend : (facility.score_trend || []))
-        .filter((score) => Number.isFinite(score));
     return {
         latest,
         assessment,
