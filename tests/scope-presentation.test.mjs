@@ -272,7 +272,11 @@ test('facility presentation pairs newest event with one assessment, one grade, o
         latest: { scope: 'focused', applicable_item_count: 2, score: 100, checklist_out: 0 },
         latest_assessment: { scope: 'broad', applicable_item_count: 31, score: 68 },
         grade: { score: 68, letter: 'D', base_score: 68, base_letter: 'D', adjusted: false },
-        score_trend: [68, 76, 64],
+        trend: [
+            ['b', 20250101, 64, 31],
+            ['b', 20250201, 76, 31],
+            ['b', 20250301, 68, 31],
+        ],
     };
     const view = dashboard.facilityPresentation(facility);
     assert.equal(view.latest.scope, 'focused');
@@ -297,11 +301,16 @@ test('facility presentation derives its broad score series from compact trend ev
     assert.equal(view.declining, true);
 });
 
+test('facility presentation does not read the retired score_trend field', () => {
+    const view = dashboard.facilityPresentation({ score_trend: [61, 68] });
+    assert.deepEqual(view.trend, []);
+    assert.equal(view.declining, false);
+});
+
 test('a focused-only facility has no fabricated assessment or grade', () => {
     const view = dashboard.facilityPresentation({
         latest: { scope: 'focused', applicable_item_count: 2, score: 100 },
         latest_assessment: null,
-        score_trend: [],
     });
     assert.equal(view.assessment, null);
     assert.equal(view.grade, null);
@@ -322,7 +331,6 @@ test('the hover card leads with the grade CIRCLE — the flat grade text is gone
         },
         grade: { score: 58, letter: 'F', base_score: 58, base_letter: 'F',
             base_date: '2026-05-21', adjusted: false },
-        score_trend: [58, 54],
         trend: [['b', 20260521, 58, 31], ['f', 20260605, 0, 2]],
     };
     const html = proto._hoverCardHTML.call(
@@ -502,7 +510,6 @@ test('no surface pairs a focused re-check with its raw report score', () => {
             scope: 'broad', applicable_item_count: 35, score: 25, date: '2026-02-04',
         },
         grade: { score: 20, letter: 'F', base_score: 25, base_letter: 'F', adjusted: true },
-        score_trend: [25, 94, 68],
     };
     const card = proto._hoverCardHTML.call(
         Object.assign(Object.create(proto), { _mode: 'full', _isActive: () => true }),
@@ -564,7 +571,6 @@ test('no grade block means no grade — the assessment never stands in for one',
     const view = dashboard.facilityPresentation({
         latest: { scope: 'broad', applicable_item_count: 31, score: 68 },
         latest_assessment: { scope: 'broad', applicable_item_count: 31, score: 68 },
-        score_trend: [68],
     });
     assert.equal(view.grade, null);
     assert.notEqual(view.assessment, null);   // the broad record is still there, just letterless
@@ -592,7 +598,6 @@ test('an adjusted grade circles its FINAL score; the base letter never leaks', (
             score: 62, letter: 'D', adjusted: true, base_score: 82, base_letter: 'B',
             base_date: '2025-01-17', followups: 1, followup_date: '2025-07-05',
         },
-        score_trend: [82, 90],
         trend: [['b', 20250117, 82, 31], ['f', 20250705, 0, 2]],
     };
     const html = proto._hoverCardHTML.call(
