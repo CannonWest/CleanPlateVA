@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 const source = readFileSync(new URL('../src/worker.js', import.meta.url), 'utf8');
+const wrangler = readFileSync(new URL('../wrangler.jsonc', import.meta.url), 'utf8');
 const worker = (await import(
     `data:text/javascript;base64,${Buffer.from(source).toString('base64')}`
 )).default;
@@ -24,6 +25,8 @@ test('the mutable manifest revalidates quickly', async () => {
 });
 
 test('the public manifest also revalidates quickly', async () => {
+    assert.match(wrangler,
+        /"run_worker_first"\s*:\s*\[\s*"\/data\/manifest\.json"\s*\]/);
     const response = await worker.fetch(
         new Request('https://cleanplateva.test/data/manifest.json'), env);
     assert.equal(response.headers.get('Cache-Control'),
