@@ -1,113 +1,136 @@
 # CleanPlateVA
 
-A finder map for Virginia food establishments (Richmond metro and beyond),
-built from Virginia Department of Health inspection records. Every marker
-links to the establishment's official VDH inspection record.
+A finder map for Virginia food establishments, built from Virginia Department
+of Health inspection records. Every marker links to the establishment's
+official VDH inspection record.
 
 ## Two tiers, one site
 
-The deployed page serves two audiences from the same code:
-
-- **Lite (public, the default)** — a gray finder map: facility names,
-  locations, a search box, a zip filter, and a hand-off link to the official
-  VDH record for each place. No scores, no inspection content — inspection
-  reports live on VDH's portal, this map just helps you find them. Powered
-  by the one data file committed to this repo
-  (`public/data/facilities.json` — a 12-field identity/location contract per
-  active facility, including the VDH tenant route and mobile-unit flag).
-- **Full (authenticated)** — the complete archived inspection history with
-  raw computed scores, scope-qualified letter grades, violation detail, food-code checklists,
-  and temperature logs, rendered in the same UI. Served from a private
-  channel at `/data-full/*` that anonymous visitors can't reach; the page
-  tries it first and falls back to lite. The full-tier data is never
-  committed to this repository.
+- **Lite (public, the default)** — a gray finder map with identity, location,
+  search/filter controls, and a hand-off to VDH. It exposes no scores, grades,
+  report dates, or inspection content.
+- **Full (authenticated)** — archived inspection histories, derived scores and
+  facility grades, violations, checklists, temperatures, and comments through
+  the Access-gated `/data-full/*` channel. If full data is unavailable, the
+  same client falls back to lite.
 
 ## Architecture
 
-Static client, no application server or live data API. A small Cloudflare
-Worker ([`src/worker.js`](src/worker.js)) serves the contents of
-[`public/`](public/) and routes authenticated `/data-full/*` reads to R2. The
-client is MapLibre GL (CARTO vector basemaps, light + dark, clustered markers,
-map/list toggle) over prepared JSON fetched at load.
+The site is a static MapLibre client. A small Cloudflare Worker
+([`src/worker.js`](src/worker.js)) serves [`public/`](public/) and proxies
+authenticated full-data reads from R2. It never queries VDH or CouchDB at
+request time.
 
-Public data contract (`public/data/facilities.json`):
-`{available, mode: "lite", facilities: [...], counts: {total, by_zip},
-fetched_at}` — each facility carries exactly `permit_id, name, address,
-address2, city, zip, tenant, lat, lon, is_restaurant, approx, mobile` and
-nothing else. `permit_id` + `tenant` build the district-scoped VDH link;
-`approx` flags ZIP-centroid geocodes; `mobile` lets the public map hide mobile
-food units whose permit address is not where the unit normally parks. The
-artifact contract is pinned by `tests/lite-roster-contract.test.mjs`.
+Prepared data uses explicit Contract V2 manifests:
 
-Full-tier contract (same shapes the UI renders in full mode, served
-privately): a rich `facilities.json`, per-facility
-`facility/<permitID>.json` histories with re-issued permits pre-merged, and
-`standards.json` — the food-code checklist vocabulary against which the
-compact checklist rows (`[item, disposition, flags(, override)]`, bitmask
-`1 compliant | 2 violation | 4 cos | 8 repeat | 16 sentinel`) are decoded
-in the browser.
+```text
+public/data/
+├── manifest.json                 # freshness + finder digest/size/count
+└── facilities.json               # stable 12-field public finder
 
-Full roster records carry `latest`, `latest_assessment`, `grade`,
-`score_trend`, `declining`, and a compact oldest-first `trend` event sequence.
-Broad/focused tuples are `["b", date, score, applicable, form]` and
-`["f", date, out, applicable, form]`; narrative and unknown events are
-`["n", date, verdict(, items)]` and `["u", date]`. Detail files intentionally
-have no `fetched_at`: the snapshot timestamp lives once on the roster so an
-unchanged facility remains byte-identical and R2 delta publishing can skip it.
+/data-full/ (private R2)
+├── manifest.json                 # atomic snapshot pointer
+├── finder/<bucket>-<hash>.json   # identity/location/status shards
+├── signals/<bucket>-<hash>.json  # sparse grade/inspection-signal shards
+├── standards.json                # shared checklist vocabulary
+└── facility/<permitID>.json      # one facility's nested inspection history
+```
+
+The exporter uploads changed data objects first and publishes `manifest.json`
+last. Content-addressed finder/signal shards are immutable; the Worker gives
+them a long browser-private cache while the mutable manifest and detail objects
+revalidate quickly. The previous manifest's referenced shards are retained for
+one generation, so a browser holding a cached manifest never sees missing
+resources during a publish.
+
+### Public finder contract
+
+`public/data/facilities.json` is `cleanplateva.finder.v2`:
+
+```json
+{
+  "contract": "cleanplateva.finder.v2",
+  "schema_version": 2,
+  "available": true,
+  "mode": "lite",
+  "facilities": [],
+  "counts": { "total": 0, "by_zip": {} }
+}
+```
+
+Each facility has exactly `permit_id, name, address, address2, city, zip,
+tenant, lat, lon, is_restaurant, approx, mobile`. `permit_id` + `tenant` build
+the district-scoped VDH link; `approx` flags ZIP-centroid geocodes; `mobile`
+lets the public map hide mobile units whose permit address is not where they
+normally operate.
+
+Freshness intentionally lives in the small `cleanplateva.finder-manifest.v2`
+`manifest.json`, along with the finder's SHA-256, byte size, and record count.
+Removing `fetched_at` from the multi-megabyte finder keeps it byte-identical on
+days when only archive/grade data changed. The committed artifact contract is
+pinned by `tests/lite-roster-contract.test.mjs`.
+
+### Full archive contract
+
+`cleanplateva.full-manifest.v2` points to 16 deterministic finder shards and 16
+sparse signal shards. The client joins them by `permit_id` in memory. Signal
+rows omit values the browser can derive or safely default:
+
+- `score_trend` and `declining` are derived from the compact `trend` events;
+- `latest_assessment` is absent when it is identical to `latest`;
+- false/empty grade defaults are omitted;
+- `newly_permitted` is present only when true.
+
+Compact trend tuples are oldest-first: broad/focused events are
+`["b", date, score, applicable, form]` and
+`["f", date, out, applicable, form]`; narrative/unknown events are
+`["n", date, verdict(, items)]` and `["u", date]`.
+
+Facility detail files remain nested by design. Updating one inspection rewrites
+one small `facility/<permitID>.json` object rather than a statewide roster, and
+opening a facility still needs one history request instead of dozens. Re-issued
+permits are presentation-merged into that history with lineage retained.
+Details have no timestamp, so unchanged bytes preserve local mtimes and skip
+R2 upload. Compact checklist rows use
+`[item, disposition, flags(, override)]`, where flags are
+`1 compliant | 2 violation | 4 cos | 8 repeat | 16 sentinel`; `dataClient.js`
+expands them using `standards.json`.
+
+The client retains V1 full-roster and public-finder fallbacks for the migration
+window. R2's legacy `facilities.json` is retained but no longer updated.
+
+## Inspection and grade semantics
 
 Each inspection is classified from distinct numbered, non-sentinel form items:
-`broad` (20+, grade/trend eligible), `focused` (1–19, targeted outcome with
-an OUT/applicable ratio colored by compliance and the raw formula shown
-secondarily), or `unknown` (zero/no checklist, no grade or breadth claim).
-`form_item_count` owns breadth; the separate `applicable_item_count` counts
-distinct IN/OUT items and owns the focused denominator. N/A and N/O rows can
-prove form breadth but are never compliant passes.
-A scope-unknown **follow-up whose verdict lives only in the inspector's
-written comment** may carry an `adjudication {status, verdict, items?}`
-block — the comment translated into a machine verdict by a separate,
-audited pipeline step. The UI renders it as the row's ✓/✗ badge and
-verdict chip, and as a filled diamond on the sparkline at the height the
-verdict describes ("all corrected" at the r100 line, "not corrected" at
-r0); hollow diamonds remain focused checklist re-checks.
+`broad` (20+, grade/trend eligible), `focused` (1–19, targeted outcome), or
+`unknown` (no trustworthy checklist breadth). `form_item_count` owns breadth;
+`applicable_item_count` separately counts distinct IN/OUT items. N/A and N/O
+can prove breadth but are never compliant passes.
 
-Facility records keep the chronological `latest` event, one
-`latest_assessment`, a broad-only `score_trend` / `declining` signal, and
-the computed `grade` block — the facility's score + A–F letter: the latest
-broad assessment adjusted by follow-up re-checks through **both** channels
-(structured checklists and adjudicated written verdicts; the block's
-`narrative_followups` / `narrative_items` fields carry that provenance,
-surfaced in inspection verdicts, the trend, and the grade-receipt breakdown).
-The methodology view on the site documents the full formula, the adjustment
-ladder, and the written-verdict rules.
+An inspection has a deterministic 0–100 score and never a letter. A facility
+grade is a score plus A–F letter anchored to its newest broad assessment and
+adjusted by later focused re-checks. A scope-unknown follow-up may carry an
+audited `adjudication {status, verdict, items?}` when the outcome exists only in
+the inspector's written comments. The About view documents the formula,
+adjustment ladder, provenance, and limitations.
 
-The site never fetches from VDH or any live source; it reads only archived
-snapshots published by a separate collection pipeline.
+## Hosting and local use
 
-## Hosting
+Cloudflare Workers deploys [cleanplateva.com](https://cleanplateva.com) from
+`main`; there is no build step.
 
-Deployed on Cloudflare Workers ([`src/worker.js`](src/worker.js) plus static
-assets and the private R2 binding configured in
-[`wrangler.jsonc`](wrangler.jsonc)) at
-[cleanplateva.com](https://cleanplateva.com). The Workers Builds git integration
-runs `npx wrangler deploy` on every push to `main`; no build step.
-
-## Running locally
-
-```
-pip install -r requirements.txt   # flask, dev server only
+```text
+pip install -r requirements.txt
 python app.py
 ```
 
-Then open http://127.0.0.1:5001. Any static file server over `public/`
-works just as well (e.g. `python -m http.server -d public`). The committed
-lite payload renders the finder; to exercise full mode, place full-tier
-data under `public/data-full/` (gitignored). To preview the anonymous
-(lite) experience while full-tier data is on disk, append `?tier=lite` —
-the page then skips the full channel entirely and hides the sign-in CTA.
+Open `http://127.0.0.1:5001`. Any static server over `public/` also works. Put
+an exported full tier under `public/data-full/` (gitignored) to exercise the
+authenticated presentation locally. Append `?tier=lite` to force the public
+experience and hide the sign-in CTA.
 
 ## Data source
 
 Inspection records originate from the
-[VDH MyHealthDepartment portal](https://inspections.myhealthdepartment.com/virginia)
-(public records). The map is a snapshot, not a live feed; each facility
-links back to the official VDH record.
+[VDH MyHealthDepartment portal](https://inspections.myhealthdepartment.com/virginia).
+The map is a prepared snapshot, not a live feed; VDH remains authoritative.

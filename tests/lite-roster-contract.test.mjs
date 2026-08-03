@@ -20,11 +20,15 @@
  *  the same commit that changes `_shape_lite`.
  */
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 const roster = JSON.parse(readFileSync(
     new URL('../public/data/facilities.json', import.meta.url), 'utf8'));
+const rosterBytes = readFileSync(new URL('../public/data/facilities.json', import.meta.url));
+const manifest = JSON.parse(readFileSync(
+    new URL('../public/data/manifest.json', import.meta.url), 'utf8'));
 
 // The lite identity contract (cf_export_site._shape_lite). Judgment fields
 // are absent BY DESIGN — lite is a finder, not a grader.
@@ -34,11 +38,25 @@ const FIELDS = [
 ];
 
 test('the committed roster is a lite payload with facilities in it', () => {
+    assert.equal(roster.contract, 'cleanplateva.finder.v2');
+    assert.equal(roster.schema_version, 2);
     assert.equal(roster.available, true);
     assert.equal(roster.mode, 'lite');
     assert.ok(Array.isArray(roster.facilities));
     assert.ok(roster.facilities.length > 1000,
         `only ${roster.facilities.length} facilities — a truncated export?`);
+});
+
+test('freshness and integrity live in the small V2 manifest', () => {
+    assert.equal('fetched_at' in roster, false,
+        'the large finder must stay byte-stable when no facility changes');
+    assert.equal(manifest.contract, 'cleanplateva.finder-manifest.v2');
+    assert.equal(manifest.schema_version, 2);
+    assert.equal(manifest.resources.finder.path, 'facilities.json');
+    assert.equal(manifest.resources.finder.records, roster.facilities.length);
+    assert.equal(manifest.resources.finder.bytes, rosterBytes.byteLength);
+    assert.equal(manifest.resources.finder.sha256,
+        createHash('sha256').update(rosterBytes).digest('hex'));
 });
 
 test('every record carries exactly the 12-field lite contract', () => {
