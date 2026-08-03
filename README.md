@@ -84,7 +84,7 @@ rows omit values the browser can derive or safely default:
 
 Compact trend tuples are oldest-first: broad/focused events are
 `["b", date, score, applicable, form]` and
-`["f", date, out, applicable, form]`; narrative/unknown events are
+`["f", date, out, addressed, form]`; narrative/unknown events are
 `["n", date, verdict(, items)]` and `["u", date]`.
 
 Facility detail files remain nested by design. Updating one inspection rewrites
@@ -109,13 +109,21 @@ Each inspection is classified from distinct numbered, non-sentinel form items:
 `applicable_item_count` separately counts distinct IN/OUT items. N/A and N/O
 can prove breadth but are never compliant passes.
 
+Focused Follow-Ups can be hybrid: VDH may put corrected items only in the
+comments while the structured checklist contains the remaining OUT rows.
+`addressed_item_count` is the distinct union of those comment-enumerated and
+structured outcomes. A same-item structured row wins a comment collision, and
+the visit counts once. Thus a checklist with three OUT rows plus fourteen other
+corrected items presents as `3/17 OUT`, without pretending the comments changed
+the report's checklist-derived scope or form breadth.
+
 Only a broad inspection publishes a deterministic 0–100 score, and it never
 has a letter. Focused and scope-unknown inspections publish `score: null`; the
-focused presentation uses its OUT/applicable result instead. A facility grade
+focused presentation uses its OUT/addressed result instead. A facility grade
 is a score plus A–F letter anchored to its newest broad assessment and adjusted
-by later focused re-checks. A scope-unknown follow-up may carry an
-audited `adjudication {status, verdict, items?}` when the outcome exists only in
-the inspector's written comments. The About view documents the formula,
+by later focused re-checks. A scope-unknown or focused hybrid follow-up may
+carry an audited `adjudication {status, verdict, items?}` derived from the
+inspector's written comments. The About view documents the formula,
 adjustment ladder, provenance, and limitations.
 
 ## Hosting and local use

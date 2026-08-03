@@ -153,7 +153,13 @@ export function inspectionPresentation(insp = null) {
         score: null, compliant: null, out: null, outIsDistinct: false,
     };
     const cs = insp.checklist_summary || {};
-    let count = insp.applicable_item_count ?? cs.applicable_item_count ?? null;
+    // Focused hybrid reports can address more items than their structured
+    // checklist carries: comments enumerate corrected prior items while the
+    // form contains only the remaining OUT rows. The exporter publishes that
+    // union as addressed_item_count; broad reports retain the raw applicable
+    // denominator.
+    let count = insp.addressed_item_count
+        ?? insp.applicable_item_count ?? cs.applicable_item_count ?? null;
     let formCount = insp.form_item_count ?? cs.form_item_count ?? null;
     const hasChecklistShape = Array.isArray(insp.checklist)
         && (insp.checklist.length || insp.checklist_present);
@@ -180,13 +186,17 @@ export function inspectionPresentation(insp = null) {
         ?? (Array.isArray(insp.checklist)
             ? insp.checklist.filter((row) =>
                 String(row.disposition || '').toUpperCase() === 'IN').length : null);
-    // The focused X/Y signal compares like with like: distinct OUT item IDs
-    // over distinct applicable item IDs. Compact marker records have no rows,
-    // so retain their published summary as a fallback.
+    // The focused X/Y signal compares distinct OUT item IDs with every
+    // distinct item addressed across the checklist + adjudicated comments.
+    // Compact marker records have no rows, so retain their published summary.
     const hasChecklistRows = Array.isArray(insp.checklist) && insp.checklist.length > 0;
     const publishedDistinctOut = insp.out_item_count ?? cs.out_item_count ?? null;
     const outIsDistinct = hasChecklistRows || publishedDistinctOut != null;
-    const out = hasChecklistRows
+    const hasEffectiveUnion = insp.addressed_item_count != null
+        && publishedDistinctOut != null;
+    const out = hasEffectiveUnion
+        ? publishedDistinctOut
+        : hasChecklistRows
         ? distinctOutItems(insp.checklist)
         : publishedDistinctOut ?? insp.checklist_out ?? cs.out ?? null;
     return {
@@ -271,13 +281,12 @@ function focusedOutcomeBadge(view, hero = false) {
         + '<small aria-hidden="true">OUT</small></span>';
 }
 
-/** NARRATIVE arc: some VDH follow-ups carry no checklist at all — the
- *  verdict lives only in the inspector's comments ("ALL VIOLATIONS
- *  CORRECTED"). The exporter ships those rows with an `adjudication` block
- *  once the comment has been adjudicated into a machine verdict, and the
- *  grade engine consumes them as synthetic re-checks. This presentation
- *  drives the row's badge + chip so the history shows exactly what the
- *  grade consumed. Returns null unless the verdict is actionable. */
+/** NARRATIVE arc: some VDH follow-ups carry no checklist at all; others are
+ *  hybrid reports whose checklist contains only the remaining OUT rows while
+ *  comments enumerate corrected prior items. The exporter ships actionable
+ *  comment evidence as an `adjudication` block and the grade engine composes
+ *  it with the structured channel. Returns null unless the verdict is
+ *  actionable. */
 export function narrativeVerdictPresentation(insp = null) {
     const adj = insp && insp.adjudication;
     if (!adj || adj.status !== 'adjudicated' || !adj.verdict) return null;
@@ -519,7 +528,7 @@ export function gradeReceiptPresentation(facility = {}, inspections = []) {
             .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))[0] || null;
     }
 
-    const isNarr = (i) => receiptScope(i) === 'unknown' && receiptIsFollowup(i)
+    const isNarr = (i) => receiptIsFollowup(i)
         && (i.adjudication || {}).status === 'adjudicated';
 
     // cf_lib.facility_grade's follow-up selection: post-broad by date, or
@@ -537,29 +546,44 @@ export function gradeReceiptPresentation(facility = {}, inspections = []) {
     const followupViews = [];
     for (const fup of followups) {
         const narrative = isNarr(fup);
-        if (narrative) {
-            narrativeCount += 1;
-            const v = narrativeVerdictPresentation(fup);
-            followupViews.push({
-                date: fup.date, kind: 'narrative', tone: v?.tone || 'unknown',
-                label: v?.label || 'Written verdict', detail: v?.detail || '',
-            });
-        } else {
+        const structured = Array.isArray(fup.checklist) && fup.checklist.length
+            && receiptScope(fup) === 'focused';
+        const verdict = narrative ? narrativeVerdictPresentation(fup) : null;
+        if (narrative) narrativeCount += 1;
+        if (structured) {
             const view = inspectionPresentation(fup);
             const outcome = focusedOutcomePresentation(view);
             followupViews.push({
-                date: fup.date, kind: 'checklist', tone: outcome.tone,
+                date: fup.date, kind: narrative ? 'hybrid' : 'checklist',
+                tone: outcome.tone,
                 label: outcome.ratioKnown
                     ? `${outcome.out}/${outcome.total} OUT` : outcome.label,
-                detail: outcome.description,
+                detail: verdict?.detail
+                    ? `${outcome.description}; ${verdict.detail}`
+                    : outcome.description,
+            });
+        } else {
+            followupViews.push({
+                date: fup.date, kind: 'narrative',
+                tone: verdict?.tone || 'unknown',
+                label: verdict?.label || 'Written verdict',
+                detail: verdict?.detail || '',
             });
         }
-        const words = narrative
-            ? receiptNarrativeWords(fup, docks) : receiptItemWords(fup.checklist);
+        const narrativeWords = narrative
+            ? receiptNarrativeWords(fup, docks) : new Map();
+        const words = new Map(narrativeWords);
+        const sourcedNarrative = new Set(narrativeWords.keys());
+        if (structured) {
+            for (const [item, word] of receiptItemWords(fup.checklist)) {
+                words.set(item, word);
+                sourcedNarrative.delete(item);
+            }
+        }
         for (const [item, w] of words) {
             if (!latestWord.has(item)) {
                 latestWord.set(item, w);
-                if (narrative) narrativeItems.add(item);
+                if (sourcedNarrative.has(item)) narrativeItems.add(item);
             }
         }
     }
@@ -778,7 +802,7 @@ export function buildScopeSeries(inspections = []) {
         events,
         broad: events.filter((event) => event.presentation.gradeEligible),
         // Every focused event, scored or not: the trend plots these by their
-        // OUT/applicable compliance, so a missing raw score no longer decides
+        // OUT/addressed compliance, so a missing raw score no longer decides
         // whether the re-check appears at all (it used to vanish silently while
         // still consuming an x slot).
         focused: events.filter((event) => event.presentation.scope === 'focused'),
@@ -793,7 +817,7 @@ export function buildScopeSeries(inspections = []) {
  *
  *  Tuple kinds (cf_export_site._trend_event, oldest-first on the wire):
  *      ["b", d, score, applicable, form]  broad — form gates breadth
- *      ["f", d, out, applicable, form]    focused — OUT/applicable ratio
+ *      ["f", d, out, addressed, form]     focused — OUT/addressed ratio
  *      ["n", d, verdict(, items)]  adjudicated written verdict ◆
  *      ["u", d]                    scope-unknown baseline tick
  *  d = yyyymmdd int, 0 when unknown.
@@ -824,7 +848,7 @@ export function trendInspections(trend = []) {
         } else if (kind === 'f') {
             events.push({
                 date, score: null,
-                applicable_item_count: t[3] ?? null,
+                addressed_item_count: t[3] ?? null,
                 form_item_count: t[4] ?? t[3] ?? null,
                 out_item_count: t[2] ?? null, checklist_present: true,
             });
@@ -2341,7 +2365,7 @@ export class FoodDashboard {
 
     // One comparison history: broad assessments form the connected line;
     // focused inspections keep their time position as unconnected raw-formula
-    // diamonds, colored by their own OUT/applicable compliance outcome. They do
+    // diamonds, colored by their own OUT/addressed compliance outcome. They do
     // not join the broad score line. Unknown-scope events are baseline ticks.
     _sparkline(inspections) {
         const series = buildScopeSeries(inspections);
@@ -2658,10 +2682,11 @@ export class FoodDashboard {
         const view = inspectionPresentation(insp);
         const violations = insp.violations || [];
         const sets = this._disposSets(insp.checklist);
-        // Narrative verdict (adjudicated comment) — only ever present on
-        // scope-unknown Follow-Ups; it replaces the neutral "?" so the row
-        // reads what the facility grade actually consumed.
-        const adj = view.scope === 'unknown' ? narrativeVerdictPresentation(insp) : null;
+        // An adjudicated comment can stand alone on a scope-unknown report or
+        // supplement a focused checklist whose rows contain only what remains
+        // OUT. The focused badge shows the combined OUT/addressed ratio; the
+        // verdict chip below names the comment-side corrections.
+        const adj = narrativeVerdictPresentation(insp);
         const badge = view.scope === 'broad'
             ? `<span class="food-insp-score food-insp-signal" style="background:${view.score != null ? this._scoreColor(view.score) : GRADE_COLORS.none}" title="Inspection score (0–100, no letter — letters are a facility grade)">${view.score ?? '—'}</span>`
             : view.scope === 'focused'
@@ -2673,7 +2698,7 @@ export class FoodDashboard {
         // "Scope unknown" describes the missing checklist, which is exactly the
         // thing the adjudication resolved — showing both reads as a
         // contradiction. Un-adjudicated unknowns keep the honest label.
-        const scopeBadge = adj ? ''
+        const scopeBadge = adj && view.scope === 'unknown' ? ''
             : `<span class="food-scope-badge food-scope-badge-${view.scope}">${view.scope === 'broad' ? 'Broad' : view.scope === 'focused' ? 'Focused' : 'Scope unknown'}</span>`;
         const adjChip = adj
             ? `<span class="food-adj-chip food-outcome-${adj.tone}" title="${esc(adj.detail)}">${esc(adj.label)}</span>` : '';

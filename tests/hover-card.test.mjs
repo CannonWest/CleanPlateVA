@@ -76,6 +76,19 @@ test('focused tuples carry the distinct-OUT ratio the diamonds plot', () => {
     assert.equal(outcome.ratioKnown, true);
 });
 
+test('hybrid focused tuples count comment corrections in the addressed denominator', () => {
+    const [f] = trendInspections([['f', 20260604, 3, 17, 3]]);
+    const view = inspectionPresentation(f);
+    const outcome = focusedOutcomePresentation(view);
+
+    assert.equal(f.addressed_item_count, 17);
+    assert.equal(view.formCount, 3);
+    assert.equal(outcome.label, '3/17 OUT');
+    assert.equal(outcome.ratioKnown, true);
+    const ctx = { _scoreColor: proto._scoreColor, _sparkSvg: proto._sparkSvg };
+    assert.match(proto._sparkline.call(ctx, [f]), />3\/17<\/text>/);
+});
+
 test('a focused tuple with a null OUT count claims no ratio (baseline tick)', () => {
     const [f] = trendInspections([['f', 20260306, null, 3]]);
     const view = inspectionPresentation(f);

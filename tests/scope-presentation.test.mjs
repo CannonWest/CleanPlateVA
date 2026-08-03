@@ -112,6 +112,19 @@ test('compact row-counted OUT values are never presented as a distinct-item rati
     assert.equal(dashboard.focusedOutcomePresentation(futureDistinct).label, '2/3 OUT');
 });
 
+test('hybrid detail rows use the exported effective OUT union', () => {
+    const view = dashboard.inspectionPresentation({
+        scope: 'focused', form_item_count: 1, applicable_item_count: 1,
+        addressed_item_count: 3, out_item_count: 2,
+        checklist: [{ item: 22, disposition: 'OUT', violation: true }],
+    });
+    const outcome = dashboard.focusedOutcomePresentation(view);
+
+    assert.equal(view.out, 2);
+    assert.equal(view.count, 3);
+    assert.equal(outcome.label, '2/3 OUT');
+});
+
 test('focused history renders one colored X/Y OUT signal', () => {
     const context = {
         _disposSets: dashboard.FoodDashboard.prototype._disposSets,
