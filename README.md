@@ -109,9 +109,11 @@ Each inspection is classified from distinct numbered, non-sentinel form items:
 `applicable_item_count` separately counts distinct IN/OUT items. N/A and N/O
 can prove breadth but are never compliant passes.
 
-An inspection has a deterministic 0–100 score and never a letter. A facility
-grade is a score plus A–F letter anchored to its newest broad assessment and
-adjusted by later focused re-checks. A scope-unknown follow-up may carry an
+Only a broad inspection publishes a deterministic 0–100 score, and it never
+has a letter. Focused and scope-unknown inspections publish `score: null`; the
+focused presentation uses its OUT/applicable result instead. A facility grade
+is a score plus A–F letter anchored to its newest broad assessment and adjusted
+by later focused re-checks. A scope-unknown follow-up may carry an
 audited `adjudication {status, verdict, items?}` when the outcome exists only in
 the inspector's written comments. The About view documents the formula,
 adjustment ladder, provenance, and limitations.
