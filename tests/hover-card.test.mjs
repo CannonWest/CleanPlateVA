@@ -100,6 +100,31 @@ test('narrative tuples re-arm narrativeVerdictPresentation exactly', () => {
     assert.equal(narrativeVerdictPresentation(bare), null);
 });
 
+test('narrative trend labels count the IN items beside checks and OUT items beside X marks', () => {
+    const inspections = [
+        { date: '2026-04-08', checklist_present: false,
+            adjudication: { status: 'adjudicated', verdict: 'items',
+                items: { 2: 'IN', 16: 'IN', 25: 'IN' } } },
+        { date: '2026-04-07', checklist_present: false,
+            adjudication: { status: 'adjudicated', verdict: 'items',
+                items: { 7: 'OUT', 21: 'OUT' } } },
+        { date: '2026-04-06', checklist_present: false,
+            adjudication: { status: 'adjudicated', verdict: 'all_corrected' } },
+    ];
+    const ctx = { _scoreColor: proto._scoreColor, _sparkSvg: proto._sparkSvg };
+    const html = proto._sparkline.call(ctx, inspections);
+    const nodes = JSON.parse(
+        html.match(/data-spark-nodes="([^"]*)"/)[1].replace(/&quot;/g, '"'));
+    const narrative = nodes.filter((node) => node.k === 'narr');
+
+    assert.deepEqual(narrative.map((node) => node.s), ['✓', '✗2', '✓3']);
+    assert.match(html, />✗2<\/text>/);
+    assert.match(html, />✓3<\/text>/);
+    assert.doesNotMatch(html, />✓0<\/text>|>✓null<\/text>/);
+    assert.match(proto._sparkHighlight(narrative[1]), />✗2<\/text>/);
+    assert.match(proto._sparkHighlight(narrative[2]), />✓3<\/text>/);
+});
+
 test('unknown tuples and zero dates decode to bare undated events', () => {
     const [u] = trendInspections([['u', 0]]);
     assert.equal(u.date, null);

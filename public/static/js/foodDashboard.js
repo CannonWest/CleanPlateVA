@@ -2443,12 +2443,19 @@ export class FoodDashboard {
             if (adj) {
                 narrCount += 1;
                 const py = y(adj.height);
+                // Enumerated written verdicts already know how many items the
+                // glyph asserts: IN beside a check, OUT beside an X. Carry the
+                // same counted label used by the history badge onto both the
+                // static trend and its enlarged hover clone. Blanket verdicts
+                // deliberately stay unnumbered because they name no item set.
+                const label = `${adj.glyph}${adj.count ?? ''}`;
                 nodes.push({
                     k: 'narr', x: +px.toFixed(1), y: +py.toFixed(1),
-                    tone: adj.tone, g: adj.glyph, historyIndex: event.historyIndex,
+                    tone: adj.tone, g: adj.glyph, s: label,
+                    historyIndex: event.historyIndex,
                 });
                 return `<rect class="food-spark-narr food-outcome-${adj.tone}" x="${(px - 6.3).toFixed(1)}" y="${(py - 6.3).toFixed(1)}" width="12.6" height="12.6" transform="rotate(45 ${px.toFixed(1)} ${py.toFixed(1)})"/>`
-                    + `<text class="food-spark-mark-label" x="${px.toFixed(1)}" y="${(py - 11.25).toFixed(1)}" text-anchor="middle">${adj.glyph}</text>`;
+                    + `<text class="food-spark-mark-label" x="${px.toFixed(1)}" y="${(py - 11.25).toFixed(1)}" text-anchor="middle">${label}</text>`;
             }
             return baselineTick(px, event);
         }).join('');
@@ -2508,7 +2515,7 @@ export class FoodDashboard {
         if (n.k === 'narr') {
             const h = 10.35;
             return `<rect class="food-spark-narr food-spark-hl-dia food-outcome-${n.tone}" x="${(n.x - h).toFixed(1)}" y="${(n.y - h).toFixed(1)}" width="${(h * 2).toFixed(1)}" height="${(h * 2).toFixed(1)}" transform="rotate(45 ${n.x} ${n.y})"/>`
-                + `<text class="food-spark-mark-label food-spark-hl-label" x="${n.x}" y="${(n.y - 21.375).toFixed(1)}" text-anchor="middle">${n.g}</text>`;
+                + `<text class="food-spark-mark-label food-spark-hl-label" x="${n.x}" y="${(n.y - 21.375).toFixed(1)}" text-anchor="middle">${n.s ?? n.g}</text>`;
         }
         return `<line class="food-spark-unknown food-spark-hl-tick" x1="${n.x}" y1="${n.y1}" x2="${n.x}" y2="${n.y2}"/>`;
     }
