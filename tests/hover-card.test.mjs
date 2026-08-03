@@ -165,7 +165,6 @@ test('the hover card is the hero: circle + trend + date cards, no flat grade tex
             score: 25, date: '2026-02-04' },
         grade: { score: 20, letter: 'F', base_score: 25, base_letter: 'F',
             base_date: '2026-02-04', adjusted: true, followups: 2 },
-        score_trend: [25, 94],
         trend: [['b', 20260204, 25, 35], ['f', 20260306, 3, 3],
             ['f', 20260402, 3, 3]],
     };

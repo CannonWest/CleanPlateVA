@@ -96,8 +96,9 @@ R2 upload. Compact checklist rows use
 `1 compliant | 2 violation | 4 cos | 8 repeat | 16 sentinel`; `dataClient.js`
 expands them using `standards.json`.
 
-The client retains V1 full-roster and public-finder fallbacks for the migration
-window. R2's legacy `facilities.json` is retained but no longer updated.
+The client accepts Contract V2 only. A failed or gated full-manifest read falls
+back to the public V2 tier; a missing, incomplete, or older public manifest is
+reported as unavailable. R2 contains no monolithic full-roster artifact.
 
 ## Inspection and grade semantics
 
