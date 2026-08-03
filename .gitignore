@@ -5,8 +5,9 @@ __pycache__/
 venv/
 *.egg-info/
 
-# Data tiers. The LITE payload (facilities.json — names + locations only,
-# the public finder data) is committed and deploys with the site. The FULL
+# Data tiers. The LITE payload (facilities.json — the 12-field identity,
+# location, and source-routing finder contract) is committed and deploys with
+# the site. The FULL
 # inspection archive is never committed — it's served from a private,
 # authenticated channel; data-full/ exists locally only for dev.
 public/data/*

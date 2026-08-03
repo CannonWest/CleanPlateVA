@@ -17,12 +17,13 @@ const THEME_KEY = 'cleanplateva.theme';
 const FORCE_LITE = new URLSearchParams(window.location.search).get('tier') === 'lite';
 
 // ── data client ─────────────────────────────────────────────────────────
-// The site is fully static and serves two tiers:
+// The browser client is static and consumes two prepared-data tiers:
 //   FULL  — /data-full/* — the complete inspection archive (scores, grades,
 //           violations, history). Served from a private, authenticated
 //           channel; anonymous visitors can't reach it.
-//   LITE  — /data/facilities.json — the public finder payload committed to
-//           this repo: names + locations + VDH link ids only.
+//   LITE  — /data/facilities.json — the 12-field public finder payload
+//           committed to this repo: identity, location, district-scoped VDH
+//           routing, restaurant/approximation flags, and mobile-unit identity.
 // The page tries the full channel first and falls back to lite, so the
 // same deploy serves both audiences. Detail files exist only in the full
 // tier and are pre-merged at export time.
