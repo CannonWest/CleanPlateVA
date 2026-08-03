@@ -80,9 +80,10 @@ test('the score explainer visibly gates grades by assessment breadth', () => {
     assert.match(html, /Distinct numbered items present on the report/);
     assert.match(html, /◇ 3\/3/);
     assert.match(html, /at the share of its re-examined items in compliance, labeled with that OUT ratio/);
-    // The page must keep teaching WHY the report score is off this chart, or
-    // the raw-formula plotting is one "simplification" away from returning.
-    assert.match(html, /subtracts only the handful of items the visit looked at/);
+    // The page must keep teaching WHY focused scores are null, or the
+    // misleading raw-formula number is one "simplification" away from returning.
+    assert.match(html, /report score is null/);
+    assert.match(html, /handful of items the visit examined/);
     // The explainer is deliberately static — no interactive controls, no
     // score-demo wiring anywhere in the About view.
     const aboutView = html.match(/<main class="food-about-wrap[\s\S]*?<\/main>/)?.[0] || '';

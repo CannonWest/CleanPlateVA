@@ -246,7 +246,7 @@ test('the detail header pins only title + Source; address/type scroll in a sub-b
     assert.match(source, /food-detail-sub"[\s\S]*?permit_type[\s\S]*?status/);
 });
 
-test('an inspection has a score but never a letter', () => {
+test('a broad inspection has a score but never a letter', () => {
     const withScore = dashboard.inspectionPresentation({
         scope: 'broad', applicable_item_count: 24, score: 81,
     });
