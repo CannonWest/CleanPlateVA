@@ -19,9 +19,10 @@ export default {
             return serveFullData(request, env, url);
         }
         const response = await env.ASSETS.fetch(request);
-        if (url.pathname === '/data/manifest.json') {
+        const publicCache = publicDataCacheControl(url.pathname);
+        if (publicCache) {
             const headers = new Headers(response.headers);
-            headers.set('Cache-Control', 'public, max-age=60, must-revalidate');
+            headers.set('Cache-Control', publicCache);
             return new Response(response.body, {
                 status: response.status,
                 statusText: response.statusText,
@@ -31,6 +32,16 @@ export default {
         return response;
     },
 };
+
+function publicDataCacheControl(pathname) {
+    if (pathname === '/data/manifest.json') {
+        return 'public, max-age=60, must-revalidate';
+    }
+    if (/^\/data\/finder\/[0-9a-f]+-[0-9a-f]{12}\.json$/.test(pathname)) {
+        return 'public, max-age=31536000, immutable';
+    }
+    return null;
+}
 
 async function serveFullData(request, env, url) {
     if (request.method !== 'GET' && request.method !== 'HEAD') {
