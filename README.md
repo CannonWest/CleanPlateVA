@@ -25,8 +25,8 @@ Prepared data uses explicit Contract V2 manifests:
 
 ```text
 public/data/
-├── manifest.json                 # freshness + finder digest/size/count
-└── facilities.json               # stable 12-field public finder
+├── manifest.json                 # freshness + public shard descriptors
+└── finder/<bucket>-<hash>.json   # stable 12-field public finder shards
 
 /data-full/ (private R2)
 ├── manifest.json                 # atomic snapshot pointer
@@ -36,25 +36,25 @@ public/data/
 └── facility/<permitID>.json      # one facility's nested inspection history
 ```
 
-The exporter uploads changed data objects first and publishes `manifest.json`
-last. Content-addressed finder/signal shards are immutable; the Worker gives
-them a long browser-private cache while the mutable manifest and detail objects
-revalidate quickly. The previous manifest's referenced shards are retained for
-one generation, so a browser holding a cached manifest never sees missing
-resources during a publish.
+The full publisher uploads changed data objects first and publishes
+`manifest.json` last. Content-addressed public shards use a long shared immutable cache;
+authenticated finder/signal shards use a long browser-private immutable cache.
+Mutable manifests and full detail objects revalidate quickly. The full publisher
+retains the previous manifest's referenced shards for one generation, so a
+browser holding a cached full manifest never sees missing resources during a
+publish.
 
 ### Public finder contract
 
-`public/data/facilities.json` is `cleanplateva.finder.v2`:
+`cleanplateva.finder-manifest.v2` points to 16 deterministic
+`cleanplateva.finder-shard.v2` files:
 
 ```json
 {
-  "contract": "cleanplateva.finder.v2",
+  "contract": "cleanplateva.finder-shard.v2",
   "schema_version": 2,
-  "available": true,
-  "mode": "lite",
-  "facilities": [],
-  "counts": { "total": 0, "by_zip": {} }
+  "bucket": "00",
+  "facilities": []
 }
 ```
 
@@ -64,11 +64,12 @@ the district-scoped VDH link; `approx` flags ZIP-centroid geocodes; `mobile`
 lets the public map hide mobile units whose permit address is not where they
 normally operate.
 
-Freshness intentionally lives in the small `cleanplateva.finder-manifest.v2`
-`manifest.json`, along with the finder's SHA-256, byte size, and record count.
-Removing `fetched_at` from the multi-megabyte finder keeps it byte-identical on
-days when only archive/grade data changed. The committed artifact contract is
-pinned by `tests/lite-roster-contract.test.mjs`.
+Freshness intentionally lives only in `manifest.json`; every shard descriptor
+includes path, bucket, SHA-256, byte size, and record count. Shards contain no
+timestamp, so a grade-only refresh changes only the manifest and a single
+facility/location edit replaces only its bucket plus the manifest. There is no
+public `facilities.json` monolith or compatibility loader. The committed
+artifact contract is pinned by `tests/lite-roster-contract.test.mjs`.
 
 ### Full archive contract
 
