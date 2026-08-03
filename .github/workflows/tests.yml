@@ -1,8 +1,8 @@
 # Push to main deploys production (Cloudflare Workers Builds), so the PR
 # check is the last gate before a change is live. Runs the whole node:test
 # suite — including tests/lite-roster-contract.test.mjs, which validates the
-# COMMITTED public/data/facilities.json and is the tripwire for a stale
-# export overwriting the public payload with an older shape.
+# COMMITTED public/data/facilities.json + manifest.json and is the tripwire
+# for a stale export overwriting the public payload with an older shape.
 #
 # No dependencies and no install step: the suite is plain node:test over
 # source files and the committed roster.
