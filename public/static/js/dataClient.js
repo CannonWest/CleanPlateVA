@@ -122,19 +122,28 @@ export function createFoodApi({
                 || manifest?.schema_version !== 2) {
                 throw new Error('unsupported public manifest');
             }
-            const finderPath = manifest.resources?.finder?.path;
-            if (!finderPath) throw new Error('public manifest has no finder resource');
-            const finder = await read(join(liteBase, finderPath));
-            if (finder?.contract !== 'cleanplateva.finder.v2'
-                || finder?.schema_version !== 2) {
-                throw new Error('unsupported public finder');
+            const finderDescriptors = shardDescriptors(manifest.resources?.finder);
+            if (!finderDescriptors.length) {
+                throw new Error('public manifest has no finder shards');
             }
-            const merged = { ...manifest, ...finder,
-                snapshot_id: manifest.snapshot_id,
-                fetched_at: manifest.fetched_at,
-                counts: manifest.counts || finder.counts };
-            remember(merged.facilities);
-            return merged;
+            const finderShards = await Promise.all(finderDescriptors.map(
+                (item) => read(join(liteBase, item.path), true)));
+            if (finderShards.some((shard) =>
+                shard?.contract !== 'cleanplateva.finder-shard.v2'
+                || shard?.schema_version !== 2)) {
+                throw new Error('unsupported public finder shard');
+            }
+            const facilities = finderShards.flatMap((shard) => shard.facilities || []);
+            const keys = new Set(facilities.map((facility) => String(facility.permit_id)));
+            const expected = manifest.counts?.total;
+            if (keys.size !== facilities.length) {
+                throw new Error('public finder has duplicate permit IDs');
+            }
+            if (Number.isFinite(expected) && facilities.length !== expected) {
+                throw new Error(`public roster count mismatch: ${facilities.length}/${expected}`);
+            }
+            remember(facilities);
+            return { ...manifest, facilities };
         } catch (error) {
             return {
                 available: false,

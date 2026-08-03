@@ -47,6 +47,24 @@ const fullManifest = {
     },
 };
 
+const liteManifest = {
+    contract: 'cleanplateva.finder-manifest.v2',
+    schema_version: 2,
+    available: true,
+    mode: 'lite',
+    snapshot_id: 'lite-1',
+    fetched_at: '2026-08-02T13:00:00Z',
+    counts: { total: 1 },
+    resources: { finder: { shards: [{ path: 'finder/00-public.json' }] } },
+};
+
+const liteShard = {
+    contract: 'cleanplateva.finder-shard.v2',
+    schema_version: 2,
+    bucket: '00',
+    facilities: [{ permit_id: 'public' }],
+};
+
 test('V2 full manifest loads and merges independent finder and signal shards', async () => {
     const fetchImpl = fakeFetch({
         'data-full/manifest.json': fullManifest,
@@ -146,14 +164,8 @@ test('incomplete full V2 drops directly to the public V2 tier', async () => {
         'data-full/finder/01-b.json': { facilities: [] },
         'data-full/signals/00-c.json': { facilities: [] },
         'data-full/signals/01-d.json': { facilities: [] },
-        'data/manifest.json': {
-            contract: 'cleanplateva.finder-manifest.v2', schema_version: 2,
-            resources: { finder: { path: 'facilities.json' } },
-        },
-        'data/facilities.json': {
-            contract: 'cleanplateva.finder.v2', schema_version: 2,
-            available: true, mode: 'lite', facilities: [{ permit_id: 'public' }],
-        },
+        'data/manifest.json': liteManifest,
+        'data/finder/00-public.json': liteShard,
     });
     const result = await createFoodApi({ fetchImpl }).getFoodFacilities();
     assert.deepEqual(result.facilities, [{ permit_id: 'public' }]);
@@ -170,14 +182,8 @@ test('noncanonical full resource arrays are rejected rather than normalized', as
                 signals: [{ path: 'signals/00-c.json' }],
             },
         },
-        'data/manifest.json': {
-            contract: 'cleanplateva.finder-manifest.v2', schema_version: 2,
-            resources: { finder: { path: 'facilities.json' } },
-        },
-        'data/facilities.json': {
-            contract: 'cleanplateva.finder.v2', schema_version: 2,
-            available: true, mode: 'lite', facilities: [{ permit_id: 'public' }],
-        },
+        'data/manifest.json': liteManifest,
+        'data/finder/00-public.json': liteShard,
     });
     const result = await createFoodApi({ fetchImpl }).getFoodFacilities();
     assert.deepEqual(result.facilities, [{ permit_id: 'public' }]);
@@ -186,28 +192,35 @@ test('noncanonical full resource arrays are rejected rather than normalized', as
 
 test('forced lite skips the full tier and attaches public manifest freshness', async () => {
     const fetchImpl = fakeFetch({
-        'data/manifest.json': {
-            contract: 'cleanplateva.finder-manifest.v2', schema_version: 2,
-            snapshot_id: 'lite-1', fetched_at: '2026-08-02T13:00:00Z',
-            resources: { finder: { path: 'facilities.json' } },
-        },
-        'data/facilities.json': {
-            contract: 'cleanplateva.finder.v2', schema_version: 2,
-            available: true, mode: 'lite', facilities: [{ permit_id: 'public' }],
-        },
+        'data/manifest.json': liteManifest,
+        'data/finder/00-public.json': liteShard,
     });
     const result = await createFoodApi({ fetchImpl, forceLite: true }).getFoodFacilities();
 
     assert.equal(result.snapshot_id, 'lite-1');
     assert.equal(result.fetched_at, '2026-08-02T13:00:00Z');
-    assert.deepEqual(fetchImpl.calls, ['data/manifest.json', 'data/facilities.json']);
+    assert.deepEqual(fetchImpl.calls,
+        ['data/manifest.json', 'data/finder/00-public.json']);
 });
 
-test('a public finder is not loaded without its V2 manifest', async () => {
+test('a public finder shard is not loaded without its V2 manifest', async () => {
     const fetchImpl = fakeFetch({
+        'data/finder/00-public.json': liteShard,
+    });
+    const result = await createFoodApi({ fetchImpl, forceLite: true }).getFoodFacilities();
+    assert.equal(result.available, false);
+    assert.deepEqual(fetchImpl.calls, ['data/manifest.json']);
+});
+
+test('the retired public monolith resource is rejected', async () => {
+    const fetchImpl = fakeFetch({
+        'data/manifest.json': {
+            ...liteManifest,
+            resources: { finder: { path: 'facilities.json' } },
+        },
         'data/facilities.json': {
             contract: 'cleanplateva.finder.v2', schema_version: 2,
-            available: true, mode: 'lite', facilities: [{ permit_id: 'public' }],
+            facilities: [{ permit_id: 'public' }],
         },
     });
     const result = await createFoodApi({ fetchImpl, forceLite: true }).getFoodFacilities();
