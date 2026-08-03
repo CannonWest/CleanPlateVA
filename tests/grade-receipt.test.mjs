@@ -107,6 +107,36 @@ const gradeC = {
     restored_points: 7.8, extra_points: 0.0,
 };
 
+// Case D — hybrid focused visit: comments restore items 1 and 3 while the
+// structured checklist keeps 22, 52, and 55 OUT. Item 55 appears in both
+// channels; the structured OUT governs.
+const baseD = {
+    inspection_id: 'BH', date: '2026-05-04', scope: 'broad', score: 78,
+    checklist: [1, 3, 22, 52, 55].map((item) =>
+        ({ item, disposition: 'OUT', violation: true })),
+    violations: [1, 3, 22, 52, 55].map((item) => ({ item, text: 'bad' })),
+};
+const hybridD = {
+    inspection_id: 'FH', date: '2026-06-04', scope: 'focused',
+    purpose: 'Follow-Up',
+    addressed_item_count: 5, out_item_count: 3,
+    checklist: [22, 52, 55].map((item) =>
+        ({ item, disposition: 'OUT', violation: true })),
+    violations: [],
+    adjudication: {
+        status: 'adjudicated', verdict: 'items',
+        items: { 1: 'IN', 3: 'IN', 55: 'IN' },
+    },
+};
+const gradeD = {
+    score: 81, letter: 'B', base_score: 78, base_letter: 'C',
+    base_date: '2026-05-04', base_inspection_id: 'BH', adjusted: true,
+    followups: 1, followup_date: '2026-06-04', narrative_followups: 1,
+    narrative_items: [1, 3], restored_items: [1, 3],
+    failed_items: [22, 52, 55], cos_items: [], new_items: [],
+    unchecked_items: [], restored_points: 7.8, extra_points: 5.0,
+};
+
 // Case E — same-day gating: a same-day focused visit adjusts ONLY when its
 // purpose marks it a Follow-Up (VDH dates carry no time).
 const baseE = {
@@ -219,6 +249,16 @@ test('narrative blanket clear restores at par and is flagged per item', () => {
         assert.equal(row.narrative, true);
         assert.equal(row.delta, 3.9);              // 65% of a plain 6-point dock
     }
+});
+
+test('hybrid follow-up composes comment INs with checklist OUTs once', () => {
+    const r = gradeReceiptPresentation({ grade: gradeD }, [hybridD, baseD]);
+    assert.equal(r.verified, true);
+    assert.equal(r.followups.length, 1);
+    assert.equal(r.followups[0].kind, 'hybrid');
+    assert.equal(r.followups[0].label, '3/5 OUT');
+    assert.deepEqual(r.journeys.restored.map((i) => i.item), [1, 3]);
+    assert.deepEqual(r.journeys.failed.map((i) => i.item), [22, 52, 55]);
 });
 
 test('reconcile mismatch degrades to bucket-level: no per-item points', () => {
