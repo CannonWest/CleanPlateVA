@@ -26,11 +26,18 @@ test('the mutable manifest revalidates quickly', async () => {
 
 test('the public manifest also revalidates quickly', async () => {
     assert.match(wrangler,
-        /"run_worker_first"\s*:\s*\[\s*"\/data\/manifest\.json"\s*\]/);
+        /"run_worker_first"\s*:\s*\[[^\]]*"\/data\/manifest\.json"[^\]]*"\/data\/finder\/\*"[^\]]*\]/);
     const response = await worker.fetch(
         new Request('https://cleanplateva.test/data/manifest.json'), env);
     assert.equal(response.headers.get('Cache-Control'),
         'public, max-age=60, must-revalidate');
+});
+
+test('content-addressed public finder shards are shared-cache immutable', async () => {
+    const response = await worker.fetch(
+        new Request('https://cleanplateva.test/data/finder/0f-123456abcdef.json'), env);
+    assert.equal(response.headers.get('Cache-Control'),
+        'public, max-age=31536000, immutable');
 });
 
 test('content-addressed finder and signal shards are browser-private immutable', async () => {

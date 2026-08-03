@@ -5,13 +5,14 @@ __pycache__/
 venv/
 *.egg-info/
 
-# Data tiers. The LITE finder + freshness/integrity manifest are committed and
-# deploy with the site. The FULL
+# Data tiers. The LITE finder shards + freshness/integrity manifest are
+# committed and deploy with the site. The FULL
 # inspection archive is never committed — it's served from a private,
 # authenticated channel; data-full/ exists locally only for dev.
 public/data/*
-!public/data/facilities.json
 !public/data/manifest.json
+!public/data/finder/
+!public/data/finder/*.json
 public/data-full/
 
 # wrangler local state
