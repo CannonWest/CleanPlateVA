@@ -1,4 +1,4 @@
-/** CleanPlateVA prepared-data client for manifest-led Contract V2. */
+/** CleanPlateVA prepared-data client for manifest-led Contract V3. */
 
 const DEFAULT_FULL_BASE = 'data-full';
 const DEFAULT_LITE_BASE = 'data';
@@ -62,10 +62,10 @@ export function createFoodApi({
         }
     }
 
-    async function loadFullV2() {
+    async function loadFullV3() {
         const manifest = await read(join(fullBase, 'manifest.json'), true);
-        if (manifest?.contract !== 'cleanplateva.full-manifest.v2'
-            || manifest?.schema_version !== 2) {
+        if (manifest?.contract !== 'cleanplateva.full-manifest.v3'
+            || manifest?.schema_version !== 3) {
             throw new Error('unsupported full manifest');
         }
         const finderDescriptors = shardDescriptors(manifest.resources?.finder);
@@ -80,11 +80,11 @@ export function createFoodApi({
             Promise.all(signalDescriptors.map((item) => read(join(fullBase, item.path), true))),
         ]);
         if (finderShards.some((shard) =>
-            shard?.contract !== 'cleanplateva.full-finder-shard.v2'
-            || shard?.schema_version !== 2)
+            shard?.contract !== 'cleanplateva.full-finder-shard.v3'
+            || shard?.schema_version !== 3)
             || signalShards.some((shard) =>
-                shard?.contract !== 'cleanplateva.full-signal-shard.v2'
-                || shard?.schema_version !== 2)) {
+                shard?.contract !== 'cleanplateva.full-signal-shard.v3'
+                || shard?.schema_version !== 3)) {
             throw new Error('unsupported full roster shard');
         }
         const byPermit = new Map();
@@ -118,8 +118,8 @@ export function createFoodApi({
     async function loadLite() {
         try {
             const manifest = await read(join(liteBase, 'manifest.json'), true);
-            if (manifest?.contract !== 'cleanplateva.finder-manifest.v2'
-                || manifest?.schema_version !== 2) {
+            if (manifest?.contract !== 'cleanplateva.finder-manifest.v3'
+                || manifest?.schema_version !== 3) {
                 throw new Error('unsupported public manifest');
             }
             const finderDescriptors = shardDescriptors(manifest.resources?.finder);
@@ -129,8 +129,8 @@ export function createFoodApi({
             const finderShards = await Promise.all(finderDescriptors.map(
                 (item) => read(join(liteBase, item.path), true)));
             if (finderShards.some((shard) =>
-                shard?.contract !== 'cleanplateva.finder-shard.v2'
-                || shard?.schema_version !== 2)) {
+                shard?.contract !== 'cleanplateva.finder-shard.v3'
+                || shard?.schema_version !== 3)) {
                 throw new Error('unsupported public finder shard');
             }
             const facilities = finderShards.flatMap((shard) => shard.facilities || []);
@@ -166,7 +166,7 @@ export function createFoodApi({
     return {
         async getFoodFacilities() {
             if (!forceLite) {
-                try { return await loadFullV2(); } catch (_) { /* public-tier fallback */ }
+                try { return await loadFullV3(); } catch (_) { /* public-tier fallback */ }
             }
             return loadLite();
         },
@@ -175,7 +175,7 @@ export function createFoodApi({
             if (!fullManifest) {
                 return {
                     available: false,
-                    reason: 'full Contract V2 manifest unavailable',
+                    reason: 'full Contract V3 manifest unavailable',
                 };
             }
             const template = fullManifest.resources.details.path_template;

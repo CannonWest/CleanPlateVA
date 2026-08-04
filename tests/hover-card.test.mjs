@@ -266,7 +266,7 @@ test('a pre-trend payload still circles the grade — sparkless, never blank', (
 test('lite keeps the slim finder tip — no hero, no judgment', () => {
     const html = proto._hoverCardHTML.call(cardCtx('lite'), {
         name: 'Taco Truck', address: '1 Main St', city: 'Richmond',
-        approx: true, mobile: true,
+        location: { source: 'zip_centroid' }, mobile: true,
     });
     assert.match(html, /Taco Truck/);
     assert.match(html, /≈ approximate location/);
@@ -274,6 +274,24 @@ test('lite keeps the slim finder tip — no hero, no judgment', () => {
         'data-grade-receipt']) {
         assert.doesNotMatch(html, new RegExp(banned), banned);
     }
+});
+
+test('Contract V3 map geometry reads only the nested effective location', () => {
+    const facility = {
+        permit_id: 'P-1', location: { lat: 37.6205521, lon: -77.5256119 },
+    };
+    const geojson = proto._toGeoJSON.call({ _mode: 'lite' }, [facility]);
+    assert.deepEqual(geojson.features[0].geometry.coordinates,
+        [-77.5256119, 37.6205521]);
+    assert.equal(proto._toGeoJSON.call({ _mode: 'lite' }, [
+        { permit_id: 'OLD', lat: 37.6, lon: -77.5 },
+    ]).features.length, 0, 'retired top-level coordinates must not be accepted');
+});
+
+test('shared-site metadata is disclosed without pretending pins are distinct', () => {
+    const html = proto._sharedSiteNote({ site_count: 5 });
+    assert.match(html, /physical site is shared by 5 facility records/);
+    assert.equal(proto._sharedSiteNote({ site_count: 1 }), '');
 });
 
 // ── marker-bound dismissal + panel-only interaction (source pins) ─────

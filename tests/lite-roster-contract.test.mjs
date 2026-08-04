@@ -24,13 +24,17 @@ const facilities = shards.flatMap(({ payload }) => payload.facilities);
 // The lite identity contract (cf_export_site._shape_lite). Judgment fields
 // are absent BY DESIGN -- lite is a finder, not a grader.
 const FIELDS = [
-    'address', 'address2', 'approx', 'city', 'is_restaurant', 'lat', 'lon',
-    'mobile', 'name', 'permit_id', 'tenant', 'zip',
+    'address', 'address2', 'city', 'is_restaurant', 'location', 'mobile',
+    'name', 'permit_id', 'tenant', 'zip',
+];
+const LOCATION_FIELDS = [
+    'lat', 'lon', 'precision', 'site_count', 'site_group_id', 'site_lat',
+    'site_lon', 'site_source', 'source',
 ];
 
 test('the committed public read model is manifest-led and shard-only', () => {
-    assert.equal(manifest.contract, 'cleanplateva.finder-manifest.v2');
-    assert.equal(manifest.schema_version, 2);
+    assert.equal(manifest.contract, 'cleanplateva.finder-manifest.v3');
+    assert.equal(manifest.schema_version, 3);
     assert.equal(manifest.available, true);
     assert.equal(manifest.mode, 'lite');
     assert.deepEqual(Object.keys(manifest.resources.finder), ['shards']);
@@ -44,11 +48,11 @@ test('the committed public read model is manifest-led and shard-only', () => {
     );
 });
 
-test('every shard has the exact V2 contract and matches its descriptor', () => {
+test('every shard has the exact V3 contract and matches its descriptor', () => {
     for (const { descriptor, bytes, payload } of shards) {
         assert.match(descriptor.path, /^finder\/[0-9a-f]{2}-[0-9a-f]{12}\.json$/);
-        assert.equal(payload.contract, 'cleanplateva.finder-shard.v2');
-        assert.equal(payload.schema_version, 2);
+        assert.equal(payload.contract, 'cleanplateva.finder-shard.v3');
+        assert.equal(payload.schema_version, 3);
         assert.equal(payload.bucket, descriptor.bucket.toString(16).padStart(2, '0'));
         assert.equal('fetched_at' in payload, false,
             'content-addressed shards must stay byte-stable when data is unchanged');
@@ -62,10 +66,16 @@ test('every shard has the exact V2 contract and matches its descriptor', () => {
     assert.equal(manifest.counts.total, facilities.length);
 });
 
-test('every record carries exactly the 12-field lite contract', () => {
+test('every record carries the exact nested-location lite contract', () => {
     const permits = new Set();
     for (const facility of facilities) {
         assert.deepEqual(Object.keys(facility).sort(), FIELDS, facility.permit_id);
+        assert.deepEqual(Object.keys(facility.location).sort(), LOCATION_FIELDS,
+            facility.permit_id);
+        for (const retired of ['lat', 'lon', 'approx', 'geocode_source']) {
+            assert.equal(retired in facility, false,
+                `${retired} survived on V3 record ${facility.permit_id}`);
+        }
         assert.equal(permits.has(facility.permit_id), false,
             `duplicate permit ${facility.permit_id} across public shards`);
         permits.add(facility.permit_id);
