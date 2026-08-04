@@ -770,7 +770,7 @@ export function facilityPresentation(facility = {}) {
         assessment = latest;
         assessmentRecord = facility.latest;
     }
-    // V2 carries one oldest-first compact event stream. Derive the
+    // V3 carries one oldest-first compact event stream. Derive the
     // newest-first broad series here so storage never duplicates scores.
     const trend = (facility.trend || [])
         .filter((event) => event?.[0] === 'b' && Number.isFinite(event[2]))
@@ -1408,9 +1408,10 @@ export class FoodDashboard {
     _coverageBounds() {
         let n = -90, s = 90, e = -180, w = 180;
         for (const f of this._facilities) {
-            if (f.lat == null || f.lon == null) continue;
-            n = Math.max(n, f.lat); s = Math.min(s, f.lat);
-            e = Math.max(e, f.lon); w = Math.min(w, f.lon);
+            const { lat, lon } = f.location || {};
+            if (lat == null || lon == null) continue;
+            n = Math.max(n, lat); s = Math.min(s, lat);
+            e = Math.max(e, lon); w = Math.min(w, lon);
         }
         if (n < s) return null;   // nothing located yet
         const PAD = 0.2;          // ~20 km — near-edge users still see markers
@@ -1554,7 +1555,8 @@ export class FoodDashboard {
         if (this._mode === 'lite') {
             return `<strong>${esc(f.name)}</strong><br>`
                 + `${esc(f.address || '')}${f.city ? ', ' + esc(f.city) : ''}`
-                + (f.approx ? '<br><span class="food-tip-sub">≈ approximate location</span>' : '');
+                + (f.location?.source === 'zip_centroid'
+                    ? '<br><span class="food-tip-sub">≈ approximate location</span>' : '');
         }
         const grade = gradePresentation(f);
         const latestView = inspectionPresentation(f.latest || null);
@@ -1589,14 +1591,15 @@ export class FoodDashboard {
         const lite = this._mode === 'lite';
         const features = [];
         for (const f of filtered) {
-            if (f.lat == null || f.lon == null) continue;
+            const { lat, lon } = f.location || {};
+            if (lat == null || lon == null) continue;
             // Closed permits (shown only when "Show closed" is on) plot greyed
             // + dimmed so they read as not-currently-open at a glance.
             const active = lite || this._isActive(f);
             const declining = !lite && facilityPresentation(f).declining;
             features.push({
                 type: 'Feature',
-                geometry: { type: 'Point', coordinates: [f.lon, f.lat] },
+                geometry: { type: 'Point', coordinates: [lon, lat] },
                 properties: {
                     pid: f.permit_id,
                     // Lite is the finder view: every marker a uniform neutral —
@@ -1888,6 +1891,8 @@ export class FoodDashboard {
 
     /** Lite detail panel: identity + the hand-off to the official record. */
     _renderLiteDetail(f) {
+        const geoNote = this._geoNote(f.location?.source);
+        const siteNote = this._sharedSiteNote(f.location);
         return `
             <div class="food-detail-head">
                 <div class="food-detail-title">
@@ -1896,8 +1901,9 @@ export class FoodDashboard {
                 </div>
                 <div class="text-muted small">
                     ${esc(f.address)}${f.address2 ? ' ' + esc(f.address2) : ''}${f.city ? ', ' + esc(f.city) : ''}, VA ${esc(f.zip || '')}
-                    ${f.approx ? '<span class="food-approx" title="Address didn\'t geocode — marker sits near the ZIP center, not the building">≈ approximate location</span>' : ''}
+                    ${geoNote}
                 </div>
+                ${siteNote}
             </div>
             <div class="food-lite-cta">
                 <a class="btn btn-sm btn-primary" target="_blank" rel="noopener"
@@ -1921,10 +1927,17 @@ export class FoodDashboard {
         return '';
     }
 
+    _sharedSiteNote(location) {
+        const count = Number(location?.site_count);
+        if (!Number.isInteger(count) || count < 2) return '';
+        return `<div class="text-muted small food-shared-site">This physical site is shared by ${count} facility records.</div>`;
+    }
+
     _renderDetail(fac, inspections) {
         const latest = inspections[0] || null;
         const latestView = inspectionPresentation(latest);
-        const geoNote = this._geoNote(fac.geocode?.source);
+        const geoNote = this._geoNote(fac.location?.source);
+        const siteNote = this._sharedSiteNote(fac.location);
         const sets = this._disposSets(latest?.checklist);
 
         // The facility GRADE circle leads the panel for every facility; the
@@ -1989,6 +2002,7 @@ export class FoodDashboard {
                     ${esc(fac.address)}${fac.address2 ? ' ' + esc(fac.address2) : ''}, ${esc(fac.city)}, ${esc(fac.state)} ${esc(fac.zip)}
                     ${geoNote}
                 </div>
+                ${siteNote}
                 <div class="text-muted small">
                     ${esc(fac.permit_type)} · ${esc(fac.status)}
                 </div>

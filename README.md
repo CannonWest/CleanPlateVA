@@ -21,12 +21,12 @@ The site is a static MapLibre client. A small Cloudflare Worker
 authenticated full-data reads from R2. It never queries VDH or CouchDB at
 request time.
 
-Prepared data uses explicit Contract V2 manifests:
+Prepared data uses explicit Contract V3 manifests:
 
 ```text
 public/data/
 ├── manifest.json                 # freshness + public shard descriptors
-└── finder/<bucket>-<hash>.json   # stable 12-field public finder shards
+└── finder/<bucket>-<hash>.json   # stable public finder shards
 
 /data-full/ (private R2)
 ├── manifest.json                 # atomic snapshot pointer
@@ -46,23 +46,28 @@ publish.
 
 ### Public finder contract
 
-`cleanplateva.finder-manifest.v2` points to 16 deterministic
-`cleanplateva.finder-shard.v2` files:
+`cleanplateva.finder-manifest.v3` points to 16 deterministic
+`cleanplateva.finder-shard.v3` files:
 
 ```json
 {
-  "contract": "cleanplateva.finder-shard.v2",
-  "schema_version": 2,
+  "contract": "cleanplateva.finder-shard.v3",
+  "schema_version": 3,
   "bucket": "00",
   "facilities": []
 }
 ```
 
-Each facility has exactly `permit_id, name, address, address2, city, zip,
-tenant, lat, lon, is_restaurant, approx, mobile`. `permit_id` + `tenant` build
-the district-scoped VDH link; `approx` flags ZIP-centroid geocodes; `mobile`
-lets the public map hide mobile units whose permit address is not where they
-normally operate.
+Each facility has exactly ten top-level fields: `permit_id, name, address,
+address2, city, zip, tenant, location, is_restaurant, mobile`. `location` has
+exactly `lat, lon, precision, source, site_group_id, site_count, site_lat,
+site_lon, site_source`. The effective `lat`/`lon` use an accepted permit-level
+refinement when one exists and otherwise equal the physical-site fallback.
+The `site_*` fields always retain that fallback, while the stable group ID/count
+lets the UI disclose co-located facility records. `permit_id` + `tenant` build
+the district-scoped VDH link; `source: zip_centroid` identifies approximate
+locations; `mobile` lets the public map hide mobile units whose permit address
+is not where they normally operate.
 
 Freshness intentionally lives only in `manifest.json`; every shard descriptor
 includes path, bucket, SHA-256, byte size, and record count. Shards contain no
@@ -73,7 +78,7 @@ artifact contract is pinned by `tests/lite-roster-contract.test.mjs`.
 
 ### Full archive contract
 
-`cleanplateva.full-manifest.v2` points to 16 deterministic finder shards and 16
+`cleanplateva.full-manifest.v3` points to 16 deterministic finder shards and 16
 sparse signal shards. The client joins them by `permit_id` in memory. Signal
 rows omit values the browser can derive or safely default:
 
@@ -97,8 +102,8 @@ R2 upload. Compact checklist rows use
 `1 compliant | 2 violation | 4 cos | 8 repeat | 16 sentinel`; `dataClient.js`
 expands them using `standards.json`.
 
-The client accepts Contract V2 only. A failed or gated full-manifest read falls
-back to the public V2 tier; a missing, incomplete, or older public manifest is
+The client accepts Contract V3 only. A failed or gated full-manifest read falls
+back to the public V3 tier; a missing, incomplete, or older public manifest is
 reported as unavailable. R2 contains no monolithic full-roster artifact.
 
 ## Inspection and grade semantics
