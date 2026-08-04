@@ -27,7 +27,8 @@ const dashboard = await import(
 );
 const proto = dashboard.FoodDashboard.prototype;
 const { trendInspections, inspectionPresentation, buildScopeSeries,
-    focusedOutcomePresentation, narrativeVerdictPresentation } = dashboard;
+    focusedOutcomePresentation, narrativeVerdictPresentation,
+    effectivePointCounts } = dashboard;
 
 const rows = (count, out = 0, dupes = 0) => {
     const list = Array.from({ length: count }, (_, index) => ({
@@ -288,10 +289,37 @@ test('Contract V3 map geometry reads only the nested effective location', () => 
     ]).features.length, 0, 'retired top-level coordinates must not be accepted');
 });
 
-test('shared-site metadata is disclosed without pretending pins are distinct', () => {
-    const html = proto._sharedSiteNote({ site_count: 5 });
-    assert.match(html, /physical site is shared by 5 facility records/);
-    assert.equal(proto._sharedSiteNote({ site_count: 1 }), '');
+test('shared-site notice follows effective map points, not the site baseline', () => {
+    const tastyCrab = {
+        permit_id: 'TASTY-CRAB',
+        location: {
+            lat: 37.6205521, lon: -77.5256119,
+            site_lat: 37.619662678, site_lon: -77.526942685,
+            site_count: 12,
+        },
+    };
+    const fallbackNeighbor = {
+        permit_id: 'NEIGHBOR',
+        location: {
+            lat: 37.619662678, lon: -77.526942685,
+            site_lat: 37.619662678, site_lon: -77.526942685,
+            site_count: 12,
+        },
+    };
+    const anotherFallback = {
+        permit_id: 'ANOTHER-NEIGHBOR',
+        location: { ...fallbackNeighbor.location },
+    };
+    const counts = effectivePointCounts(
+        [tastyCrab, fallbackNeighbor, anotherFallback]);
+    const ctx = { _effectivePointCounts: counts };
+
+    assert.equal(proto._sharedSiteNote.call(ctx, tastyCrab.location), '',
+        'a separated refinement must not inherit its original site warning');
+    const html = proto._sharedSiteNote.call(ctx, fallbackNeighbor.location);
+    assert.match(html, /map point is shared by 2 facility records/);
+    assert.equal(tastyCrab.location.site_count, 12,
+        'the original site count remains available for lineage');
 });
 
 // ── marker-bound dismissal + panel-only interaction (source pins) ─────

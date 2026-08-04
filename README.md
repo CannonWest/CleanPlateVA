@@ -64,10 +64,14 @@ exactly `lat, lon, precision, source, site_group_id, site_count, site_lat,
 site_lon, site_source`. The effective `lat`/`lon` use an accepted permit-level
 refinement when one exists and otherwise equal the physical-site fallback.
 The `site_*` fields always retain that fallback, while the stable group ID/count
-lets the UI disclose co-located facility records. `permit_id` + `tenant` build
-the district-scoped VDH link; `source: zip_centroid` identifies approximate
-locations; `mobile` lets the public map hide mobile units whose permit address
-is not where they normally operate.
+preserve address-level co-location lineage. The browser separately counts the
+effective `lat`/`lon` values in the loaded roster and shows a shared-map-point
+notice only while multiple facility records still render at that coordinate; a
+tenant refinement that separates successfully does not inherit its original
+site warning. `permit_id` + `tenant` build the district-scoped VDH link;
+`source: zip_centroid` identifies approximate locations; `mobile` lets the
+public map hide mobile units whose permit address is not where they normally
+operate.
 
 Freshness intentionally lives only in `manifest.json`; every shard descriptor
 includes path, bucket, SHA-256, byte size, and record count. Shards contain no
