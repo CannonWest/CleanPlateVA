@@ -888,6 +888,24 @@ function fmtDateNum(iso) {
     return d.toLocaleDateString('en-US', { year: 'numeric', month: 'numeric', day: 'numeric' });
 }
 
+// Count the coordinates the map actually renders, independently from the
+// preserved address-level site groups. Six decimals matches the exporter's
+// co-location precision (roughly 0.1 m) without treating harmless provider
+// float noise as a separate marker.
+export function effectivePointCounts(facilities) {
+    const counts = new Map();
+    for (const facility of facilities || []) {
+        const location = facility?.location;
+        if (location?.lat == null || location?.lon == null) continue;
+        const lat = Number(location?.lat);
+        const lon = Number(location?.lon);
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+        const key = `${lat.toFixed(6)},${lon.toFixed(6)}`;
+        counts.set(key, (counts.get(key) || 0) + 1);
+    }
+    return counts;
+}
+
 export class FoodDashboard {
     constructor(api) {
         this.api = api;
@@ -904,6 +922,7 @@ export class FoodDashboard {
         this._geojson = null;        // last-built FeatureCollection (re-applied on style swaps)
         this._facilities = [];
         this._byPermit = new Map();
+        this._effectivePointCounts = new Map();
         this._counts = null;
         this._filters = {
             q: '', zip: '', grade: '',
@@ -1097,6 +1116,7 @@ export class FoodDashboard {
 
         this._facilities = payload.facilities || [];
         this._byPermit = new Map(this._facilities.map((f) => [f.permit_id, f]));
+        this._effectivePointCounts = effectivePointCounts(this._facilities);
         this._counts = payload.counts || null;
 
         const fetchedEl = document.getElementById('foodFetchedAt');
@@ -1928,9 +1948,14 @@ export class FoodDashboard {
     }
 
     _sharedSiteNote(location) {
-        const count = Number(location?.site_count);
+        if (location?.lat == null || location?.lon == null) return '';
+        const lat = Number(location?.lat);
+        const lon = Number(location?.lon);
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) return '';
+        const count = this._effectivePointCounts?.get(
+            `${lat.toFixed(6)},${lon.toFixed(6)}`);
         if (!Number.isInteger(count) || count < 2) return '';
-        return `<div class="text-muted small food-shared-site">This physical site is shared by ${count} facility records.</div>`;
+        return `<div class="text-muted small food-shared-site">This map point is shared by ${count} facility records.</div>`;
     }
 
     _renderDetail(fac, inspections) {
