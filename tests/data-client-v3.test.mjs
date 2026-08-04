@@ -26,8 +26,8 @@ function fakeFetch(payloads) {
 }
 
 const fullManifest = {
-    contract: 'cleanplateva.full-manifest.v2',
-    schema_version: 2,
+    contract: 'cleanplateva.full-manifest.v3',
+    schema_version: 3,
     available: true,
     mode: 'full',
     snapshot_id: 'snapshot-1',
@@ -48,8 +48,8 @@ const fullManifest = {
 };
 
 const liteManifest = {
-    contract: 'cleanplateva.finder-manifest.v2',
-    schema_version: 2,
+    contract: 'cleanplateva.finder-manifest.v3',
+    schema_version: 3,
     available: true,
     mode: 'lite',
     snapshot_id: 'lite-1',
@@ -59,29 +59,29 @@ const liteManifest = {
 };
 
 const liteShard = {
-    contract: 'cleanplateva.finder-shard.v2',
-    schema_version: 2,
+    contract: 'cleanplateva.finder-shard.v3',
+    schema_version: 3,
     bucket: '00',
     facilities: [{ permit_id: 'public' }],
 };
 
-test('V2 full manifest loads and merges independent finder and signal shards', async () => {
+test('V3 full manifest loads and merges independent finder and signal shards', async () => {
     const fetchImpl = fakeFetch({
         'data-full/manifest.json': fullManifest,
         'data-full/finder/00-a.json': {
-            contract: 'cleanplateva.full-finder-shard.v2', schema_version: 2,
-            facilities: [{ permit_id: 'A', name: 'Alpha', lat: 1, lon: 2 }],
+            contract: 'cleanplateva.full-finder-shard.v3', schema_version: 3,
+            facilities: [{ permit_id: 'A', name: 'Alpha', location: { lat: 1, lon: 2 } }],
         },
         'data-full/finder/01-b.json': {
-            contract: 'cleanplateva.full-finder-shard.v2', schema_version: 2,
-            facilities: [{ permit_id: 'B', name: 'Beta', lat: 3, lon: 4 }],
+            contract: 'cleanplateva.full-finder-shard.v3', schema_version: 3,
+            facilities: [{ permit_id: 'B', name: 'Beta', location: { lat: 3, lon: 4 } }],
         },
         'data-full/signals/00-c.json': {
-            contract: 'cleanplateva.full-signal-shard.v2', schema_version: 2,
+            contract: 'cleanplateva.full-signal-shard.v3', schema_version: 3,
             facilities: [{ permit_id: 'A', inspection_count: 3, trend: [['b', 20260101, 88, 30]] }],
         },
         'data-full/signals/01-d.json': {
-            contract: 'cleanplateva.full-signal-shard.v2', schema_version: 2,
+            contract: 'cleanplateva.full-signal-shard.v3', schema_version: 3,
             facilities: [{ permit_id: 'B', inspection_count: 1, latest: { score: 92 } }],
         },
     });
@@ -93,7 +93,7 @@ test('V2 full manifest loads and merges independent finder and signal shards', a
     assert.equal(result.snapshot_id, 'snapshot-1');
     assert.equal(result.facilities.length, 2);
     assert.deepEqual(result.facilities[0], {
-        permit_id: 'A', name: 'Alpha', lat: 1, lon: 2,
+        permit_id: 'A', name: 'Alpha', location: { lat: 1, lon: 2 },
         inspection_count: 3, trend: [['b', 20260101, 88, 30]],
     });
     assert.equal('score_trend' in result.facilities[0], false);
@@ -119,11 +119,11 @@ test('detail merges the cached roster row and decodes compact checklist rows', a
             },
         },
         'data-full/finder/00-a.json': {
-            contract: 'cleanplateva.full-finder-shard.v2', schema_version: 2,
+            contract: 'cleanplateva.full-finder-shard.v3', schema_version: 3,
             facilities: [{ permit_id: 'A', name: 'Roster name', city: 'Richmond' }],
         },
         'data-full/signals/00-c.json': {
-            contract: 'cleanplateva.full-signal-shard.v2', schema_version: 2,
+            contract: 'cleanplateva.full-signal-shard.v3', schema_version: 3,
             facilities: [{ permit_id: 'A', grade: { score: 88, letter: 'B' } }],
         },
         'data-full/facility/A.json': {
@@ -157,7 +157,7 @@ test('detail merges the cached roster row and decodes compact checklist rows', a
     });
 });
 
-test('incomplete full V2 drops directly to the public V2 tier', async () => {
+test('incomplete full V3 drops directly to the public V3 tier', async () => {
     const fetchImpl = fakeFetch({
         'data-full/manifest.json': fullManifest,
         'data-full/finder/00-a.json': new Error('shard unavailable'),
@@ -203,7 +203,7 @@ test('forced lite skips the full tier and attaches public manifest freshness', a
         ['data/manifest.json', 'data/finder/00-public.json']);
 });
 
-test('a public finder shard is not loaded without its V2 manifest', async () => {
+test('a public finder shard is not loaded without its V3 manifest', async () => {
     const fetchImpl = fakeFetch({
         'data/finder/00-public.json': liteShard,
     });
