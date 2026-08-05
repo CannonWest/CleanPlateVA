@@ -44,6 +44,18 @@ retains the previous manifest's referenced shards for one generation, so a
 browser holding a cached full manifest never sees missing resources during a
 publish.
 
+Publication is driven from cannon-food by a strict source-fact change set or an
+explicit full-build run ID. The persistent local Full cache is treated as a
+materialized view. A permit-bounded update is accepted only when current
+identity/site ownership and, for inspection changes, the shared-standards vote
+state prove it equivalent to a full rebuild. Any missing proof or global/schema
+change falls back to the deterministic two-pass full exporter. The publisher is
+resumable, records a manifest-bound receipt, runs the Lite contract and shrink
+gates, previews R2, flips R2 manifest-last, then commits/pushes the Lite data.
+There is no cross-system distributed transaction, but each tier changes through
+one atomic pointer (the R2 manifest or the Git commit), and completed phases are
+not repeated on resume.
+
 ### Public finder contract
 
 `cleanplateva.finder-manifest.v3` points to 16 deterministic
@@ -108,7 +120,14 @@ expands them using `standards.json`.
 
 The client accepts Contract V3 only. A failed or gated full-manifest read falls
 back to the public V3 tier; a missing, incomplete, or older public manifest is
-reported as unavailable. R2 contains no monolithic full-roster artifact.
+reported as unavailable. The publisher's manifest-derived inventory forbids
+and deletes the retired monolithic full-roster artifact; arbitrary JSON in the
+local Full cache blocks publication instead of silently becoming public.
+Production publication also fetches both repositories and requires clean local
+`main` heads synchronized with `origin/main`. Broad attended migrations can
+checkpoint after the exact R2 dry-run and resume from the recorded phase/head
+state after review; the content-addressed plan is recomputed before apply and
+remote drift forces another checkpoint.
 
 ## Inspection and grade semantics
 
