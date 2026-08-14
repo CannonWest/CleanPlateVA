@@ -15,6 +15,9 @@
  *     256px-tile maps;
  *   · markers are a data-driven circle layer (paint props read per-feature
  *     properties baked in _toGeoJSON);
+ *   · one feature per DISTINCT POINT, not per facility — permits sharing a
+ *     coordinate become one stack bubble carrying its count, and clicking it
+ *     fans the members out as DOM markers at pixel offsets (_expandStack);
  *   · theme swap is map.setStyle(light↔dark) + re-adding the data source and
  *     layers on the next `style.load`.
  *
@@ -72,6 +75,11 @@ const GRADE_COLORS = {
 // panel badge), so it lives alongside GRADE_COLORS.
 const NEW_COLOR = '#1c7ed6';
 
+// The two non-grade marker fills, named because the stack summary and the
+// spiderfied legs have to reach the same values the plain markers use.
+const LITE_MARKER_COLOR = '#8d939c';   // lite tier: uniform, judgment-free
+const CLOSED_COLOR = '#9aa0a6';        // not a live permit
+
 // CARTO vector basemaps. Attribution rides in the style's sources;
 // MapLibre's AttributionControl surfaces it.
 const STYLE_LIGHT = 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json';
@@ -91,6 +99,102 @@ const SRC = 'food-facilities';
 const LYR_CLUSTERS = 'food-clusters';
 const LYR_CLUSTER_COUNT = 'food-cluster-count';
 const LYR_POINTS = 'food-points';
+const LYR_STACK_RING = 'food-stack-ring';
+const LYR_STACKS = 'food-stacks';
+const LYR_STACK_COUNT = 'food-stack-count';
+
+// ── same-coordinate stacks ─────────────────────────────────────────────
+//
+// VDH hands many permits one point: a food court, a campus dining hall, a
+// strip mall sharing a parcel centroid, a re-permitted sibling the merge
+// rules deliberately keep separate. Those markers sit exactly on top of each
+// other at EVERY zoom — proximity clustering never resolves them, because
+// they never separate — and only the topmost is hoverable or clickable.
+// Measured against the 2026-08 Lite roster, default public view: 1,421 stacks
+// holding 4,480 of 22,357 markers, of which 3,059 could not be reached at all.
+//
+// Grouping is exact at 6dp (~0.11m), the same key the CannonAI refinement
+// editor spiderfies on. A metre-scale tolerance was measured and rejected: it
+// adds 62 pairs statewide and turns a stable key into transitive clustering,
+// which is the order-dependence trap cannon-food's merge arc already fought
+// and lost once (MERGE-M2). A genuine 1m-apart duplicate is a data bug for
+// the location layer, not a rendering tolerance.
+const STACK_DP = 6;
+const STACK_RADII = [11, 13, 15];   // core radius by member count: <10, <50, 50+
+const STACK_RING_GAP = 4;           // halo sits this far outside the core
+
+// Dashed halos are pre-drawn images because MapLibre circle layers have no
+// dash property. The refinement editor gets `border: 2px dashed` free from
+// CSS since every dot there is a real DOM element; that is not an option
+// across 19k markers, so the ring becomes one small icon per (colour, size).
+const STACK_RING_COLORS = {
+    A: GRADE_COLORS.A, B: GRADE_COLORS.B, C: GRADE_COLORS.C,
+    D: GRADE_COLORS.D, F: GRADE_COLORS.F, none: GRADE_COLORS.none,
+    closed: CLOSED_COLOR, new: NEW_COLOR, lite: LITE_MARKER_COLOR,
+};
+
+// A cluster feature has point_count and no `stack`; every source feature has
+// `stack` (1 when it is the only place at its point). Never mutate these —
+// _setStackFilter spreads them into a narrowed copy.
+const LONE_PLACE_FILTER = ['all', ['!', ['has', 'point_count']], ['==', ['get', 'stack'], 1]];
+const STACK_FILTER = ['all', ['!', ['has', 'point_count']], ['>', ['get', 'stack'], 1]];
+
+/** Exact coordinate identity. Longitude first, matching the editor's key. */
+export function stackKey(lat, lon) {
+    return `${Number(lon).toFixed(STACK_DP)}|${Number(lat).toFixed(STACK_DP)}`;
+}
+
+export function stackRadius(count) {
+    if (count >= 50) return STACK_RADII[2];
+    return count >= 10 ? STACK_RADII[1] : STACK_RADII[0];
+}
+
+export function stackRingIcon(ringKey, count) {
+    return `stack-ring-${ringKey}-${stackRadius(count)}`;
+}
+
+/** Screen-space ring offsets for a spiderfied stack.
+ *
+ *  Ring count is the smallest whose cumulative seating covers `count`; seats
+ *  are then distributed across those rings in proportion to capacity, by
+ *  largest remainder so they sum exactly. Filling each ring to capacity
+ *  instead — the refinement editor's original shape — strands the remainder
+ *  alone in the outermost ring: Dulles's 57 permits seat 9/16/24 and fling
+ *  the last 8 out to r=92 reading as strays rather than as a ring.
+ *
+ *  `spacing` is centre-to-centre arc length, so it has to clear the dot
+ *  DIAMETER. Markers are 7px radius under a mouse and 10px on a coarse
+ *  pointer, which is why the editor's 16px would overlap on a phone.
+ */
+export function spiderOffsets(count, { spacing = 18, first = 26, step = 22 } = {}) {
+    if (count <= 1) return [[0, 0]];
+    const seatsAt = (ring) => Math.max(
+        6, Math.floor((2 * Math.PI * (first + step * ring)) / spacing));
+    const caps = [];
+    for (let total = 0; total < count; total += caps[caps.length - 1]) {
+        caps.push(seatsAt(caps.length));
+    }
+    const capSum = caps.reduce((a, b) => a + b, 0);
+    const exact = caps.map((c) => (count * c) / capSum);
+    const seats = exact.map((v) => Math.floor(v));
+    let spare = count - seats.reduce((a, b) => a + b, 0);
+    exact
+        .map((v, i) => [v - seats[i], i])
+        .sort((a, b) => b[0] - a[0])
+        .forEach(([, i]) => { if (spare > 0) { seats[i] += 1; spare -= 1; } });
+    const offsets = [];
+    seats.forEach((n, ring) => {
+        const radius = first + step * ring;
+        // Half-seat twist on alternate rings so dots don't line up into
+        // spokes, which reads as a pattern rather than a set of places.
+        const twist = ring % 2 ? Math.PI / n : 0;
+        for (let i = 0; i < n; i += 1) {
+            const angle = ((2 * Math.PI * i) / n) - (Math.PI / 2) + twist;
+            offsets.push([Math.cos(angle) * radius, Math.sin(angle) * radius]);
+        }
+    });
+    return offsets;
+}
 
 function esc(s) {
     return String(s ?? '').replace(/[&<>"']/g, (c) => ({
@@ -920,6 +1024,12 @@ export class FoodDashboard {
         this._hoverPopup = null;
         this._hoverPid = null;       // permit under the open hover card
         this._geojson = null;        // last-built FeatureCollection (re-applied on style swaps)
+        this._stacks = new Map();    // coord key → { key, lat, lon, members }
+        this._spider = null;         // the open stack's DOM legs, if any
+        // Stable reference so the movestart listener can be removed again: a
+        // web survives a camera move (its legs are screen offsets) but an open
+        // hover card is pinned to a geographic point and would drift.
+        this._onSpiderMove = () => this._hideHoverCard();
         this._facilities = [];
         this._byPermit = new Map();
         this._effectivePointCounts = new Map();
@@ -1280,6 +1390,8 @@ export class FoodDashboard {
         if (!this._map || this._map.getSource(SRC)) return;
         this._mapReady = true;
 
+        this._installRingImages();
+
         this._map.addSource(SRC, {
             type: 'geojson',
             data: this._geojson || { type: 'FeatureCollection', features: [] },
@@ -1288,6 +1400,10 @@ export class FoodDashboard {
             cluster: true,
             clusterMaxZoom: 12,
             clusterRadius: 40,
+            // Every feature carries `stack` (1 for a lone place), so a cluster
+            // reports the PLACES inside it rather than the points it drew over.
+            // Without this a cluster covering Dulles counts 57 permits as one.
+            clusterProperties: { sum: ['+', ['get', 'stack']] },
         });
 
         // Cluster bubbles — sized/tinted by member count. In lite the tint
@@ -1313,7 +1429,15 @@ export class FoodDashboard {
             source: SRC,
             filter: ['has', 'point_count'],
             layout: {
-                'text-field': '{point_count_abbreviated}',
+                // `sum` (see clusterProperties), not point_count: a cluster
+                // must count places, and one feature can stand for 57 of them.
+                // point_count_abbreviated came free; abbreviate sum by hand.
+                'text-field': ['case',
+                    ['>=', ['get', 'sum'], 1000],
+                    ['concat',
+                        ['to-string', ['/', ['round', ['/', ['get', 'sum'], 100]], 10]],
+                        'k'],
+                    ['to-string', ['get', 'sum']]],
                 // Must exist in the CARTO glyphs endpoint (both positron and
                 // dark-matter carry the Montserrat stack).
                 'text-font': ['Montserrat Regular'],
@@ -1330,7 +1454,7 @@ export class FoodDashboard {
             id: LYR_POINTS,
             type: 'circle',
             source: SRC,
-            filter: ['!', ['has', 'point_count']],
+            filter: LONE_PLACE_FILTER,
             paint: {
                 // 7px circles are sub-finger touch targets — bump on
                 // coarse-pointer devices; tap→detail stays the primary path.
@@ -1341,6 +1465,98 @@ export class FoodDashboard {
                 'circle-stroke-width': ['get', 'strokeW'],
             },
         });
+
+        // Stacks sit above the lone dots: a point standing for 57 places
+        // outranks its neighbours, and its count must never be occluded.
+        //
+        // The halo is dashed where a proximity cluster's is a solid 4px white
+        // ring, and the fill comes from the grade palette rather than the
+        // count ramp — so the two bubbles never claim to mean the same thing.
+        // Dashed-over-filled is the refinement editor's own ghost-badge
+        // idiom ("things inside"), carried over so one mark reads one way on
+        // both surfaces.
+        this._map.addLayer({
+            id: LYR_STACK_RING,
+            type: 'symbol',
+            source: SRC,
+            filter: STACK_FILTER,
+            layout: {
+                'icon-image': ['get', 'ring'],
+                'icon-allow-overlap': true,
+                'icon-ignore-placement': true,
+            },
+        });
+        this._map.addLayer({
+            id: LYR_STACKS,
+            type: 'circle',
+            source: SRC,
+            filter: STACK_FILTER,
+            paint: {
+                'circle-radius': ['step', ['get', 'stack'],
+                    STACK_RADII[0], 10, STACK_RADII[1], 50, STACK_RADII[2]],
+                'circle-color': ['get', 'fill'],
+                'circle-opacity': ['get', 'fillOpacity'],
+                'circle-stroke-color': ['get', 'stroke'],
+                'circle-stroke-width': ['get', 'strokeW'],
+            },
+        });
+        this._map.addLayer({
+            id: LYR_STACK_COUNT,
+            type: 'symbol',
+            source: SRC,
+            filter: STACK_FILTER,
+            layout: {
+                'text-field': ['to-string', ['get', 'stack']],
+                'text-font': ['Montserrat Regular'],
+                'text-size': 11,
+                'text-allow-overlap': true,
+                'text-ignore-placement': true,
+                // Outside the disc, up and to the right. Inside it no single
+                // label colour survives the grade palette: white fails on
+                // amber (2.1:1), near-black fails on red (3.4:1), and neither
+                // clears AA on green. Outside with a dark halo it passes on
+                // every fill.
+                'text-offset': ['step', ['get', 'stack'],
+                    ['literal', [1.4, -1.3]],
+                    10, ['literal', [1.6, -1.5]],
+                    50, ['literal', [1.8, -1.7]]],
+            },
+            paint: {
+                'text-color': '#ffffff',
+                'text-halo-color': 'rgba(20, 20, 20, 0.85)',
+                'text-halo-width': 1.6,
+            },
+        });
+    }
+
+    /** Draw the dashed halos for this style. Cheap — nine colours by three
+     *  sizes of ~40px canvas — but it has to rerun after every setStyle,
+     *  which drops registered images along with the layers. */
+    _installRingImages() {
+        const ratio = 2;
+        for (const [key, color] of Object.entries(STACK_RING_COLORS)) {
+            for (const core of STACK_RADII) {
+                const id = `stack-ring-${key}-${core}`;
+                if (this._map.hasImage(id)) continue;
+                const radius = core + STACK_RING_GAP;
+                const box = radius + 2;                 // room for the stroke
+                const size = Math.ceil(box * 2 * ratio);
+                const canvas = document.createElement('canvas');
+                canvas.width = size;
+                canvas.height = size;
+                const ctx = canvas.getContext('2d');
+                ctx.scale(ratio, ratio);
+                ctx.strokeStyle = color;
+                ctx.globalAlpha = 0.8;
+                ctx.lineWidth = 1.5;
+                ctx.setLineDash([3, 3]);
+                ctx.beginPath();
+                ctx.arc(box, box, radius, 0, 2 * Math.PI);
+                ctx.stroke();
+                this._map.addImage(
+                    id, ctx.getImageData(0, 0, size, size), { pixelRatio: ratio });
+            }
+        }
     }
 
     /** One-time delegated event wiring. MapLibre keys these by layer id, so
@@ -1381,7 +1597,58 @@ export class FoodDashboard {
             map.on('mouseleave', LYR_CLUSTERS, () => {
                 map.getCanvas().style.cursor = '';
             });
+
+            // A stack is a container, not a place, so it gets a line saying
+            // what it holds and how to open it — never the facility card,
+            // which would have to pick one of the permits to be about.
+            map.on('mousemove', LYR_STACKS, (e) => {
+                const feat = e.features?.[0];
+                if (!feat) return;
+                map.getCanvas().style.cursor = 'pointer';
+                const token = `stack:${feat.properties.skey}`;
+                if (this._hoverPid === token) return;
+                this._hoverPid = token;
+                const n = feat.properties.stack;
+                this._hoverPopup?.setMaxWidth('240px');
+                this._hoverPopup
+                    ?.setLngLat(feat.geometry.coordinates.slice())
+                    .setHTML('<div class="food-hover-card"><div class="food-hover-card-head">'
+                        + `<strong>${n} places at this point</strong>`
+                        + '<div class="food-tip-sub">click to fan them out</div>'
+                        + '</div></div>')
+                    .addTo(map);
+            });
+            map.on('mouseleave', LYR_STACKS, () => {
+                map.getCanvas().style.cursor = '';
+                this._hideHoverCard();
+            });
         }
+
+        map.on('click', LYR_STACKS, (e) => {
+            const feat = e.features?.[0];
+            if (!feat) return;
+            this._hideHoverCard();
+            this._expandStack(feat.properties.skey);
+        });
+
+        // Anywhere else on the map closes an open web. The layer handler above
+        // runs for this same click, so ask what is actually under the pointer
+        // rather than racing it — and note the open stack is filtered OUT of
+        // LYR_STACKS, so clicking its own anchor closes it too.
+        map.on('click', (e) => {
+            if (!this._spider || !map.getLayer(LYR_STACKS)) return;
+            if (!map.queryRenderedFeatures(e.point, { layers: [LYR_STACKS] }).length) {
+                this._dismissSpider();
+            }
+        });
+
+        // Escape closes the web, unless the grade-receipt modal is up and
+        // owns the key.
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && this._spider && !this._receiptHost) {
+                this._dismissSpider();
+            }
+        });
 
         map.on('click', LYR_POINTS, (e) => {
             const feat = e.features?.[0];
@@ -1420,6 +1687,93 @@ export class FoodDashboard {
         // Lite keeps the slim name+address tip; the hero card needs the room.
         popup.setMaxWidth(lite ? '280px' : '380px');
         popup.setLngLat(lngLat).setHTML(this._hoverCardHTML(f)).addTo(this._map);
+    }
+
+    // ── spiderfied stacks ───────────────────────────────────────────────
+
+    /** Fan a same-coordinate stack out into the places inside it.
+     *
+     *  The legs are DOM markers rather than canvas features because
+     *  MapLibre's Marker offset is a SCREEN-space vector — exactly what a
+     *  ring around one coordinate needs, surviving zoom and pan with no
+     *  recompute. That is affordable here and only here: one web is open at a
+     *  time, while the 19k-feature base map stays on the canvas. Building the
+     *  whole map from DOM markers, the way the refinement editor can afford
+     *  to over a single batch, is what this design is avoiding.
+     *
+     *  The stack's own bubble is filtered out while its web is open and
+     *  replaced by a dimmed anchor, so the ring visibly belongs to the point
+     *  it came from.
+     */
+    _expandStack(key) {
+        const group = this._stacks?.get(key);
+        if (!group || group.members.length < 2) return;
+        this._dismissSpider();
+        const coarse = window.matchMedia('(pointer: coarse)').matches;
+        const lngLat = [group.lon, group.lat];
+        const offsets = spiderOffsets(group.members.length,
+            { spacing: coarse ? 24 : 18 });
+        const anchor = document.createElement('div');
+        anchor.className = 'food-spider-anchor';
+        const markers = [new maplibregl.Marker({ element: anchor })
+            .setLngLat(lngLat).addTo(this._map)];
+
+        group.members.forEach((f, i) => {
+            const paint = this._markerPaint(f);
+            const el = document.createElement('div');
+            el.className = 'food-spider-leg';
+            el.style.setProperty('--leg-fill', paint.fill);
+            el.style.setProperty('--leg-stroke', paint.stroke);
+            el.style.setProperty('--leg-stroke-width', `${paint.strokeW}px`);
+            el.style.opacity = String(paint.fillOpacity);
+            el.title = f.name || '';
+            el.addEventListener('click', (ev) => {
+                // Markers are DOM siblings of the canvas, so this would
+                // otherwise also read as a click on empty map and close the
+                // web out from under the selection.
+                ev.stopPropagation();
+                this._hideHoverCard();
+                this._select(f);
+            });
+            if (!coarse) {
+                el.addEventListener('mouseenter', () => {
+                    // The leg is drawn at a pixel offset from the shared
+                    // point, so the card has to anchor at that offset
+                    // unprojected against the current camera — otherwise
+                    // every card in the ring points at the middle.
+                    const p = this._map.project(lngLat);
+                    this._showHoverCard(this._map.unproject(
+                        [p.x + offsets[i][0], p.y + offsets[i][1]]), f);
+                });
+                el.addEventListener('mouseleave', () => this._hideHoverCard());
+            }
+            markers.push(new maplibregl.Marker({ element: el, offset: offsets[i] })
+                .setLngLat(lngLat).addTo(this._map));
+        });
+
+        this._spider = { key, markers };
+        this._setStackFilter(key);
+        this._map.on('movestart', this._onSpiderMove);
+    }
+
+    _dismissSpider() {
+        if (!this._spider) return;
+        this._map?.off('movestart', this._onSpiderMove);
+        this._spider.markers.forEach((m) => m.remove());
+        this._spider = null;
+        this._hideHoverCard();
+        this._setStackFilter(null);
+    }
+
+    /** Hide one stack's bubble while its web is open, or restore them all. */
+    _setStackFilter(hiddenKey) {
+        if (!this._map || !this._mapReady) return;
+        const filter = hiddenKey
+            ? [...STACK_FILTER, ['!=', ['get', 'skey'], hiddenKey]]
+            : STACK_FILTER;
+        for (const id of [LYR_STACK_RING, LYR_STACKS, LYR_STACK_COUNT]) {
+            if (this._map.getLayer(id)) this._map.setFilter(id, filter);
+        }
     }
 
     // ── locate feedback ─────────────────────────────────────────────────
@@ -1499,6 +1853,10 @@ export class FoodDashboard {
         if (!this._map || typeof maplibregl === 'undefined') return;
         const dark = this._isDark();
         if (this._styleIsDark === dark) return;
+        // Close any open web first: its legs are DOM markers that would
+        // outlive the style swap, and restoring the stack filter needs the
+        // layers that are about to be torn down.
+        this._dismissSpider();
         this._styleIsDark = dark;
         this._mapReady = false;   // source dies with the old style
         // style.load re-installs the data layers over the new basemap.
@@ -1606,33 +1964,106 @@ export class FoodDashboard {
             </div>`;
     }
 
-    /** Filtered facilities → FeatureCollection with per-feature paint props. */
-    _toGeoJSON(filtered) {
+    /** Paint channels for ONE facility's dot. Shared by the canvas point
+     *  layer and by the DOM legs of an expanded stack, so a spiderfied
+     *  marker can never drift from the same facility's plain marker. */
+    _markerPaint(f) {
         const lite = this._mode === 'lite';
-        const features = [];
+        // Closed permits (shown only when "Show closed" is on) plot greyed
+        // + dimmed so they read as not-currently-open at a glance.
+        const active = lite || this._isActive(f);
+        const declining = !lite && facilityPresentation(f).declining;
+        return {
+            // Lite is the finder view: every marker a uniform neutral — the
+            // map locates places, it doesn't judge them. Full tier: graded →
+            // grade color, newly-permitted → blue, closed → gray.
+            fill: lite ? LITE_MARKER_COLOR
+                : !active ? CLOSED_COLOR
+                    : this._isNew(f) ? NEW_COLOR : this._markerColor(f),
+            fillOpacity: active ? 0.88 : 0.42,
+            // declining facilities get a heavier warning ring on any color-mode.
+            stroke: !active ? 'rgba(130, 130, 130, 0.55)'
+                : declining ? GRADE_COLORS.F : 'rgba(20, 20, 20, 0.55)',
+            strokeW: declining ? 2.5 : 1.5,
+        };
+    }
+
+    /** A stack's summary look: the mean grade of the places inside it.
+     *
+     *  A stack has no grade of its own, so it borrows the average — and the
+     *  moment it opens, every leg carries its own. Closed permits are left
+     *  out of the mean for the same reason they plot grey alone: a shuttered
+     *  restaurant's last grade is not a fact about the address today. An
+     *  all-closed stack reads closed; an ungraded one reads unscored, or new
+     *  when every live permit inside it is newly permitted. */
+    _stackAppearance(members) {
+        const base = { stroke: 'rgba(20, 20, 20, 0.55)', strokeW: 1.5 };
+        if (this._mode === 'lite') {
+            return { ...base, fill: LITE_MARKER_COLOR, fillOpacity: 0.88, ringKey: 'lite' };
+        }
+        const live = members.filter((m) => this._isActive(m));
+        if (!live.length) {
+            return {
+                ...base,
+                fill: CLOSED_COLOR,
+                fillOpacity: 0.42,
+                stroke: 'rgba(130, 130, 130, 0.55)',
+                ringKey: 'closed',
+            };
+        }
+        const scores = live
+            .map((m) => facilityPresentation(m).grade?.score)
+            .filter((s) => Number.isFinite(s));
+        if (!scores.length) {
+            const isNew = live.every((m) => this._isNew(m));
+            return {
+                ...base,
+                fill: isNew ? NEW_COLOR : GRADE_COLORS.none,
+                fillOpacity: 0.88,
+                ringKey: isNew ? 'new' : 'none',
+            };
+        }
+        const mean = scores.reduce((a, b) => a + b, 0) / scores.length;
+        const letter = gradeForScore(mean);
+        return { ...base, fill: GRADE_COLORS[letter], fillOpacity: 0.88, ringKey: letter };
+    }
+
+    /** Filtered facilities → one feature per DISTINCT POINT.
+     *
+     *  Facilities sharing a coordinate collapse into a single stack feature
+     *  carrying its member count; the members themselves stay in `_stacks`
+     *  under the same key, which is what the spiderfy reads. Keeping the
+     *  member list off the feature avoids depending on how
+     *  queryRenderedFeatures round-trips array-valued properties. */
+    _toGeoJSON(filtered) {
+        const groups = new Map();
         for (const f of filtered) {
             const { lat, lon } = f.location || {};
             if (lat == null || lon == null) continue;
-            // Closed permits (shown only when "Show closed" is on) plot greyed
-            // + dimmed so they read as not-currently-open at a glance.
-            const active = lite || this._isActive(f);
-            const declining = !lite && facilityPresentation(f).declining;
+            const key = stackKey(lat, lon);
+            const group = groups.get(key);
+            if (group) group.members.push(f);
+            else groups.set(key, { key, lat, lon, members: [f] });
+        }
+        this._stacks = groups;
+        const features = [];
+        for (const { key, lat, lon, members } of groups.values()) {
+            const stack = members.length;
+            const paint = stack === 1
+                ? this._markerPaint(members[0])
+                : this._stackAppearance(members);
             features.push({
                 type: 'Feature',
                 geometry: { type: 'Point', coordinates: [lon, lat] },
                 properties: {
-                    pid: f.permit_id,
-                    // Lite is the finder view: every marker a uniform neutral —
-                    // the map locates places, it doesn't judge them. Full tier:
-                    // graded → grade color, newly-permitted → blue, closed → gray.
-                    fill: lite ? '#8d939c'
-                        : !active ? '#9aa0a6'
-                            : this._isNew(f) ? NEW_COLOR : this._markerColor(f),
-                    fillOpacity: active ? 0.88 : 0.42,
-                    // declining facilities get a heavier warning ring on any color-mode.
-                    stroke: !active ? 'rgba(130, 130, 130, 0.55)'
-                        : declining ? GRADE_COLORS.F : 'rgba(20, 20, 20, 0.55)',
-                    strokeW: declining ? 2.5 : 1.5,
+                    pid: members[0].permit_id,
+                    skey: key,
+                    stack,
+                    fill: paint.fill,
+                    fillOpacity: paint.fillOpacity,
+                    stroke: paint.stroke,
+                    strokeW: paint.strokeW,
+                    ring: stack > 1 ? stackRingIcon(paint.ringKey, stack) : '',
                 },
             });
         }
@@ -1643,8 +2074,11 @@ export class FoodDashboard {
         if (this._viewMode === 'list') { this._rebuildList(); return; }
         if (!this._map) return;
         // A filter flip can remove the very marker the open card anchors to;
-        // don't leave the card floating over nothing.
+        // don't leave the card floating over nothing. The same flip can
+        // dissolve or re-count the stack an open web belongs to, and its legs
+        // are DOM markers that setData knows nothing about.
         this._hideHoverCard();
+        this._dismissSpider();
 
         const filtered = this._facilities.filter((f) => this._matchesFilters(f));
         this._geojson = this._toGeoJSON(filtered);
