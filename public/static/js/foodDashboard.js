@@ -131,6 +131,14 @@ const STACK_RING_GAP = 4;           // halo sits this far outside the core
 // would sit 16px away, tangled in the ring. Never zooms OUT.
 const STACK_OPEN_ZOOM = 17;
 
+// Above this zoom points stand alone and stacks are drawn; at or below it
+// proximity clustering swallows them. ONE constant because two consumers must
+// agree exactly: the source clusters on it, and an open web is dismissed when
+// the camera crosses back over it. Set them apart and you get either legs
+// hanging over a clustered map or a web that vanishes while its bubble is
+// still on screen.
+const CLUSTER_MAX_ZOOM = 12;
+
 // Dashed halos are pre-drawn images because MapLibre circle layers have no
 // dash property. The refinement editor gets `border: 2px dashed` free from
 // CSS since every dot there is a real DOM element; that is not an option
@@ -1038,6 +1046,15 @@ export class FoodDashboard {
         // web survives a camera move (its legs are screen offsets) but an open
         // hover card is pinned to a geographic point and would drift.
         this._onSpiderMove = () => this._hideHoverCard();
+        // Zoom out far enough and the stack this web belongs to is swallowed
+        // by a proximity cluster. The bubble is gone from the canvas at that
+        // point, but the legs are DOM markers and would hang over the
+        // clustered map until something else dismissed them.
+        this._onSpiderZoom = () => {
+            if (this._map && this._map.getZoom() <= CLUSTER_MAX_ZOOM) {
+                this._dismissSpider();
+            }
+        };
         this._facilities = [];
         this._byPermit = new Map();
         this._effectivePointCounts = new Map();
@@ -1417,7 +1434,7 @@ export class FoodDashboard {
             // Bubbles dissolve as you zoom in: grouped at metro view, plain
             // dots from neighborhood zoom up.
             cluster: true,
-            clusterMaxZoom: 12,
+            clusterMaxZoom: CLUSTER_MAX_ZOOM,
             clusterRadius: 40,
             // Every feature carries `stack` (1 for a lone place), so a cluster
             // reports the PLACES inside it rather than the points it drew over.
@@ -1795,6 +1812,10 @@ export class FoodDashboard {
         this._spider = { key, markers };
         this._setStackFilter(key);
         this._map.on('movestart', this._onSpiderMove);
+        // `zoom`, not `zoomend` — the web should go as the camera crosses the
+        // line, not once the gesture finishes. Safe against the easeTo below,
+        // which only ever raises zoom.
+        this._map.on('zoom', this._onSpiderZoom);
         // Centre the web and give it clear ground. Zoom never decreases: a
         // stack opened while already close in should not be pushed back out.
         this._map.easeTo({
@@ -1836,6 +1857,7 @@ export class FoodDashboard {
     _dismissSpider() {
         if (!this._spider) return;
         this._map?.off('movestart', this._onSpiderMove);
+        this._map?.off('zoom', this._onSpiderZoom);
         this._spider.markers.forEach((m) => m.remove());
         this._spider = null;
         this._hideHoverCard();
