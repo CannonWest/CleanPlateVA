@@ -921,17 +921,16 @@ export function gradeReceiptPresentation(facility = {}, inspections = []) {
     // carries its own weight, its own Repeat/COS badges and its own points.
     // Collapsing them to one row per item stated one reason and hid the rest,
     // and could not show an item holding a fixed-on-site finding beside an
-    // uncorrected one. `siblings`/`ordinal` mark findings sharing an item so
-    // the reader can see they came in under the same form line.
+    // uncorrected one. Findings sharing an item stay adjacent (sorted by
+    // item, filed in document order) and repeat the item number, which
+    // already reads as "these came in under the same form line".
     const baseItems = [...docks].filter(([item]) => item != null)
         .sort((a, b) => a[0] - b[0])
-        .flatMap(([item, dock]) => dock.findings.map((f, i) => ({
+        .flatMap(([item, dock]) => dock.findings.map((f) => ({
             item, category: item <= RF_MAX_ITEM ? 'risk_factor' : 'grp',
             repeat: f.repeat, cos: f.cos,
             points: verified ? oneDpTT(f.pointsTT) : null,
             text: f.text,
-            siblings: dock.findings.length,
-            ordinal: dock.findings.length > 1 ? i + 1 : null,
         })));
 
     // The ledger states the published triplet; `exact` decides whether the
@@ -2919,10 +2918,6 @@ export class FoodDashboard {
         // the points it alone cost, so an item holding a fixed-on-site finding
         // beside an uncorrected one reads as the two different things it is.
         const findingRow = (it) => shell(it, `
-                    ${it.ordinal ? chip('food-receipt-cat',
-                        `${it.ordinal} of ${it.siblings} under #${it.item}`,
-                        'VDH filed several separate findings under this one form item; '
-                            + 'each is weighed on its own') : ''}
                     ${it.repeat ? chip('food-flag-repeat', 'repeat ×1.5',
                         'VDH badged THIS finding a repeat — 1.5× its weight') : ''}
                     ${it.cos ? chip('food-dispos food-dispos-cos', 'fixed on site ×0.75',
