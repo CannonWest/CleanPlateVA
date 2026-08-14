@@ -341,6 +341,12 @@ test('an open web is torn down whenever its ground shifts', () => {
     assert.match(source, /_expandStack\(key\) \{[\s\S]{0,300}?this\._dismissSpider\(\);/);
 });
 
+test('counts and their bubbles change together on zoom', () => {
+    // Symbol layers cross-fade, circle layers do not. Left at the default a
+    // recluster orphans the counts on screen after their bubbles are gone.
+    assert.match(source, /fadeDuration: 0,/);
+});
+
 test('opening a stack centres it and gives the web clear ground', () => {
     // Zoom is a floor, never a setting: a stack opened while already close in
     // must not be pushed back out.
