@@ -341,6 +341,26 @@ test('an open web is torn down whenever its ground shifts', () => {
     assert.match(source, /_expandStack\(key\) \{[\s\S]{0,300}?this\._dismissSpider\(\);/);
 });
 
+test('opening a stack centres it and gives the web clear ground', () => {
+    // Zoom is a floor, never a setting: a stack opened while already close in
+    // must not be pushed back out.
+    assert.match(source,
+        /easeTo\(\{[\s\S]{0,160}?zoom: Math\.max\(this\._map\.getZoom\(\), STACK_OPEN_ZOOM\)/);
+    assert.match(source, /const STACK_OPEN_ZOOM = \d+;/);
+});
+
+test('the tethers are one marker, drawn under the legs', () => {
+    // Created FIRST — marker elements stack in creation order, so the legs
+    // and anchor cover the line ends.
+    assert.match(source,
+        /const markers = \[new maplibregl\.Marker\(\{ element: this\._spiderWeb\(offsets\) \}\)/);
+    // One SVG in local coordinates, not a line layer: leg positions are
+    // screen offsets, so geographic line geometry would need rebuilding on
+    // every camera frame.
+    assert.doesNotMatch(source, /addLayer\([\s\S]{0,120}?type: 'line'/);
+    assert.match(source, /svg\.classList\.add\('food-spider-web'\)/);
+});
+
 test('a click on empty map closes the web without racing the layer handler', () => {
     assert.match(source, /queryRenderedFeatures\(e\.point, \{ layers: \[LYR_STACKS\] \}\)/);
     assert.match(source, /e\.key === 'Escape' && this\._spider && !this\._receiptHost/);
