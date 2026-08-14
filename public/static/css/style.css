@@ -316,6 +316,37 @@ body {
 .theme-dark .food-tip.maplibregl-popup-anchor-left .maplibregl-popup-tip { border-right-color: var(--cp-surface-3); }
 .theme-dark .food-tip.maplibregl-popup-anchor-right .maplibregl-popup-tip { border-left-color: var(--cp-surface-3); }
 
+/* Spiderfied stack: DOM markers ringing one shared coordinate, drawn only
+   while a stack is open. Fill and stroke ride inline custom properties so a
+   leg is painted from the SAME _markerPaint values as its canvas dot — which
+   is also why there is no .theme-dark pair here. The grade palette is data,
+   not chrome (see GRADE_COLORS), and the canvas markers don't theme either.
+   Sizes match the point layer's radii: 7px on a mouse, 10px coarse. */
+.food-spider-leg {
+    box-sizing: border-box;
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    background: var(--leg-fill, #868e96);
+    border: var(--leg-stroke-width, 1.5px) solid var(--leg-stroke, rgba(20, 20, 20, 0.55));
+    cursor: pointer;
+}
+@media (pointer: coarse) {
+    .food-spider-leg { width: 21px; height: 21px; }
+}
+/* What is left of the bubble while its web is open: the point the ring
+   belongs to, dimmed, so the fan reads as anchored rather than free-floating.
+   Neutral and semi-transparent, so it works over either basemap. */
+.food-spider-anchor {
+    box-sizing: border-box;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: rgba(125, 132, 141, 0.35);
+    border: 1px dashed rgba(125, 132, 141, 0.85);
+    pointer-events: none;
+}
+
 /* Attribution strip + zoom control on dark. */
 .theme-dark .maplibregl-ctrl-attrib {
     background: rgba(12, 16, 25, 0.72);
