@@ -1403,7 +1403,14 @@ export class FoodDashboard {
             // Every feature carries `stack` (1 for a lone place), so a cluster
             // reports the PLACES inside it rather than the points it drew over.
             // Without this a cluster covering Dulles counts 57 permits as one.
-            clusterProperties: { sum: ['+', ['get', 'stack']] },
+            clusterProperties: {
+                sum: ['+', ['get', 'stack']],
+                // Raw sum + count, not a mean: adding them gives a cluster
+                // the mean over its PLACES. Averaging per-point means would
+                // weight a lone diner equally against a 57-permit food court.
+                gradeSum: ['+', ['get', 'gradeSum']],
+                gradeCount: ['+', ['get', 'gradeCount']],
+            },
         });
 
         // Cluster bubbles — sized/tinted by member count. In lite the tint
@@ -1416,7 +1423,9 @@ export class FoodDashboard {
             filter: ['has', 'point_count'],
             paint: {
                 'circle-color': this._clusterColors(),
-                'circle-radius': ['step', ['get', 'point_count'],
+                // Sized by places, like the label counts them — a bubble over
+                // one food court should not read smaller than its neighbours.
+                'circle-radius': ['step', ['get', 'sum'],
                     12, 10, 16, 50, 22],
                 'circle-opacity': 0.85,
                 'circle-stroke-width': 4,
@@ -1444,7 +1453,16 @@ export class FoodDashboard {
                 'text-size': 12,
                 'text-allow-overlap': true,
             },
-            paint: { 'text-color': '#212529' },
+            // White on a dark halo rather than near-black. The tint is a
+            // grade now, and no flat label colour clears AA across that
+            // palette — near-black is 3.4:1 on F red. The halo also fixes
+            // lite, where near-black on the 50+ grey was 4.1:1 before the
+            // 0.85 fill opacity dragged it to ~3.3:1 over dark-matter.
+            paint: {
+                'text-color': '#ffffff',
+                'text-halo-color': 'rgba(20, 20, 20, 0.85)',
+                'text-halo-width': 1.6,
+            },
         });
 
         // Individual facilities — all paint channels are per-feature
@@ -1840,13 +1858,33 @@ export class FoodDashboard {
         this._mapNote = null;
     }
 
+    /** Cluster tint.
+     *
+     *  Full tier: the mean grade of the live, scored places inside — the same
+     *  number a stack bubble wears. This used to be a green/yellow/orange
+     *  ramp keyed on member COUNT, which put "few places here" and "grade A"
+     *  on the same hue one zoom apart, in a view where the dots underneath
+     *  already spend green on grades. Size now says how many, colour says how
+     *  good, and one hue means one thing on every mark the map draws.
+     *
+     *  Bands match gradeForScore. Division is guarded by the zero case above
+     *  it — `case` only evaluates the branch it takes.
+     *
+     *  Lite keeps a neutral density ramp: it publishes no grades, so there is
+     *  nothing to average and nothing for a count ramp to collide with. */
     _clusterColors() {
         if (this._mode === 'lite') {
-            return ['step', ['get', 'point_count'],
+            return ['step', ['get', 'sum'],
                 '#9aa1a9', 10, '#8b929b', 50, '#7d848d'];
         }
-        return ['step', ['get', 'point_count'],
-            '#6ecc39', 10, '#f0c20c', 50, '#f18017'];
+        return ['case',
+            ['==', ['get', 'gradeCount'], 0], GRADE_COLORS.none,
+            ['step', ['/', ['get', 'gradeSum'], ['get', 'gradeCount']],
+                GRADE_COLORS.F,
+                60, GRADE_COLORS.D,
+                70, GRADE_COLORS.C,
+                80, GRADE_COLORS.B,
+                90, GRADE_COLORS.A]];
     }
 
     _applyTheme() {
@@ -1988,20 +2026,42 @@ export class FoodDashboard {
         };
     }
 
+    /** Mean-grade inputs for one point: the live, scored places standing on it.
+     *
+     *  Emitted per feature as raw SUM and COUNT rather than a mean, because
+     *  proximity clusters aggregate these through clusterProperties — adding
+     *  sums and counts gives a cluster the mean over its PLACES, where
+     *  averaging per-point means would weight a lone diner equally against a
+     *  57-permit food court. Closed permits are excluded for the same reason
+     *  they plot grey alone: a shuttered restaurant's last grade is not a
+     *  fact about the address today. */
+    _gradeAggregate(members) {
+        // Lite publishes no grades at all, so there is nothing to average.
+        const live = this._mode === 'lite'
+            ? [] : members.filter((m) => this._isActive(m));
+        const scores = live
+            .map((m) => facilityPresentation(m).grade?.score)
+            .filter((s) => Number.isFinite(s));
+        return {
+            live,
+            gradeSum: scores.reduce((a, b) => a + b, 0),
+            gradeCount: scores.length,
+        };
+    }
+
     /** A stack's summary look: the mean grade of the places inside it.
      *
      *  A stack has no grade of its own, so it borrows the average — and the
-     *  moment it opens, every leg carries its own. Closed permits are left
-     *  out of the mean for the same reason they plot grey alone: a shuttered
-     *  restaurant's last grade is not a fact about the address today. An
-     *  all-closed stack reads closed; an ungraded one reads unscored, or new
-     *  when every live permit inside it is newly permitted. */
+     *  moment it opens, every leg carries its own. An all-closed stack reads
+     *  closed; an ungraded one reads unscored, or new when every live permit
+     *  inside it is newly permitted. Proximity clusters wear the same mean
+     *  (see _clusterColors), so one hue means one thing on every mark. */
     _stackAppearance(members) {
         const base = { stroke: 'rgba(20, 20, 20, 0.55)', strokeW: 1.5 };
         if (this._mode === 'lite') {
             return { ...base, fill: LITE_MARKER_COLOR, fillOpacity: 0.88, ringKey: 'lite' };
         }
-        const live = members.filter((m) => this._isActive(m));
+        const { live, gradeSum, gradeCount } = this._gradeAggregate(members);
         if (!live.length) {
             return {
                 ...base,
@@ -2011,10 +2071,7 @@ export class FoodDashboard {
                 ringKey: 'closed',
             };
         }
-        const scores = live
-            .map((m) => facilityPresentation(m).grade?.score)
-            .filter((s) => Number.isFinite(s));
-        if (!scores.length) {
+        if (!gradeCount) {
             const isNew = live.every((m) => this._isNew(m));
             return {
                 ...base,
@@ -2023,8 +2080,7 @@ export class FoodDashboard {
                 ringKey: isNew ? 'new' : 'none',
             };
         }
-        const mean = scores.reduce((a, b) => a + b, 0) / scores.length;
-        const letter = gradeForScore(mean);
+        const letter = gradeForScore(gradeSum / gradeCount);
         return { ...base, fill: GRADE_COLORS[letter], fillOpacity: 0.88, ringKey: letter };
     }
 
@@ -2052,6 +2108,7 @@ export class FoodDashboard {
             const paint = stack === 1
                 ? this._markerPaint(members[0])
                 : this._stackAppearance(members);
+            const { gradeSum, gradeCount } = this._gradeAggregate(members);
             features.push({
                 type: 'Feature',
                 geometry: { type: 'Point', coordinates: [lon, lat] },
@@ -2059,6 +2116,11 @@ export class FoodDashboard {
                     pid: members[0].permit_id,
                     skey: key,
                     stack,
+                    // Cluster-colour inputs. Every feature carries them for
+                    // the same reason it carries `stack`: the accumulators
+                    // must never meet a null.
+                    gradeSum,
+                    gradeCount,
                     fill: paint.fill,
                     fillOpacity: paint.fillOpacity,
                     stroke: paint.stroke,

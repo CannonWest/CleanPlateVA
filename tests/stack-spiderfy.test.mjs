@@ -245,6 +245,91 @@ test('an ungraded stack reads unscored, or new when every place is', () => {
     ]).ringKey, 'none');
 });
 
+// ── cluster tint: mean grade over places ───────────────────────────────
+
+test('every feature carries the cluster-colour accumulators', () => {
+    const d = dash();
+    const { features } = d._toGeoJSON([
+        graded('a', 37.5, -77.4, 95),
+        graded('b', 37.5, -77.4, 85),
+        graded('c', 37.6, -77.4, 75),
+    ]);
+    for (const f of features) {
+        assert.equal(typeof f.properties.gradeSum, 'number');
+        assert.equal(typeof f.properties.gradeCount, 'number');
+    }
+    // Additive across features, which is the whole point: a cluster adds
+    // sums and counts and divides once, so its mean is over PLACES.
+    const sum = features.reduce((n, f) => n + f.properties.gradeSum, 0);
+    const count = features.reduce((n, f) => n + f.properties.gradeCount, 0);
+    assert.equal(sum, 255);
+    assert.equal(count, 3);
+    assert.equal(sum / count, 85);
+});
+
+test('the cluster mean is over places, not over points', () => {
+    const d = dash();
+    // One lone F next to a stack of four A's. Averaging per-point means
+    // would call this a C; the mean over places is an A.
+    const { features } = d._toGeoJSON([
+        graded('lone', 37.6, -77.4, 50),
+        ...[0, 1, 2, 3].map((i) => graded('s' + i, 37.5, -77.4, 96)),
+    ]);
+    const sum = features.reduce((n, f) => n + f.properties.gradeSum, 0);
+    const count = features.reduce((n, f) => n + f.properties.gradeCount, 0);
+    assert.equal(count, 5);
+    assert.equal(sum / count, 86.8);            // B — an A-weighted mean
+    const pointMeans = features.map((f) => f.properties.gradeSum / f.properties.gradeCount);
+    const naive = pointMeans.reduce((a, b) => a + b, 0) / pointMeans.length;
+    assert.equal(naive, 73);                    // C — the wrong answer
+});
+
+test('closed and ungraded places stay out of the accumulators', () => {
+    const d = dash();
+    const agg = d._gradeAggregate([
+        graded('live', 37.5, -77.4, 90),
+        graded('shut', 37.5, -77.4, 20, { status: 'Business Closed' }),
+        fac('new', 37.5, -77.4, { newly_permitted: true }),
+    ]);
+    assert.equal(agg.gradeSum, 90);
+    assert.equal(agg.gradeCount, 1);
+    assert.equal(agg.live.length, 2, 'the newly-permitted permit is still live');
+});
+
+test('lite has nothing to average', () => {
+    const d = dash('lite');
+    const agg = d._gradeAggregate([graded('a', 37.5, -77.4, 95)]);
+    assert.deepEqual([agg.gradeSum, agg.gradeCount], [0, 0]);
+    // …so its bubbles fall back to a neutral density ramp keyed on places.
+    const expr = JSON.stringify(d._clusterColors());
+    assert.match(expr, /"step",\["get","sum"\]/);
+    assert.doesNotMatch(expr, /gradeSum/);
+});
+
+test('full-tier clusters read the same bands a facility grade does', () => {
+    const expr = dash()._clusterColors();
+    // Zero-guard first — `case` short-circuits, so the divide never runs dry.
+    assert.equal(expr[0], 'case');
+    assert.deepEqual(expr[1], ['==', ['get', 'gradeCount'], 0]);
+    const step = expr[3];
+    assert.deepEqual(step[1], ['/', ['get', 'gradeSum'], ['get', 'gradeCount']]);
+    assert.deepEqual(step.slice(2), [
+        '#e03131', 60, '#e8590c', 70, '#f59f00', 80, '#94be1b', 90, '#2f9e44',
+    ]);
+    // The old stock cluster ramp must not survive anywhere: those hues are
+    // spent on grades, and a count-keyed green means something else entirely.
+    assert.doesNotMatch(source, /#6ecc39|#f0c20c|#f18017/);
+});
+
+test('a stack and a cluster over the same places agree on the colour', () => {
+    const d = dash();
+    const members = [graded('a', 37.5, -77.4, 95), graded('b', 37.5, -77.4, 65)];
+    const { gradeSum, gradeCount } = d._gradeAggregate(members);
+    // 80 → B, and the stack independently says B. One hue, one meaning.
+    assert.equal(gradeSum / gradeCount, 80);
+    assert.equal(d._stackAppearance(members).ringKey, 'B');
+});
+
 // ── the web's lifetime ─────────────────────────────────────────────────
 
 test('an open web is torn down whenever its ground shifts', () => {
