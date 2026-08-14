@@ -782,6 +782,16 @@ body.food-receipt-open { overflow: hidden; }
     font-size: 0.82rem;
     color: var(--cp-text);
 }
+/* Two or three unrelated findings often share one item number. Each gets its
+   own bulleted line so none hides behind the first; hues stay on the theme
+   tokens, so the modal's dark pair needs no rule of its own. */
+.food-receipt-item-texts {
+    margin: 0;
+    padding-left: 1.1rem;
+    list-style: disc;
+}
+.food-receipt-item-texts .food-receipt-item-text { margin-top: 0.25rem; }
+.food-receipt-item-texts .food-receipt-item-text::marker { color: var(--cp-muted); }
 /* Base-inspection counts as a chip row; the total box is white-on-data-hue
    (red any / green zero, background inline from JS), theme-independent by
    design like the grade circle. */

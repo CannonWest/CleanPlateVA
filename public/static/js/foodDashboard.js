@@ -780,26 +780,37 @@ export function gradeReceiptPresentation(facility = {}, inspections = []) {
         && sameItems([...narrativeItems], grade.narrativeItems);
 
     // Full text, no truncation — this is the detailed report card; the modal
-    // body scrolls, so long observations are welcome.
-    const textFor = (item) => {
+    // body scrolls, so long observations are welcome. EVERY observation cited
+    // under the item comes back: VDH routinely files two or three unrelated
+    // findings under one item number, and keeping only the first hid the
+    // reasons behind the rest of the deduction.
+    const textsFor = (item) => {
         const dock = docks.get(item);
-        if (dock && dock.texts.length) return dock.texts[0];
+        if (dock && dock.texts.length) return [...dock.texts];
         for (const fup of followups) {      // new items: found by a re-check
-            const hit = (fup.violations || []).find((v) => v.item === item && v.text);
-            if (hit) return hit.text;
+            const hits = (fup.violations || [])
+                .filter((v) => v.item === item && v.text).map((v) => v.text);
+            if (hits.length) return hits;   // newest-first: the governing visit
         }
-        return '';
+        return [];
     };
     // Display membership is the PUBLISHED buckets; derived numbers decorate
     // them only when the reconcile passed.
     const publishedNarrative = new Set((grade.narrativeItems || []).map(Number));
     const journey = (bucket, items) => items.map(Number).map((item) => {
         const dock = docks.get(item);
+        const texts = textsFor(item);
         const row = {
-            item, bucket, text: textFor(item),
+            item, bucket, texts,
             category: item <= RF_MAX_ITEM ? 'risk_factor' : 'grp',
             narrative: publishedNarrative.has(item),
             repeat: !!dock?.repeat, cosBase: !!dock?.cos,
+            // How many findings the item number carries, and whether their
+            // weights summed: a base dock charges once PER observation, while
+            // a new item docks once at its category weight however many
+            // observations the re-check wrote under it.
+            count: dock ? dock.count : texts.length,
+            countSums: !!dock,
             dockPts: null, delta: null,
         };
         if (verified && dock) {
@@ -822,9 +833,9 @@ export function gradeReceiptPresentation(facility = {}, inspections = []) {
         .sort((a, b) => a[0] - b[0])
         .map(([item, dock]) => ({
             item, category: item <= RF_MAX_ITEM ? 'risk_factor' : 'grp',
-            repeat: dock.repeat, cos: dock.cos, count: dock.count,
+            repeat: dock.repeat, cos: dock.cos, count: dock.count, countSums: true,
             points: verified ? oneDpTT(dock.pointsTT) : null,
-            text: dock.texts.length ? dock.texts[0] : '',
+            texts: [...dock.texts],
         }));
 
     // The ledger states the published triplet; `exact` decides whether the
@@ -2789,14 +2800,26 @@ export class FoodDashboard {
             : chip('food-receipt-cat food-receipt-cat-grp', 'retail practice −2',
                 'Good Retail Practices (items 30+) — 2 points per violation'));
 
-        // One item row, shared by the base list and the journey groups.
-        const itemRow = (it, deltaHtml) => `
+        // One item row, shared by the base list and the journey groups. Every
+        // observation filed under the item number prints: several unrelated
+        // findings routinely share one item, so a single line would state one
+        // reason and silently swallow the others behind the ×N chip.
+        const itemRow = (it, deltaHtml) => {
+            const texts = it.texts || [];
+            const body = texts.length > 1
+                ? `<ul class="food-receipt-item-texts">${texts.map(
+                    (t) => `<li class="food-receipt-item-text">${esc(t)}</li>`).join('')}</ul>`
+                : texts.length
+                    ? `<div class="food-receipt-item-text">${esc(texts[0])}</div>` : '';
+            return `
             <div class="food-receipt-item${it.category === 'risk_factor' ? ' food-receipt-item-rf' : ''}">
                 <div class="food-receipt-item-head">
                     <span class="food-receipt-item-no">#${esc(it.item)}</span>
                     ${catChip(it.category)}
-                    ${it.count > 1 ? chip('food-receipt-cat', `×${it.count} findings`,
-                        'Multiple violations were cited under this item — their weights sum') : ''}
+                    ${it.count > 1 ? chip('food-receipt-cat', `×${it.count} findings`, it.countSums
+                        ? 'Multiple violations were cited under this item — their weights sum'
+                        : 'Multiple violations were cited under this item on the re-check — '
+                            + 'the item docks once, at its category weight') : ''}
                     ${it.repeat ? chip('food-flag-repeat', 'repeat ×1.5') : ''}
                     ${it.cos || it.cosBase ? chip('food-dispos food-dispos-cos', 'fixed on site ×0.75',
                         'Corrected while the inspector watched — docks 75% of its weight, provisionally') : ''}
@@ -2804,8 +2827,9 @@ export class FoodDashboard {
                         'Outcome read from the inspector\'s written comments (adjudicated)') : ''}
                     ${deltaHtml}
                 </div>
-                ${it.text ? `<div class="food-receipt-item-text">${esc(it.text)}</div>` : ''}
+                ${body}
             </div>`;
+        };
 
         // ── section 1: the broad anchor ────────────────────────────────
         const b = r.base;
