@@ -398,16 +398,15 @@ test('the base docket is one row per violation, each with its own charge', () =>
     const r = gradeReceiptPresentation({ grade: gradeG }, [fupG, baseG]);
     assert.equal(r.verified, true);
 
-    // Five findings under two item numbers -> five rows, not two.
+    // Five findings under two item numbers -> five rows, not two. Sharing an
+    // item is read off the repeated item number and row adjacency, not a
+    // dedicated field — sorted by item, filed in document order.
     assert.equal(r.base.items.length, 5);
     assert.deepEqual(r.base.items.map((i) => i.item), [8, 8, 47, 47, 47]);
-    // Each carries its own text and its own points; siblings/ordinal mark
-    // that they arrived under one form line.
+    // Each carries its own text and its own points.
     const [a, b] = r.base.items;
-    assert.deepEqual({ points: a.points, ordinal: a.ordinal, siblings: a.siblings },
-        { points: 6, ordinal: 1, siblings: 2 });
+    assert.equal(a.points, 6);
     assert.equal(b.text, 'Cut melon held at 51F in the prep-table insert');
-    assert.equal(b.ordinal, 2);
     assert.equal(r.base.items[4].text, 'Standing water under the ice machine');
     // Item 47's three findings are 2 points each, not one 6-point row.
     assert.deepEqual(r.base.items.slice(2).map((i) => i.points), [2, 2, 2]);
