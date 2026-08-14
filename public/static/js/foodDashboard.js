@@ -85,6 +85,23 @@ const CLOSED_COLOR = '#9aa0a6';        // not a live permit
 const STYLE_LIGHT = 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json';
 const STYLE_DARK = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
 
+// dark-matter's own road-name label colours (checked against its #0e0e0e
+// background, WCAG relative-luminance formula): minor #b5b4b4 9.3:1,
+// secondary/tertiary #929292 6.2:1, primary #bdbdbd 10.3:1 — all comfortably
+// legible. Trunk/motorway (roadname_major — US routes and turnpikes, exactly
+// the road class a "Turnpike" is) ships #383838: 1.7:1, effectively
+// invisible on the background it sits on. Positron carries none of this —
+// every tier there is a flat #838383 on near-white. So this is CARTO's own
+// defect, isolated to one layer of their vendored dark style, not a choice
+// either this file or the vendor made on purpose for hierarchy.
+//
+// #d8d8d8 measures 13.5:1: clear of AA, and brighter than every other tier —
+// deliberately, since trunk/motorway is the biggest road class dark-matter
+// labels at all, and the fix should read as "most important," not merely
+// "no longer broken."
+const DARK_MAJOR_ROAD_LABEL_LAYER = 'roadname_major';
+const DARK_MAJOR_ROAD_LABEL_COLOR = '#d8d8d8';
+
 // Map home: the whole state, framed by fitBounds so the initial view
 // scales to the viewport instead of a fixed zoom. Virginia is far wider
 // than it is tall, so on desktop the east–west span is the constraint and
@@ -1447,7 +1464,10 @@ export class FoodDashboard {
         // Fires on the initial style AND after every setStyle (theme swap) —
         // custom sources/layers don't survive a style swap, so this is the
         // one place they're (re-)installed.
-        this._map.on('style.load', () => this._installDataLayers());
+        this._map.on('style.load', () => {
+            this._installDataLayers();
+            this._fixDarkRoadLabelContrast();
+        });
 
         this._bindMapInteractions();
 
@@ -2062,6 +2082,27 @@ export class FoodDashboard {
         this._mapReady = false;   // source dies with the old style
         // style.load re-installs the data layers over the new basemap.
         this._map.setStyle(dark ? STYLE_DARK : STYLE_LIGHT);
+    }
+
+    /** Patch a defect in the vendored dark-matter style, not ours: every
+     *  road-name tier reads fine EXCEPT trunk/motorway (roadname_major),
+     *  which ships #383838 text — 1.7:1 against the #0e0e0e background,
+     *  effectively invisible. Positron carries none of this (every tier
+     *  there is a flat, legible #838383), so it is isolated to one vendor
+     *  layer on one theme, not a hierarchy this file is overriding on
+     *  purpose. See DARK_MAJOR_ROAD_LABEL_COLOR for the contrast numbers.
+     *
+     *  Guarded on the layer existing: this is an unversioned, externally
+     *  hosted style.json, and a vendor rename should silently no-op here
+     *  rather than throw out of the style.load handler that also installs
+     *  the facility data layers. Runs on every style.load, light included —
+     *  cheap, and harmless when the layer's already correct. */
+    _fixDarkRoadLabelContrast() {
+        if (!this._styleIsDark) return;
+        if (this._map.getLayer(DARK_MAJOR_ROAD_LABEL_LAYER)) {
+            this._map.setPaintProperty(
+                DARK_MAJOR_ROAD_LABEL_LAYER, 'text-color', DARK_MAJOR_ROAD_LABEL_COLOR);
+        }
     }
 
     // Active = a live permit. Anything else (Business Closed / Withdrawn /
