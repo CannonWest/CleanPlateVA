@@ -1090,24 +1090,6 @@ function fmtDateNum(iso) {
     return d.toLocaleDateString('en-US', { year: 'numeric', month: 'numeric', day: 'numeric' });
 }
 
-// Count the coordinates the map actually renders, independently from the
-// preserved address-level site groups. Six decimals matches the exporter's
-// co-location precision (roughly 0.1 m) without treating harmless provider
-// float noise as a separate marker.
-export function effectivePointCounts(facilities) {
-    const counts = new Map();
-    for (const facility of facilities || []) {
-        const location = facility?.location;
-        if (location?.lat == null || location?.lon == null) continue;
-        const lat = Number(location?.lat);
-        const lon = Number(location?.lon);
-        if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
-        const key = `${lat.toFixed(6)},${lon.toFixed(6)}`;
-        counts.set(key, (counts.get(key) || 0) + 1);
-    }
-    return counts;
-}
-
 export class FoodDashboard {
     constructor(api) {
         this.api = api;
@@ -1139,7 +1121,6 @@ export class FoodDashboard {
         };
         this._facilities = [];
         this._byPermit = new Map();
-        this._effectivePointCounts = new Map();
         this._counts = null;
         this._filters = {
             q: '', zip: '', grade: '',
@@ -1333,7 +1314,6 @@ export class FoodDashboard {
 
         this._facilities = payload.facilities || [];
         this._byPermit = new Map(this._facilities.map((f) => [f.permit_id, f]));
-        this._effectivePointCounts = effectivePointCounts(this._facilities);
         this._counts = payload.counts || null;
 
         const fetchedEl = document.getElementById('foodFetchedAt');
@@ -2571,7 +2551,6 @@ export class FoodDashboard {
     /** Lite detail panel: identity + the hand-off to the official record. */
     _renderLiteDetail(f) {
         const geoNote = this._geoNote(f.location?.source);
-        const siteNote = this._sharedSiteNote(f.location);
         return `
             <div class="food-detail-head">
                 <div class="food-detail-title">
@@ -2582,7 +2561,6 @@ export class FoodDashboard {
                     ${esc(f.address)}${f.address2 ? ' ' + esc(f.address2) : ''}${f.city ? ', ' + esc(f.city) : ''}, VA ${esc(f.zip || '')}
                     ${geoNote}
                 </div>
-                ${siteNote}
             </div>
             <div class="food-lite-cta">
                 <a class="btn btn-sm btn-primary" target="_blank" rel="noopener"
@@ -2606,22 +2584,10 @@ export class FoodDashboard {
         return '';
     }
 
-    _sharedSiteNote(location) {
-        if (location?.lat == null || location?.lon == null) return '';
-        const lat = Number(location?.lat);
-        const lon = Number(location?.lon);
-        if (!Number.isFinite(lat) || !Number.isFinite(lon)) return '';
-        const count = this._effectivePointCounts?.get(
-            `${lat.toFixed(6)},${lon.toFixed(6)}`);
-        if (!Number.isInteger(count) || count < 2) return '';
-        return `<div class="text-muted small food-shared-site">This map point is shared by ${count} facility records.</div>`;
-    }
-
     _renderDetail(fac, inspections) {
         const latest = inspections[0] || null;
         const latestView = inspectionPresentation(latest);
         const geoNote = this._geoNote(fac.location?.source);
-        const siteNote = this._sharedSiteNote(fac.location);
         const sets = this._disposSets(latest?.checklist);
 
         // The facility GRADE circle leads the panel for every facility; the
@@ -2686,7 +2652,6 @@ export class FoodDashboard {
                     ${esc(fac.address)}${fac.address2 ? ' ' + esc(fac.address2) : ''}, ${esc(fac.city)}, ${esc(fac.state)} ${esc(fac.zip)}
                     ${geoNote}
                 </div>
-                ${siteNote}
                 <div class="text-muted small">
                     ${esc(fac.permit_type)} · ${esc(fac.status)}
                 </div>

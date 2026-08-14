@@ -27,8 +27,7 @@ const dashboard = await import(
 );
 const proto = dashboard.FoodDashboard.prototype;
 const { trendInspections, inspectionPresentation, buildScopeSeries,
-    focusedOutcomePresentation, narrativeVerdictPresentation,
-    effectivePointCounts } = dashboard;
+    focusedOutcomePresentation, narrativeVerdictPresentation } = dashboard;
 
 const rows = (count, out = 0, dupes = 0) => {
     const list = Array.from({ length: count }, (_, index) => ({
@@ -291,37 +290,12 @@ test('Contract V3 map geometry reads only the nested effective location', () => 
     ]).features.length, 0, 'retired top-level coordinates must not be accepted');
 });
 
-test('shared-site notice follows effective map points, not the site baseline', () => {
-    const tastyCrab = {
-        permit_id: 'TASTY-CRAB',
-        location: {
-            lat: 37.6205521, lon: -77.5256119,
-            site_lat: 37.619662678, site_lon: -77.526942685,
-            site_count: 12,
-        },
-    };
-    const fallbackNeighbor = {
-        permit_id: 'NEIGHBOR',
-        location: {
-            lat: 37.619662678, lon: -77.526942685,
-            site_lat: 37.619662678, site_lon: -77.526942685,
-            site_count: 12,
-        },
-    };
-    const anotherFallback = {
-        permit_id: 'ANOTHER-NEIGHBOR',
-        location: { ...fallbackNeighbor.location },
-    };
-    const counts = effectivePointCounts(
-        [tastyCrab, fallbackNeighbor, anotherFallback]);
-    const ctx = { _effectivePointCounts: counts };
-
-    assert.equal(proto._sharedSiteNote.call(ctx, tastyCrab.location), '',
-        'a separated refinement must not inherit its original site warning');
-    const html = proto._sharedSiteNote.call(ctx, fallbackNeighbor.location);
-    assert.match(html, /map point is shared by 2 facility records/);
-    assert.equal(tastyCrab.location.site_count, 12,
-        'the original site count remains available for lineage');
+test('the shared-site text is gone, not just hidden', () => {
+    // Stacks fan out on the map now (MAP-M1) — the panel calling out a
+    // shared point was the only way to learn that before, and is redundant
+    // with it now. Guards against a silent re-add, not just a re-hide.
+    assert.doesNotMatch(source, /_sharedSiteNote|effectivePointCounts/);
+    assert.doesNotMatch(source, /shared by \$\{count\} facility records/);
 });
 
 // ── marker-bound dismissal + panel-only interaction (source pins) ─────
