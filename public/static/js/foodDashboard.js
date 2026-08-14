@@ -1296,6 +1296,17 @@ export class FoodDashboard {
             bounds: VA_BOUNDS,
             fitBoundsOptions: VA_FIT,
             maxZoom: 19,
+            // Circle layers redraw from new tile data the instant a zoom
+            // reclusters; symbol layers cross-fade over this duration (300ms
+            // by default). The two disagreeing is very visible here because
+            // the counts and the bubbles they belong to are the same object:
+            // zooming left a scatter of orphaned numbers hanging over the map
+            // for a beat after their bubbles had already moved or dissolved.
+            // Circles have no matching fade to switch ON, so the halves are
+            // squared by turning this one OFF. Map-level, so it survives the
+            // theme swap's setStyle; it also stops the basemap's own labels
+            // fading, which is the price of the two agreeing.
+            fadeDuration: 0,
         });
         this._map.addControl(
             new maplibregl.NavigationControl({ showCompass: false }), 'top-left');
