@@ -183,6 +183,45 @@ const gradeF = {
     new_items: [], unchecked_items: [], restored_points: 0.0, extra_points: 1.5,
 };
 
+// Case G — several findings under one item number, the shape that used to
+// hide behind a "×N findings" chip. Item 8 is cited twice and item 47 three
+// times on the base (weights SUM); the re-check restores 8, leaves 47 alone,
+// and writes two observations under a new item 61 — which docks ONCE at its
+// category weight, however many lines the inspector filed under it.
+const baseG = {
+    inspection_id: 'B5', date: '2026-03-02', scope: 'broad', score: 82,
+    checklist: [
+        { item: 8, disposition: 'OUT', violation: true },
+        { item: 47, disposition: 'OUT', violation: true },
+    ],
+    violations: [
+        { item: 8, text: 'Raw chicken stored over ready-to-eat lettuce' },
+        { item: 8, text: 'Cut melon held at 51F in the prep-table insert' },
+        { item: 47, text: 'Rusted shelving in the walk-in cooler' },
+        { item: 47, text: 'Gaskets torn on the reach-in door' },
+        { item: 47, text: 'Standing water under the ice machine' },
+    ],
+};
+const fupG = {
+    inspection_id: 'F5', date: '2026-04-02', scope: 'focused',
+    purpose: 'Follow-Up', score: 96,
+    checklist: [
+        { item: 8, disposition: 'IN', compliant: true },
+        { item: 61, disposition: 'OUT', violation: true },
+    ],
+    violations: [
+        { item: 61, text: 'Mop sink used to fill the sanitizer bucket' },
+        { item: 61, text: 'Chemical spray bottle unlabeled by the dish pit' },
+    ],
+};
+const gradeG = {
+    score: 88, letter: 'B', base_score: 82, base_letter: 'B',
+    base_date: '2026-03-02', base_inspection_id: 'B5', adjusted: true,
+    followups: 1, followup_date: '2026-04-02', narrative_followups: 0,
+    narrative_items: [], restored_items: [8], failed_items: [], cos_items: [],
+    new_items: [61], unchecked_items: [47], restored_points: 7.8, extra_points: 2.0,
+};
+
 // ── tests ───────────────────────────────────────────────────────────────
 
 test('no grade → no receipt', () => {
@@ -227,7 +266,7 @@ test('adjusted receipt derives every journey and reconciles', () => {
     const fresh = r.journeys.new[0];
     assert.deepEqual({ item: fresh.item, delta: fresh.delta, repeat: fresh.repeat },
         { item: 22, delta: 9, repeat: true });     // RF × 1.5 repeat flag
-    assert.equal(fresh.text, 'Sanitizer bucket at 0 ppm, repeat noted');
+    assert.deepEqual(fresh.texts, ['Sanitizer bucket at 0 ppm, repeat noted']);
     const stands = r.journeys.unchecked[0];
     assert.deepEqual({ item: stands.item, dockPts: stands.dockPts },
         { item: 35, dockPts: 2 });
@@ -311,6 +350,36 @@ test('missing base row degrades but keeps published totals', () => {
     assert.equal(r.journeys.restored[0].delta, null);
 });
 
+test('an item cited more than once carries EVERY finding, base and journey', () => {
+    const r = gradeReceiptPresentation({ grade: gradeG }, [fupG, baseG]);
+    assert.equal(r.verified, true);
+
+    const [i8, i47] = r.base.items;
+    // Two 6-point risk-factor findings under item 8; three 2-point under 47.
+    assert.deepEqual({ item: i8.item, count: i8.count, points: i8.points, n: i8.texts.length },
+        { item: 8, count: 2, points: 12, n: 2 });
+    assert.deepEqual({ item: i47.item, count: i47.count, points: i47.points, n: i47.texts.length },
+        { item: 47, count: 3, points: 6, n: 3 });
+    assert.equal(i8.texts[1], 'Cut melon held at 51F in the prep-table insert');
+    assert.equal(i47.texts[2], 'Standing water under the ice machine');
+    // Summed weights are what the ×N chip claims — true only for base docks.
+    assert.equal(i8.countSums, true);
+
+    // The journey rows carry the same full list, not a lead line.
+    assert.equal(r.journeys.restored[0].texts.length, 2);
+    assert.equal(r.journeys.unchecked[0].texts.length, 3);
+});
+
+test('a new item docks once no matter how many findings the re-check wrote', () => {
+    const r = gradeReceiptPresentation({ grade: gradeG }, [fupG, baseG]);
+    const fresh = r.journeys.new[0];
+    assert.deepEqual({ item: fresh.item, count: fresh.count, n: fresh.texts.length },
+        { item: 61, count: 2, n: 2 });
+    assert.equal(fresh.delta, 2);          // ONE retail-practice weight, not two
+    // …so the chip must not claim the weights summed.
+    assert.equal(fresh.countSums, false);
+});
+
 // ── wiring tripwires (source + CSS stay in step) ────────────────────────
 
 test('the hero circle AND the computed pill both trigger the receipt', () => {
@@ -328,6 +397,16 @@ test('the full detail render binds the receipt openers', () => {
     assert.match(source, /this\._bindGradeReceipt\(inner, detail\.facility, detail\.inspections\)/);
     // Facility switches and panel closes must not strand an open modal.
     assert.match(source, /_closeDetail\(\)\s*\{\s*this\._closeReceipt\(\)/);
+});
+
+test('the item row prints every finding, never just the first', () => {
+    const start = source.indexOf('const itemRow = (it, deltaHtml) =>');
+    assert.ok(start !== -1, 'itemRow definition found');
+    const row = source.slice(start, source.indexOf('── section 1', start));
+    assert.match(row, /texts\.map\(/, 'itemRow renders the whole texts list');
+    assert.ok(!/it\.text\b/.test(row), 'no single-text fallback survives');
+    assert.ok(css.includes('.food-receipt-item-texts'),
+        'style.css ships the multi-finding list');
 });
 
 test('receipt CSS ships the modal, its dark pairs, and the bottom sheet', () => {
