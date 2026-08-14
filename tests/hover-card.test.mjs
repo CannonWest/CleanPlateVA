@@ -281,10 +281,12 @@ test('Contract V3 map geometry reads only the nested effective location', () => 
     const facility = {
         permit_id: 'P-1', location: { lat: 37.6205521, lon: -77.5256119 },
     };
-    const geojson = proto._toGeoJSON.call({ _mode: 'lite' }, [facility]);
+    // Bound to the prototype, not a bare literal: _toGeoJSON delegates paint
+    // to _markerPaint so the map and the spiderfied legs cannot diverge.
+    const geojson = cardCtx('lite')._toGeoJSON([facility]);
     assert.deepEqual(geojson.features[0].geometry.coordinates,
         [-77.5256119, 37.6205521]);
-    assert.equal(proto._toGeoJSON.call({ _mode: 'lite' }, [
+    assert.equal(cardCtx('lite')._toGeoJSON([
         { permit_id: 'OLD', lat: 37.6, lon: -77.5 },
     ]).features.length, 0, 'retired top-level coordinates must not be accepted');
 });
@@ -343,7 +345,9 @@ test('hover is display-only; trend and receipt interactions stay in the clicked 
 test('the card dismisses when its ground shifts: select, cluster zoom, rebuild', () => {
     assert.match(source, /this\._hideHoverCard\(\);   \/\/ the panel takes over/);
     assert.match(source, /_hideHoverCard\(\);   \/\/ the anchor marker is about to dissolve/);
-    assert.match(source, /_rebuildMarkers\(\) \{[\s\S]{0,400}?_hideHoverCard\(\);/);
+    // The window is proximity, not contract — it only has to prove the call
+    // is at the TOP of the rebuild rather than buried after the redraw.
+    assert.match(source, /_rebuildMarkers\(\) \{[\s\S]{0,600}?_hideHoverCard\(\);/);
 });
 
 test('the popup sizes per tier and the hero card gets its width', () => {
