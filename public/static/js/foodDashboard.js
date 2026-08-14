@@ -559,33 +559,89 @@ function receiptItemWords(checklist) {
     return seen;
 }
 
+/** cf_lib.observation_badges: each observation's OWN [repeat, cos] badges,
+ *  parallel to `violations`. The portal renders one checklist row per
+ *  violation — an item cited twice appears twice, each row carrying its own
+ *  COS/Repeat badge — so both are properties of the violation, not of the
+ *  item number. Badges and prose arrive as separate arrays with no key
+ *  joining them, so the pairing is POSITIONAL: the k-th OUT row for an item
+ *  belongs to that item's k-th observation (validated archive-wide, see
+ *  cannon-food references/row-pairing-study.md).
+ *
+ *  Where an item's row and observation counts disagree, or no checklist was
+ *  published, no pairing exists and that item falls back to the older
+ *  item-level merge — any Repeat applies to all of them, and COS credits only
+ *  if every OUT row was corrected. Strictly harsher, so it can only
+ *  over-charge, never invent a credit the source did not record. */
+function receiptObservationBadges(violations, checklist) {
+    const obs = violations || [];
+    const rows = new Map();
+    for (const r of checklist || []) {
+        if (!Number.isInteger(r.item) || r.is_sentinel || !r.violation) continue;
+        if (!rows.has(r.item)) rows.set(r.item, []);
+        rows.get(r.item).push(r);
+    }
+    const repeatItems = new Set((checklist || [])
+        .filter((r) => r.repeat && Number.isInteger(r.item)).map((r) => r.item));
+    const cosItems = new Set([...receiptItemWords(checklist || [])]
+        .filter(([, w]) => w.word === 'OUT_COS').map(([item]) => item));
+
+    const totals = new Map();
+    for (const o of obs) {
+        const item = Number.isInteger(o.item) ? o.item : null;
+        totals.set(item, (totals.get(item) || 0) + 1);
+    }
+    const seen = new Map();
+    return obs.map((o) => {
+        const item = Number.isInteger(o.item) ? o.item : null;
+        const paired = rows.get(item);
+        const n = seen.get(item) || 0;
+        seen.set(item, n + 1);
+        if (paired && paired.length === totals.get(item)) {
+            return [!!paired[n].repeat, !!paired[n].cos];
+        }
+        return [repeatItems.has(item), item != null && cosItems.has(item)];
+    });
+}
+
 // cf_lib.violation_dock_map in ten-thousandths: item|null → the item's base
 // deduction. `pointsTT` carries the ×0.75 COS discount; `fullTT` is what a
 // failed re-check would revoke back to. Item-less observations ride under
 // null at face value — they can never be re-checked by item.
 function receiptDockMap(base) {
-    const rows = base.checklist || [];
-    const repeatItems = new Set(rows
-        .filter((r) => r.repeat && Number.isInteger(r.item)).map((r) => r.item));
-    const cosItems = new Set([...receiptItemWords(rows)]
-        .filter(([, w]) => w.word === 'OUT_COS').map(([item]) => item));
+    const obs = base.violations || [];
+    const badges = receiptObservationBadges(obs, base.checklist || []);
     const docks = new Map();
-    for (const obs of base.violations || []) {
-        const item = Number.isInteger(obs.item) ? obs.item : null;
+    obs.forEach((observation, i) => {
+        const [rowRepeat, rowCos] = badges[i];
+        const item = Number.isInteger(observation.item) ? observation.item : null;
         let weightTT = item != null && item <= RF_MAX_ITEM ? W_RF_TT : W_GRP_TT;
-        const repeat = receiptIsRepeatText(obs.text) || repeatItems.has(item);
+        const repeat = receiptIsRepeatText(observation.text) || rowRepeat;
         if (repeat) weightTT = weightTT * 3 / 2;
-        const cos = item != null && cosItems.has(item);
+        const pointsTT = rowCos ? weightTT * 3 / 4 : weightTT;
         const dock = docks.get(item)
-            || { pointsTT: 0, fullTT: 0, count: 0, repeat: false, cos: false, texts: [] };
-        dock.pointsTT += cos ? weightTT * 3 / 4 : weightTT;
+            || { pointsTT: 0, fullTT: 0, count: 0, repeat: false, cos: false,
+                repeatCount: 0, cosCount: 0, findings: [] };
+        dock.pointsTT += pointsTT;
         dock.fullTT += weightTT;
         dock.count += 1;
         dock.repeat = dock.repeat || repeat;
-        dock.cos = dock.cos || cos;
-        if (obs.text) dock.texts.push(obs.text);
+        dock.cos = dock.cos || rowCos;
+        // Counts, not just flags: an item can hold one finding fixed on site
+        // beside one that was not, and an aggregate row that says
+        // "fixed on site ×0.75" would be claiming the whole item got a credit
+        // only part of it earned.
+        if (repeat) dock.repeatCount += 1;
+        if (rowCos) dock.cosCount += 1;
+        // Each observation keeps its OWN text, charge and badges: the
+        // multipliers are per-violation, so one item can hold a repeat that
+        // was fixed on the spot beside a plain one, and the receipt has to be
+        // able to say which is which.
+        dock.findings.push({
+            text: observation.text || '', pointsTT, repeat, cos: rowCos,
+        });
         docks.set(item, dock);
-    }
+    });
     return docks;
 }
 
@@ -786,7 +842,9 @@ export function gradeReceiptPresentation(facility = {}, inspections = []) {
     // reasons behind the rest of the deduction.
     const textsFor = (item) => {
         const dock = docks.get(item);
-        if (dock && dock.texts.length) return [...dock.texts];
+        if (dock && dock.findings.length) {
+            return dock.findings.map((f) => f.text).filter(Boolean);
+        }
         for (const fup of followups) {      // new items: found by a re-check
             const hits = (fup.violations || [])
                 .filter((v) => v.item === item && v.text).map((v) => v.text);
@@ -811,6 +869,11 @@ export function gradeReceiptPresentation(facility = {}, inspections = []) {
             // observations the re-check wrote under it.
             count: dock ? dock.count : texts.length,
             countSums: !!dock,
+            // How many of the item's findings carried each badge, so the
+            // aggregate row can say "1 of 2 fixed on site" instead of
+            // implying the whole item was.
+            repeatCount: dock ? dock.repeatCount : 0,
+            cosCount: dock ? dock.cosCount : 0,
             dockPts: null, delta: null,
         };
         if (verified && dock) {
@@ -829,14 +892,22 @@ export function gradeReceiptPresentation(facility = {}, inspections = []) {
         return row;
     });
 
+    // The base docket is per VIOLATION, because the charge is: each finding
+    // carries its own weight, its own Repeat/COS badges and its own points.
+    // Collapsing them to one row per item stated one reason and hid the rest,
+    // and could not show an item holding a fixed-on-site finding beside an
+    // uncorrected one. `siblings`/`ordinal` mark findings sharing an item so
+    // the reader can see they came in under the same form line.
     const baseItems = [...docks].filter(([item]) => item != null)
         .sort((a, b) => a[0] - b[0])
-        .map(([item, dock]) => ({
+        .flatMap(([item, dock]) => dock.findings.map((f, i) => ({
             item, category: item <= RF_MAX_ITEM ? 'risk_factor' : 'grp',
-            repeat: dock.repeat, cos: dock.cos, count: dock.count, countSums: true,
-            points: verified ? oneDpTT(dock.pointsTT) : null,
-            texts: [...dock.texts],
-        }));
+            repeat: f.repeat, cos: f.cos,
+            points: verified ? oneDpTT(f.pointsTT) : null,
+            text: f.text,
+            siblings: dock.findings.length,
+            ordinal: dock.findings.length > 1 ? i + 1 : null,
+        })));
 
     // The ledger states the published triplet; `exact` decides whether the
     // round-once footnote appears (components are 1-dp receipts, the score
@@ -2804,6 +2875,38 @@ export class FoodDashboard {
         // observation filed under the item number prints: several unrelated
         // findings routinely share one item, so a single line would state one
         // reason and silently swallow the others behind the ×N chip.
+        const shell = (it, headExtras, body, deltaHtml) => `
+            <div class="food-receipt-item${it.category === 'risk_factor' ? ' food-receipt-item-rf' : ''}">
+                <div class="food-receipt-item-head">
+                    <span class="food-receipt-item-no">#${esc(it.item)}</span>
+                    ${catChip(it.category)}
+                    ${headExtras}
+                    ${deltaHtml}
+                </div>
+                ${body}
+            </div>`;
+
+        // Base docket: ONE ROW PER VIOLATION, because that is how the charge
+        // is computed. Each finding shows the badges VDH filed against it and
+        // the points it alone cost, so an item holding a fixed-on-site finding
+        // beside an uncorrected one reads as the two different things it is.
+        const findingRow = (it) => shell(it, `
+                    ${it.ordinal ? chip('food-receipt-cat',
+                        `${it.ordinal} of ${it.siblings} under #${it.item}`,
+                        'VDH filed several separate findings under this one form item; '
+                            + 'each is weighed on its own') : ''}
+                    ${it.repeat ? chip('food-flag-repeat', 'repeat ×1.5',
+                        'VDH badged THIS finding a repeat — 1.5× its weight') : ''}
+                    ${it.cos ? chip('food-dispos food-dispos-cos', 'fixed on site ×0.75',
+                        'This finding was corrected while the inspector watched — '
+                            + 'docks 75% of its weight, provisionally') : ''}`,
+            it.text ? `<div class="food-receipt-item-text">${esc(it.text)}</div>` : '',
+            it.points != null
+                ? `<span class="food-receipt-pts">−${fmt1(it.points)}</span>` : '');
+
+        // Journey groups stay per ITEM: a re-check publishes one verdict per
+        // form line and cannot say WHICH finding under it was fixed, so the
+        // outcome genuinely belongs to the number, not to any one violation.
         const itemRow = (it, deltaHtml) => {
             const texts = it.texts || [];
             const body = texts.length > 1
@@ -2811,24 +2914,26 @@ export class FoodDashboard {
                     (t) => `<li class="food-receipt-item-text">${esc(t)}</li>`).join('')}</ul>`
                 : texts.length
                     ? `<div class="food-receipt-item-text">${esc(texts[0])}</div>` : '';
-            return `
-            <div class="food-receipt-item${it.category === 'risk_factor' ? ' food-receipt-item-rf' : ''}">
-                <div class="food-receipt-item-head">
-                    <span class="food-receipt-item-no">#${esc(it.item)}</span>
-                    ${catChip(it.category)}
+            return shell(it, `
                     ${it.count > 1 ? chip('food-receipt-cat', `×${it.count} findings`, it.countSums
-                        ? 'Multiple violations were cited under this item — their weights sum'
-                        : 'Multiple violations were cited under this item on the re-check — '
+                        ? 'Several violations were cited under this item; the re-check '
+                            + 'resolves the whole item at once'
+                        : 'Several violations were cited under this item on the re-check — '
                             + 'the item docks once, at its category weight') : ''}
-                    ${it.repeat ? chip('food-flag-repeat', 'repeat ×1.5') : ''}
-                    ${it.cos || it.cosBase ? chip('food-dispos food-dispos-cos', 'fixed on site ×0.75',
-                        'Corrected while the inspector watched — docks 75% of its weight, provisionally') : ''}
+                    ${it.repeat ? chip('food-flag-repeat',
+                        it.repeatCount && it.repeatCount < it.count
+                            ? `${it.repeatCount} of ${it.count} repeat ×1.5`
+                            : 'repeat ×1.5',
+                        'Repeats weigh 1.5× — charged to the findings VDH badged') : ''}
+                    ${it.cosBase ? chip('food-dispos food-dispos-cos',
+                        it.cosCount && it.cosCount < it.count
+                            ? `${it.cosCount} of ${it.count} fixed on site`
+                            : 'fixed on site ×0.75',
+                        'Corrected while the inspector watched — docks 75% of that '
+                            + 'finding\'s weight, provisionally') : ''}
                     ${it.narrative ? chip('food-receipt-narr', 'written verdict',
-                        'Outcome read from the inspector\'s written comments (adjudicated)') : ''}
-                    ${deltaHtml}
-                </div>
-                ${body}
-            </div>`;
+                        'Outcome read from the inspector\'s written comments (adjudicated)') : ''}`,
+                body, deltaHtml);
         };
 
         // ── section 1: the broad anchor ────────────────────────────────
@@ -2840,8 +2945,7 @@ export class FoodDashboard {
         } else if (!b.items.length && !b.itemless) {
             baseBody = '<div class="food-receipt-note">No violations recorded: a clean 100-point inspection.</div>';
         } else {
-            baseBody = b.items.map((it) => itemRow(it, it.points != null
-                ? `<span class="food-receipt-pts">−${fmt1(it.points)}</span>` : '')).join('')
+            baseBody = b.items.map(findingRow).join('')
                 + (b.itemless ? `<div class="food-receipt-note">${b.itemless.count} observation${b.itemless.count === 1 ? '' : 's'}
                     without a form item number — dock${b.itemless.count === 1 ? 's' : ''} at face value${b.itemless.points != null
                         ? ` (−${fmt1(b.itemless.points)})` : ''} and can't be re-checked by item.</div>` : '');

@@ -222,6 +222,50 @@ const gradeG = {
     new_items: [61], unchecked_items: [47], restored_points: 7.8, extra_points: 2.0,
 };
 
+// Case H — the Bay Seafood item-47 shape, and the reason the base docket is
+// per violation: TWO rows under one item, the first badged COS *and* Repeat,
+// the second plain. Row and observation counts pair 1:1, so each finding is
+// weighed on its own — 2×1.5×0.75 + 2 = 4.25, where the old item-level merge
+// spread the repeat across both and cancelled the COS credit for -6.
+const baseH = {
+    inspection_id: 'B6', date: '2026-03-03', scope: 'broad', score: 90,
+    checklist: [
+        { item: 8, disposition: 'OUT', violation: true },
+        { item: 47, disposition: 'OUT', violation: true, cos: true, repeat: true },
+        { item: 47, disposition: 'OUT', violation: true },
+    ],
+    violations: [
+        { item: 8, text: 'No soap at the handwash station' },
+        { item: 47, text: 'Cardboard lining the under-counter shelves' },
+        { item: 47, text: 'Water leaking from the AC hose onto prep surfaces' },
+    ],
+};
+const gradeH = {
+    score: 90, letter: 'A', base_score: 90, base_letter: 'A',
+    base_date: '2026-03-03', base_inspection_id: 'B6', adjusted: false,
+    followups: 0, followup_date: null, narrative_followups: 0,
+    narrative_items: [], restored_items: [], failed_items: [], cos_items: [],
+    new_items: [], unchecked_items: [], restored_points: 0.0, extra_points: 0.0,
+};
+
+// Case I — case H plus a re-check that clears item 8 and never looks at 47,
+// so the split-badge item lands in a JOURNEY group. Journeys resolve per item
+// (a re-check publishes one verdict per form line), so that row is an
+// aggregate and must not claim the whole item was fixed on site.
+const fupI = {
+    inspection_id: 'F7', date: '2026-04-04', scope: 'focused',
+    purpose: 'Follow-Up', score: 100,
+    checklist: [{ item: 8, disposition: 'IN', compliant: true }],
+    violations: [],
+};
+const gradeI = {
+    score: 94, letter: 'A', base_score: 90, base_letter: 'A',
+    base_date: '2026-03-03', base_inspection_id: 'B6', adjusted: true,
+    followups: 1, followup_date: '2026-04-04', narrative_followups: 0,
+    narrative_items: [], restored_items: [8], failed_items: [], cos_items: [],
+    new_items: [], unchecked_items: [47], restored_points: 3.9, extra_points: 0.0,
+};
+
 // ── tests ───────────────────────────────────────────────────────────────
 
 test('no grade → no receipt', () => {
@@ -350,24 +394,63 @@ test('missing base row degrades but keeps published totals', () => {
     assert.equal(r.journeys.restored[0].delta, null);
 });
 
-test('an item cited more than once carries EVERY finding, base and journey', () => {
+test('the base docket is one row per violation, each with its own charge', () => {
     const r = gradeReceiptPresentation({ grade: gradeG }, [fupG, baseG]);
     assert.equal(r.verified, true);
 
-    const [i8, i47] = r.base.items;
-    // Two 6-point risk-factor findings under item 8; three 2-point under 47.
-    assert.deepEqual({ item: i8.item, count: i8.count, points: i8.points, n: i8.texts.length },
-        { item: 8, count: 2, points: 12, n: 2 });
-    assert.deepEqual({ item: i47.item, count: i47.count, points: i47.points, n: i47.texts.length },
-        { item: 47, count: 3, points: 6, n: 3 });
-    assert.equal(i8.texts[1], 'Cut melon held at 51F in the prep-table insert');
-    assert.equal(i47.texts[2], 'Standing water under the ice machine');
-    // Summed weights are what the ×N chip claims — true only for base docks.
-    assert.equal(i8.countSums, true);
+    // Five findings under two item numbers -> five rows, not two.
+    assert.equal(r.base.items.length, 5);
+    assert.deepEqual(r.base.items.map((i) => i.item), [8, 8, 47, 47, 47]);
+    // Each carries its own text and its own points; siblings/ordinal mark
+    // that they arrived under one form line.
+    const [a, b] = r.base.items;
+    assert.deepEqual({ points: a.points, ordinal: a.ordinal, siblings: a.siblings },
+        { points: 6, ordinal: 1, siblings: 2 });
+    assert.equal(b.text, 'Cut melon held at 51F in the prep-table insert');
+    assert.equal(b.ordinal, 2);
+    assert.equal(r.base.items[4].text, 'Standing water under the ice machine');
+    // Item 47's three findings are 2 points each, not one 6-point row.
+    assert.deepEqual(r.base.items.slice(2).map((i) => i.points), [2, 2, 2]);
 
-    // The journey rows carry the same full list, not a lead line.
+    // Journeys stay per ITEM — a re-check resolves the whole form line — so
+    // they still carry the full text list under one row.
     assert.equal(r.journeys.restored[0].texts.length, 2);
     assert.equal(r.journeys.unchecked[0].texts.length, 3);
+});
+
+test('an aggregate journey row counts its badges instead of claiming them all', () => {
+    const r = gradeReceiptPresentation({ grade: gradeI }, [fupI, baseH]);
+    assert.equal(r.verified, true);
+
+    // Item 47 was never re-checked, so its deduction carries as ONE row —
+    // but only one of its two findings was a repeat, and only one was fixed
+    // on site. The row must say so rather than stamping the whole item.
+    const [carried] = r.journeys.unchecked;
+    assert.deepEqual(
+        { item: carried.item, count: carried.count,
+            repeatCount: carried.repeatCount, cosCount: carried.cosCount },
+        { item: 47, count: 2, repeatCount: 1, cosCount: 1 });
+    assert.equal(carried.dockPts, 4.3);          // 4.25 carried, shown to 1dp
+    assert.equal(carried.texts.length, 2);
+});
+
+test('split badges charge each finding on its own, not the item', () => {
+    const r = gradeReceiptPresentation({ grade: gradeH }, [baseH]);
+    assert.equal(r.verified, true);
+
+    // Item 47: row 1 badged COS+Repeat, row 2 plain. 2x1.5x0.75 + 2 = 4.25,
+    // where the old item-level merge spread the repeat and killed the credit
+    // for a flat 6.
+    const rows = r.base.items.filter((i) => i.item === 47);
+    assert.equal(rows.length, 2);
+    assert.deepEqual({ points: rows[0].points, repeat: rows[0].repeat, cos: rows[0].cos },
+        { points: 2.3, repeat: true, cos: true });      // 2.25, shown to 1dp
+    assert.deepEqual({ points: rows[1].points, repeat: rows[1].repeat, cos: rows[1].cos },
+        { points: 2, repeat: false, cos: false });
+    // The neighbouring plain risk factor is untouched by either badge.
+    const rf = r.base.items.find((i) => i.item === 8);
+    assert.deepEqual({ points: rf.points, repeat: rf.repeat, cos: rf.cos },
+        { points: 6, repeat: false, cos: false });
 });
 
 test('a new item docks once no matter how many findings the re-check wrote', () => {
