@@ -123,6 +123,14 @@ const STACK_DP = 6;
 const STACK_RADII = [11, 13, 15];   // core radius by member count: <10, <50, 50+
 const STACK_RING_GAP = 4;           // halo sits this far outside the core
 
+// Zoom floor when a stack opens. The web is drawn in SCREEN space, so zoom
+// does not make it bigger — this is about clearing the ground underneath it.
+// CARTO's 512px tiles run ~1 zoom tighter than usual, so at 37.5°N z17 is
+// about 0.47 m/px: a neighbour 30m away lands ~63px out, clear of even the
+// 92px outer ring of the largest stack in the state. At z15 that neighbour
+// would sit 16px away, tangled in the ring. Never zooms OUT.
+const STACK_OPEN_ZOOM = 17;
+
 // Dashed halos are pre-drawn images because MapLibre circle layers have no
 // dash property. The refinement editor gets `border: 2px dashed` free from
 // CSS since every dot there is a real DOM element; that is not an option
@@ -1731,10 +1739,14 @@ export class FoodDashboard {
         const lngLat = [group.lon, group.lat];
         const offsets = spiderOffsets(group.members.length,
             { spacing: coarse ? 24 : 18 });
+        // Tethers first, so the anchor and the legs paint over their ends:
+        // marker elements stack in creation order.
+        const markers = [new maplibregl.Marker({ element: this._spiderWeb(offsets) })
+            .setLngLat(lngLat).addTo(this._map)];
         const anchor = document.createElement('div');
         anchor.className = 'food-spider-anchor';
-        const markers = [new maplibregl.Marker({ element: anchor })
-            .setLngLat(lngLat).addTo(this._map)];
+        markers.push(new maplibregl.Marker({ element: anchor })
+            .setLngLat(lngLat).addTo(this._map));
 
         group.members.forEach((f, i) => {
             const paint = this._markerPaint(f);
@@ -1772,6 +1784,42 @@ export class FoodDashboard {
         this._spider = { key, markers };
         this._setStackFilter(key);
         this._map.on('movestart', this._onSpiderMove);
+        // Centre the web and give it clear ground. Zoom never decreases: a
+        // stack opened while already close in should not be pushed back out.
+        this._map.easeTo({
+            center: lngLat,
+            zoom: Math.max(this._map.getZoom(), STACK_OPEN_ZOOM),
+            duration: 550,
+        });
+    }
+
+    /** The dashed tethers, as ONE marker rather than a line layer.
+     *
+     *  Legs are placed at screen-space offsets, so their geographic positions
+     *  change with every zoom — a GeoJSON line layer would have to rebuild
+     *  its geometry on each camera frame. An SVG centred on the shared point
+     *  carries the whole web in local coordinates that never change, and
+     *  MapLibre moves it exactly the way it moves the legs. */
+    _spiderWeb(offsets) {
+        const NS = 'http://www.w3.org/2000/svg';
+        const reach = offsets.reduce((m, [x, y]) => Math.max(m, Math.hypot(x, y)), 0);
+        const span = Math.ceil(reach + 12) * 2;
+        const mid = span / 2;
+        const svg = document.createElementNS(NS, 'svg');
+        svg.setAttribute('width', span);
+        svg.setAttribute('height', span);
+        svg.setAttribute('viewBox', `0 0 ${span} ${span}`);
+        svg.setAttribute('aria-hidden', 'true');
+        svg.classList.add('food-spider-web');
+        for (const [dx, dy] of offsets) {
+            const line = document.createElementNS(NS, 'line');
+            line.setAttribute('x1', mid);
+            line.setAttribute('y1', mid);
+            line.setAttribute('x2', mid + dx);
+            line.setAttribute('y2', mid + dy);
+            svg.appendChild(line);
+        }
+        return svg;
     }
 
     _dismissSpider() {
