@@ -332,6 +332,19 @@ test('a stack and a cluster over the same places agree on the colour', () => {
 
 // ── the web's lifetime ─────────────────────────────────────────────────
 
+test('zooming back past stack view takes the web with it', () => {
+    // One constant, two consumers. Two literals could drift into legs
+    // hanging over a clustered map, or a web vanishing while its bubble is
+    // still drawn.
+    assert.match(source, /const CLUSTER_MAX_ZOOM = \d+;/);
+    assert.match(source, /clusterMaxZoom: CLUSTER_MAX_ZOOM,/);
+    assert.match(source,
+        /getZoom\(\) <= CLUSTER_MAX_ZOOM[\s\S]{0,80}?this\._dismissSpider\(\)/);
+    // `zoom`, not `zoomend`: it should go as the camera crosses the line.
+    assert.match(source, /this\._map\.on\('zoom', this\._onSpiderZoom\)/);
+    assert.match(source, /this\._map\?\.off\('zoom', this\._onSpiderZoom\)/);
+});
+
 test('an open web is torn down whenever its ground shifts', () => {
     // The legs are DOM markers; setData knows nothing about them, so every
     // path that can dissolve or re-count a stack has to say so explicitly.
