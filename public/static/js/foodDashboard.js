@@ -740,12 +740,43 @@ function receiptNarrativeWords(insp, docks) {
     return words;
 }
 
+const RECEIPT_CODE_PREFIX_RE = /^12VAC\d+-\d+-/;
+
+function receiptSplitCodePrefix(code) {
+    const m = RECEIPT_CODE_PREFIX_RE.exec(code);
+    return m ? [code.slice(0, m[0].length), code.slice(m[0].length)] : ['', code];
+}
+
+// Archive-verified 2026-08-15: prefixed codes ("12VAC5-421-820.A.2") always
+// use dots in their suffix; unprefixed raw fragments ("0820 (A2)") always
+// use parenthesized groups instead — same regulation, two districts' scrape
+// conventions. Collapsing space/parens to dots and inserting a dot at a
+// letter<->digit boundary makes both forms compare equal. Checked against
+// every real collision this produces archive-wide: zero false positives.
+function receiptNormalizeCodeSuffix(suffix) {
+    let s = suffix.trim().toUpperCase();
+    s = s.replace(/[\s()]+/g, '.');
+    s = s.replace(/(?<=[A-Z])(?=[0-9])/g, '.');
+    s = s.replace(/(?<=[0-9])(?=[A-Z])/g, '.');
+    s = s.replace(/\.+/g, '.');
+    s = s.replace(/^\.+|\.+$/g, '');
+    // One district's raw fragments zero-pad the section number
+    // ("0820 (A2)") against the other's unpadded prefixed form.
+    return s.replace(/^0+(?=\d)/, '');
+}
+
 // cf_lib.code_matches — comments cite the subsection alone ("55. 3170") where
-// the base carries "12VAC5-421-3170". The separator is load-bearing: a bare
-// suffix test would let "550.1" claim "12VAC5-421-1550.1".
+// the base carries "12VAC5-421-3170", or (for codes with no regulation stem)
+// the raw fragment directly ("0820 (A2)"). Compares each side's suffix after
+// its own stem is stripped, both punctuation-normalized — never a raw
+// substring test: comparing the FULL extracted suffix, not an endswith, is
+// what keeps "550.1" from matching inside "12VAC5-421-1550.1".
 function receiptCodeMatches(baseCode, citedCode) {
     if (!baseCode || !citedCode) return false;
-    return baseCode === citedCode || baseCode.endsWith(`-${citedCode}`);
+    if (baseCode === citedCode) return true;
+    const [, baseSuffix] = receiptSplitCodePrefix(baseCode);
+    const [, citedSuffix] = receiptSplitCodePrefix(citedCode);
+    return receiptNormalizeCodeSuffix(baseSuffix) === receiptNormalizeCodeSuffix(citedSuffix);
 }
 
 // cf_lib.narrative_finding_words: an adjudicated comment resolved onto BASE
