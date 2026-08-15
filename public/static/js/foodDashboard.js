@@ -514,6 +514,15 @@ export function gradePresentation(facility = {}) {
         cos: g.cos_items || [],
         newItems: g.new_items || [],
         unchecked: g.unchecked_items || [],
+        // Finding-level membership, indexing the BASE report's violations
+        // list. An item whose findings met different fates appears in more
+        // than one of the item lists above; only these say WHICH finding went
+        // where. Absent on payloads published before per-finding resolution —
+        // the receipt falls back to item-level membership for those.
+        restoredFindings: g.restored_findings || null,
+        failedFindings: g.failed_findings || null,
+        cosFindings: g.cos_findings || null,
+        uncheckedFindings: g.unchecked_findings || null,
         restoredPoints: Number(g.restored_points) || 0,
         extraPoints: Number(g.extra_points) || 0,
         // NARRATIVE arc: how many of the follow-ups were adjudicated from
@@ -629,45 +638,78 @@ function receiptObservationBadges(violations, checklist) {
     });
 }
 
-// cf_lib.violation_dock_map in ten-thousandths: item|null → the item's base
-// deduction. `pointsTT` carries the ×0.75 COS discount; `fullTT` is what a
-// failed re-check would revoke back to. Item-less observations ride under
-// null at face value — they can never be re-checked by item.
-function receiptDockMap(base) {
+// cf_lib.norm_violation_code — the key a re-check's violations join back to
+// the base's by. Must normalise identically on both sides of the wire.
+function receiptNormCode(code) {
+    const text = String(code == null ? '' : code).trim().toUpperCase();
+    return text || null;
+}
+
+// cf_lib.base_findings in ten-thousandths: one entry per VIOLATION, in the
+// base report's own order. `idx` IS that order — the identity a code cannot
+// supply, since one item legitimately carries the same code twice. `pointsTT`
+// carries the ×0.75 COS discount; `fullTT` is what a failed re-check revokes
+// back to.
+function receiptBaseFindings(base) {
     const obs = base.violations || [];
     const badges = receiptObservationBadges(obs, base.checklist || []);
-    const docks = new Map();
-    obs.forEach((observation, i) => {
+    return obs.map((observation, i) => {
         const [rowRepeat, rowCos] = badges[i];
         const item = Number.isInteger(observation.item) ? observation.item : null;
         let weightTT = item != null && item <= RF_MAX_ITEM ? W_RF_TT : W_GRP_TT;
         const repeat = receiptIsRepeatText(observation.text) || rowRepeat;
         if (repeat) weightTT = weightTT * 3 / 2;
-        const pointsTT = rowCos ? weightTT * 3 / 4 : weightTT;
-        const dock = docks.get(item)
+        return {
+            idx: i, item, code: receiptNormCode(observation.code),
+            text: observation.text || '',
+            pointsTT: rowCos ? weightTT * 3 / 4 : weightTT,
+            fullTT: weightTT, repeat, cos: rowCos,
+        };
+    });
+}
+
+// cf_lib.violation_dock_map: item|null → the item's base deduction, the
+// per-item FOLD of receiptBaseFindings so the two cannot drift. Item-less
+// observations ride under null at face value — never re-checkable by item.
+function receiptDockMap(base) {
+    const docks = new Map();
+    for (const f of receiptBaseFindings(base)) {
+        const dock = docks.get(f.item)
             || { pointsTT: 0, fullTT: 0, count: 0, repeat: false, cos: false,
                 repeatCount: 0, cosCount: 0, findings: [] };
-        dock.pointsTT += pointsTT;
-        dock.fullTT += weightTT;
+        dock.pointsTT += f.pointsTT;
+        dock.fullTT += f.fullTT;
         dock.count += 1;
-        dock.repeat = dock.repeat || repeat;
-        dock.cos = dock.cos || rowCos;
+        dock.repeat = dock.repeat || f.repeat;
+        dock.cos = dock.cos || f.cos;
         // Counts, not just flags: an item can hold one finding fixed on site
         // beside one that was not, and an aggregate row that says
         // "fixed on site ×0.75" would be claiming the whole item got a credit
         // only part of it earned.
-        if (repeat) dock.repeatCount += 1;
-        if (rowCos) dock.cosCount += 1;
-        // Each observation keeps its OWN text, charge and badges: the
-        // multipliers are per-violation, so one item can hold a repeat that
-        // was fixed on the spot beside a plain one, and the receipt has to be
-        // able to say which is which.
-        dock.findings.push({
-            text: observation.text || '', pointsTT, repeat, cos: rowCos,
-        });
-        docks.set(item, dock);
-    });
+        if (f.repeat) dock.repeatCount += 1;
+        if (f.cos) dock.cosCount += 1;
+        dock.findings.push(f);
+        docks.set(f.item, dock);
+    }
     return docks;
+}
+
+// cf_lib.attribute_finding_word — which of an item's base findings a
+// re-check's word addresses. A re-check publishes one checklist verdict per
+// form item, but its VIOLATIONS carry codes, so a follow-up that re-cites one
+// of two findings did not prove the other re-offended. Where a code cannot
+// discriminate (one finding, nothing cited, a blank or duplicated code, or
+// nothing cited that the base knows) the whole item keeps the older reading —
+// strictly harsher, so a fallback can only over-charge, never invent a credit.
+function receiptAttribute(word, group, cited) {
+    if (word === 'IN') return group;          // a compliant line clears all
+    if (group.length === 1 || !cited.length) return group;
+    const codes = group.map((f) => f.code);
+    if (codes.some((c) => c == null)) return group;
+    if (new Set(codes).size !== codes.length) return group;
+    const want = new Set(cited);
+    const matched = group.filter((f) => want.has(f.code));
+    return matched.length ? matched : group;
 }
 
 // cf_lib.narrative_item_words: an adjudicated verdict resolved against the
@@ -733,8 +775,16 @@ export function gradeReceiptPresentation(facility = {}, inspections = []) {
             && (i.date > base.date || (i.date === base.date && receiptIsFollowup(i))))
         .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0)) : [];
 
+    const findings = base ? receiptBaseFindings(base) : [];
+    const byItem = new Map();
+    for (const f of findings) {
+        if (!byItem.has(f.item)) byItem.set(f.item, []);
+        byItem.get(f.item).push(f);
+    }
     const latestWord = new Map();       // newest word per item, both channels
-    const narrativeItems = new Set();   // items whose governing word is narrative
+    const latestFinding = new Map();    // newest word per base finding idx
+    const narrativeFindings = new Set();  // findings whose word is narrative
+    const closed = new Set();           // items a newer visit already settled
     let narrativeCount = 0;
     const followupViews = [];
     for (const fup of followups) {
@@ -773,12 +823,34 @@ export function gradeReceiptPresentation(facility = {}, inspections = []) {
                 sourcedNarrative.delete(item);
             }
         }
+        // cf_lib.recheck_finding_words: the item word lands on the findings
+        // this visit actually re-cited. `closed` keeps the doctrine that the
+        // NEWEST visit to word an item governs the whole item — without it a
+        // finding the newest visit skipped would inherit an older, harsher
+        // word and be charged MORE than the item-level reading charged it.
+        const cited = new Map();
+        for (const v of fup.violations || []) {
+            const code = receiptNormCode(v.code);
+            if (code == null) continue;
+            const key = Number.isInteger(v.item) ? v.item : null;
+            if (!cited.has(key)) cited.set(key, []);
+            cited.get(key).push(code);
+        }
         for (const [item, w] of words) {
-            if (!latestWord.has(item)) {
-                latestWord.set(item, w);
-                if (sourcedNarrative.has(item)) narrativeItems.add(item);
+            const group = byItem.get(item);
+            if (!latestWord.has(item)) latestWord.set(item, w);
+            if (!group || closed.has(item)) continue;
+            const narr = sourcedNarrative.has(item);
+            // An adjudicated comment speaks about form lines, not citations.
+            const targets = narr
+                ? group : receiptAttribute(w.word, group, cited.get(item) || []);
+            for (const f of targets) {
+                if (latestFinding.has(f.idx)) continue;
+                latestFinding.set(f.idx, w);
+                if (narr) narrativeFindings.add(f.idx);
             }
         }
+        for (const item of words.keys()) closed.add(item);
     }
 
     // Base facts first — the anchor's total and its item-less riders exist
@@ -797,23 +869,25 @@ export function gradeReceiptPresentation(facility = {}, inspections = []) {
     let totalTT = 0, restoredTT = 0, extraTT = 0;
     const derived = { restored: [], failed: [], cos: [], new: [], unchecked: [] };
     if (followups.length) {
-        for (const [item, dock] of docks) {
-            const w = item != null ? latestWord.get(item) : undefined;
+        for (const f of findings) {
+            const w = f.item != null ? latestFinding.get(f.idx) : undefined;
             if (!w) {
-                totalTT += dock.pointsTT;
-                if (item != null) derived.unchecked.push(item);
+                totalTT += f.pointsTT;
+                if (f.item != null) derived.unchecked.push(f.idx);
             } else if (w.word === 'IN') {
-                totalTT += dock.pointsTT * 35 / 100;
-                restoredTT += dock.pointsTT * 65 / 100;
-                derived.restored.push(item);
+                // NARRATIVE_RESTORE is at par with GRADE_RESTORE by doctrine,
+                // so both channels restore 65% — see cf_lib's constant block.
+                totalTT += f.pointsTT * 35 / 100;
+                restoredTT += f.pointsTT * 65 / 100;
+                derived.restored.push(f.idx);
             } else if (w.word === 'OUT_COS') {
-                totalTT += dock.fullTT;                 // credit revoked, no mult
-                extraTT += dock.fullTT - dock.pointsTT;
-                derived.cos.push(item);
+                totalTT += f.fullTT;                    // credit revoked, no mult
+                extraTT += f.fullTT - f.pointsTT;
+                derived.cos.push(f.idx);
             } else {
-                totalTT += dock.fullTT * 3 / 2;         // revoked + structural repeat
-                extraTT += dock.fullTT * 3 / 2 - dock.pointsTT;
-                derived.failed.push(item);
+                totalTT += f.fullTT * 3 / 2;            // revoked + structural repeat
+                extraTT += f.fullTT * 3 / 2 - f.pointsTT;
+                derived.failed.push(f.idx);
             }
         }
         for (const [item, w] of latestWord) {
@@ -845,6 +919,20 @@ export function gradeReceiptPresentation(facility = {}, inspections = []) {
         const b = (published || []).map(Number).sort((m, n) => m - n);
         return a.length === b.length && a.every((v, i) => v === b[i]);
     };
+    // Item membership is DERIVED from finding membership, exactly as the
+    // engine derives it — an item holding a re-cited finding beside an
+    // un-recited one belongs to both buckets.
+    const byIdx = new Map(findings.map((f) => [f.idx, f]));
+    const itemsOf = (idxs) => [...new Set(idxs
+        .map((i) => byIdx.get(i)?.item).filter((i) => i != null))];
+    const narrativeItems = new Set(itemsOf([...narrativeFindings]));
+    // Reconcile at the finest granularity the payload publishes. Details
+    // written before per-finding resolution carry no *_findings lists; there
+    // the item lists are all there is to check against.
+    const bucketOk = (bucket, idxs, publishedFindings, publishedItems) =>
+        (publishedFindings
+            ? sameItems(idxs, publishedFindings)
+            : true) && sameItems(itemsOf(idxs), publishedItems);
     const verified = !!base
         && derivedBase === grade.baseScore
         && derivedScore === grade.score
@@ -853,11 +941,11 @@ export function gradeReceiptPresentation(facility = {}, inspections = []) {
         && narrativeCount === grade.narrativeFollowups
         && oneDpTT(restoredTT) === grade.restoredPoints
         && oneDpTT(extraTT) === grade.extraPoints
-        && sameItems(derived.restored, grade.restored)
-        && sameItems(derived.failed, grade.failed)
-        && sameItems(derived.cos, grade.cos)
+        && bucketOk('restored', derived.restored, grade.restoredFindings, grade.restored)
+        && bucketOk('failed', derived.failed, grade.failedFindings, grade.failed)
+        && bucketOk('cos', derived.cos, grade.cosFindings, grade.cos)
         && sameItems(derived.new, grade.newItems)
-        && sameItems(derived.unchecked, grade.unchecked)
+        && bucketOk('unchecked', derived.unchecked, grade.uncheckedFindings, grade.unchecked)
         && sameItems([...narrativeItems], grade.narrativeItems);
 
     // Full text, no truncation — this is the detailed report card; the modal
@@ -880,39 +968,76 @@ export function gradeReceiptPresentation(facility = {}, inspections = []) {
     // Display membership is the PUBLISHED buckets; derived numbers decorate
     // them only when the reconcile passed.
     const publishedNarrative = new Set((grade.narrativeItems || []).map(Number));
-    const journey = (bucket, items) => items.map(Number).map((item) => {
-        const dock = docks.get(item);
-        const texts = textsFor(item);
+
+    // Journey rows are per FINDING, symmetric with the base docket, because
+    // that is now the unit a re-check resolves: one item can hold a re-cited
+    // finding charged ×1.5 beside an un-recited one carrying at face value,
+    // and a single aggregate row could stand for only one of those fates.
+    const findingRow = (bucket, f) => {
         const row = {
-            item, bucket, texts,
-            category: item <= RF_MAX_ITEM ? 'risk_factor' : 'grp',
-            narrative: publishedNarrative.has(item),
-            repeat: !!dock?.repeat, cosBase: !!dock?.cos,
-            // How many findings the item number carries, and whether their
-            // weights summed: a base dock charges once PER observation, while
-            // a new item docks once at its category weight however many
-            // observations the re-check wrote under it.
-            count: dock ? dock.count : texts.length,
-            countSums: !!dock,
-            // How many of the item's findings carried each badge, so the
-            // aggregate row can say "1 of 2 fixed on site" instead of
-            // implying the whole item was.
-            repeatCount: dock ? dock.repeatCount : 0,
-            cosCount: dock ? dock.cosCount : 0,
+            item: f.item, idx: f.idx, bucket,
+            texts: f.text ? [f.text] : [],
+            category: f.item <= RF_MAX_ITEM ? 'risk_factor' : 'grp',
+            narrative: publishedNarrative.has(f.item),
+            repeat: f.repeat, cosBase: f.cos,
+            count: 1, countSums: true,
+            repeatCount: f.repeat ? 1 : 0, cosCount: f.cos ? 1 : 0,
             dockPts: null, delta: null,
         };
-        if (verified && dock) {
-            row.dockPts = oneDpTT(dock.pointsTT);
-            if (bucket === 'restored') row.delta = oneDpTT(dock.pointsTT * 65 / 100);
-            else if (bucket === 'failed') row.delta = oneDpTT(dock.fullTT * 3 / 2 - dock.pointsTT);
-            else if (bucket === 'cos') row.delta = oneDpTT(dock.fullTT - dock.pointsTT);
+        if (verified) {
+            row.dockPts = oneDpTT(f.pointsTT);
+            if (bucket === 'restored') row.delta = oneDpTT(f.pointsTT * 65 / 100);
+            else if (bucket === 'failed') row.delta = oneDpTT(f.fullTT * 3 / 2 - f.pointsTT);
+            else if (bucket === 'cos') row.delta = oneDpTT(f.fullTT - f.pointsTT);
         }
-        if (verified && bucket === 'new') {
-            const w = latestWord.get(item);
+        return row;
+    };
+    // With no base row to expand against, membership is all we have: publish
+    // the item numberless rather than dropping it, which is what the whole
+    // degrade path exists to do.
+    const itemStub = (bucket, item) => ({
+        item, idx: null, bucket, texts: textsFor(item),
+        category: item <= RF_MAX_ITEM ? 'risk_factor' : 'grp',
+        narrative: publishedNarrative.has(item),
+        repeat: false, cosBase: false,
+        count: 0, countSums: false, repeatCount: 0, cosCount: 0,
+        dockPts: null, delta: null,
+    });
+    // Payloads published before per-finding resolution carry no *_findings
+    // list. Every finding under an item shared one fate under that engine, so
+    // expanding the item's dock reproduces exactly what it meant.
+    const journey = (bucket, idxs, items) => {
+        if (idxs && findings.length) {
+            return idxs.map(Number).map((i) => byIdx.get(i)).filter(Boolean)
+                .map((f) => findingRow(bucket, f));
+        }
+        return (items || []).map(Number).flatMap((item) => {
+            const dock = docks.get(item);
+            return dock && dock.findings.length
+                ? dock.findings.map((f) => findingRow(bucket, f))
+                : [itemStub(bucket, item)];
+        });
+    };
+
+    // New items have no base finding to key on: the re-check minted them, and
+    // the item docks ONCE at its category weight however many observations it
+    // wrote, so this bucket stays one row per item.
+    const journeyNew = (items) => items.map(Number).map((item) => {
+        const texts = textsFor(item);
+        const w = latestWord.get(item);
+        const row = {
+            item, idx: null, bucket: 'new', texts,
+            category: item <= RF_MAX_ITEM ? 'risk_factor' : 'grp',
+            narrative: publishedNarrative.has(item),
+            repeat: !!w?.repeat, cosBase: false,
+            count: texts.length, countSums: false,
+            repeatCount: 0, cosCount: 0,
+            dockPts: null, delta: null,
+        };
+        if (verified) {
             let weightTT = item <= RF_MAX_ITEM ? W_RF_TT : W_GRP_TT;
             if (w?.repeat) weightTT = weightTT * 3 / 2;
             row.delta = oneDpTT(weightTT);
-            row.repeat = !!w?.repeat;
         }
         return row;
     });
@@ -959,11 +1084,11 @@ export function gradeReceiptPresentation(facility = {}, inspections = []) {
         },
         followups: followupViews,
         journeys: {
-            restored: journey('restored', grade.restored),
-            failed: journey('failed', grade.failed),
-            cos: journey('cos', grade.cos),
-            new: journey('new', grade.newItems),
-            unchecked: journey('unchecked', grade.unchecked),
+            restored: journey('restored', grade.restoredFindings, grade.restored),
+            failed: journey('failed', grade.failedFindings, grade.failed),
+            cos: journey('cos', grade.cosFindings, grade.cos),
+            new: journeyNew(grade.newItems),
+            unchecked: journey('unchecked', grade.uncheckedFindings, grade.unchecked),
         },
         ledger: {
             baseScore: grade.baseScore, baseLetter: grade.baseLetter,
