@@ -628,6 +628,69 @@ test('a comment covers the findings the checklist did not name', () => {
     assert.equal(r.journeys.unchecked.length, 0, 'every finding got a word');
 });
 
+// Case J — a `findings` verdict: the comment names citations by code, so it
+// credits one of item 55's two findings and leaves the other carrying. An
+// `items` verdict could only have said one word for both.
+const baseJ = {
+    inspection_id: 'J1', date: '2026-05-19', scope: 'broad', score: 90,
+    checklist: [
+        { item: 55, disposition: 'OUT', violation: true },
+        { item: 55, disposition: 'OUT', violation: true },
+        { item: 10, disposition: 'OUT', violation: true },
+    ],
+    violations: [
+        { item: 55, code: '12VAC5-421-3180.A',
+            text: 'Heavy grease buildup on floors' },
+        { item: 55, code: '12VAC5-421-3170',
+            text: 'Floor tiles cracked and grout worn' },
+        { item: 10, code: '12VAC5-421-2310.B',
+            text: 'Bar handwashing sink used as a dump sink' },
+    ],
+};
+const fupJ = {
+    inspection_id: 'J2', date: '2026-06-15', scope: 'unknown',
+    purpose: 'Follow-Up', checklist: [], violations: [],
+    adjudication: {
+        schema: 1, status: 'adjudicated', verdict: 'findings',
+        tier: 'residue', method: 'llm',
+        findings: [{ item: 55, code: '3170', word: 'IN' },
+            { item: 10, code: '2310.B', word: 'IN' }],
+    },
+};
+const gradeJ = {
+    score: 95, letter: 'A', base_score: 90, base_letter: 'A',
+    base_date: '2026-05-19', base_inspection_id: 'J1', adjusted: true,
+    followups: 1, followup_date: '2026-06-15', narrative_followups: 1,
+    narrative_items: [10, 55], restored_items: [10, 55], failed_items: [],
+    cos_items: [], new_items: [], unchecked_items: [55],
+    restored_findings: [1, 2], failed_findings: [], cos_findings: [],
+    unchecked_findings: [0], restored_points: 5.2, extra_points: 0.0,
+};
+
+test('a findings verdict credits only the citations it names', () => {
+    const r = gradeReceiptPresentation({ grade: gradeJ }, [fupJ, baseJ]);
+    assert.equal(r.verified, true, 'code-joined membership reconciles');
+
+    assert.deepEqual(r.journeys.restored.map((x) => x.item), [55, 10]);
+    assert.match(r.journeys.restored[0].texts[0], /Floor tiles cracked/);
+    // The grease was never named — same item number, different citation.
+    assert.equal(r.journeys.unchecked.length, 1);
+    assert.match(r.journeys.unchecked[0].texts[0], /Heavy grease buildup/);
+    assert.equal(r.journeys.unchecked[0].item, 55);
+});
+
+test('a findings verdict ignores a code the base does not carry', () => {
+    const stale = {
+        ...fupJ,
+        adjudication: { ...fupJ.adjudication,
+            findings: [{ item: 55, code: '9999', word: 'IN' }] },
+    };
+    const r = gradeReceiptPresentation({ grade: gradeJ }, [stale, baseJ]);
+    // Nothing resolves, so the derivation stops matching the published block —
+    // the receipt degrades rather than inventing a credit.
+    assert.equal(r.verified, false);
+});
+
 test('a revoked on-site credit is not badged as if it still applied', () => {
     // failed and cos both charge `full` — the base COS discount is gone by the
     // time either group renders. Badging it under a heading that says "any
