@@ -691,6 +691,49 @@ test('a findings verdict ignores a code the base does not carry', () => {
     assert.equal(r.verified, false);
 });
 
+// Case P — The Boathouse at Rocketts Landing 2025-04-15, the real record that
+// surfaced the gap. Base carries the dotted-prefixed form ("12VAC5-421-
+// 820.A.2"); the follow-up comment writes the district's OWN raw-fragment
+// notation ("22-820(A2)"), which an LLM census judge quoted verbatim. Before
+// the fix neither finding resolved -- both are engine-certified restored here.
+const baseP = {
+    inspection_id: 'K1', date: '2026-05-19', scope: 'broad', score: 88,
+    checklist: [
+        { item: 22, disposition: 'OUT', violation: true },
+        { item: 25, disposition: 'OUT', violation: true },
+    ],
+    violations: [
+        { item: 22, code: '12VAC5-421-820.A.2', text: 'Prep unit cold holding' },
+        { item: 25, code: '12VAC5-421-930.B', text: 'No disclosure asterisks' },
+    ],
+};
+const fupP = {
+    inspection_id: 'K2', date: '2026-06-15', scope: 'unknown',
+    purpose: 'Follow-Up', checklist: [], violations: [],
+    adjudication: {
+        schema: 1, status: 'adjudicated', verdict: 'findings',
+        tier: 'residue', method: 'llm',
+        findings: [{ item: 22, code: '820(A2)', word: 'IN' },
+            { item: 25, code: '930(B)', word: 'IN' }],
+    },
+};
+const gradeP = {
+    score: 96, letter: 'A', base_score: 88, base_letter: 'B',
+    base_date: '2026-05-19', base_inspection_id: 'K1', adjusted: true,
+    followups: 1, followup_date: '2026-06-15', narrative_followups: 1,
+    narrative_items: [22, 25], restored_items: [22, 25], failed_items: [],
+    cos_items: [], new_items: [], unchecked_items: [],
+    restored_findings: [0, 1], failed_findings: [], cos_findings: [],
+    unchecked_findings: [], restored_points: 7.8, extra_points: 0.0,
+};
+
+test('a parenthetical citation resolves against the base\'s dotted code', () => {
+    const r = gradeReceiptPresentation({ grade: gradeP }, [fupP, baseP]);
+    assert.equal(r.verified, true, 'both findings resolve and reconcile');
+    assert.deepEqual(r.journeys.restored.map((x) => x.item), [22, 25]);
+    assert.equal(r.journeys.unchecked.length, 0);
+});
+
 test('a revoked on-site credit is not badged as if it still applied', () => {
     // failed and cos both charge `full` — the base COS discount is gone by the
     // time either group renders. Badging it under a heading that says "any
