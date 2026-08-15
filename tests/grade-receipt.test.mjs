@@ -411,26 +411,32 @@ test('the base docket is one row per violation, each with its own charge', () =>
     // Item 47's three findings are 2 points each, not one 6-point row.
     assert.deepEqual(r.base.items.slice(2).map((i) => i.points), [2, 2, 2]);
 
-    // Journeys stay per ITEM — a re-check resolves the whole form line — so
-    // they still carry the full text list under one row.
-    assert.equal(r.journeys.restored[0].texts.length, 2);
-    assert.equal(r.journeys.unchecked[0].texts.length, 3);
+    // Journeys are per FINDING too, symmetric with the docket: a re-check
+    // resolves the findings it re-cites by code, so one item can hold a
+    // re-cited finding beside an un-recited one. Each row states one finding.
+    assert.equal(r.journeys.restored.length, 2);
+    assert.deepEqual(r.journeys.restored.map((x) => x.item), [8, 8]);
+    assert.deepEqual(r.journeys.restored.map((x) => x.texts.length), [1, 1]);
+    assert.equal(r.journeys.unchecked.length, 3);
+    assert.deepEqual(r.journeys.unchecked.map((x) => x.item), [47, 47, 47]);
 });
 
-test('an aggregate journey row counts its badges instead of claiming them all', () => {
+test('a journey row states one finding\'s badges, never an item-wide claim', () => {
     const r = gradeReceiptPresentation({ grade: gradeI }, [fupI, baseH]);
     assert.equal(r.verified, true);
 
-    // Item 47 was never re-checked, so its deduction carries as ONE row —
-    // but only one of its two findings was a repeat, and only one was fixed
-    // on site. The row must say so rather than stamping the whole item.
-    const [carried] = r.journeys.unchecked;
-    assert.deepEqual(
-        { item: carried.item, count: carried.count,
-            repeatCount: carried.repeatCount, cosCount: carried.cosCount },
-        { item: 47, count: 2, repeatCount: 1, cosCount: 1 });
-    assert.equal(carried.dockPts, 4.3);          // 4.25 carried, shown to 1dp
-    assert.equal(carried.texts.length, 2);
+    // Item 47 was never re-checked, so both its findings carry — as two rows,
+    // because only one was a repeat and only one was fixed on site. An
+    // aggregate row could state one of those and would be silent on the other.
+    const rows = r.journeys.unchecked;
+    assert.equal(rows.length, 2);
+    assert.deepEqual(rows.map((x) => x.item), [47, 47]);
+    assert.deepEqual(rows.map((x) => x.repeat), [true, false]);
+    assert.deepEqual(rows.map((x) => x.cosBase), [true, false]);
+    // 2×1.5×0.75 = 2.25 (shown to 1dp) beside a plain 2 — together the 4.25
+    // the item carries, but now attributable.
+    assert.deepEqual(rows.map((x) => x.dockPts), [2.3, 2]);
+    assert.deepEqual(rows.map((x) => x.texts.length), [1, 1]);
 });
 
 test('split badges charge each finding on its own, not the item', () => {
@@ -492,6 +498,75 @@ test('the item row prints every finding, never just the first', () => {
     assert.ok(!/it\.text\b/.test(row), 'no single-text fallback survives');
     assert.ok(css.includes('.food-receipt-item-texts'),
         'style.css ships the multi-finding list');
+});
+
+// Case K — one item, two findings; the follow-up re-cites ONE of them by its
+// regulatory code. The engine joins the verdict to that finding and leaves its
+// neighbour unchecked, so item 55 belongs to two buckets at once.
+const baseK = {
+    inspection_id: 'K1', date: '2026-05-19', scope: 'broad', score: 96,
+    checklist: [
+        { item: 55, disposition: 'OUT', violation: true },
+        { item: 55, disposition: 'OUT', violation: true },
+    ],
+    violations: [
+        { item: 55, code: '12VAC5-421-3180.A',
+            text: 'Heavy grease buildup on floors under the cook line' },
+        { item: 55, code: '12VAC5-421-3170',
+            text: 'Floor tiles cracked and grout worn through the kitchen' },
+    ],
+};
+const fupK = {
+    inspection_id: 'K2', date: '2026-06-15', scope: 'focused',
+    purpose: 'Follow-Up',
+    checklist: [{ item: 55, disposition: 'OUT', violation: true }],
+    violations: [
+        { item: 55, code: '12VAC5-421-3170',
+            text: 'Floor tiles cracked and grout worn through the kitchen' },
+    ],
+};
+const gradeK = {
+    score: 95, letter: 'A', base_score: 96, base_letter: 'A',
+    base_date: '2026-05-19', base_inspection_id: 'K1', adjusted: true,
+    followups: 1, followup_date: '2026-06-15', narrative_followups: 0,
+    narrative_items: [], restored_items: [], failed_items: [55],
+    cos_items: [], new_items: [], unchecked_items: [55],
+    restored_findings: [], failed_findings: [1], cos_findings: [],
+    unchecked_findings: [0],
+    restored_points: 0.0, extra_points: 1.0,
+};
+
+test('a re-cited finding fails while its neighbour goes unchecked', () => {
+    const r = gradeReceiptPresentation({ grade: gradeK }, [fupK, baseK]);
+    assert.equal(r.verified, true, 'per-finding membership reconciles');
+
+    // One item, two fates. Item-level resolution could express only one.
+    const [failed] = r.journeys.failed;
+    const [carried] = r.journeys.unchecked;
+    assert.equal(failed.item, 55);
+    assert.equal(carried.item, 55);
+    assert.match(failed.texts[0], /Floor tiles cracked/);
+    assert.match(carried.texts[0], /Heavy grease buildup/);
+
+    // The re-cited finding revokes to full ×1.5 (2 → 3, so +1); the spared one
+    // carries its face value and adds nothing.
+    assert.equal(failed.delta, 1);
+    assert.equal(carried.dockPts, 2);
+    assert.equal(carried.delta, null);
+    assert.equal(r.ledger.added, 1);
+});
+
+test('legacy payloads without *_findings still expand to per-finding rows', () => {
+    // Published before per-finding resolution: every finding under an item
+    // shared one fate, so expanding the item's dock reproduces what it meant.
+    const legacy = { ...gradeK, unchecked_items: [], failed_items: [55] };
+    delete legacy.failed_findings;
+    delete legacy.unchecked_findings;
+    delete legacy.restored_findings;
+    delete legacy.cos_findings;
+    const r = gradeReceiptPresentation({ grade: legacy }, [fupK, baseK]);
+    assert.equal(r.journeys.failed.length, 2, 'both findings under item 55');
+    assert.deepEqual(r.journeys.failed.map((x) => x.item), [55, 55]);
 });
 
 test('a revoked on-site credit is not badged as if it still applied', () => {
