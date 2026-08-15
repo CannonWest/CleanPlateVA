@@ -740,6 +740,46 @@ function receiptNarrativeWords(insp, docks) {
     return words;
 }
 
+// cf_lib.code_matches — comments cite the subsection alone ("55. 3170") where
+// the base carries "12VAC5-421-3170". The separator is load-bearing: a bare
+// suffix test would let "550.1" claim "12VAC5-421-1550.1".
+function receiptCodeMatches(baseCode, citedCode) {
+    if (!baseCode || !citedCode) return false;
+    return baseCode === citedCode || baseCode.endsWith(`-${citedCode}`);
+}
+
+// cf_lib.narrative_finding_words: an adjudicated comment resolved onto BASE
+// findings. A `findings` verdict names each citation the way the comment does
+// and joins by code; every other verdict is an item-level claim and fans out
+// to every finding under the item, which is what it asserted.
+function receiptNarrativeFindingWords(insp, findings, docks) {
+    const out = new Map();
+    const byItem = new Map();
+    for (const f of findings) {
+        if (!byItem.has(f.item)) byItem.set(f.item, []);
+        byItem.get(f.item).push(f);
+    }
+    const adj = insp.adjudication || {};
+    if (adj.status === 'adjudicated' && adj.verdict === 'findings') {
+        for (const e of adj.findings || []) {
+            if (!e || typeof e !== 'object') continue;
+            const code = receiptNormCode(e.code);
+            const word = String(e.word || '').toUpperCase();
+            if (word !== 'IN' && word !== 'OUT') continue;
+            for (const f of byItem.get(e.item) || []) {
+                if (receiptCodeMatches(f.code, code)) {
+                    out.set(f.idx, { word, repeat: false });
+                }
+            }
+        }
+        return out;
+    }
+    for (const [item, w] of receiptNarrativeWords(insp, docks)) {
+        for (const f of byItem.get(item) || []) out.set(f.idx, w);
+    }
+    return out;
+}
+
 /**
  * The grade-receipt model for one facility: the broad anchor's per-item
  * docks, the post-broad re-checks and what each governed item's outcome did
@@ -846,15 +886,32 @@ export function gradeReceiptPresentation(facility = {}, inspections = []) {
             latestFinding.set(f.idx, w);
             if (narr) narrativeFindings.add(f.idx);
         };
+        // The item-level map still drives the new-findings branch.
         for (const [item, w] of words) {
-            const group = byItem.get(item);
             if (!latestWord.has(item)) latestWord.set(item, w);
+        }
+        const narrFindings = narrative
+            ? receiptNarrativeFindingWords(fup, findings, docks) : new Map();
+        const narrate = (rest) => {
+            let n = 0;
+            for (const f of rest) {
+                const w = narrFindings.get(f.idx);
+                if (!w || latestFinding.has(f.idx)) continue;
+                claim(f, w, true);
+                n += 1;
+            }
+            return n;
+        };
+        const narrated = new Set();
+        for (const f of findings) {
+            if (narrFindings.has(f.idx)) narrated.add(f.item);
+        }
+        for (const item of new Set([...narrated, ...structuredWords.keys()])) {
+            const group = byItem.get(item);
             if (!group || closed.has(item)) continue;
             const sWord = structuredWords.get(item);
-            const nWord = narrativeWords.get(item);
             if (!sWord) {
-                // Comment-only evidence: it speaks for the whole form line.
-                for (const f of group) claim(f, w, true);
+                narrate(group);          // comment-only evidence for this item
                 continue;
             }
             const targets = receiptAttribute(sWord.word, group,
@@ -863,11 +920,7 @@ export function gradeReceiptPresentation(facility = {}, inspections = []) {
             for (const f of targets) claim(f, sWord, false);
             // Where the join could not discriminate, receiptAttribute hands
             // back the whole group and there is no leftover for the comment.
-            if (nWord) {
-                for (const f of group) {
-                    if (!named.has(f.idx)) claim(f, nWord, true);
-                }
-            }
+            narrate(group.filter((f) => !named.has(f.idx)));
         }
         for (const item of words.keys()) closed.add(item);
     }
