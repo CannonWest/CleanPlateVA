@@ -569,6 +569,65 @@ test('legacy payloads without *_findings still expand to per-finding rows', () =
     assert.deepEqual(r.journeys.failed.map((x) => x.item), [55, 55]);
 });
 
+// Case H — a hybrid follow-up whose checklist names ONE of item 55's two
+// findings by code while its adjudicated comment clears the rest. The two
+// channels compose per finding: tiles fail, grease restores, and item 55
+// lands in both buckets.
+const baseH2 = {
+    inspection_id: 'H1', date: '2026-05-19', scope: 'broad', score: 90,
+    checklist: [
+        { item: 22, disposition: 'OUT', violation: true },
+        { item: 55, disposition: 'OUT', violation: true },
+        { item: 55, disposition: 'OUT', violation: true },
+    ],
+    violations: [
+        { item: 22, code: '12VAC5-421-820.A.2',
+            text: 'Cold holding above 41F in the prep unit' },
+        { item: 55, code: '12VAC5-421-3180.A',
+            text: 'Heavy grease buildup on floors under the cook line' },
+        { item: 55, code: '12VAC5-421-3170',
+            text: 'Floor tiles cracked and grout worn through the kitchen' },
+    ],
+};
+const fupH2 = {
+    inspection_id: 'H2', date: '2026-06-15', scope: 'focused',
+    purpose: 'Follow-Up',
+    checklist: [
+        { item: 22, disposition: 'OUT', violation: true },
+        { item: 55, disposition: 'OUT', violation: true },
+    ],
+    violations: [
+        { item: 22, code: '12VAC5-421-820.A.2' },
+        { item: 55, code: '12VAC5-421-3170' },
+    ],
+    adjudication: { schema: 1, status: 'adjudicated', verdict: 'all_corrected',
+        tier: 'blanket_all', method: 'regex' },
+};
+const gradeH2 = {
+    score: 87, letter: 'B', base_score: 90, base_letter: 'A',
+    base_date: '2026-05-19', base_inspection_id: 'H1', adjusted: true,
+    followups: 1, followup_date: '2026-06-15', narrative_followups: 1,
+    narrative_items: [55], restored_items: [55], failed_items: [22, 55],
+    cos_items: [], new_items: [], unchecked_items: [],
+    restored_findings: [1], failed_findings: [0, 2], cos_findings: [],
+    unchecked_findings: [], restored_points: 1.3, extra_points: 4.0,
+};
+
+test('a comment covers the findings the checklist did not name', () => {
+    const r = gradeReceiptPresentation({ grade: gradeH2 }, [fupH2, baseH2]);
+    assert.equal(r.verified, true, 'per-finding composition reconciles');
+
+    // Item 55 in two buckets, one finding each way — the item-level collision
+    // rule discarded the comment for 55 entirely and carried the grease.
+    const [restored] = r.journeys.restored;
+    assert.equal(restored.item, 55);
+    assert.match(restored.texts[0], /Heavy grease buildup/);
+    assert.equal(restored.narrative, true, 'sourced from the comment');
+    assert.deepEqual(r.journeys.failed.map((x) => x.item), [22, 55]);
+    assert.match(r.journeys.failed[1].texts[0], /Floor tiles cracked/);
+    assert.equal(r.journeys.unchecked.length, 0, 'every finding got a word');
+});
+
 test('a revoked on-site credit is not badged as if it still applied', () => {
     // failed and cos both charge `full` — the base COS discount is gone by the
     // time either group renders. Badging it under a heading that says "any
