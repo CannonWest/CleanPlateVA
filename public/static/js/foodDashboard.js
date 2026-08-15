@@ -815,19 +815,24 @@ export function gradeReceiptPresentation(facility = {}, inspections = []) {
         }
         const narrativeWords = narrative
             ? receiptNarrativeWords(fup, docks) : new Map();
+        // Kept SEPARATE, not just merged: per-finding composition needs to
+        // know which channel each word came from, because a structured row and
+        // a comment can both speak to one item about different findings.
+        const structuredWords = structured
+            ? receiptItemWords(fup.checklist) : new Map();
         const words = new Map(narrativeWords);
         const sourcedNarrative = new Set(narrativeWords.keys());
-        if (structured) {
-            for (const [item, word] of receiptItemWords(fup.checklist)) {
-                words.set(item, word);
-                sourcedNarrative.delete(item);
-            }
+        for (const [item, word] of structuredWords) {
+            words.set(item, word);
+            sourcedNarrative.delete(item);
         }
-        // cf_lib.recheck_finding_words: the item word lands on the findings
-        // this visit actually re-cited. `closed` keeps the doctrine that the
-        // NEWEST visit to word an item governs the whole item — without it a
-        // finding the newest visit skipped would inherit an older, harsher
-        // word and be charged MORE than the item-level reading charged it.
+        // cf_lib.recheck_finding_words: the structured row claims the findings
+        // it re-cited by code, and an adjudicated comment covering the same
+        // item then speaks for the ones it did not — the two channels compose
+        // per finding rather than colliding per item. `closed` keeps the
+        // doctrine that the NEWEST visit to word an item governs the whole
+        // item; without it a finding the newest visit skipped would inherit an
+        // older, harsher word and be charged MORE than item-level charged it.
         const cited = new Map();
         for (const v of fup.violations || []) {
             const code = receiptNormCode(v.code);
@@ -836,18 +841,32 @@ export function gradeReceiptPresentation(facility = {}, inspections = []) {
             if (!cited.has(key)) cited.set(key, []);
             cited.get(key).push(code);
         }
+        const claim = (f, w, narr) => {
+            if (latestFinding.has(f.idx)) return;
+            latestFinding.set(f.idx, w);
+            if (narr) narrativeFindings.add(f.idx);
+        };
         for (const [item, w] of words) {
             const group = byItem.get(item);
             if (!latestWord.has(item)) latestWord.set(item, w);
             if (!group || closed.has(item)) continue;
-            const narr = sourcedNarrative.has(item);
-            // An adjudicated comment speaks about form lines, not citations.
-            const targets = narr
-                ? group : receiptAttribute(w.word, group, cited.get(item) || []);
-            for (const f of targets) {
-                if (latestFinding.has(f.idx)) continue;
-                latestFinding.set(f.idx, w);
-                if (narr) narrativeFindings.add(f.idx);
+            const sWord = structuredWords.get(item);
+            const nWord = narrativeWords.get(item);
+            if (!sWord) {
+                // Comment-only evidence: it speaks for the whole form line.
+                for (const f of group) claim(f, w, true);
+                continue;
+            }
+            const targets = receiptAttribute(sWord.word, group,
+                cited.get(item) || []);
+            const named = new Set(targets.map((f) => f.idx));
+            for (const f of targets) claim(f, sWord, false);
+            // Where the join could not discriminate, receiptAttribute hands
+            // back the whole group and there is no leftover for the comment.
+            if (nWord) {
+                for (const f of group) {
+                    if (!named.has(f.idx)) claim(f, nWord, true);
+                }
             }
         }
         for (const item of words.keys()) closed.add(item);
