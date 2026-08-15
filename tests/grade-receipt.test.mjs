@@ -482,13 +482,50 @@ test('the full detail render binds the receipt openers', () => {
 });
 
 test('the item row prints every finding, never just the first', () => {
-    const start = source.indexOf('const itemRow = (it, deltaHtml) =>');
+    // Anchor on the name, not the parameter list — this test is about what the
+    // row renders, and pinning the signature makes it fail on every unrelated
+    // argument added to itemRow.
+    const start = source.indexOf('const itemRow = (');
     assert.ok(start !== -1, 'itemRow definition found');
     const row = source.slice(start, source.indexOf('── section 1', start));
     assert.match(row, /texts\.map\(/, 'itemRow renders the whole texts list');
     assert.ok(!/it\.text\b/.test(row), 'no single-text fallback survives');
     assert.ok(css.includes('.food-receipt-item-texts'),
         'style.css ships the multi-finding list');
+});
+
+test('a revoked on-site credit is not badged as if it still applied', () => {
+    // failed and cos both charge `full` — the base COS discount is gone by the
+    // time either group renders. Badging it under a heading that says "any
+    // on-site credit revoked" advertises a discount the arithmetic already took
+    // back. restored and unchecked charge the DISCOUNTED dock, so there the
+    // chip is true and stays.
+    const start = source.indexOf('const creditHeld = (bucket) =>');
+    assert.ok(start !== -1, 'creditHeld predicate found');
+    const pred = source.slice(start, source.indexOf(';', start));
+    for (const held of ['restored', 'unchecked']) {
+        assert.ok(pred.includes(`'${held}'`), `${held} must keep the credit`);
+    }
+    for (const revoked of ['failed', 'cos']) {
+        assert.ok(!pred.includes(`'${revoked}'`),
+            `${revoked} must not keep the credit`);
+    }
+    // The chip is gated on it, and the bucket is threaded down to the row.
+    assert.match(source, /it\.cosBase && creditHeld\(bucket\) \?/);
+    assert.match(source, /itemRow\(row, delta\(row\), bucket\)/);
+});
+
+test('journey rows drop the per-violation weight from the category chip', () => {
+    // In a journey group the charge is the whole item at full weight ×1.5, so a
+    // per-violation "−6" beside a "−4.5 more" states two numbers that do not
+    // reconcile. The base docket keeps the value — there it IS the row's charge.
+    assert.match(source, /const catChip = \(category, points = true\) =>/);
+    assert.match(source, /points \? 'risk factor −6' : 'risk factor'/);
+    assert.match(source, /points \? 'retail practice −2' : 'retail practice'/);
+    const itemRowSrc = source.slice(source.indexOf('const itemRow = ('),
+        source.indexOf('── section 1'));
+    assert.match(itemRowSrc, /body, deltaHtml, false\);/,
+        'journey rows suppress the point value');
 });
 
 test('receipt CSS ships the modal, its dark pairs, and the bottom sheet', () => {

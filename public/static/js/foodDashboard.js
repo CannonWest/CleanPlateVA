@@ -2892,21 +2892,25 @@ export class FoodDashboard {
         const fmt1 = (n) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
         const chip = (cls, text, title = '') =>
             `<span class="${cls}"${title ? ` title="${esc(title)}"` : ''}>${esc(text)}</span>`;
-        const catChip = (category) => (category === 'risk_factor'
-            ? chip('food-receipt-cat food-receipt-cat-rf', 'risk factor −6',
+        // `points` off in the journey groups: there the charge is the whole
+        // item at full weight ×1.5, so a per-violation "−6" beside a "−4.5
+        // more" states two numbers that do not reconcile. The category still
+        // earns its place — a risk-factor re-offense is not a grease smear.
+        const catChip = (category, points = true) => (category === 'risk_factor'
+            ? chip('food-receipt-cat food-receipt-cat-rf', points ? 'risk factor −6' : 'risk factor',
                 'Foodborne-illness risk factor (form items 1–29) — 6 points per violation')
-            : chip('food-receipt-cat food-receipt-cat-grp', 'retail practice −2',
+            : chip('food-receipt-cat food-receipt-cat-grp', points ? 'retail practice −2' : 'retail practice',
                 'Good Retail Practices (items 30+) — 2 points per violation'));
 
         // One item row, shared by the base list and the journey groups. Every
         // observation filed under the item number prints: several unrelated
         // findings routinely share one item, so a single line would state one
         // reason and silently swallow the others behind the ×N chip.
-        const shell = (it, headExtras, body, deltaHtml) => `
+        const shell = (it, headExtras, body, deltaHtml, catPoints = true) => `
             <div class="food-receipt-item${it.category === 'risk_factor' ? ' food-receipt-item-rf' : ''}">
                 <div class="food-receipt-item-head">
                     <span class="food-receipt-item-no">#${esc(it.item)}</span>
-                    ${catChip(it.category)}
+                    ${catChip(it.category, catPoints)}
                     ${headExtras}
                     ${deltaHtml}
                 </div>
@@ -2930,7 +2934,16 @@ export class FoodDashboard {
         // Journey groups stay per ITEM: a re-check publishes one verdict per
         // form line and cannot say WHICH finding under it was fixed, so the
         // outcome genuinely belongs to the number, not to any one violation.
-        const itemRow = (it, deltaHtml) => {
+        // Whether the base's corrected-on-site discount SURVIVES into the
+        // grade. It does where facility_grade charges the discounted dock
+        // (IN restores a fraction of it; an un-re-checked item carries it
+        // forward), and does NOT where the branch charges `full` — both
+        // OUT and OUT_COS revoke it. Badging a revoked credit in a group
+        // headed "any on-site credit revoked" advertises a discount the
+        // arithmetic already took back.
+        const creditHeld = (bucket) => bucket === 'restored' || bucket === 'unchecked';
+
+        const itemRow = (it, deltaHtml, bucket) => {
             const texts = it.texts || [];
             const body = texts.length > 1
                 ? `<ul class="food-receipt-item-texts">${texts.map(
@@ -2948,7 +2961,7 @@ export class FoodDashboard {
                             ? `${it.repeatCount} of ${it.count} repeat ×1.5`
                             : 'repeat ×1.5',
                         'Repeats weigh 1.5× — charged to the findings VDH badged') : ''}
-                    ${it.cosBase ? chip('food-dispos food-dispos-cos',
+                    ${it.cosBase && creditHeld(bucket) ? chip('food-dispos food-dispos-cos',
                         it.cosCount && it.cosCount < it.count
                             ? `${it.cosCount} of ${it.count} fixed on site`
                             : 'fixed on site ×0.75',
@@ -2956,7 +2969,7 @@ export class FoodDashboard {
                             + 'finding\'s weight, provisionally') : ''}
                     ${it.narrative ? chip('food-receipt-narr', 'written verdict',
                         'Outcome read from the inspector\'s written comments (adjudicated)') : ''}`,
-                body, deltaHtml);
+                body, deltaHtml, false);
         };
 
         // ── section 1: the broad anchor ────────────────────────────────
@@ -3030,7 +3043,7 @@ export class FoodDashboard {
                 .filter(([bucket]) => r.journeys[bucket].length)
                 .map(([bucket, title, sub, delta]) => `
                     <div class="food-receipt-group">${title} <small>${sub}</small></div>
-                    ${r.journeys[bucket].map((row) => itemRow(row, delta(row))).join('')}`)
+                    ${r.journeys[bucket].map((row) => itemRow(row, delta(row), bucket)).join('')}`)
                 .join('');
             followupSection = `
                 <div class="food-receipt-sec">
