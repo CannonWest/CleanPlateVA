@@ -255,7 +255,10 @@ test('serving fallbacks: <base href> mount, Cloudflare SPA not-found handling, d
     assert.match(html, /src="static\/js\/app\.js"/);
     // Cloudflare: any non-asset path gets index.html; the data routing is untouched
     assert.match(wrangler, /"not_found_handling":\s*"single-page-application"/);
-    assert.match(wrangler, /"run_worker_first":\s*\["\/data\/manifest\.json", "\/data\/finder\/\*"\]/);
+    // …and the public data channel keeps routing through the worker, which is
+    // what re-404s a shard the fallback would otherwise mask with the shell
+    // (see worker-cache-contract.test.mjs).
+    assert.match(wrangler, /"run_worker_first":\s*\["\/data\/\*"\]/);
     // app.py: files are served, extension-less paths get index.html, missing assets 404
     assert.match(appPy, /static_folder=None/);
     assert.match(appPy, /if target is not None and target\.is_file\(\):\s*return send_from_directory\(PUBLIC, subpath\)/);

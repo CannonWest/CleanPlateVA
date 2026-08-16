@@ -25,8 +25,10 @@ test('the mutable manifest revalidates quickly', async () => {
 });
 
 test('the public manifest also revalidates quickly', async () => {
-    assert.match(wrangler,
-        /"run_worker_first"\s*:\s*\[[^\]]*"\/data\/manifest\.json"[^\]]*"\/data\/finder\/\*"[^\]]*\]/);
+    // The worker must SEE the public data channel — it sets these headers,
+    // and (CPR-M1b) re-404s a shard the SPA fallback would have masked. A
+    // path outside run_worker_first never reaches the worker at all.
+    assert.match(wrangler, /"run_worker_first"\s*:\s*\[\s*"\/data\/\*"\s*\]/);
     const response = await worker.fetch(
         new Request('https://cleanplateva.test/data/manifest.json'), env);
     assert.equal(response.headers.get('Cache-Control'),

@@ -16,7 +16,15 @@
     "assets": {
         "directory": "./public",
         "binding": "ASSETS",
-        "run_worker_first": ["/data/manifest.json", "/data/finder/*"],
+        // The whole public data channel goes through the worker: it sets the
+        // cache-control for the manifest and the content-addressed shards,
+        // and — since the SPA fallback below would otherwise answer a MISSING
+        // shard with 200 + the HTML shell, which dataClient would parse as
+        // JSON — it is also what turns a real miss back into a 404. Static
+        // assets deliberately stay on the fast path (no worker invocation per
+        // file): a missing .js there surfaces immediately as a console MIME
+        // error rather than a silent mis-parse.
+        "run_worker_first": ["/data/*"],
         // Real per-view URLs (/list, /about — static/js/router.js): any path
         // that is not an asset gets index.html and the client routes it
         // (unknown paths normalize to /). Assets and the /data/* + /data-full/*
