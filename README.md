@@ -54,12 +54,22 @@ Serving this needs one thing from the host: any non-asset path must return
 and the CannonAI embed mount mirror it.
 
 A missing asset must still 404, and Cloudflare's setting alone does not do
-that — it is all-or-nothing, so a mistyped `.js` or a genuinely missing data
-shard would come back as `200 text/html`, leaving `dataClient` to parse
-markup as JSON. [`src/worker.js`](src/worker.js) re-imposes the honest
-answer: an asset-shaped path (last segment carrying a non-HTML extension)
-that comes back as the HTML shell is returned as a 404. `app.py` and the
-embed mount decide the same thing directly, before serving.
+that — it is all-or-nothing, so a genuinely missing data shard would come
+back as `200 text/html` and `dataClient` would parse markup as JSON.
+[`src/worker.js`](src/worker.js) re-imposes the honest answer for the paths
+it sees: an asset-shaped request (last segment carrying a non-HTML
+extension) answered with the HTML shell is returned as a 404.
+
+Which paths it sees is set by `run_worker_first`, and that list is
+deliberately `/data/*` and not everything. The data channel is where a
+masked 404 is *silent* — the client mis-parses and degrades with a
+confusing reason — and it already routes through the worker for its
+cache-control headers, so covering it costs nothing extra. Static assets
+stay on the fast path: a missing `.js` there announces itself immediately
+as a console MIME error, and a per-file worker invocation would be a real
+request-quota cost for a cosmetic improvement. `app.py` and the embed mount
+have no such split — they decide before serving, so everything 404s
+correctly there.
 
 The page declares its mount with `<base href>` (`/` here, rewritten to
 `/cleanplate/` by the CannonAI passthrough) and the router reads it from
