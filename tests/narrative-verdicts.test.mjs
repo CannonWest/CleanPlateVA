@@ -5,16 +5,9 @@
 // with real-archive shapes: Brickhouse's blanket, Curry Lounge's failure,
 // Nash & Smashed's enumeration.
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import { dashboard, dashboardSource as source } from './support/dashboard.mjs';
 
-const source = readFileSync(
-    new URL('../public/static/js/foodDashboard.js', import.meta.url),
-    'utf8',
-);
-const dashboard = await import(
-    `data:text/javascript;base64,${Buffer.from(source).toString('base64')}`
-);
 
 const { narrativeVerdictPresentation, gradePresentation } = dashboard;
 

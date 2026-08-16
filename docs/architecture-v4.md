@@ -54,7 +54,7 @@ These are the invariants every V4 decision must satisfy. Several are inherited f
 
 ## 4. URL scheme (CPR)
 
-Proposed; **CPR-M0 ratifies** the open items in §12 (D-URL-*). Today: `_setView` writes only `#about` via `replaceState`; Map and List share the bare URL.
+**Ratified at CPR-M0 (2026-08-16, Cannon)** — every D-URL-* row in §12 resolved as recommended; the table below is the decided scheme, which CPR-M1b implements. Until M1b lands: `_setView` writes only `#about` via `replaceState`; Map and List share the bare URL.
 
 | Route | View | Notes |
 |---|---|---|
@@ -63,7 +63,7 @@ Proposed; **CPR-M0 ratifies** the open items in §12 (D-URL-*). Today: `_setView
 | `/about` | About | Legacy `#about` migrates on load. |
 | unknown | → `/` | Static-asset `not_found_handling: "single-page-application"` serves `index.html`; the client normalizes unknown paths (D-URL-2). |
 
-**Query state (both views unless noted):** `q` (search) · `zip` · `grade` · `restaurants` · `closed` · `new` · `mobile` · `permit` (selected facility → panel open) · List-only `sort`, `dir`, `page` · Map-only stretch: viewport as `#@lat,lon,z`.
+**Query state (both views unless noted):** `q` (search) · `zip` · `grade` · `restaurants` · `closed` · `new` · `mobile` · `permit` (selected facility → panel open) · List-only `sort`, `dir`, `page` · Map-only stretch: viewport as `#@lat,lon,z` (deferred; D-URL-3). With List paging decided as load-more (D-DATA-11), `page=N` means "N chunks of 50 revealed" — a load-more position stays deep-linkable; it resets when filters or sort change.
 
 **Precedence:** URL wins when present; toggles keep persisting to `localStorage` as the default for URLs that omit them; the client writes only non-default state into the URL so shared links stay short (D-URL-4).
 
@@ -73,7 +73,7 @@ Proposed; **CPR-M0 ratifies** the open items in §12 (D-URL-*). Today: `_setView
 - **CannonAI embed:** `CannonAI/cannonai/gui/server.py` serves `/cleanplate/<path:subpath>` via `send_from_directory`, so `/cleanplate/list` would 404. It needs an `index.html` fallback for view paths (tiny CannonAI PR, D-URL-6). CTS-M1 already gave the Food tab a real `/food` route, so the iframe `src` can carry the sub-route.
 - The `?tier=lite` override is orthogonal to routes and survives.
 
-**Module split (decided 2026-08-16, Cannon):** `foodDashboard.js` is one 3,866-line class; its own section markers already show the seams (map plumbing · hover card · spiderfied stacks · detail panel · grade-receipt modal · List · About). CPR splits it into per-concern ES modules with **zero behavior change** so CPD's rewrites of the List, hover card, and presentation layer land in small named files. Insurance, not a feature.
+**Module split (decided 2026-08-16, Cannon; shipped CPR-M1a the same day):** `foodDashboard.js` was one 3,866-line class; its own section markers showed the seams. CPR-M1a split it into per-concern ES modules with **zero behavior change** — `constants` · `stacks` · `presentation` · `receipt` (pure) and `map` · `markers` · `hover` · `filters` · `list` · `about` · `detail` · `sparkline` · `inspection` (method bundles installed on `FoodDashboard.prototype`), with `foodDashboard.js` left as the ~370-line orchestrator (constructor, toolbar wiring, load/refresh, view switch) that re-exports the pure helpers. Method bodies moved verbatim; the 16 `node --test` suites (193 tests) and a dark-mode DOM/text fingerprint of Map / hover / panel / receipt / List / About in both tiers were byte-identical before and after. CPD's rewrites of the List, hover card, and presentation layer now land in small named files. Insurance, not a feature.
 
 ## 5. View → data-need matrix
 
@@ -194,12 +194,12 @@ Every fork the runways inherit. **Resolver** = the milestone that must close it;
 
 | ID | Question | Options | Recommendation | Resolver | Status |
 |---|---|---|---|---|---|
-| **D-URL-1** | Which route is canonical for Map? | `/` canonical, `/map` alias → normalize · `/map` canonical, `/` redirects | `/` canonical | CPR-M0 | open |
-| **D-URL-2** | Unknown path behavior | SPA fallback + client normalizes to `/` · real 404 page | SPA fallback + normalize | CPR-M0 | open |
-| **D-URL-3** | Which state rides in the URL | filters (both) + `permit` + List `sort/dir/page` · + Map viewport hash | all of the first; viewport as stretch | CPR-M0 | open |
-| **D-URL-4** | URL vs `localStorage` precedence for toggles | URL wins when present, else stored default; write only non-default state · URL always authoritative | URL-wins-when-present | CPR-M1 | open |
-| **D-URL-5** | Split `foodDashboard.js` into modules in CPR? | yes, zero-behavior-change per-concern split · leave to CPD | **decided: yes-light** | CPR-M1 | **decided 2026-08-16 (Cannon)** |
-| **D-URL-6** | CannonAI embed deep-linking | Flask `/cleanplate/<path>` falls back to `index.html` for view paths + iframe `src` carries sub-route · embed stays at `/cleanplate/` root only | fallback + sub-route (tiny CannonAI PR) | CPR-M1 | open |
+| **D-URL-1** | Which route is canonical for Map? | `/` canonical, `/map` alias → normalize · `/map` canonical, `/` redirects | `/` canonical | CPR-M0 | **decided 2026-08-16 (Cannon): `/` canonical, `/map` → normalize** — ships CPR-M1b |
+| **D-URL-2** | Unknown path behavior | SPA fallback + client normalizes to `/` · real 404 page | SPA fallback + normalize | CPR-M0 | **decided 2026-08-16 (Cannon): SPA fallback + normalize** — ships CPR-M1b |
+| **D-URL-3** | Which state rides in the URL | filters (both) + `permit` + List `sort/dir/page` · + Map viewport hash | all of the first; viewport as stretch | CPR-M0 | **decided 2026-08-16 (Cannon): filters + `permit` + List `sort/dir/page`; viewport hash deferred** — ships CPR-M1b |
+| **D-URL-4** | URL vs `localStorage` precedence for toggles | URL wins when present, else stored default; write only non-default state · URL always authoritative | URL-wins-when-present | CPR-M1 | **decided 2026-08-16 (Cannon): URL wins when present, else stored; write only non-default** — ships CPR-M1b |
+| **D-URL-5** | Split `foodDashboard.js` into modules in CPR? | yes, zero-behavior-change per-concern split · leave to CPD | **decided: yes-light** | CPR-M1 | **shipped CPR-M1a 2026-08-16** (decided the same day, Cannon) — 13 modules + orchestrator, §4 |
+| **D-URL-6** | CannonAI embed deep-linking | Flask `/cleanplate/<path>` falls back to `index.html` for view paths + iframe `src` carries sub-route · embed stays at `/cleanplate/` root only | fallback + sub-route (tiny CannonAI PR) | CPR-M1 | **decided 2026-08-16 (Cannon): fallback + sub-route** — ships CPR-M1b (+ CannonAI PR) |
 | **D-DATA-1** | Is the shared finder feasible — do Lite and Full produce the *same* active-marker partition? | verify with `tools/developer/cf_merge_diff.py --compare` · if unequal, Full owns its own slim finder | verify first; expect equal | CPD-M0 | open |
 | **D-DATA-2** | Shared finder: same URL vs same bytes republished under `/data-full/` | see §6.3 | same bytes under `/data-full/` | CPD-M0 | open |
 | **D-DATA-3** | Finder row encoding | objects (V3 style) · positional arrays | measure; positional if ≥15% wire | CPD-M0 | open |
@@ -210,7 +210,7 @@ Every fork the runways inherit. **Resolver** = the milestone that must close it;
 | **D-DATA-8** | Detail contract under V4 | keep V3 shape and contract string · bump to v4 for uniformity | keep; bump only if bytes change | CPD-M1 | open |
 | **D-DATA-9** | Freshness field in the manifest | `freshness: {snapshot_id, newest_report}` top-level · under `counts` | top-level `freshness` | CPD-M1 | open |
 | **D-DATA-10** | Hover-dwell threshold + prefetch policy | ~150 ms dwell, cancel on leave, LRU ~200 details; touch = click | as stated | CPD-M2 | open |
-| **D-DATA-11** | List page size + style | 50/page numbered, URL-carried · load-more | 50 numbered | CPD-M2 | open |
+| **D-DATA-11** | List page size + style | 50/page numbered, URL-carried · load-more | 50 numbered | CPR-M1b (moved from CPD-M2 — pure UI change, no data dependency) | **decided 2026-08-16 (Cannon): load-more, append 50** (not the recommendation); `page=N` in the URL = N chunks revealed (§4) — ships CPR-M1b |
 | **D-CUTOVER-1** | V4 flip: same-PR Lite data vs transitional dual-accept | see §8 | same-PR | CPD-M3 | open |
 | **D-CUTOVER-2** | Publisher idempotence when Lite is already at the generation | detect by shard shas → skip Lite commit · always commit | detect + skip | CPD-M3 | open |
 | **D-ACK-1** | When the acknowledgement appears | first load, map loading gray behind the modal, decline → Lite · on first judgment-bearing interaction | first load (Cannon: the public *should* get Full) | CPF-M0/M1 | open |
@@ -225,6 +225,7 @@ Every fork the runways inherit. **Resolver** = the milestone that must close it;
 | Date | Change |
 |---|---|
 | 2026-08-16 | Doc created from the design conversation of the same day. D-URL-5 decided (module split: yes-light). Three runway briefings created against it. |
+| 2026-08-16 | CPR-M0 ratified D-URL-1, -2, -3, -4, -6 as recommended and D-DATA-11 as **load-more** (resolver moved CPD-M2 → CPR-M1b). CPR-M1a shipped the module split (D-URL-5 → shipped): `foodDashboard.js` → 13 per-concern modules + orchestrator, zero behavior change (CleanPlateVA PR #104). |
 
 ## 14. Terminology
 
@@ -241,7 +242,7 @@ Every fork the runways inherit. **Resolver** = the milestone that must close it;
 |---|---|
 | [`README.md`](../README.md) | Shipped V3 contract; authoritative for what is live until CPD-M3 |
 | `public/static/js/dataClient.js` | V3 client: manifest-led loads, `decodeChecklist`, Full→Lite fallback |
-| `public/static/js/foodDashboard.js` | The 3,866-line dashboard CPR splits and CPD rewrites in part |
+| `public/static/js/foodDashboard.js` + siblings (`constants` · `stacks` · `presentation` · `receipt` · `map` · `markers` · `hover` · `filters` · `list` · `about` · `detail` · `sparkline` · `inspection`) | The dashboard, split per concern by CPR-M1a (§4); CPD rewrites `list`, `hover`, `presentation`, `markers` in part |
 | `src/worker.js` · `wrangler.jsonc` | Transport: Access header check, cache-control, assets config CPR/CPF change |
 | `tests/lite-roster-contract.test.mjs` · `tests/worker-cache-contract.test.mjs` · `tests/data-client-v3.test.mjs` | Tripwires CPD/CPF rewrite |
 | `cannon-food/scripts/cf_export_site.py` | Deterministic full-rebuild authority; `shard_bucket`, `write_shard_set`, `_trend_event` |
