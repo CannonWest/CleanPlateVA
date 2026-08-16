@@ -8,7 +8,7 @@
 | Owner | Cannon decides; the active agent (lead dev) maintains. |
 | Written | 2026-08-16, against the V3 snapshot `2026-08-16T15:13:33Z` (27,919 Full markers · 24,990 Lite). Every measured number below is stamped; treat them as dated receipts, not constants. |
 | Update rule | When a runway milestone resolves an entry in **§12 Open decisions**, flip its status **in this doc, same PR**. When a principle changes, change it here first, then the briefings. Superseded content is struck or moved to **§13 History**, never silently deleted. |
-| Runways | `c-ground-code/runway/cleanplate-routes.md` · `cleanplate-boot-diet.md` · `cleanplate-public-full.md` (created 2026-08-16). |
+| Runways | `c-ground-code/runway/archive/cleanplate-routes.md` (CPR, shipped 2026-08-16) · `cleanplate-boot-diet.md` (CPD) · `cleanplate-public-full.md` (CPF) · `cleanplate-v4-closeout.md` (CPX — the verification net + residue tripwire, gated on CPF-M3). |
 
 The shipped V3 contract is documented in [`README.md`](../README.md); it stays authoritative for what is *live* until CPD-M3 cuts over. This doc is authoritative for where the site is *going* and why.
 
@@ -189,8 +189,11 @@ Written down so no future session re-litigates them without new evidence.
 | **CPR** — routes ✅ **complete 2026-08-16** | `cleanplate-routes.md` | M0 ratify §4 + adopt §5 ✅ · M1a module split ✅ (PR #104) · M1b routes, URL state, load-more paging, SPA + embed fallbacks ✅ | none — fired first |
 | **CPD** — boot diet / Contract V4 | `cleanplate-boot-diet.md` | M0 measure + design (prototype families; real wire numbers; merge-partition check; resolve D-DATA-*) · M1 cannon-food emits V4 (exporter, publisher inventory, incremental change-set→family mapping, tests) local-only · M2 site V4 client (finder+overlay boot, hover→detail prefetch, presentation refactor, freshness from manifest — List paging already shipped in CPR-M1b) · M3 cutover per §8 + V3 retirement · M4 stretch slimming per M0 numbers | **ungated 2026-08-16** — CPR-M1a + M1b both merged |
 | **CPF** — public Full | `cleanplate-public-full.md` | M0 terms copy + attribution inventory (Cannon's voice; agent drafts) + plan-tier check · M1 ack UX (modal, `localStorage`, decline → Lite, replaces sign-in button, About/footer wording, embed behavior) · M2 transport per §9 · M3 Access app retirement + verification + README/memory · M4 observe volume/hit rates; consider D-TRANSPORT-2 | **gated on CPD-M3** — public boot must be slim, and the overlay *is* the ack-gated family |
+| **CPX** — V4 close-out sweep | `cleanplate-v4-closeout.md` | M0 inventory (grep the retired vocabulary in §14.1 across cannon-food, clean-plate-va, c-ground-code memory/references/mcps, CannonAI's Food tab; classify every hit keep-as-history / rewrite / delete) · M1 apply (rewrites/deletes; identity cards re-based; this doc's "today vs end state" framing collapses into present tense; skills repackaged) · M2 **residue tripwire** (per-repo retired-vocabulary tests, Tier-0 / `node --test`, history and archives exempt) · M3 runway hygiene (CPD/CPF archived, HISTORY, §11/§13 closed) | **gated on CPF-M3** — a verification net: each arc still updates what it touches |
 
 CPR and CPD both edit `foodDashboard.js` (or its split successors) — **sequential is mandatory**. The other gates exist so nothing is designed against a shape that is about to change. Each arc: one PR per milestone, pause between, no auto-chain.
+
+**CPX is a net, not a deferral target.** CPD-M3 and CPF-M3 each carry their own README / SKILL.md / memory steps and each *appends what it retires to §14.1*. CPX exists for the files those arcs never opened — prose that described the old world in places nobody edited — and to make the class mechanical afterward.
 
 ## 12. Open decisions registry
 
@@ -232,6 +235,7 @@ Every fork the runways inherit. **Resolver** = the milestone that must close it;
 | 2026-08-16 | CPR-M0 ratified D-URL-1, -2, -3, -4, -6 as recommended and D-DATA-11 as **load-more** (resolver moved CPD-M2 → CPR-M1b). CPR-M1a shipped the module split (D-URL-5 → shipped): `foodDashboard.js` → 13 per-concern modules + orchestrator, zero behavior change (CleanPlateVA PR #104). |
 | 2026-08-16 | **CPR-M1b shipped** — `router.js` (paths, URL state, history, `#about` migration), `<base href>` mount, load-more List paging, SPA fallbacks in `wrangler.jsonc` / `app.py` / the CannonAI mount, `tests/routes.test.mjs`. D-URL-1..4, -6 and D-DATA-11 → shipped; the Map viewport hash stays deferred. **CPR is complete — CPD is ungated.** |
 | 2026-08-16 | **Post-CPR review hotfix (PR #108):** the SPA fallback had silently broken the authenticated tier — `run_worker_first` in array form is the *complete* set of Worker-invoking paths, and `/data-full/*` was not on it, so R2 requests were answered with `index.html`. Found via the un-Access-gated `www` host (§4). Fixed by listing `/data-full/*`; §4 corrected; test pinned. Lesson folded into `c-ground-code/memory/feedback_measure_host_behavior_not_the_stand_in.md`. |
+| 2026-08-16 | **CPX teed up** (`c-ground-code/runway/cleanplate-v4-closeout.md`, gated on CPF-M3) — the close-out sweep + residue tripwire. §11 gains the CPX row and the "net, not a deferral target" rule; §14.1 seeds the retired-vocabulary list that CPD-M3 / CPF-M3 append to. |
 
 ## 14. Terminology
 
@@ -241,6 +245,36 @@ Every fork the runways inherit. **Resolver** = the milestone that must close it;
 - **shard / bucket / generation** — one content-addressed file of a family / its sha256-of-`permit_id` slot (00–0f) / the set of shard names a manifest points at.
 - **overlay** — the Full-only, position-aligned per-row judgment family that replaces `signals`.
 - **judgment-free / judgment-bearing** — identity/location/source facts vs anything derived by CleanPlateVA's scoring or presented through it.
+
+### 14.1 Retired vocabulary — the CPX tripwire seed
+
+Every term, name, path, header, or number that an arc retires goes here **in the PR that retires it** (CPD-M3, CPF-M3, and any hotfix). CPX-M0 greps live prose and code for this list; CPX-M2 turns it into per-repo tests. Columns: what · replaced by · retired by · owner repo(s) for the tripwire.
+
+**Exempt from the tripwire (history is allowed to say old words):** `c-ground-code/runway/archive/**`, `runway/HISTORY.md`, `cannon-food/references/retros/**`, `c-ground-code/memory/**` (memories are dated observations; CPX-M1 re-bases identity cards by hand), this doc's §13 and this §14.1, git history, and any line carrying an explicit `retired-ok` marker for a deliberate historical mention.
+
+| Retired | Replaced by | Retired by | Tripwire owner |
+|---|---|---|---|
+| `#about` hash as the About route; `_setView(mode, syncHash)` writing hashes | `/about` route via `router.js`; legacy hash migrates on load | CPR-M1b ✅ | site |
+| `CAP = 600` / the "N more" List tail | load-more, 50 per chunk, `page=N` in the URL | CPR-M1b ✅ | site |
+| "the 3,866-line `foodDashboard.js`" as present tense | 13 per-concern modules + a ~380-line orchestrator | CPR-M1a ✅ | site, c-ground-code refs |
+| `run_worker_first: ["/data/manifest.json", "/data/finder/*"]` or `["/data/*"]` | `["/data/*", "/data-full/*"]` — array form is the complete worker-invoking set | CPR-M1b + hotfix #108 ✅ | site |
+| "`/data-full/*` still routes to the Worker" (unqualified) | it does **only because** it is listed in `run_worker_first` | hotfix #108 ✅ | site |
+| `signals/`, `cleanplateva.full-signal-shard.v3`, "sparse signal shards", "16 signal shards" | `overlay/` (`cleanplateva.overlay-shard.v4` or as CPD-M0 names it) | CPD-M3 | cannon-food, site |
+| `cleanplateva.finder-shard.v3` · `full-finder-shard.v3` · `finder-manifest.v3` · `full-manifest.v3` | the V4 contract strings | CPD-M3 | cannon-food, site |
+| roster-level `trend` tuples, `_trend_event` feeding the roster, "hover card without a fetch" | detail-derived hover (prefetch on dwell) | CPD-M3 | cannon-food, site |
+| roster-level `latest_assessment`, `newly_permitted`, 17-field `latest` | overlay row fields | CPD-M3 | cannon-food, site |
+| the client-side "newest held report" scan of every `latest.date` | `manifest.freshness.newest_report` | CPD-M3 | site |
+| "33 requests / 39.66 MB raw / ~6.7 MB" as the *current* boot | the CPD-M0-measured V4 numbers | CPD-M3 | site README, cannon-food SKILL |
+| `data-client-v3.test.mjs` · `test_export_contract_v3.py` · "Contract V3" as present tense | v4 tests; "Contract V4" | CPD-M3 | site, cannon-food |
+| the transitional `--contract v4` flag itself | default v4, flag deleted | CPD-M3 | cannon-food |
+| "Full is authenticated / Access-gated"; "authenticated full-data channel" | "Full is acknowledged" — the tier boundary is the ack | CPF-M3 | site, cannon-food SKILL, c-ground-code refs/mcps |
+| `Cf-Access-Jwt-Assertion` check in `src/worker.js`; the `data-full/signin` route | none (Access retired); public cache-control | CPF-M2/M3 | site |
+| `#signInBtn`, "Sign in to view inspection detail", `cp-signin-label` | the acknowledgement affordance ("Show inspection grades") | CPF-M1 | site |
+| `private, max-age=…` on `/data-full/*`; "browser-private immutable" | `public, …` (shards immutable, details 300 s + ETag) | CPF-M2 | site |
+| the Cloudflare Access application "CleanPlateVA full data" (apex-scoped) | retired — **not** CannonAI's own Access app | CPF-M3 | c-ground-code mcps/memory |
+| *kept, not retired:* `?tier=lite` dev override; `tenant`-routed VDH links; one document per permit in Couch | — | — | (do not flag) |
+
+**Pre-V4 retirements worth catching while the sweep is running** (opportunistic in CPX-M0 — fix on hit, do not hunt): `public/data/facilities.json` (public monolith, retired 2026-08-05); `cf_couch_check.py` → `cf_couch_probe.py --mode transport`; `cf_scrape_recent.py` (deleted); `cf_migrate_location_v3.py` → `cf_apply_location_projection.py`; `cf_facility_location_{candidates,adjudicate,promote}.py` → `cf_location.py <stage>`; `cf_facility_location_google.py` → `cannon_food/location/google.py`; `cf_geocode_repair.py` (folded into `cf_geocode_backfill.py`); `cf_statewide_runner.py` + `cf_targetzips_commit.py` (deleted 2026-08-05); Contract V1/V2 language.
 
 ## 15. Cross-references
 
