@@ -11,7 +11,11 @@ test('the About view is public, directly linkable, and replaces the footer formu
     assert.match(html, /id="foodAboutWrap"/);
     assert.match(html, /Every marker has a source ID\. Every score has math\./);
     assert.match(html, /not affiliated with or endorsed by VDH or MyHealthDepartment/);
+    // The legacy #about hash still lands on About — migrated to the real /about
+    // route by the router (CPR-M1b), which is the directly linkable address now.
     assert.match(dashboardSource, /window\.location\.hash\.toLowerCase\(\) === '#about'/);
+    assert.match(dashboardSource, /this\._setView\(legacyAbout \? 'about' : view, \{ write: false \}\)/);
+    assert.match(dashboardSource, /about: 'about'/);
 
     const footer = html.match(/<div class="food-source-footer[\s\S]*?\n {8}<\/div>/)?.[0] || '';
     assert.ok(footer, 'footer markup found');

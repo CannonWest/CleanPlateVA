@@ -1419,6 +1419,12 @@ body.food-receipt-open { overflow: hidden; }
 .theme-dark .food-list-date { color: var(--cp-muted); }
 .food-list-more td { text-align: center; color: #868e96; font-style: italic; cursor: default; padding: 0.5rem; }
 .food-list-more:hover { background: transparent !important; }
+/* Load-more (D-DATA-11): the button reads as a control, the note beside it as
+   the count; the row itself is not a facility row (no pointer, no hover). */
+.food-list-more-btn { font-style: normal; font-size: 0.8rem; padding: 0.15rem 0.7rem; }
+.food-list-more-note { margin-left: 0.6rem; font-size: 0.8rem; }
+.theme-dark .food-list-more-btn { color: var(--cp-muted); border-color: rgba(255,255,255,0.28); }
+.theme-dark .food-list-more-btn:hover { color: #fff; background: rgba(255,255,255,0.10); border-color: rgba(255,255,255,0.45); }
 
 /* Narrow windows: stack the detail panel under the map instead of beside. When a
    facility is open the panel is the point, so give it the majority of the height

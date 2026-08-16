@@ -87,7 +87,9 @@ export const filterMethods = {
     _populateZipFilter() {
         const sel = document.getElementById('foodZipFilter');
         if (!sel) return;
-        const current = sel.value;
+        // A URL-carried ZIP (router.js) arrives before the options exist, so
+        // the filter state, not the empty select, is what to restore.
+        const current = sel.value || this._filters.zip;
         const zips = this._counts?.by_zip || {};
         const sorted = Object.keys(zips).sort();
         sel.innerHTML = '<option value="">All zips</option>'

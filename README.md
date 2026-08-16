@@ -34,8 +34,28 @@ wiring, load/refresh, view switch) and re-exports the pure helpers. Every
 other concern is one sibling module installed onto the dashboard prototype:
 `constants` · `stacks` · `presentation` · `receipt` (pure) and `map` ·
 `markers` · `hover` · `filters` · `list` · `about` · `detail` · `sparkline` ·
-`inspection` (method bundles). `tests/support/dashboard.mjs` is how the
-suites import the graph and its concatenated source.
+`inspection` · `router` (method bundles). `tests/support/dashboard.mjs` is
+how the suites import the graph and its concatenated source.
+
+### Routes
+
+Each view is a real path — `/` (map), `/list`, `/about` — and the shareable
+state rides in the query string: `q`, `zip`, `grade`, `restaurants`,
+`closed`, `new`, `mobile`, `permit` on every view, plus `sort`, `dir`, and
+`page` (the List's load-more position, 50 rows per chunk) on `/list`. A URL
+wins over the stored toggle preferences for whatever it names; only
+non-default state is written, so shared links stay short. `/map` and any
+unknown path normalize to `/`, and the legacy `#about` hash migrates to
+`/about`.
+
+Serving this needs one thing from the host: any non-asset path must return
+`index.html` so the client can route it. Cloudflare does that through
+`assets.not_found_handling` in [`wrangler.jsonc`](wrangler.jsonc); `app.py`
+and the CannonAI embed mount mirror it. A path whose last segment has a file
+extension stays a 404 in all three, so a missing asset is never served as a
+phantom page. The page declares its mount with `<base href>` (`/` here,
+rewritten to `/cleanplate/` by the CannonAI passthrough) and the router reads
+it from `document.baseURI`, which is what lets one build serve from either.
 
 Prepared data uses explicit Contract V3 manifests:
 
@@ -180,10 +200,15 @@ pip install -r requirements.txt
 python app.py
 ```
 
-Open `http://127.0.0.1:5001`. Any static server over `public/` also works. Put
-an exported full tier under `public/data-full/` (gitignored) to exercise the
-authenticated presentation locally. Append `?tier=lite` to force the public
-experience and hide the sign-in CTA.
+Open `http://127.0.0.1:5001`. Put an exported full tier under
+`public/data-full/` (gitignored) to exercise the authenticated presentation
+locally. Append `?tier=lite` to force the public experience and hide the
+sign-in CTA.
+
+`app.py` is the dev server *because* it does the view-path fallback (see
+Routes above). A bare static server over `public/` still works for the map,
+but loading `/list` or `/about` directly will 404 on it — reach those through
+the in-page tabs, or use `app.py`.
 
 ## Data source
 

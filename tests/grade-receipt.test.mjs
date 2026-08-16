@@ -478,7 +478,9 @@ test('the hero circle AND the computed pill both trigger the receipt', () => {
 test('the full detail render binds the receipt openers', () => {
     assert.match(source, /this\._bindGradeReceipt\(inner, detail\.facility, detail\.inspections\)/);
     // Facility switches and panel closes must not strand an open modal.
-    assert.match(source, /_closeDetail\(\)\s*\{\s*this\._closeReceipt\(\)/);
+    // (`_closeDetail` grew a `{ write }` option with routes — CPR-M1b — but
+    // closing the receipt is still its first act.)
+    assert.match(source, /_closeDetail\([^)]*\)\s*\{\s*this\._closeReceipt\(\)/);
 });
 
 test('the item row prints every finding, never just the first', () => {

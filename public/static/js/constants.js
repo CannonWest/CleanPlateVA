@@ -11,6 +11,9 @@ export const SHOW_CLOSED_KEY = 'cleanplateva.food.showClosed';
 export const SHOW_NEW_KEY = 'cleanplateva.food.showNew';
 export const SHOW_MOBILE_KEY = 'cleanplateva.food.showMobile';
 
+// List load-more (D-DATA-11): rows revealed per chunk; `?page=N` = N chunks.
+export const LIST_PAGE_SIZE = 50;
+
 export const PORTAL_BASE = 'https://inspections.myhealthdepartment.com';
 // The `virginia` aggregate: correct only for facilities no district claimed.
 export const AGGREGATE_TENANT = 'virginia';

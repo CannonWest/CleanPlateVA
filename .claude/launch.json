@@ -4,8 +4,8 @@
     {
       "name": "clean-plate-va",
       "runtimeExecutable": "python",
-      "runtimeArgs": ["-m", "http.server", "5599", "--directory", "public"],
-      "port": 5599
+      "runtimeArgs": ["app.py"],
+      "port": 5001
     }
   ]
 }

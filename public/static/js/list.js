@@ -4,6 +4,8 @@
  * dashboard).
  */
 
+import { LIST_PAGE_SIZE } from './constants.js';
+import { maxPage, revealCount } from './router.js';
 import {
     esc, facilityPresentation, fmtDate, focusedOutcomePresentation, gradeColor, permitUrl,
 } from './presentation.js';
@@ -35,8 +37,15 @@ export const listMethods = {
             if (va > vb) return dir === 'asc' ? 1 : -1;
             return 0;
         });
-        const CAP = 600;
-        const rows = filtered.slice(0, CAP);
+        // Load-more (D-DATA-11): the sorted, filtered array is all in memory;
+        // `_page` says how many chunks of LIST_PAGE_SIZE are revealed (the
+        // URL's `page`). Clamp a stale page once the roster is in so the URL
+        // never claims more chunks than the list has.
+        if (this._facilities.length && this._page > maxPage(filtered.length)) {
+            this._page = maxPage(filtered.length);
+        }
+        const shown = revealCount(filtered.length, this._page);
+        const rows = filtered.slice(0, shown);
         body.innerHTML = rows.map((f) => {
             const lt = f.latest || {};
             const fp = facilityPresentation(f);
@@ -71,8 +80,25 @@ export const listMethods = {
                 <td class="food-list-date food-list-full-only food-list-col-date">${fmtDate(lt.date)}</td>
                 <td class="food-list-col-vdh"><a class="food-list-vdh-link" href="${permitUrl(f)}" target="_blank" rel="noopener" aria-label="View ${esc(f.name)} on VDH" title="View ${esc(f.name)} on VDH"><i class="bi bi-box-arrow-up-right" aria-hidden="true"></i></a></td>
             </tr>`;
-        }).join('') + (filtered.length > CAP
-            ? `<tr class="food-list-more"><td colspan="${this._mode === 'lite' ? 4 : 8}">Showing first ${CAP} of ${filtered.length} — narrow the filters to see the rest.</td></tr>` : '');
+        }).join('') + (filtered.length > shown
+            ? `<tr class="food-list-more"><td colspan="${this._mode === 'lite' ? 4 : 8}">`
+                + `<button type="button" class="btn btn-sm btn-outline-secondary food-list-more-btn">`
+                + `Show ${Math.min(LIST_PAGE_SIZE, filtered.length - shown).toLocaleString()} more</button>`
+                + `<span class="food-list-more-note">${shown.toLocaleString()} of ${filtered.length.toLocaleString()} shown</span></td></tr>`
+            : filtered.length > LIST_PAGE_SIZE
+                ? `<tr class="food-list-more"><td colspan="${this._mode === 'lite' ? 4 : 8}">All ${filtered.length.toLocaleString()} shown</td></tr>`
+                : '');
+        body.querySelector('.food-list-more-btn')?.addEventListener('click', () => {
+            const firstNew = shown;
+            this._page += 1;
+            this._rebuildList();
+            this._syncUrl();
+            // Keep the reader's place: focus lands on the first newly revealed
+            // row's VDH link (the row itself isn't focusable), scrolled into view.
+            const next = body.querySelectorAll('tr[data-permit]')[firstNew];
+            next?.querySelector('a')?.focus({ preventScroll: true });
+            next?.scrollIntoView({ block: 'nearest' });
+        });
         body.querySelectorAll('tr[data-permit]').forEach((tr) => {
             tr.addEventListener('click', (event) => {
                 // The VDH link is its own destination; don't also open the
