@@ -60,16 +60,22 @@ back as `200 text/html` and `dataClient` would parse markup as JSON.
 it sees: an asset-shaped request (last segment carrying a non-HTML
 extension) answered with the HTML shell is returned as a 404.
 
-Which paths it sees is set by `run_worker_first`, and that list is
-deliberately `/data/*` and not everything. The data channel is where a
-masked 404 is *silent* — the client mis-parses and degrades with a
-confusing reason — and it already routes through the worker for its
-cache-control headers, so covering it costs nothing extra. Static assets
-stay on the fast path: a missing `.js` there announces itself immediately
-as a console MIME error, and a per-file worker invocation would be a real
-request-quota cost for a cosmetic improvement. `app.py` and the embed mount
-have no such split — they decide before serving, so everything 404s
-correctly there.
+Which paths it sees is set by `run_worker_first`, and in its array form that
+list is *the* set of paths that invoke the worker at all — everything else,
+SPA fallback included, is answered by the assets layer. So it names both
+channels the worker owns and nothing else: `/data/*`, the public channel,
+where a masked 404 is *silent* (the client mis-parses and degrades with a
+confusing reason) and which already routes through the worker for its
+cache-control headers; and `/data-full/*`, the R2-backed full channel, which
+is not a static asset and therefore *is* the shell under the fallback unless
+the worker runs first (before the fallback existed a miss fell through to the
+worker on its own; measured 2026-08-16, the fallback removed that path and
+the authenticated tier degraded to gray Lite until this entry was added).
+Static assets stay on the fast path: a missing `.js` there announces itself
+immediately as a console MIME error, and a per-file worker invocation would
+be a real request-quota cost for a cosmetic improvement. `app.py` and the
+embed mount have no such split — they decide before serving, so everything
+404s correctly there.
 
 The page declares its mount with `<base href>` (`/` here, rewritten to
 `/cleanplate/` by the CannonAI passthrough) and the router reads it from
