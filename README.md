@@ -16,6 +16,12 @@ official VDH inspection record.
 
 ## Architecture
 
+> **Direction (V4):** the next design — public Full behind an acknowledgement
+> instead of Access, the barest boot payload per view, and real per-view URLs —
+> is specified in [`docs/architecture-v4.md`](docs/architecture-v4.md). That
+> doc is authoritative for where the site is going; this README stays
+> authoritative for the shipped V3 contract until the CPD arc cuts over.
+
 The site is a static MapLibre client. A small Cloudflare Worker
 ([`src/worker.js`](src/worker.js)) serves [`public/`](public/) and proxies
 authenticated full-data reads from R2. It never queries VDH or CouchDB at
