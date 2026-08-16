@@ -12,13 +12,10 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import { dashboardSource } from './support/dashboard.mjs';
 
 const html = readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
 const css = readFileSync(new URL('../public/static/css/style.css', import.meta.url), 'utf8');
-const dashboardSource = readFileSync(
-    new URL('../public/static/js/foodDashboard.js', import.meta.url),
-    'utf8',
-);
 const appSource = readFileSync(
     new URL('../public/static/js/app.js', import.meta.url),
     'utf8',

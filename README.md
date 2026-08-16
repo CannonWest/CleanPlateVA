@@ -27,6 +27,16 @@ The site is a static MapLibre client. A small Cloudflare Worker
 authenticated full-data reads from R2. It never queries VDH or CouchDB at
 request time.
 
+The client is plain ES modules under `public/static/js/` — no build step.
+`app.js` boots the page; `dataClient.js` loads the manifest-led tiers;
+`foodDashboard.js` is the dashboard orchestrator (constructor, toolbar
+wiring, load/refresh, view switch) and re-exports the pure helpers. Every
+other concern is one sibling module installed onto the dashboard prototype:
+`constants` · `stacks` · `presentation` · `receipt` (pure) and `map` ·
+`markers` · `hover` · `filters` · `list` · `about` · `detail` · `sparkline` ·
+`inspection` (method bundles). `tests/support/dashboard.mjs` is how the
+suites import the graph and its concatenated source.
+
 Prepared data uses explicit Contract V3 manifests:
 
 ```text

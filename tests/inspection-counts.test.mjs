@@ -3,16 +3,9 @@
 // the old muted "N viol." text (CleanPlateVA, 2026-07-22). The contract lives in
 // inspectionCountsPresentation; the render method only paints it.
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import { dashboard, dashboardSource as source } from './support/dashboard.mjs';
 
-const source = readFileSync(
-    new URL('../public/static/js/foodDashboard.js', import.meta.url),
-    'utf8',
-);
-const dashboard = await import(
-    `data:text/javascript;base64,${Buffer.from(source).toString('base64')}`
-);
 const { inspectionCountsPresentation } = dashboard;
 
 // A checklist of `count` distinct applicable items drives the broad/focused
