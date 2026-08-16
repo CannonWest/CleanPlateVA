@@ -24,11 +24,24 @@ test('the mutable manifest revalidates quickly', async () => {
         'private, max-age=60, must-revalidate');
 });
 
+test('both data channels are listed in run_worker_first', () => {
+    // In array form, run_worker_first is THE set of paths that invoke the
+    // worker; anything else is answered by the assets layer, SPA fallback
+    // included. The public channel needs the worker for cache-control and
+    // the re-404 of a masked miss (CPR-M1b); the full channel needs it
+    // because /data-full/* is not a static asset at all — without this entry
+    // the SPA fallback answers index.html and the authenticated tier
+    // silently degrades to Lite (production regression 2026-08-16, found
+    // via the un-Access-gated www host).
+    const list = wrangler.match(/"run_worker_first"\s*:\s*\[([^\]]*)\]/);
+    assert.ok(list, 'run_worker_first must be an explicit array');
+    const patterns = [...list[1].matchAll(/"([^"]+)"/g)].map((m) => m[1]);
+    assert.deepEqual(patterns.sort(), ['/data-full/*', '/data/*']);
+});
+
 test('the public manifest also revalidates quickly', async () => {
     // The worker must SEE the public data channel — it sets these headers,
-    // and (CPR-M1b) re-404s a shard the SPA fallback would have masked. A
-    // path outside run_worker_first never reaches the worker at all.
-    assert.match(wrangler, /"run_worker_first"\s*:\s*\[\s*"\/data\/\*"\s*\]/);
+    // and (CPR-M1b) re-404s a shard the SPA fallback would have masked.
     const response = await worker.fetch(
         new Request('https://cleanplateva.test/data/manifest.json'), env);
     assert.equal(response.headers.get('Cache-Control'),
