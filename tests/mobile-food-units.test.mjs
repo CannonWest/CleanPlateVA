@@ -117,8 +117,10 @@ test('the switch is wired, persisted, and off unless the key says otherwise', ()
     // Default OFF — a missing key must read as hide (=== '1'), the same
     // polarity as Show closed and the inverse of Show new.
     assert.match(source, /showMobile: localStorage\.getItem\(SHOW_MOBILE_KEY\) === '1',/);
-    assert.match(source, /getElementById\('foodShowMobile'\)/);
-    assert.match(source, /localStorage\.setItem\(SHOW_MOBILE_KEY,/);
+    // Wired through the shared toggle table (CPR-M1b): id → filter field →
+    // storage key, persisted on the visitor's own click.
+    assert.match(source, /\['foodShowMobile', 'showMobile', SHOW_MOBILE_KEY\]/);
+    assert.match(source, /localStorage\.setItem\(storageKey, toggle\.checked \? '1' : '0'\)/);
 
     assert.match(html, /id="foodShowMobileWrap"/);
     assert.match(html, /id="foodShowMobile"/);

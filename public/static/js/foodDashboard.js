@@ -47,6 +47,7 @@
  *   detail.js        detail panel, grade hero, grade-receipt modal
  *   sparkline.js     trend sparkline (static + fitted/interactive)
  *   inspection.js    inspection history rows
+ *   router.js        routes + URL state (CPR-M1b): paths, query state, history
  * The pure functions tests and other consumers import are re-exported
  * from here so this module stays the dashboard's public surface.
  */
@@ -56,6 +57,7 @@ import {
 } from './constants.js';
 import { CLUSTER_MAX_ZOOM, stackMethods } from './stacks.js';
 import { esc } from './presentation.js';
+import { VIEWS, routerMethods, titleForView } from './router.js';
 import { mapMethods } from './map.js';
 import { markerMethods } from './markers.js';
 import { hoverMethods } from './hover.js';
@@ -130,7 +132,17 @@ export class FoodDashboard {
         };
         this._viewMode = 'map';     // 'map' | 'list' | 'about'
         this._sort = { key: 'score', dir: 'asc' };  // list sort — worst-first default
+        this._page = 1;             // List load-more position: chunks revealed (router.js)
         this._selectedPermit = null;
+        this._pendingPermit = undefined;   // ?permit= awaiting the roster (router.js)
+        // Router state (router.js _installRouter): the mount from <base href>,
+        // whether we're framed (CannonAI embed), the page's own <title>, and
+        // the localStorage keys the toggles persist under (URL-omitted toggles
+        // fall back to them).
+        this._mount = null;
+        this._embedded = false;
+        this._baseTitle = '';
+        this._storageKeys = { RESTAURANTS_ONLY_KEY, SHOW_CLOSED_KEY, SHOW_NEW_KEY, SHOW_MOBILE_KEY };
         this._searchDebounce = null;
         this._mapNote = null;       // locate-feedback notice over the map
         this._geolocate = null;     // the GeolocateControl instance
@@ -142,18 +154,33 @@ export class FoodDashboard {
     }
 
     init() {
+        // Routes + URL state first (router.js): learn the mount, read the
+        // address bar into filters / sort / page / view / pending permit,
+        // normalize it, and follow Back / Forward. Everything below then reads
+        // that state into the controls exactly as it did before routes.
+        this._installRouter();
+
+        // A filter changed under the visitor's hand: back to the first page
+        // of the List, re-filter whichever view is up, and mirror the change
+        // into the URL (replaceState — filter churn never spams history).
+        const filtersChanged = () => {
+            this._page = 1;
+            this._rebuildMarkers();
+            this._syncUrl();
+        };
+
         const search = document.getElementById('foodSearch');
         search?.addEventListener('input', () => {
             clearTimeout(this._searchDebounce);
             this._searchDebounce = setTimeout(() => {
                 this._filters.q = (search.value || '').trim().toLowerCase();
-                this._rebuildMarkers();
+                filtersChanged();
             }, 150);
         });
 
         document.getElementById('foodZipFilter')?.addEventListener('change', (e) => {
             this._filters.zip = e.target.value;
-            this._rebuildMarkers();
+            filtersChanged();
         });
 
         document.getElementById('foodGradeChips')
@@ -162,63 +189,33 @@ export class FoodDashboard {
                     this._filters.grade = btn.dataset.grade;
                     document.querySelectorAll('#foodGradeChips button').forEach(
                         (b) => b.classList.toggle('active', b === btn));
-                    this._rebuildMarkers();
+                    filtersChanged();
                 });
             });
 
-        const restaurantsToggle = document.getElementById('foodRestaurantsOnly');
-        if (restaurantsToggle) {
-            restaurantsToggle.checked = this._filters.restaurantsOnly;
-            restaurantsToggle.addEventListener('change', () => {
-                this._filters.restaurantsOnly = restaurantsToggle.checked;
+        // The four persisted toggles. A click persists to localStorage (the
+        // default for URLs that omit the toggle — D-URL-4); the URL itself
+        // never writes storage.
+        const toggles = [
+            ['foodRestaurantsOnly', 'restaurantsOnly', RESTAURANTS_ONLY_KEY],
+            ['foodShowClosed', 'showClosed', SHOW_CLOSED_KEY],
+            ['foodShowNew', 'showNew', SHOW_NEW_KEY],
+            ['foodShowMobile', 'showMobile', SHOW_MOBILE_KEY],
+        ];
+        for (const [id, field, storageKey] of toggles) {
+            const toggle = document.getElementById(id);
+            if (!toggle) continue;
+            toggle.checked = this._filters[field];
+            toggle.addEventListener('change', () => {
+                this._filters[field] = toggle.checked;
                 try {
-                    localStorage.setItem(RESTAURANTS_ONLY_KEY,
-                        restaurantsToggle.checked ? '1' : '0');
+                    localStorage.setItem(storageKey, toggle.checked ? '1' : '0');
                 } catch (_) { /* private mode */ }
-                this._rebuildMarkers();
+                filtersChanged();
             });
         }
 
-        const closedToggle = document.getElementById('foodShowClosed');
-        if (closedToggle) {
-            closedToggle.checked = this._filters.showClosed;
-            closedToggle.addEventListener('change', () => {
-                this._filters.showClosed = closedToggle.checked;
-                try {
-                    localStorage.setItem(SHOW_CLOSED_KEY,
-                        closedToggle.checked ? '1' : '0');
-                } catch (_) { /* private mode */ }
-                this._rebuildMarkers();
-            });
-        }
-
-        const newToggle = document.getElementById('foodShowNew');
-        if (newToggle) {
-            newToggle.checked = this._filters.showNew;
-            newToggle.addEventListener('change', () => {
-                this._filters.showNew = newToggle.checked;
-                try {
-                    localStorage.setItem(SHOW_NEW_KEY,
-                        newToggle.checked ? '1' : '0');
-                } catch (_) { /* private mode */ }
-                this._rebuildMarkers();
-            });
-        }
-
-        const mobileToggle = document.getElementById('foodShowMobile');
-        if (mobileToggle) {
-            mobileToggle.checked = this._filters.showMobile;
-            mobileToggle.addEventListener('change', () => {
-                this._filters.showMobile = mobileToggle.checked;
-                try {
-                    localStorage.setItem(SHOW_MOBILE_KEY,
-                        mobileToggle.checked ? '1' : '0');
-                } catch (_) { /* private mode */ }
-                this._rebuildMarkers();
-            });
-        }
-
-        // View toggle (Map | List | About)
+        // View toggle (Map | List | About) — a real navigation: pushState.
         document.getElementById('foodViewToggle')
             ?.querySelectorAll('button[data-view]').forEach((btn) => {
                 btn.addEventListener('click', () => {
@@ -240,16 +237,17 @@ export class FoodDashboard {
                 });
             });
 
-        if (window.location.hash.toLowerCase() === '#about') this._setView('about', false);
-
-        // List sort headers — click to sort, click again to flip direction
+        // List sort headers — click to sort, click again to flip direction.
+        // A new sort starts the load-more position over.
         document.getElementById('foodListTable')
             ?.querySelectorAll('th[data-sort]').forEach((th) => {
                 th.addEventListener('click', () => {
                     const k = th.dataset.sort;
                     if (this._sort.key === k) this._sort.dir = this._sort.dir === 'asc' ? 'desc' : 'asc';
                     else this._sort = { key: k, dir: 'asc' };
+                    this._page = 1;
                     this._rebuildList();
+                    this._syncUrl();
                 });
             });
 
@@ -332,10 +330,20 @@ export class FoodDashboard {
             this._map.setPaintProperty(LYR_CLUSTERS, 'circle-color', this._clusterColors());
         }
         this._rebuildMarkers();
+        // The roster is in: a `?permit=` deep link can open its panel now, and
+        // the address bar can reflect the tier (Lite falls back to a name
+        // sort, which the URL should mirror rather than a stale sort=score).
+        this._applyPendingPermit();
+        this._syncUrl();
     }
 
-    _setView(mode, syncHash = true) {
-        if (!['map', 'list', 'about'].includes(mode)) return;
+    /** Switch views. Real navigation (router.js): the path becomes `/`,
+     *  `/list`, or `/about`, pushed onto history when the view actually
+     *  changed so Back returns to the previous view. `write: false` is the
+     *  router's own call while applying a URL (load, popstate). */
+    _setView(mode, { write = true } = {}) {
+        if (!VIEWS.includes(mode)) return;
+        const changed = this._viewMode !== mode;
         this._viewMode = mode;
         document.querySelectorAll('#foodViewToggle button[data-view]').forEach((b) => {
             b.classList.toggle('active', b.dataset.view === mode);
@@ -346,10 +354,8 @@ export class FoodDashboard {
         document.getElementById('foodAboutWrap')?.classList.toggle('d-none', mode !== 'about');
         document.body.classList.toggle('food-view-list', mode === 'list');
         document.body.classList.toggle('food-view-about', mode === 'about');
-        if (syncHash && window.history?.replaceState) {
-            const hash = mode === 'about' ? '#about' : '';
-            window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}${hash}`);
-        }
+        if (this._baseTitle) document.title = titleForView(mode, this._baseTitle);
+        if (write) this._syncUrl({ push: changed });
         if (mode === 'map') {
             setTimeout(() => this._map?.resize(), 60);
             this._rebuildMarkers();
@@ -364,7 +370,7 @@ export class FoodDashboard {
 // configurable — the same descriptor a class method gets. Bodies are
 // unchanged; only their file moved.
 for (const bundle of [mapMethods, markerMethods, hoverMethods, stackMethods, filterMethods,
-    listMethods, aboutMethods, detailMethods, sparklineMethods, inspectionMethods]) {
+    listMethods, aboutMethods, detailMethods, sparklineMethods, inspectionMethods, routerMethods]) {
     for (const [name, fn] of Object.entries(bundle)) {
         Object.defineProperty(FoodDashboard.prototype, name, {
             value: fn, writable: true, configurable: true, enumerable: false,
