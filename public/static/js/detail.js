@@ -15,9 +15,12 @@ import { gradeReceiptPresentation } from './receipt.js';
 export const detailMethods = {
     // ── detail panel ────────────────────────────────────────────────────
 
-    async _select(f) {
+    async _select(f, { write = true } = {}) {
         this._closeReceipt();   // a stale receipt must not outlive its facility
         this._selectedPermit = f.permit_id;
+        // The selection is shareable state (`?permit=`), pushed so Back closes
+        // the panel; the router passes write:false when it is applying a URL.
+        if (write) this._syncUrl({ push: true });
         const panel = document.getElementById('foodDetail');
         const inner = document.getElementById('foodDetailInner');
         if (!panel || !inner) return;
@@ -54,9 +57,10 @@ export const detailMethods = {
         this._bindGradeReceipt(inner, detail.facility, detail.inspections);
     },
 
-    _closeDetail() {
+    _closeDetail({ write = true } = {}) {
         this._closeReceipt();
         this._selectedPermit = null;
+        if (write) this._syncUrl();
         document.getElementById('foodDetail')?.classList.add('d-none');
         setTimeout(() => this._map?.resize(), 60);
     },
