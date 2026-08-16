@@ -1,12 +1,9 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import { dashboardSource as dashboard } from './support/dashboard.mjs';
 
 const css = readFileSync(new URL('../public/static/css/style.css', import.meta.url), 'utf8');
-const dashboard = readFileSync(
-    new URL('../public/static/js/foodDashboard.js', import.meta.url),
-    'utf8',
-);
 
 test('the list yields flex space to the selected-facility panel', () => {
     const rule = css.match(/\.food-list-wrap\s*\{([^}]*)\}/)?.[1] || '';

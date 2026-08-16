@@ -1,0 +1,467 @@
+/**
+ * Presentation math — pure functions, no DOM: the VDH permit link, HTML
+ * escaping, the grade palette lookup, one inspection's scope / count /
+ * outcome contract, the narrative-verdict and facility-grade presentations,
+ * the roster→pseudo-inspection trend adapter, the scope series behind the
+ * sparkline, and the date formatters. The grade-receipt mirror lives in
+ * receipt.js.
+ */
+
+import { AGGREGATE_TENANT, GRADE_COLORS, PORTAL_BASE, RF_MAX_ITEM } from './constants.js';
+
+/** Deep link to a facility's official VDH permit page.
+ *
+ *  Tenant-SCOPED, exactly like the per-inspection `report_url` the exporter
+ *  bakes: VDH renders each district under its own path, and a facility a
+ *  district claimed is ABSENT from the `virginia` aggregate — that URL returns
+ *  an identity-less husk whose permit status is stale (Golden Unicorn read
+ *  "Pending" on the aggregate while va-henrico had it Permitted). So route by
+ *  the exporter's `tenant` field, present on marker, lite, and detail records.
+ *
+ *  `f` may be a full/lite marker, a detail facility, or a merged_from entry.
+ *  Pre-tenant payloads degrade to the aggregate — the old behaviour, never a
+ *  broken link.
+ */
+export function permitUrl(f, tenant) {
+    const t = tenant || f?.tenant || AGGREGATE_TENANT;
+    return `${PORTAL_BASE}/${encodeURIComponent(t)}/permit/?permitID=`
+        + encodeURIComponent(f?.permit_id ?? '');
+}
+
+export function esc(s) {
+    return String(s ?? '').replace(/[&<>"']/g, (c) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+    }[c]));
+}
+
+export function gradeColor(grade) {
+    return GRADE_COLORS[grade] || GRADE_COLORS.none;
+}
+
+export function gradeForScore(score) {
+    if (score >= 90) return 'A';
+    if (score >= 80) return 'B';
+    if (score >= 70) return 'C';
+    if (score >= 60) return 'D';
+    return 'F';
+}
+
+const BROAD_MIN_FORM_ITEMS = 20;
+
+function distinctFormItems(checklist) {
+    const items = new Set();
+    for (const row of (checklist || [])) {
+        const item = Number.isInteger(row.item) ? row.item : null;
+        if (item != null && item !== 99 && !row.is_sentinel) items.add(item);
+    }
+    return items.size;
+}
+
+function distinctApplicableItems(checklist) {
+    const items = new Set();
+    for (const row of (checklist || [])) {
+        const item = Number.isInteger(row.item) ? row.item : null;
+        const applicable = ['IN', 'OUT'].includes(
+            String(row.disposition || '').toUpperCase());
+        if (item != null && item !== 99 && !row.is_sentinel && applicable) items.add(item);
+    }
+    return items.size;
+}
+
+function distinctOutItems(checklist) {
+    const items = new Set();
+    for (const row of (checklist || [])) {
+        const item = Number.isInteger(row.item) ? row.item : null;
+        const isOut = row.violation
+            || String(row.disposition || '').toUpperCase() === 'OUT';
+        if (item != null && item !== 99 && !row.is_sentinel && isOut) items.add(item);
+    }
+    return items.size;
+}
+
+/** One inspection's single presentation contract: broad, focused, or unknown.
+ *  An inspection has a SCORE, never a letter — `gradeEligible` only means the
+ *  report is broad + scored (eligible to ANCHOR the facility grade). */
+export function inspectionPresentation(insp = null) {
+    if (!insp) return {
+        scope: 'unknown', count: null, formCount: null,
+        broadEligible: false, gradeEligible: false,
+        score: null, compliant: null, out: null, outIsDistinct: false,
+    };
+    const cs = insp.checklist_summary || {};
+    // Focused hybrid reports can address more items than their structured
+    // checklist carries: comments enumerate corrected prior items while the
+    // form contains only the remaining OUT rows. The exporter publishes that
+    // union as addressed_item_count; broad reports retain the raw applicable
+    // denominator.
+    let count = insp.addressed_item_count
+        ?? insp.applicable_item_count ?? cs.applicable_item_count ?? null;
+    let formCount = insp.form_item_count ?? cs.form_item_count ?? null;
+    const hasChecklistShape = Array.isArray(insp.checklist)
+        && (insp.checklist.length || insp.checklist_present);
+    if (count == null && hasChecklistShape) {
+        count = distinctApplicableItems(insp.checklist);
+    }
+    if (formCount == null && hasChecklistShape) {
+        formCount = distinctFormItems(insp.checklist);
+    }
+    // Pre-M3 compact records carried only the historical breadth count under
+    // applicable_item_count. Preserve that contract while old payloads age out.
+    if (formCount == null) formCount = count;
+    if (count != null) count = Math.max(0, Number(count) || 0);
+    if (formCount != null) formCount = Math.max(0, Number(formCount) || 0);
+    // Breadth is the gate. Never let a stale/contradictory scope label promote
+    // a zero- or 1–19-form-item report into a grade.
+    const scope = insp.checklist_present === false || formCount == null || formCount === 0
+        ? 'unknown' : formCount >= BROAD_MIN_FORM_ITEMS ? 'broad' : 'focused';
+    const score = Number.isFinite(Number(insp.score)) && insp.score !== null
+        ? Number(insp.score) : null;
+    const broadEligible = scope === 'broad';
+    const gradeEligible = broadEligible && score != null;
+    const compliant = insp.checklist_compliant ?? cs.compliant
+        ?? (Array.isArray(insp.checklist)
+            ? insp.checklist.filter((row) =>
+                String(row.disposition || '').toUpperCase() === 'IN').length : null);
+    // The focused X/Y signal compares distinct OUT item IDs with every
+    // distinct item addressed across the checklist + adjudicated comments.
+    // Compact marker records have no rows, so retain their published summary.
+    const hasChecklistRows = Array.isArray(insp.checklist) && insp.checklist.length > 0;
+    const publishedDistinctOut = insp.out_item_count ?? cs.out_item_count ?? null;
+    const outIsDistinct = hasChecklistRows || publishedDistinctOut != null;
+    const hasEffectiveUnion = insp.addressed_item_count != null
+        && publishedDistinctOut != null;
+    const out = hasEffectiveUnion
+        ? publishedDistinctOut
+        : hasChecklistRows
+        ? distinctOutItems(insp.checklist)
+        : publishedDistinctOut ?? insp.checklist_out ?? cs.out ?? null;
+    return {
+        scope, count, formCount, broadEligible, gradeEligible, score,
+        compliant, out, outIsDistinct,
+    };
+}
+
+/** The violation-count chip row for an inspection summary — the same total +
+ *  risk-factor / retail-practice split the grade receipt shows on its anchor,
+ *  ported down onto every history row (replaces the old "N viol." text).
+ *  Classification matches the receipt: an integer item ≤ RF_MAX_ITEM is a
+ *  risk factor; everything else (higher items, item-less rows) is retail
+ *  practice. `show` is false ONLY on a scope-unknown row with nothing
+ *  recorded: a green "0 violations" there reads as "verified clean" when the
+ *  breadth is simply unknown — the misleading skim the narrative channel was
+ *  built to avoid. Unknown rows WITH findings still show the red badge, and
+ *  broad/focused keep an honest green zero (there, zero is a real clean docket). */
+export function inspectionCountsPresentation(insp = null) {
+    const violations = (insp && insp.violations) || [];
+    const n = violations.length;
+    const rf = violations.filter((v) => Number.isInteger(v.item) && v.item <= RF_MAX_ITEM).length;
+    const grp = n - rf;
+    const show = n > 0 || inspectionPresentation(insp).scope !== 'unknown';
+    return { n, rf, grp, show };
+}
+
+/** Compliance-colored focused outcome, deliberately separate from grading. */
+export function focusedOutcomePresentation(view = {}) {
+    const totalValue = Number(view.count);
+    const outValue = Number(view.out);
+    const total = Number.isFinite(totalValue) && totalValue > 0
+        ? Math.trunc(totalValue) : null;
+    const out = view.out !== null && view.out !== undefined
+        && Number.isFinite(outValue) && outValue >= 0
+        ? Math.trunc(outValue) : null;
+    if (view.outIsDistinct === false) {
+        const label = out == null
+            ? 'OUT count unavailable'
+            : `${out} OUT marking${out === 1 ? '' : 's'}`;
+        return {
+            out, total, label, complianceRate: null, tone: 'unknown', ratioKnown: false,
+            description: out == null
+                ? 'Focused OUT count is unavailable'
+                : `${label}; distinct OUT-item ratio is unavailable`,
+        };
+    }
+    const consistent = total != null && out != null && out <= total;
+    if (!consistent) {
+        const label = `${out ?? '?'}/${total ?? '?'} OUT`;
+        return {
+            out, total, label, complianceRate: null, tone: 'unknown', ratioKnown: false,
+            description: out != null && total != null
+                ? `${label}; focused outcome counts are inconsistent`
+                : `${label}; focused OUT count is unavailable`,
+        };
+    }
+
+    const complianceRate = (total - out) / total;
+    // Reserve green for an actually clear focused check and red for a check in
+    // which every assessed item was OUT. Partial outcomes step through
+    // lime/amber/orange without assigning a grade.
+    const tone = out === 0 ? 'clear'
+        : complianceRate >= 0.75 ? 'good'
+            : complianceRate >= 0.5 ? 'watch'
+                : out < total ? 'warning' : 'severe';
+    const pct = Math.round(complianceRate * 100);
+    return {
+        out, total, label: `${out}/${total} OUT`, complianceRate, tone, ratioKnown: true,
+        description: `${out} of ${total} focused items marked OUT; ${pct}% in compliance`,
+    };
+}
+
+export function focusedOutcomeBadge(view, hero = false) {
+    const outcome = focusedOutcomePresentation(view);
+    const classes = hero
+        ? 'food-score-badge food-focused-outcome'
+        : 'food-insp-score food-insp-score-focused food-insp-signal';
+    return `<span class="${classes} food-outcome-${outcome.tone}" role="img"`
+        + ` title="${esc(outcome.description)}" aria-label="${esc(outcome.description)}">`
+        + `<span aria-hidden="true">${esc(outcome.out ?? '?')}/${esc(outcome.total ?? '?')}</span>`
+        + '<small aria-hidden="true">OUT</small></span>';
+}
+
+/** NARRATIVE arc: some VDH follow-ups carry no checklist at all; others are
+ *  hybrid reports whose checklist contains only the remaining OUT rows while
+ *  comments enumerate corrected prior items. The exporter ships actionable
+ *  comment evidence as an `adjudication` block and the grade engine composes
+ *  it with the structured channel. Returns null unless the verdict is
+ *  actionable. */
+export function narrativeVerdictPresentation(insp = null) {
+    const adj = insp && insp.adjudication;
+    if (!adj || adj.status !== 'adjudicated' || !adj.verdict) return null;
+    // `height` is the sparkline plot height (0-100): the verdict's analog on
+    // the raw-score axis. "All corrected" IS the checklist full-clear the
+    // comment claims, so it sits where an r100 would; "not corrected" is the
+    // all-OUT re-check, r0; priority-scoped sits high but not total, and an
+    // enumeration plots at its IN-share.
+    //
+    // `count` is how many ITEMS the verdict names — rendered on the badge
+    // (✓2) so a targeted credit is distinguishable at a glance from a
+    // blanket clear, which carries a bare ✓. Blankets are semantic (they
+    // resolve against whatever the base docketed), so they have no count:
+    // that absence is the signal. Targeted verdicts are the common case —
+    // they govern 270 of the 350 narrative-consuming facilities and name a
+    // median ~33% of the base docket, so reading identically to a full
+    // clear was actively misleading (Cannon, 2026-07-20).
+    switch (adj.verdict) {
+        case 'all_corrected':
+            return { verdict: 'all_corrected', tone: 'clear', glyph: '✓', height: 100,
+                count: null,
+                label: 'All violations corrected',
+                detail: 'Inspector recorded every prior violation corrected on this follow-up.' };
+        case 'priority_corrected':
+            return { verdict: 'priority_corrected', tone: 'good', glyph: '✓', height: 85,
+                count: null,
+                label: 'Priority violations corrected',
+                detail: 'Inspector recorded the priority (risk-factor) violations corrected; remaining items were not addressed.' };
+        case 'none_corrected':
+            return { verdict: 'none_corrected', tone: 'severe', glyph: '✗', height: 0,
+                count: null,
+                label: 'Violations not corrected',
+                detail: 'Inspector recorded the prior violations NOT corrected on this follow-up.' };
+        case 'items': {
+            const items = adj.items && typeof adj.items === 'object' ? adj.items : null;
+            if (!items) return null;
+            const byWord = (want) => Object.keys(items)
+                .filter((k) => String(items[k]).toUpperCase() === want)
+                .sort((a, b) => a - b).map((k) => `#${k}`);
+            const ins = byWord('IN');
+            const outs = byWord('OUT');
+            if (!ins.length && !outs.length) return null;
+            const label = outs.length
+                ? (ins.length ? `Items ${ins.join(', ')} corrected · ${outs.join(', ')} still out`
+                    : `Items ${outs.join(', ')} still out`)
+                : `Items ${ins.join(', ')} corrected`;
+            // The badge counts what the glyph asserts: items corrected when
+            // the verdict credits, items still out when it only charges.
+            const count = ins.length || outs.length;
+            const noun = ins.length
+                ? `${ins.length} item${ins.length === 1 ? '' : 's'} corrected`
+                : `${outs.length} item${outs.length === 1 ? '' : 's'} still out`;
+            return { verdict: 'items', glyph: ins.length ? '✓' : '✗',
+                tone: outs.length ? (ins.length ? 'watch' : 'severe') : 'good',
+                height: Math.round(100 * ins.length / (ins.length + outs.length)),
+                count, label,
+                detail: `Inspector enumerated item-by-item outcomes in the comments — ${noun}`
+                    + `${ins.length && outs.length ? `, ${outs.length} still out` : ''}.`
+                    + ' Only the named items adjust the grade; anything unmentioned keeps its full deduction.' };
+        }
+        default:
+            return null;
+    }
+}
+
+/**
+ * The facility grade — a SCORE plus an A-F LETTER, the latest broad assessment
+ * adjusted by post-broad focused re-checks, computed by the exporter
+ * (`facility.grade`). Returns null when the facility has no scored broad
+ * assessment (so no grade). No fallback: a grade exists or it doesn't.
+ */
+export function gradePresentation(facility = {}) {
+    const g = facility.grade || null;
+    const score = g != null && Number.isFinite(Number(g.score)) ? Number(g.score) : null;
+    if (score == null) return null;
+    const baseScore = Number.isFinite(Number(g.base_score)) ? Number(g.base_score) : score;
+    return {
+        score,
+        letter: g.letter || gradeForScore(score),
+        adjusted: !!g.adjusted,
+        baseScore,
+        baseLetter: g.base_letter || gradeForScore(baseScore),
+        baseDate: g.base_date || null,
+        followups: Number(g.followups) || 0,
+        followupDate: g.followup_date || null,
+        restored: g.restored_items || [],
+        failed: g.failed_items || [],
+        cos: g.cos_items || [],
+        newItems: g.new_items || [],
+        unchecked: g.unchecked_items || [],
+        // Finding-level membership, indexing the BASE report's violations
+        // list. An item whose findings met different fates appears in more
+        // than one of the item lists above; only these say WHICH finding went
+        // where. Absent on payloads published before per-finding resolution —
+        // the receipt falls back to item-level membership for those.
+        restoredFindings: g.restored_findings || null,
+        failedFindings: g.failed_findings || null,
+        cosFindings: g.cos_findings || null,
+        uncheckedFindings: g.unchecked_findings || null,
+        restoredPoints: Number(g.restored_points) || 0,
+        extraPoints: Number(g.extra_points) || 0,
+        // NARRATIVE arc: how many of the follow-ups were adjudicated from
+        // the inspector's written comments (and which items they governed).
+        narrativeFollowups: Number(g.narrative_followups) || 0,
+        narrativeItems: g.narrative_items || [],
+        // The broad report that anchors the grade — the receipt modal joins
+        // it back to its full inspection row for the per-item breakdown.
+        baseInspectionId: g.base_inspection_id || null,
+    };
+}
+
+/** Pair the newest event with the one facility-level grade assessment. */
+export function facilityPresentation(facility = {}) {
+    const latest = inspectionPresentation(facility.latest || null);
+    const candidate = facility.latest_assessment || null;
+    let assessmentRecord = candidate;
+    let assessment = candidate ? inspectionPresentation(candidate) : null;
+    if (assessment && !assessment.gradeEligible) {
+        assessment = null;
+        assessmentRecord = null;
+    }
+    if (!assessment && latest.gradeEligible) {
+        assessment = latest;
+        assessmentRecord = facility.latest;
+    }
+    // V3 carries one oldest-first compact event stream. Derive the
+    // newest-first broad series here so storage never duplicates scores.
+    const trend = (facility.trend || [])
+        .filter((event) => event?.[0] === 'b' && Number.isFinite(event[2]))
+        .map((event) => event[2])
+        .reverse()
+        .slice(0, 6);
+    return {
+        latest,
+        assessment,
+        assessmentRecord,
+        grade: gradePresentation(facility),
+        trend,
+        declining: trend.length >= 2 && trend[0] < trend[1],
+    };
+}
+
+/** Oldest-first event positions; only broad points belong to the score line. */
+export function buildScopeSeries(inspections = []) {
+    const events = [...inspections].reverse().map((inspection, index) => ({
+        inspection,
+        presentation: inspectionPresentation(inspection),
+        index,
+        // Exact position in the newest-first inspection history. Dates and
+        // report IDs are not guaranteed unique, so trend clicks use this
+        // render-order identity instead of a best-effort content match.
+        historyIndex: inspections.length - 1 - index,
+    }));
+    return {
+        events,
+        broad: events.filter((event) => event.presentation.gradeEligible),
+        // Every focused event, scored or not: the trend plots these by their
+        // OUT/addressed compliance, so a missing raw score no longer decides
+        // whether the re-check appears at all (it used to vanish silently while
+        // still consuming an x slot).
+        focused: events.filter((event) => event.presentation.scope === 'focused'),
+        unknown: events.filter((event) => event.presentation.scope === 'unknown'),
+    };
+}
+
+/** The roster marker's compact `trend` tuples → pseudo-inspections, NEWEST
+ *  first (the order every real inspections array arrives in), so the hover
+ *  card feeds the exact `_sparkline`/`buildScopeSeries` pipeline the detail
+ *  panel uses — one renderer, two data sources, no parallel drawing code.
+ *
+ *  Tuple kinds (cf_export_site._trend_event, oldest-first on the wire):
+ *      ["b", d, score, applicable, form]  broad — form gates breadth
+ *      ["f", d, out, addressed, form]     focused — OUT/addressed ratio
+ *      ["n", d, verdict(, items)]  adjudicated written verdict ◆
+ *      ["u", d]                    scope-unknown baseline tick
+ *  d = yyyymmdd int, 0 when unknown.
+ *
+ *  Each pseudo-inspection carries exactly the fields inspectionPresentation
+ *  and narrativeVerdictPresentation read, nothing else. Degenerate stored
+ *  scopes (a "b"/"f" whose count is null) degrade to the baseline tick here
+ *  while the panel — which holds the real checklist rows — can still derive
+ *  a count; that divergence is confined to pre-v2 straggler documents. */
+export function trendInspections(trend = []) {
+    const iso = (d) => {
+        const s = String(d || '');
+        return s.length === 8
+            ? `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}` : null;
+    };
+    const events = [];
+    for (const t of Array.isArray(trend) ? trend : []) {
+        if (!Array.isArray(t) || !t.length) continue;
+        const [kind, d] = t;
+        const date = iso(d);
+        if (kind === 'b') {
+            events.push({
+                date, score: t[2] ?? null,
+                applicable_item_count: t[3] ?? null,
+                form_item_count: t[4] ?? t[3] ?? null,
+                checklist_present: true,
+            });
+        } else if (kind === 'f') {
+            events.push({
+                date, score: null,
+                addressed_item_count: t[3] ?? null,
+                form_item_count: t[4] ?? t[3] ?? null,
+                out_item_count: t[2] ?? null, checklist_present: true,
+            });
+        } else if (kind === 'n') {
+            const adjudication = { status: 'adjudicated', verdict: t[2] || null };
+            if (t[3] && typeof t[3] === 'object') adjudication.items = t[3];
+            events.push({ date, checklist_present: false, adjudication });
+        } else {
+            events.push({ date, checklist_present: false });
+        }
+    }
+    return events.reverse();
+}
+
+export function fmtDate(iso) {
+    if (!iso) return '—';
+    const d = new Date(iso + 'T12:00:00Z');
+    if (Number.isNaN(d.getTime())) return iso;
+    return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+// Year-less date (M/D) for the toolbar's narrow freshness variant. The
+// archive is always within the current year in practice, and the full
+// variant (plus the tooltip) still carries the year.
+export function fmtDateShort(iso) {
+    if (!iso) return '—';
+    const d = new Date(iso + 'T12:00:00Z');
+    if (Number.isNaN(d.getTime())) return iso;
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+// Compact numeric date (M/D/YYYY) for the grade hero's provenance lines.
+export function fmtDateNum(iso) {
+    if (!iso) return '—';
+    const d = new Date(iso + 'T12:00:00Z');
+    if (Number.isNaN(d.getTime())) return iso;
+    return d.toLocaleDateString('en-US', { year: 'numeric', month: 'numeric', day: 'numeric' });
+}

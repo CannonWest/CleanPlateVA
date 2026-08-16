@@ -1,17 +1,11 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import { dashboard, dashboardSource as source } from './support/dashboard.mjs';
 
-const source = readFileSync(
-    new URL('../public/static/js/foodDashboard.js', import.meta.url),
-    'utf8',
-);
 const styles = readFileSync(
     new URL('../public/static/css/style.css', import.meta.url),
     'utf8',
-);
-const dashboard = await import(
-    `data:text/javascript;base64,${Buffer.from(source).toString('base64')}`
 );
 
 const checklist = (count, out = 0) => Array.from({ length: count }, (_, index) => ({
@@ -730,8 +724,7 @@ test('grade dates render as two labeled objects below the hero, numeric M/D/YYYY
 });
 
 test('grade filter, marker fill, and score sort all key off facility.grade', () => {
-    const src = readFileSync(
-        new URL('../public/static/js/foodDashboard.js', import.meta.url), 'utf8');
+    const src = source;
     assert.match(src, /facilityPresentation\(f\)\.grade\?\.letter/);
     assert.match(src, /return gradeColor\(facilityPresentation\(f\)\.grade\?\.letter \|\| null\);/);
     assert.match(src, /case 'score': return fp\.grade\?\.score \?\? -1;/);
@@ -765,8 +758,7 @@ test('the newly-permitted hero is a blue NEW badge with simple copy and no spark
 });
 
 test('newly-permitted wiring: blue marker fill, a Show new filter, and the NEW list chip', () => {
-    const src = readFileSync(
-        new URL('../public/static/js/foodDashboard.js', import.meta.url), 'utf8');
+    const src = source;
     assert.match(src, /const NEW_COLOR = '#1c7ed6';/);
     assert.match(src, /this\._isNew\(f\) \? NEW_COLOR : this\._markerColor\(f\)/);
     assert.match(src, /if \(!lite && !showNew && this\._isNew\(f\)\) return false;/);
