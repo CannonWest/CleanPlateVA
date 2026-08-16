@@ -51,11 +51,19 @@ unknown path normalize to `/`, and the legacy `#about` hash migrates to
 Serving this needs one thing from the host: any non-asset path must return
 `index.html` so the client can route it. Cloudflare does that through
 `assets.not_found_handling` in [`wrangler.jsonc`](wrangler.jsonc); `app.py`
-and the CannonAI embed mount mirror it. A path whose last segment has a file
-extension stays a 404 in all three, so a missing asset is never served as a
-phantom page. The page declares its mount with `<base href>` (`/` here,
-rewritten to `/cleanplate/` by the CannonAI passthrough) and the router reads
-it from `document.baseURI`, which is what lets one build serve from either.
+and the CannonAI embed mount mirror it.
+
+A missing asset must still 404, and Cloudflare's setting alone does not do
+that — it is all-or-nothing, so a mistyped `.js` or a genuinely missing data
+shard would come back as `200 text/html`, leaving `dataClient` to parse
+markup as JSON. [`src/worker.js`](src/worker.js) re-imposes the honest
+answer: an asset-shaped path (last segment carrying a non-HTML extension)
+that comes back as the HTML shell is returned as a 404. `app.py` and the
+embed mount decide the same thing directly, before serving.
+
+The page declares its mount with `<base href>` (`/` here, rewritten to
+`/cleanplate/` by the CannonAI passthrough) and the router reads it from
+`document.baseURI`, which is what lets one build serve from either.
 
 Prepared data uses explicit Contract V3 manifests:
 

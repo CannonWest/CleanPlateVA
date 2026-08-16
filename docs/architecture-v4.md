@@ -61,7 +61,7 @@ These are the invariants every V4 decision must satisfy. Several are inherited f
 | `/` | Map — **canonical** | `/map` accepted and normalized to `/` (D-URL-1). |
 | `/list` | List | Same filter set as Map plus `sort`, `dir`, `page`. |
 | `/about` | About | Legacy `#about` migrates on load. |
-| unknown | → `/` | Static-asset `not_found_handling: "single-page-application"` serves `index.html`; the client `replaceState`-normalizes unknown paths (D-URL-2). Mirrored by `app.py` and the CannonAI mount — in all three, a path whose last segment has an extension stays a 404 so a missing asset never renders as a phantom page. |
+| unknown | → `/` | Static-asset `not_found_handling: "single-page-application"` serves `index.html`; the client `replaceState`-normalizes unknown paths (D-URL-2). Mirrored by `app.py` and the CannonAI mount. **The SPA setting is all-or-nothing** — measured on production 2026-08-16, it also answers a mistyped `.js` or a missing `/data/finder/*.json` with `200 text/html`, which would have `dataClient` parsing markup as JSON — so `src/worker.js` re-404s asset-shaped paths (non-HTML extension in the last segment) that come back as the shell. The other two hosts decide the same thing before serving. |
 
 **Query state (both views unless noted):** `q` (search) · `zip` · `grade` · `restaurants` · `closed` · `new` · `mobile` · `permit` (selected facility → panel open) · List-only `sort`, `dir`, `page` · Map-only stretch: viewport as `#@lat,lon,z` (deferred; D-URL-3). With List paging decided as load-more (D-DATA-11), `page=N` means "N chunks of 50 revealed" — a load-more position stays deep-linkable; it resets when filters or sort change.
 
