@@ -45,8 +45,9 @@ export const aboutMethods = {
         };
         const zips = Object.keys(this._counts?.by_zip || {}).filter((z) => z !== '?').length;
         const total = this._counts?.total ?? this._facilities.length;
-        const dates = this._facilities.map((f) => f.latest?.date).filter(Boolean);
-        const latest = dates.length ? dates.reduce((a, b) => (a > b ? a : b)) : null;
+        // Contract V4: the newest held report is a manifest fact on BOTH tiers
+        // (`freshness.newest_report`) — no client-side scan of every row.
+        const latest = payload.freshness?.newest_report || null;
         const snapshot = payload.fetched_at ? fmtDate(payload.fetched_at.slice(0, 10)) : 'Not recorded';
 
         setText('aboutTierLabel', lite ? 'Public finder' : 'Authenticated archive');
@@ -57,7 +58,7 @@ export const aboutMethods = {
         const totalNumber = Number(total || 0);
         setText('aboutCoverageCount', `${totalNumber.toLocaleString()} `
             + `${totalNumber === 1 ? 'facility' : 'facilities'} · ${zips} ${zips === 1 ? 'ZIP' : 'ZIPs'}`);
-        setText('aboutLatestDate', latest ? fmtDate(latest) : (lite ? 'Not exposed publicly' : 'No dated report'));
+        setText('aboutLatestDate', latest ? fmtDate(latest) : 'No dated report');
     },
 
     _updateAboutUnavailable() {

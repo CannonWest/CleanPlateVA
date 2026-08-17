@@ -123,7 +123,12 @@ test('transparency content draws the official/derived boundary and full pipeline
     assert.match(dashboardSource, /snap \$\{fmtDateShort\(snapshotIso\)\}/);
     assert.match(dashboardSource, /report \$\{fmtDateShort\(latestIso\)\}/);
     assert.match(dashboardSource, /Archive snapshot published \$\{fmtDate\(snapshotIso\)\}/);
-    assert.match(dashboardSource, /Not exposed publicly/);
+    // Contract V4: the newest held report is a manifest fact on both tiers —
+    // read from `freshness.newest_report`, never scanned off the rows, and no
+    // longer withheld from the public tier ("Not exposed publicly" is gone).
+    assert.match(dashboardSource, /payload\.freshness\?\.newest_report/);
+    assert.doesNotMatch(dashboardSource, /Not exposed publicly/);
+    assert.doesNotMatch(dashboardSource, /\.map\(\(f\) => f\.latest\?\.date\)/);
     assert.doesNotMatch(dashboardSource, /fetchedEl\.textContent = latest \? `as of/);
 });
 

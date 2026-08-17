@@ -2,12 +2,87 @@
  * Presentation math — pure functions, no DOM: the VDH permit link, HTML
  * escaping, the grade palette lookup, one inspection's scope / count /
  * outcome contract, the narrative-verdict and facility-grade presentations,
- * the roster→pseudo-inspection trend adapter, the scope series behind the
+ * the Contract V4 overlay adapters (a roster row's `o` → the same
+ * presentation shapes the detail panel reads), the scope series behind the
  * sparkline, and the date formatters. The grade-receipt mirror lives in
  * receipt.js.
  */
 
 import { AGGREGATE_TENANT, GRADE_COLORS, PORTAL_BASE, RF_MAX_ITEM } from './constants.js';
+
+// ── Contract V4 roster row adapters ─────────────────────────────────────
+// A V4 roster row is a finder row (identity + lat/lon/loc) plus, on the Full
+// tier, `o` — the overlay row decoded by its shard's column names. These read
+// that shape; the detail-panel path (a V3-shaped facility with `latest`,
+// `grade`, …) is untouched, so one presentation serves both.
+
+export const OVERLAY_SCOPES = ['unknown', 'broad', 'focused'];
+export const LOCATION_CLASS = { rooftop: 0, street: 1, zip_centroid: 2 };
+
+/** yyyymmdd int → ISO date, or null. */
+export function isoFromYmd(value) {
+    if (!Number.isInteger(value) || value <= 0) return null;
+    const text = String(value).padStart(8, '0');
+    return `${text.slice(0, 4)}-${text.slice(4, 6)}-${text.slice(6, 8)}`;
+}
+
+/** Effective coordinates of a roster row (V4: top-level lat/lon) or a
+ *  detail facility (nested location). */
+export function coordsOf(f) {
+    const lat = f?.lat ?? f?.location?.lat ?? null;
+    const lon = f?.lon ?? f?.location?.lon ?? null;
+    return { lat, lon };
+}
+
+/** 0 rooftop-quality · 1 street-level (Census centerline) · 2 ZIP centroid —
+ *  the finder's `loc` code, or derived from a detail's location.source. */
+export function locationClass(f) {
+    if (Number.isInteger(f?.loc)) return f.loc;
+    const source = f?.location?.source;
+    if (source === 'zip_centroid') return LOCATION_CLASS.zip_centroid;
+    if (source === 'census_batch' || source === 'census_oneline') return LOCATION_CLASS.street;
+    return LOCATION_CLASS.rooftop;
+}
+
+/** The last-visit date of a roster row or detail facility, ISO or null. */
+export function latestDateOf(f) {
+    return f?.latest?.date ?? isoFromYmd(f?.o?.latest_yyyymmdd) ?? null;
+}
+
+/** Newly permitted, from the overlay (`new`) or a detail's flag. */
+export function isNewlyPermitted(f) {
+    return f?.newly_permitted === true || f?.o?.new === 1;
+}
+
+/** Whether a roster row / facility is an active permit. V4 finder rows carry
+ *  no status (active by construction); closed rows and detail facilities do. */
+export function isActivePermit(f) {
+    if (f?.status == null) return true;
+    return String(f.status).toLowerCase().includes('permitted');
+}
+
+function overlayGrade(o) {
+    if (!o || o.grade_score == null || !Number.isFinite(Number(o.grade_score))) return null;
+    return { score: Number(o.grade_score), base_date: isoFromYmd(o.base_yyyymmdd) };
+}
+
+/** The latest visit as an inspectionPresentation-shaped view, from the
+ *  overlay: scope + count (+ OUT for a focused visit). No score is shipped
+ *  for a single visit; the facility grade is the verdict. */
+function overlayLatestPresentation(o) {
+    const scope = OVERLAY_SCOPES[o?.latest_scope_code] || 'unknown';
+    const count = Number.isFinite(Number(o?.latest_items)) && o.latest_items != null
+        ? Number(o.latest_items) : null;
+    const out = Number.isFinite(Number(o?.latest_out)) && o.latest_out != null
+        ? Number(o.latest_out) : null;
+    return {
+        scope, count, formCount: count,
+        broadEligible: scope === 'broad', gradeEligible: false,
+        score: null, compliant: null, out,
+        outIsDistinct: scope === 'focused' && out != null,
+        date: isoFromYmd(o?.latest_yyyymmdd),
+    };
+}
 
 /** Deep link to a facility's official VDH permit page.
  *
@@ -295,7 +370,10 @@ export function narrativeVerdictPresentation(insp = null) {
  * assessment (so no grade). No fallback: a grade exists or it doesn't.
  */
 export function gradePresentation(facility = {}) {
-    const g = facility.grade || null;
+    // A detail facility carries the full grade object; a V4 roster row
+    // carries only the score (+ base date) on its overlay — the letter is
+    // derived, never shipped (design ref §10.6).
+    const g = facility.grade || overlayGrade(facility.o) || null;
     const score = g != null && Number.isFinite(Number(g.score)) ? Number(g.score) : null;
     if (score == null) return null;
     const baseScore = Number.isFinite(Number(g.base_score)) ? Number(g.base_score) : score;
@@ -336,6 +414,30 @@ export function gradePresentation(facility = {}) {
 
 /** Pair the newest event with the one facility-level grade assessment. */
 export function facilityPresentation(facility = {}) {
+    if (facility.o && !facility.latest) {
+        // A Contract V4 roster row: everything the map and the List need at
+        // boot rides on the overlay. The trend series is NOT here — the
+        // sparkline comes from the detail on hover/click (D-DATA-10).
+        const o = facility.o;
+        const latest = overlayLatestPresentation(o);
+        const compliance = Number.isFinite(Number(o.compliance_pct)) && o.compliance_pct != null
+            ? Number(o.compliance_pct) / 100 : null;
+        const baseDate = isoFromYmd(o.base_yyyymmdd);
+        const assessmentRecord = baseDate != null || compliance != null
+            ? { date: baseDate, compliance_rate: compliance } : null;
+        const trendDelta = Number.isFinite(Number(o.trend_delta)) && o.trend_delta != null
+            ? Number(o.trend_delta) : null;
+        return {
+            latest,
+            latestDate: latest.date,
+            assessment: assessmentRecord ? { ...latest, scope: 'broad', broadEligible: true } : null,
+            assessmentRecord,
+            grade: gradePresentation(facility),
+            trend: [],
+            trendDelta,
+            declining: trendDelta != null && trendDelta < 0,
+        };
+    }
     const latest = inspectionPresentation(facility.latest || null);
     const candidate = facility.latest_assessment || null;
     let assessmentRecord = candidate;
@@ -348,20 +450,19 @@ export function facilityPresentation(facility = {}) {
         assessment = latest;
         assessmentRecord = facility.latest;
     }
-    // V3 carries one oldest-first compact event stream. Derive the
-    // newest-first broad series here so storage never duplicates scores.
-    const trend = (facility.trend || [])
-        .filter((event) => event?.[0] === 'b' && Number.isFinite(event[2]))
-        .map((event) => event[2])
-        .reverse()
-        .slice(0, 6);
+    // A detail-shaped facility carries no series at this level: the panel
+    // plots its trend from the real inspection history (buildScopeSeries),
+    // and the roster's V3 `trend` tuple stream is retired with Contract V4.
+    // `score_trend` stays unread here (its retirement predates V4).
     return {
         latest,
+        latestDate: facility.latest?.date ?? null,
         assessment,
         assessmentRecord,
         grade: gradePresentation(facility),
-        trend,
-        declining: trend.length >= 2 && trend[0] < trend[1],
+        trend: [],
+        trendDelta: null,
+        declining: false,
     };
 }
 
@@ -386,59 +487,6 @@ export function buildScopeSeries(inspections = []) {
         focused: events.filter((event) => event.presentation.scope === 'focused'),
         unknown: events.filter((event) => event.presentation.scope === 'unknown'),
     };
-}
-
-/** The roster marker's compact `trend` tuples → pseudo-inspections, NEWEST
- *  first (the order every real inspections array arrives in), so the hover
- *  card feeds the exact `_sparkline`/`buildScopeSeries` pipeline the detail
- *  panel uses — one renderer, two data sources, no parallel drawing code.
- *
- *  Tuple kinds (cf_export_site._trend_event, oldest-first on the wire):
- *      ["b", d, score, applicable, form]  broad — form gates breadth
- *      ["f", d, out, addressed, form]     focused — OUT/addressed ratio
- *      ["n", d, verdict(, items)]  adjudicated written verdict ◆
- *      ["u", d]                    scope-unknown baseline tick
- *  d = yyyymmdd int, 0 when unknown.
- *
- *  Each pseudo-inspection carries exactly the fields inspectionPresentation
- *  and narrativeVerdictPresentation read, nothing else. Degenerate stored
- *  scopes (a "b"/"f" whose count is null) degrade to the baseline tick here
- *  while the panel — which holds the real checklist rows — can still derive
- *  a count; that divergence is confined to pre-v2 straggler documents. */
-export function trendInspections(trend = []) {
-    const iso = (d) => {
-        const s = String(d || '');
-        return s.length === 8
-            ? `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}` : null;
-    };
-    const events = [];
-    for (const t of Array.isArray(trend) ? trend : []) {
-        if (!Array.isArray(t) || !t.length) continue;
-        const [kind, d] = t;
-        const date = iso(d);
-        if (kind === 'b') {
-            events.push({
-                date, score: t[2] ?? null,
-                applicable_item_count: t[3] ?? null,
-                form_item_count: t[4] ?? t[3] ?? null,
-                checklist_present: true,
-            });
-        } else if (kind === 'f') {
-            events.push({
-                date, score: null,
-                addressed_item_count: t[3] ?? null,
-                form_item_count: t[4] ?? t[3] ?? null,
-                out_item_count: t[2] ?? null, checklist_present: true,
-            });
-        } else if (kind === 'n') {
-            const adjudication = { status: 'adjudicated', verdict: t[2] || null };
-            if (t[3] && typeof t[3] === 'object') adjudication.items = t[3];
-            events.push({ date, checklist_present: false, adjudication });
-        } else {
-            events.push({ date, checklist_present: false });
-        }
-    }
-    return events.reverse();
 }
 
 export function fmtDate(iso) {

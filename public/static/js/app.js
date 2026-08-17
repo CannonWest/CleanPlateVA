@@ -9,8 +9,8 @@ const THEME_KEY = 'cleanplateva.theme';
 // authenticated full channel is reachable. It can only reduce access.
 const FORCE_LITE = new URLSearchParams(window.location.search).get('tier') === 'lite';
 
-// Both tiers require their manifest-led Contract V3 shapes. A failed or gated
-// full read degrades only to the public V3 finder, never to an older contract.
+// Both tiers require their manifest-led Contract V4 shapes. A failed or gated
+// full read degrades only to the public V4 finder, never to an older contract.
 const api = createFoodApi({ forceLite: FORCE_LITE });
 
 function applyTheme(dark) {

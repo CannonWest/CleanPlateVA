@@ -15,6 +15,7 @@ import {
     CLUSTER_MAX_ZOOM, LONE_PLACE_FILTER, STACK_FILTER, STACK_RADII, STACK_RING_COLORS,
     STACK_RING_GAP,
 } from './stacks.js';
+import { coordsOf } from './presentation.js';
 
 export const mapMethods = {
     // ── map plumbing ────────────────────────────────────────────────────
@@ -354,8 +355,9 @@ export const mapMethods = {
         // Marker-bound hover preview (skipped on touch devices — tap opens the
         // detail panel directly). The popup is display-only and mouse-
         // transparent: leaving the marker removes it immediately. Full tier
-        // still renders the grade hero from the roster's `trend` payload, but
-        // interactive trend/receipt behavior belongs only to the clicked panel.
+        // renders the grade hero instantly from the overlay and fills the
+        // sparkline in from the prefetched detail (hover.js); interactive
+        // trend/receipt behavior belongs only to the clicked panel.
         if (!coarse) {
             this._hoverPopup = new maplibregl.Popup({
                 closeButton: false, closeOnClick: false,
@@ -465,7 +467,7 @@ export const mapMethods = {
     _coverageBounds() {
         let n = -90, s = 90, e = -180, w = 180;
         for (const f of this._facilities) {
-            const { lat, lon } = f.location || {};
+            const { lat, lon } = coordsOf(f);
             if (lat == null || lon == null) continue;
             n = Math.max(n, lat); s = Math.min(s, lat);
             e = Math.max(e, lon); w = Math.min(w, lon);
