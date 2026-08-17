@@ -28,28 +28,33 @@ test('FORCE_LITE keys off ?tier=lite exactly, read once at boot', () => {
     );
 });
 
-test('the full channel is gated behind !FORCE_LITE and degrades only to the V4 public finder', () => {
-    assert.match(appSource, /createFoodApi\(\{ forceLite: FORCE_LITE \}\)/);
+test('the full channel is gated behind !FORCE_LITE and the acknowledgement, and degrades only to the V4 public finder', () => {
+    // ?tier=lite always wins (D-ACK-3); the acknowledgement is the other half
+    // of the gate (CPF-M1) and is read at call time from the shared state.
+    assert.match(appSource, /createFoodApi\(\{ forceLite: FORCE_LITE, isAcknowledged: \(\) => ack\.agreed \}\)/);
     const fn = clientSource.match(/async getFoodFacilities\([^)]*\) \{([\s\S]*?)\n {8}\},/);
     assert.ok(fn, 'getFoodFacilities found');
     const body = fn[1];
-    const gate = body.indexOf('if (!forceLite)');
+    const gate = body.indexOf('if (!forceLite && isAcknowledged())');
     const full = body.indexOf('loadFullV4');
     const lite = body.indexOf('loadLite');
-    assert.ok(gate !== -1, 'the !forceLite gate exists');
+    assert.ok(gate !== -1, 'the !forceLite && isAcknowledged() gate exists');
     assert.ok(full !== -1 && gate < full, 'the full-channel fetch sits inside the gate');
     assert.equal(body.indexOf('loadLegacyFull'), -1, 'no V1 full-roster loader exists');
     assert.ok(lite > full, 'the public finder fallback stays after the full gate');
     assert.equal(clientSource.indexOf('loadFullV3'), -1, 'no V3 loader survives — no dual-contract path');
 });
 
-test('forced lite marks the body and keeps the sign-in CTA hidden', () => {
+test('forced lite marks the body, asks no terms, and hides the terms control', () => {
     assert.match(
         appSource,
         /if \(FORCE_LITE\) document\.body\.classList\.add\('tier-forced-lite'\);/,
     );
     assert.match(
         css,
-        /body\.tier-forced-lite #signInBtn \{ display: none !important; \}/,
+        /body\.tier-forced-lite #ackTermsBtn \{ display: none !important; \}/,
     );
+    // The retired sign-in affordance is gone for good (design ref §14.1).
+    assert.doesNotMatch(css, /#signInBtn/);
+    assert.doesNotMatch(css, /cp-signin-label/);
 });

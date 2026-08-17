@@ -29,6 +29,7 @@ export const DASHBOARD_MODULES = [
     'detail.js',
     'sparkline.js',
     'inspection.js',
+    'ack.js',
     'router.js',
     'foodDashboard.js',
 ];

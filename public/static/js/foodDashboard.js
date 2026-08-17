@@ -48,6 +48,8 @@
  *   sparkline.js     trend sparkline (static + fitted/interactive)
  *   inspection.js    inspection history rows
  *   router.js        routes + URL state (CPR-M1b): paths, query state, history
+ *   ack.js           the acknowledgement (CPF-M1): terms dialog, stored answer,
+ *                    header control, footer terms link
  * The pure functions tests and other consumers import are re-exported
  * from here so this module stays the dashboard's public surface.
  */
@@ -67,6 +69,7 @@ import { listMethods } from './list.js';
 import { detailMethods } from './detail.js';
 import { sparklineMethods } from './sparkline.js';
 import { inspectionMethods } from './inspection.js';
+import { ackMethods } from './ack.js';
 
 export { spiderOffsets, stackKey, stackRadius, stackRingIcon } from './stacks.js';
 export {
@@ -78,13 +81,26 @@ export {
 export { gradeReceiptPresentation } from './receipt.js';
 
 export class FoodDashboard {
-    constructor(api) {
+    constructor(api, { ack = null, forceLite = false } = {}) {
         this.api = api;
-        // 'full' = complete inspection archive (authenticated channel);
-        // 'lite' = the public finder payload — gray markers, name + address
-        // + VDH link, no judgment surfaces. Set from the payload's mode.
+        // 'full' = the complete inspection archive with CleanPlateVA's
+        // judgments, loaded after the visitor acknowledges the terms;
+        // 'lite' = the basic map — gray markers, name + address + VDH link,
+        // no judgment surfaces. Set from the payload's mode.
         this._mode = 'full';
         this._loaded = false;
+        // The acknowledgement (ack.js): the shared decision state the data
+        // client's gate also reads, whether ?tier=lite bypasses the terms,
+        // and the dialog's DOM/listeners while it is open. `_bootDeferred`
+        // is set when the first load is waiting on the visitor's answer.
+        this._ack = ack;
+        this._forceLite = forceLite;
+        this._bootDeferred = false;
+        this._ackHost = null;
+        this._ackTrigger = null;
+        this._ackBlocking = false;
+        this._ackKeydown = null;
+        this._ackFocusin = null;
         this._map = null;
         this._mapReady = false;      // first style.load has run (source exists)
         this._styleIsDark = null;
@@ -258,15 +274,30 @@ export class FoodDashboard {
                 });
             });
 
+        // The acknowledgement's header control + the footer's terms link
+        // (ack.js). The dialog itself is load()'s business.
+        this._installAck();
+
         // Restyle the basemap when the body's theme class changes.
         new MutationObserver(() => this._applyTheme())
             .observe(document.body, { attributes: true, attributeFilter: ['class'] });
     }
 
-    /** Kick off the first load once the page is ready. */
+    /** Kick off the first load once the page is ready. The basemap comes up
+     *  first; on a first visit the terms dialog then blocks and NO data is
+     *  fetched until the visitor answers (D-ACK-1) — `_decideAck` runs the
+     *  deferred refresh. A remembered answer (or ?tier=lite) loads at once. */
     load() {
         if (!this._loaded) {
             this._loaded = true;
+            this._ensureMap();
+            if (this._needsAckDecision()) {
+                this._bootDeferred = true;
+                const countsEl = document.getElementById('foodCounts');
+                if (countsEl) countsEl.textContent = '';
+                this._openTerms({ blocking: true });
+                return;
+            }
             this.refresh();
         } else if (this._map) {
             setTimeout(() => this._map.resize(), 50);
@@ -297,9 +328,9 @@ export class FoodDashboard {
             if (lite && this._sort.key === 'score') this._sort = { key: 'name', dir: 'asc' };
         }
         document.body.classList.toggle('food-mode-lite', lite);
-        // The sign-in affordance only makes sense when there's something
-        // more to sign in TO.
-        document.getElementById('signInBtn')?.classList.toggle('d-none', !lite);
+        // The header's terms control follows the answer, not the tier: an
+        // acknowledged visitor whose full read failed still holds an answer.
+        this._syncAckControl();
 
         this._facilities = payload.facilities || [];
         this._byPermit = new Map(this._facilities.map((f) => [f.permit_id, f]));
@@ -400,7 +431,8 @@ export class FoodDashboard {
 // configurable — the same descriptor a class method gets. Bodies are
 // unchanged; only their file moved.
 for (const bundle of [mapMethods, markerMethods, hoverMethods, stackMethods, filterMethods,
-    listMethods, aboutMethods, detailMethods, sparklineMethods, inspectionMethods, routerMethods]) {
+    listMethods, aboutMethods, detailMethods, sparklineMethods, inspectionMethods, ackMethods,
+    routerMethods]) {
     for (const [name, fn] of Object.entries(bundle)) {
         Object.defineProperty(FoodDashboard.prototype, name, {
             value: fn, writable: true, configurable: true, enumerable: false,
