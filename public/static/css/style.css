@@ -1540,27 +1540,58 @@ body.food-ack-open { overflow: hidden; }
 }
 .food-ack-head {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     gap: 0.8rem;
     padding: 0.95rem 1.1rem 0.8rem;
     border-bottom: 1px solid var(--cp-border);
 }
 .food-ack-head > div:first-child { flex: 1 1 auto; min-width: 0; }
-.food-ack-head h5 { margin: 0 0 0.25rem; font-size: 1.08rem; }
-.food-ack-kicker {
-    font-size: 0.7rem;
-    font-weight: 800;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--cp-muted);
-}
-.food-ack-lede { margin: 0; font-size: 0.86rem; color: var(--cp-muted); }
+.food-ack-head h5 { margin: 0; font-size: 1.08rem; }
+/* The terms live in their own inset box — narrower than the dialog, outlined,
+   recessed to the page canvas colour so it reads as a document inside the
+   dialog rather than the dialog's own text. The box is the scroll container,
+   so its outline stays put while the terms move inside it. */
 .food-ack-body {
-    overflow-y: auto;
-    padding: 0.4rem 1.1rem 0.9rem;
+    /* `scroll`, not `auto`: the track is always reserved, so the reader can
+       see at a glance that there is more terms below and the text never
+       reflows when the box happens to fit. That alone is not enough in
+       Chrome, whose overlay scrollbar reserves no gutter and fades out — the
+       ::-webkit-scrollbar rules below draw a classic, persistent one
+       (measured 2026-08-17: they take a 10px gutter). They apply ONLY while
+       the standard `scrollbar-width` / `scrollbar-color` are unset, because
+       Chrome drops the pseudo-elements as soon as either is given — so the
+       standard properties live in the Firefox-only fallback further down. */
+    overflow-y: scroll;
+    min-height: 0;
+    width: min(36rem, calc(100% - 2.2rem));
+    margin: 0.9rem auto;
+    padding: 0.85rem 1rem;
+    background: var(--cp-bg);
+    border: 1px solid var(--cp-border);
+    border-radius: 0.6rem;
     font-size: 0.9rem;
     line-height: 1.55;
     outline: none;
+}
+.food-ack-body::-webkit-scrollbar { width: 10px; }
+.food-ack-body::-webkit-scrollbar-track {
+    background: var(--cp-border);
+    border-radius: 0 0.5rem 0.5rem 0;
+}
+.food-ack-body::-webkit-scrollbar-thumb {
+    background: var(--cp-muted);
+    border-radius: 999px;
+    border: 2px solid var(--cp-border);
+}
+/* Firefox has no ::-webkit-scrollbar, so it takes the standard properties
+   instead — same intent, its own persistent scrollbar. The support query
+   keeps them away from Chrome, where they would switch the pseudo-elements
+   above back off. */
+@supports not selector(::-webkit-scrollbar) {
+    .food-ack-body {
+        scrollbar-width: thin;
+        scrollbar-color: var(--cp-muted) var(--cp-border);
+    }
 }
 .food-ack-body:focus-visible { box-shadow: inset 0 0 0 2px var(--cp-accent); }
 .food-ack-body h3 {
@@ -1576,7 +1607,7 @@ body.food-ack-open { overflow: hidden; }
     display: flex;
     flex-wrap: wrap;
     gap: 0.5rem;
-    justify-content: flex-end;
+    justify-content: center;
     padding: 0.8rem 1.1rem 0.95rem;
     border-top: 1px solid var(--cp-border);
 }

@@ -201,6 +201,19 @@ test('the dialog clones About §06 (one source of the words), blocks on first lo
     assert.match(ackSource, /source\.cloneNode\(true\)[\s\S]*?clone\.removeAttribute\('id'\)/);
     assert.match(ackSource, /data-ack="\$\{ACK_AGREED\}">Agree and View Grades</);
     assert.match(ackSource, /data-ack="\$\{ACK_DECLINED\}">Decline and Use Basic Map</);
+    // Decline left, Agree right (Cannon 2026-08-17) — DOM order is the visual
+    // order, and the actions row is centered.
+    const actions = ackSource.match(/<div class="food-ack-actions">([\s\S]*?)<\/div>/)?.[1] || '';
+    assert.ok(actions, 'actions row found');
+    assert.ok(actions.indexOf('ACK_DECLINED') < actions.indexOf('ACK_AGREED'),
+        'Decline is written before Agree, so Agree sits on the right');
+    assert.match(css, /\.food-ack-actions \{[^}]*justify-content: center;/);
+    // The dialog head carries the title alone — no kicker, no lede.
+    assert.doesNotMatch(ackSource, /food-ack-kicker|food-ack-lede/);
+    assert.doesNotMatch(ackSource, /Before using CleanPlateVA/);
+    assert.doesNotMatch(css, /\.food-ack-kicker|\.food-ack-lede/);
+    // …and neither does About §06 (same line, same reason).
+    assert.doesNotMatch(html, /Before using CleanPlateVA/);
     // Blocking: no close control, backdrop clicks ignored, Escape = an
     // unpersisted decline. Re-opened: Escape / backdrop just close.
     assert.match(ackSource, /\$\{blocking \? '' : `<button type="button" class="btn-close" data-ack-close/);
@@ -232,11 +245,30 @@ test('the header control replaced the sign-in button and follows the answer', ()
     assert.match(about, /_basicMapReason\(\) \{[\s\S]*?Forced by \?tier=lite[\s\S]*?Terms acknowledged; inspection data unavailable[\s\S]*?Terms declined on this device[\s\S]*?Terms declined for this visit[\s\S]*?Terms not yet acknowledged/);
 });
 
-test('the dialog and §06 have dark-theme pairs and the body scrolls', () => {
+test('the dialog and §06 have dark-theme pairs, and the terms sit in an outlined inset box that scrolls', () => {
     assert.match(css, /\.food-ack-backdrop \{[\s\S]*?position: fixed;/);
     assert.match(css, /\.theme-dark \.food-ack-backdrop \{ background: rgba\(0, 0, 0, 0\.68\); \}/);
     assert.match(css, /\.theme-dark \.food-ack \{ box-shadow/);
-    assert.match(css, /\.food-ack-body \{[\s\S]*?overflow-y: auto;/);
     assert.match(css, /body\.food-ack-open \{ overflow: hidden; \}/);
     assert.match(css, /\.about-terms-body h3 \{/);
+    // The box: narrower than the dialog, centered, outlined, recessed to the
+    // page canvas token (which flips with the theme), and the scroll container
+    // itself — so the outline stays put while the terms move inside it.
+    const box = css.match(/\.food-ack-body \{([^}]*)\}/)?.[1] || '';
+    assert.ok(box, '.food-ack-body rule found');
+    // `scroll`, not `auto` — the scrollbar is persistent. Chrome's overlay
+    // scrollbar reserves no gutter, so the ::-webkit-scrollbar rules draw a
+    // classic one; they only apply while the standard properties are unset,
+    // which is why those live in a Firefox-only @supports block. Getting this
+    // backwards silently restores the fading overlay scrollbar.
+    assert.match(box, /overflow-y: scroll;/);
+    assert.doesNotMatch(box, /^\s*scrollbar-(width|color)\s*:/m);   // declarations, not the comment above them
+    assert.match(css, /\.food-ack-body::-webkit-scrollbar \{ width: 10px; \}/);
+    assert.match(css, /\.food-ack-body::-webkit-scrollbar-thumb \{[\s\S]*?background: var\(--cp-muted\);/);
+    assert.match(css, /@supports not selector\(::-webkit-scrollbar\) \{\s*\.food-ack-body \{\s*scrollbar-width: thin;\s*scrollbar-color: var\(--cp-muted\) var\(--cp-border\);/);
+    assert.match(box, /width: min\(36rem, calc\(100% - 2\.2rem\)\);/);
+    assert.match(box, /margin: 0\.9rem auto;/);
+    assert.match(box, /border: 1px solid var\(--cp-border\);/);
+    assert.match(box, /background: var\(--cp-bg\);/);
+    assert.match(box, /border-radius:/);
 });
