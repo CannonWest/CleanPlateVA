@@ -48,10 +48,14 @@
             </button>
         </nav>
         <div class="ms-auto d-flex align-items-center gap-2">
-            <a class="btn btn-sm btn-outline-secondary d-none text-nowrap" id="signInBtn" href="data-full/signin"
-               title="Sign in to view inspection detail" aria-label="Sign in">
-                <i class="bi bi-person"></i> <span class="cp-signin-label">Sign in</span>
-            </a>
+            <!-- The acknowledgement control (ack.js, CPF-M1): re-opens the Terms
+                 of Use and Data Acknowledgment so the answer can be changed later.
+                 Label follows the answer ("View Grades" until agreed, then
+                 "Terms"); hidden under ?tier=lite, which asks no terms. -->
+            <button type="button" class="btn btn-sm btn-outline-secondary text-nowrap" id="ackTermsBtn"
+                    title="Terms of Use and Data Acknowledgment" aria-label="Terms of Use and Data Acknowledgment">
+                <i class="bi bi-file-earmark-text"></i> <span class="cp-ack-label">Terms</span>
+            </button>
             <button class="cp-theme-toggle" id="themeToggle" role="switch" aria-checked="true"
                     title="Toggle light/dark theme" aria-label="Dark mode">
                 <i class="bi bi-sun" aria-hidden="true"></i>
@@ -528,18 +532,18 @@
                         <article class="about-tier-card">
                             <span class="about-tier-icon"><i class="bi bi-geo-alt"></i></span>
                             <div>
-                                <p class="about-kicker">Public finder</p>
+                                <p class="about-kicker">Basic map</p>
                                 <h3>Identity, location, source handoff</h3>
                                 <p>Snapshot markers recorded as active at export time, names, addresses, geocoded coordinates, restaurant classification, approximation and mobile-unit flags, permit IDs, and the VDH district route needed for the source handoff. Status can age; presence is not proof a facility is currently open or permitted. No report dates, scores, grades, or inspection content.</p>
                             </div>
                         </article>
-                        <div class="about-tier-route"><span>Browser tries full</span><i class="bi bi-arrow-right"></i><span>falls back to finder</span></div>
+                        <div class="about-tier-route"><span>Terms acknowledged</span><i class="bi bi-arrow-right"></i><span>inspection grades load; otherwise the basic map remains</span></div>
                         <article class="about-tier-card about-tier-card-full">
-                            <span class="about-tier-icon"><i class="bi bi-shield-lock"></i></span>
+                            <span class="about-tier-icon"><i class="bi bi-clipboard2-check"></i></span>
                             <div>
-                                <p class="about-kicker">Authenticated archive</p>
+                                <p class="about-kicker">Inspection grades</p>
                                 <h3>Reports plus derived signals</h3>
-                                <p>Whitelisted histories, citations, observations, checklists, temperatures, comments, status, lineage, and computed metrics from private R2 behind Cloudflare Access.</p>
+                                <p>Inspection histories, citations, observations, checklists, temperatures, comments, status, lineage, and CleanPlateVA-calculated metrics, loaded after the visitor acknowledges the Terms of Use and Data Acknowledgment (section 06). If that data cannot be loaded, the basic map remains.</p>
                             </div>
                         </article>
                     </div>
@@ -559,7 +563,7 @@
                         <article><i class="bi bi-clock-history"></i><h3>Snapshot, not live</h3><p>Collection and publication can lag. “Newest report” is one maximum date, not proof that every covered area is equally current.</p></article>
                         <article><i class="bi bi-shop-window"></i><h3>Permit status can age</h3><p>An incremental scan can retain the last known “active” state after a facility stops receiving inspections. A full resweep reconciles closures; a marker is not operating-status proof.</p></article>
                         <article><i class="bi bi-journal-text"></i><h3>Source retention</h3><p>The portal typically exposes about two years of history. Missing report pages remain missing or unscored; this is an archive of what was collected, not a complete lifetime record.</p></article>
-                        <article><i class="bi bi-pin-map"></i><h3>Geocoded locations</h3><p>Pins come from address lookups through Census, VGIN, OpenStreetMap/Nominatim, then ZIP-centroid fallback—not VDH coordinates. Some unbadged pins are street-level or interpolated, not rooftop; centroid fallbacks are labeled approximate.</p></article>
+                        <article><i class="bi bi-pin-map"></i><h3>Geocoded locations</h3><p>Pins come from address lookups through VGIN, the U.S. Census Bureau, and OpenStreetMap/Nominatim, refined against Overture Maps and Foursquare OS Places, with a ZIP-centroid fallback—not VDH coordinates. Some pins are manually placed after review. Some unbadged pins are street-level or interpolated, not rooftop; centroid fallbacks are labeled approximate.</p></article>
                         <article><i class="bi bi-intersect"></i><h3>Presentation heuristics</h3><p>“Restaurants only” uses permit-type/name patterns. History merging uses shared location/address plus name similarity. Either can misclassify, combine, or miss a match; retained permit IDs are the audit trail.</p></article>
                         <article><i class="bi bi-sliders"></i><h3>Focused is not facility-wide</h3><p>A focused follow-up stays visible as the latest event and adjusts the facility grade item by item, but it never replaces the broad inspection that anchors it. Its own score is null; the OUT/addressed result describes that targeted visit. When comments enumerate corrected items omitted from the structured rows, both channels count once and the structured row governs any conflict.</p></article>
                         <article><i class="bi bi-shield-check"></i><h3>VDH wins conflicts</h3><p>Scores and summaries are comparison tools, not safety or illness predictions. If our presentation and the source disagree, the official VDH record is authoritative.</p></article>
@@ -574,21 +578,21 @@
                     </div>
                 </section>
 
-                <!-- 06 · Terms of Use and Data Acknowledgment — CPF-M0 scaffold (design ref
-                     docs/architecture-v4.md §3, §12 D-ACK-1/-2). HIDDEN (d-none) until CPF-M1
-                     ships the acknowledgement modal; M1 removes the d-none, adds the footer
-                     "Terms & attribution" link, and styles .about-terms-* (dark-mode pair).
-                     The wording is Cannon's (approved 2026-08-17) and is the ONE source of the
-                     terms text: the M1 modal clones #aboutTermsBody into its scrollable body
-                     rather than carrying a second copy, so the page and the dialog cannot
-                     drift. The two decision buttons ("Agree and View Grades" / "Decline and
-                     Use Basic Map") live only in the modal. -->
-                <section class="about-section about-terms d-none" id="aboutTerms" aria-labelledby="aboutTermsTitle">
+                <!-- 06 · Terms of Use and Data Acknowledgment (design ref
+                     docs/architecture-v4.md §3, §12 D-ACK-1/-2; landed hidden at CPF-M0,
+                     shown since CPF-M1). The wording is Cannon's (approved 2026-08-17) and
+                     is the ONE source of the terms text: the acknowledgement dialog (ack.js)
+                     clones #aboutTermsBody into its scrollable body rather than carrying a
+                     second copy, so the page and the dialog cannot drift. The two decision
+                     buttons ("Agree and View Grades" / "Decline and Use Basic Map") live only
+                     in the dialog. The footer's "Terms & attribution" link and a cold-loaded
+                     /about#aboutTerms land here (title is focusable for that hand-off). -->
+                <section class="about-section about-terms" id="aboutTerms" aria-labelledby="aboutTermsTitle">
                     <div class="about-section-heading">
                         <span class="about-section-number">06</span>
                         <div>
                             <p class="about-kicker">Terms &amp; attribution</p>
-                            <h2 id="aboutTermsTitle">Terms of Use and Data Acknowledgment</h2>
+                            <h2 id="aboutTermsTitle" tabindex="-1">Terms of Use and Data Acknowledgment</h2>
                             <p>Before using CleanPlateVA, please review and acknowledge the following terms.</p>
                         </div>
                     </div>
@@ -643,9 +647,10 @@
              palette's --cp-muted footer color. -->
         <div class="food-source-footer small px-3 py-1" id="foodSourceFooter">
             <span>
-                Data snapshot: <a href="https://inspections.myhealthdepartment.com/virginia"
-                   target="_blank" rel="noopener">VDH via MyHealthDepartment</a> · archived, not live ·
-                source IDs retained<span id="foodCoverage"></span>
+                Inspection records: <a href="https://inspections.myhealthdepartment.com/virginia"
+                   target="_blank" rel="noopener">VDH via MyHealthDepartment</a> · archived snapshot, not live ·
+                scores and grades calculated by CleanPlateVA ·
+                <a href="about#aboutTerms" data-terms-link>Terms &amp; attribution</a><span id="foodCoverage"></span>
             </span>
             <span class="food-freshness" id="foodFetchedAt"></span>
         </div>
