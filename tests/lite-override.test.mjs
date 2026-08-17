@@ -28,18 +28,19 @@ test('FORCE_LITE keys off ?tier=lite exactly, read once at boot', () => {
     );
 });
 
-test('the full channel is gated behind !FORCE_LITE and degrades only to V3 lite', () => {
+test('the full channel is gated behind !FORCE_LITE and degrades only to the V4 public finder', () => {
     assert.match(appSource, /createFoodApi\(\{ forceLite: FORCE_LITE \}\)/);
     const fn = clientSource.match(/async getFoodFacilities\([^)]*\) \{([\s\S]*?)\n {8}\},/);
     assert.ok(fn, 'getFoodFacilities found');
     const body = fn[1];
     const gate = body.indexOf('if (!forceLite)');
-    const full = body.indexOf('loadFullV3');
+    const full = body.indexOf('loadFullV4');
     const lite = body.indexOf('loadLite');
     assert.ok(gate !== -1, 'the !forceLite gate exists');
     assert.ok(full !== -1 && gate < full, 'the full-channel fetch sits inside the gate');
     assert.equal(body.indexOf('loadLegacyFull'), -1, 'no V1 full-roster loader exists');
-    assert.ok(lite > full, 'the public V3 fallback stays after the full gate');
+    assert.ok(lite > full, 'the public finder fallback stays after the full gate');
+    assert.equal(clientSource.indexOf('loadFullV3'), -1, 'no V3 loader survives — no dual-contract path');
 });
 
 test('forced lite marks the body and keeps the sign-in CTA hidden', () => {

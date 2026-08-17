@@ -56,7 +56,8 @@ test('content-addressed public finder shards are shared-cache immutable', async 
 });
 
 test('content-addressed finder and signal shards are browser-private immutable', async () => {
-    for (const path of ['finder/00-abcdef123456.json', 'signals/0f-123456abcdef.json']) {
+    for (const path of ['finder/00-abcdef123456.json', 'overlay/01-abcdef123456.json',
+        'closed/02-abcdef123456.json', 'signals/0f-123456abcdef.json']) {
         const response = await worker.fetch(request(path), env);
         assert.equal(response.headers.get('Cache-Control'),
             'private, max-age=31536000, immutable');

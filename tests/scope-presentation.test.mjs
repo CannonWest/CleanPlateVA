@@ -274,16 +274,14 @@ test('the hard form-count gate wins over contradictory scope and applicable coun
     assert.equal(inspectionPresentation({ scope: 'broad', form_item_count: 20, checklist_present: false, score: 90 }).scope, 'unknown');
 });
 
-test('facility presentation pairs newest event with one assessment, one grade, one trend', () => {
+test('facility presentation pairs newest event with one assessment and one grade (detail shape)', () => {
+    // A detail-shaped facility (what the click panel renders): the pairing
+    // logic is unchanged; the series is NOT here under Contract V4 — the
+    // panel plots it from the real inspection history.
     const facility = {
         latest: { scope: 'focused', applicable_item_count: 2, score: 100, checklist_out: 0 },
         latest_assessment: { scope: 'broad', applicable_item_count: 31, score: 68 },
         grade: { score: 68, letter: 'D', base_score: 68, base_letter: 'D', adjusted: false },
-        trend: [
-            ['b', 20250101, 64, 31],
-            ['b', 20250201, 76, 31],
-            ['b', 20250301, 68, 31],
-        ],
     };
     const view = dashboard.facilityPresentation(facility);
     assert.equal(view.latest.scope, 'focused');
@@ -291,21 +289,33 @@ test('facility presentation pairs newest event with one assessment, one grade, o
     assert.equal(view.assessment.score, 68);          // the broad record...
     assert.equal('grade' in view.assessment, false);  // ...with no letter of its own
     assert.deepEqual([view.grade.score, view.grade.letter], [68, 'D']);  // the letter is the facility's
-    assert.deepEqual(view.trend, [68, 76, 64]);
-    assert.equal(view.declining, true);
+    assert.deepEqual(view.trend, []);
+    assert.equal(view.trendDelta, null);
+    assert.equal(view.declining, false);
     assert.equal('standing' in view, false);
 });
 
-test('facility presentation derives its broad score series from compact trend events', () => {
+test('a Contract V4 roster row presents from its overlay: grade, dates, delta, compliance', () => {
     const view = dashboard.facilityPresentation({
-        trend: [
-            ['b', 20250101, 68, 31],
-            ['f', 20250201, 0, 3],
-            ['b', 20250301, 61, 30],
-        ],
+        permit_id: 'P', name: 'Row', lat: 37.5, lon: -77.4, loc: 0,
+        o: { grade_score: 68, new: 0, trend_delta: -8, latest_yyyymmdd: 20250301,
+            base_yyyymmdd: 20250301, latest_scope_code: 1, latest_out: null,
+            latest_items: 31, compliance_pct: 90 },
     });
-    assert.deepEqual(view.trend, [61, 68]);
+    assert.deepEqual([view.grade.score, view.grade.letter], [68, 'D']);   // letter derived, never shipped
+    assert.equal(view.grade.baseDate, '2025-03-01');
+    assert.equal(view.latest.scope, 'broad');
+    assert.equal(view.latest.count, 31);
+    assert.equal(view.latest.score, null);          // no per-visit score rides the roster
+    assert.equal(view.latestDate, '2025-03-01');
+    assert.equal(view.assessmentRecord.compliance_rate, 0.9);
+    assert.equal(view.trendDelta, -8);
     assert.equal(view.declining, true);
+    assert.deepEqual(view.trend, []);
+    // The legacy roster `trend` tuple stream is not read even if present.
+    const legacy = dashboard.facilityPresentation({ trend: [['b', 20250101, 68, 31], ['b', 20250301, 61, 30]] });
+    assert.deepEqual(legacy.trend, []);
+    assert.equal(legacy.declining, false);
 });
 
 test('facility presentation does not read the retired score_trend field', () => {
@@ -506,21 +516,27 @@ test('no surface pairs a focused re-check with its raw report score', () => {
     // score of 92 and no distinct-OUT count to build a ratio from. The score is
     // the one number that must NOT appear — it reads near 100 on any focused
     // docket regardless of outcome, so beside a real signal it wins the glance.
-    const facility = {
+    // Under Contract V4 the roster row's overlay carries no per-visit score at
+    // all (grade score only); the raw 92 can reach the card only through the
+    // prefetched detail's inspection rows — and even there it prints nowhere.
+    const rowV4 = {
         permit_id: 'CF6DE8B6', name: 'Lakeside Grill', address: '6920 Lakeside Ave',
-        status: 'Permitted', zip: '23228',
-        latest: {
-            scope: 'focused', applicable_item_count: 3, score: 92,
-            checklist_present: true, date: '2026-04-02',
-        },
-        latest_assessment: {
-            scope: 'broad', applicable_item_count: 35, score: 25, date: '2026-02-04',
-        },
-        grade: { score: 20, letter: 'F', base_score: 25, base_letter: 'F', adjusted: true },
+        zip: '23228', lat: 37.6, lon: -77.5, loc: 0,
+        o: { grade_score: 20, new: 0, trend_delta: -5, latest_yyyymmdd: 20260402,
+            base_yyyymmdd: 20260204, latest_scope_code: 2, latest_out: 3, latest_items: 3,
+            compliance_pct: null },
+    };
+    const detail = {
+        available: true,
+        inspections: [
+            { date: '2026-04-02', score: 92, checklist_present: true,
+                checklist: [1, 2, 3].map((item) => ({ item, disposition: 'OUT', violation: true })) },
+            { date: '2026-02-04', score: 25, checklist_present: true,
+                checklist: Array.from({ length: 35 }, (_, i) => ({ item: i + 1, disposition: i < 3 ? 'OUT' : 'IN', violation: i < 3, compliant: i >= 3 })) },
+        ],
     };
     const card = proto._hoverCardHTML.call(
-        Object.assign(Object.create(proto), { _mode: 'full', _isActive: () => true }),
-        { ...facility, trend: [['b', 20260204, 25, 35], ['f', 20260402, 3, 3]] });
+        Object.assign(Object.create(proto), { _mode: 'full' }), rowV4, detail);
     assert.doesNotMatch(card, /raw 92|score 92/, 'card still prints the raw score');
     assert.doesNotMatch(card, /\b92\b/, 'card still prints 92 somewhere');
     assert.match(card, /3\/3/);   // the honest signal survives — on the diamond

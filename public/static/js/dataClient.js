@@ -1,7 +1,25 @@
-/** CleanPlateVA prepared-data client for manifest-led Contract V3. */
+/** CleanPlateVA prepared-data client for manifest-led Contract V4.
+ *
+ * Both tiers boot on the same finder family (active permits, judgment-free
+ * identity/location rows). Full adds the position-aligned overlay at boot —
+ * one row per finder row, bound to the finder shard it aligns to by the
+ * finder shard's sha256 in the overlay envelope — and reads the lazy closed
+ * family only on "Show closed". Facility detail is fetched per permit (hover
+ * prefetch and click share one LRU cache) and standards once. A manifest or
+ * shard this client does not understand degrades to the public finder; there
+ * is no dual-contract path (design ref P4).
+ */
 
 const DEFAULT_FULL_BASE = 'data-full';
 const DEFAULT_LITE_BASE = 'data';
+
+export const FULL_MANIFEST_CONTRACT = 'cleanplateva.full-manifest.v4';
+export const PUBLIC_MANIFEST_CONTRACT = 'cleanplateva.finder-manifest.v4';
+export const FINDER_SHARD_CONTRACT = 'cleanplateva.finder-shard.v4';
+export const OVERLAY_SHARD_CONTRACT = 'cleanplateva.overlay-shard.v4';
+export const CLOSED_SHARD_CONTRACT = 'cleanplateva.closed-shard.v4';
+export const SCHEMA_VERSION = 4;
+export const DETAIL_CACHE_SIZE = 200;   // D-DATA-10: LRU of decoded details
 
 export function decodeChecklist(rows, standards) {
     if (!Array.isArray(rows) || !rows.length || !Array.isArray(rows[0])) return rows;
@@ -21,12 +39,27 @@ export function decodeChecklist(rows, standards) {
     });
 }
 
+/** One positional overlay row → a named object, by the shard's own `columns`
+ *  (the contract carries its column names; the client never hardcodes slots). */
+export function decodeOverlay(row, columns) {
+    const out = {};
+    if (!Array.isArray(row) || !Array.isArray(columns)) return out;
+    columns.forEach((name, index) => { out[name] = row[index] ?? null; });
+    return out;
+}
+
 function join(base, path) {
     return `${base.replace(/\/$/, '')}/${String(path).replace(/^\//, '')}`;
 }
 
 function shardDescriptors(resource) {
-    return resource?.shards || [];
+    // Canonical shape only: `{shards: [...]}`. Anything else is not the
+    // contract and is rejected rather than normalized.
+    return Array.isArray(resource?.shards) ? resource.shards : [];
+}
+
+function isShard(shard, contract) {
+    return shard?.contract === contract && shard?.schema_version === SCHEMA_VERSION;
 }
 
 export function createFoodApi({
@@ -36,8 +69,11 @@ export function createFoodApi({
     forceLite = false,
 } = {}) {
     let fullManifest = null;
+    let overlayColumns = null;
     let standardsPromise = null;
+    let closedPromise = null;
     const roster = new Map();
+    const details = new Map();   // permit_id → Promise<detail>, LRU by insertion order
 
     async function read(path, quiet = false) {
         try {
@@ -55,62 +91,80 @@ export function createFoodApi({
         }
     }
 
-    function remember(facilities) {
-        roster.clear();
+    function remember(facilities, { reset = true } = {}) {
+        if (reset) roster.clear();
         for (const facility of facilities || []) {
             if (facility?.permit_id != null) roster.set(String(facility.permit_id), facility);
         }
     }
 
-    async function loadFullV3() {
+    function assertNoDuplicates(facilities, label) {
+        const keys = new Set();
+        for (const facility of facilities) {
+            const key = String(facility.permit_id);
+            if (keys.has(key)) throw new Error(`${label} has duplicate permit IDs`);
+            keys.add(key);
+        }
+        return keys;
+    }
+
+    async function loadFullV4() {
         const manifest = await read(join(fullBase, 'manifest.json'), true);
-        if (manifest?.contract !== 'cleanplateva.full-manifest.v3'
-            || manifest?.schema_version !== 3) {
+        if (manifest?.contract !== FULL_MANIFEST_CONTRACT
+            || manifest?.schema_version !== SCHEMA_VERSION) {
             throw new Error('unsupported full manifest');
         }
         const finderDescriptors = shardDescriptors(manifest.resources?.finder);
-        const signalDescriptors = shardDescriptors(manifest.resources?.signals);
-        if (!finderDescriptors.length || !signalDescriptors.length
+        const overlayDescriptors = shardDescriptors(manifest.resources?.overlay);
+        if (!finderDescriptors.length
+            || overlayDescriptors.length !== finderDescriptors.length
             || !manifest.resources?.standards?.path
-            || !manifest.resources?.details?.path_template) {
+            || !manifest.resources?.details?.path_template
+            || !Array.isArray(shardDescriptors(manifest.resources?.closed))) {
             throw new Error('full manifest has incomplete resources');
         }
-        const [finderShards, signalShards] = await Promise.all([
+        const [finderShards, overlayShards] = await Promise.all([
             Promise.all(finderDescriptors.map((item) => read(join(fullBase, item.path), true))),
-            Promise.all(signalDescriptors.map((item) => read(join(fullBase, item.path), true))),
+            Promise.all(overlayDescriptors.map((item) => read(join(fullBase, item.path), true))),
         ]);
-        if (finderShards.some((shard) =>
-            shard?.contract !== 'cleanplateva.full-finder-shard.v3'
-            || shard?.schema_version !== 3)
-            || signalShards.some((shard) =>
-                shard?.contract !== 'cleanplateva.full-signal-shard.v3'
-                || shard?.schema_version !== 3)) {
+        if (finderShards.some((shard) => !isShard(shard, FINDER_SHARD_CONTRACT))
+            || overlayShards.some((shard) => !isShard(shard, OVERLAY_SHARD_CONTRACT))) {
             throw new Error('unsupported full roster shard');
         }
-        const byPermit = new Map();
-        for (const shard of finderShards) {
-            for (const facility of shard.facilities || []) {
-                byPermit.set(String(facility.permit_id), facility);
+        const facilities = [];
+        let columns = null;
+        for (let i = 0; i < finderShards.length; i++) {
+            const finder = finderShards[i];
+            const overlay = overlayShards[i];
+            const finderRows = Array.isArray(finder.facilities) ? finder.facilities : null;
+            const overlayRows = Array.isArray(overlay.rows) ? overlay.rows : null;
+            if (!finderRows || !overlayRows) throw new Error('malformed full roster shard');
+            // Position alignment is a property of the exporter's shared bucket
+            // order; the sha binding is what lets the client PROVE it holds for
+            // the two shards it actually received (D-DATA-5).
+            const expectedSha = finderDescriptors[i]?.sha256;
+            if (expectedSha && overlay.finder_sha256 !== expectedSha) {
+                throw new Error(`overlay bucket ${overlay.bucket ?? i} is not bound to its finder shard`);
+            }
+            if (overlayRows.length !== finderRows.length) {
+                throw new Error(`overlay bucket ${overlay.bucket ?? i} is misaligned with its finder shard`);
+            }
+            if (!Array.isArray(overlay.columns) || !overlay.columns.length) {
+                throw new Error('overlay shard carries no column names');
+            }
+            columns = columns || overlay.columns;
+            for (let j = 0; j < finderRows.length; j++) {
+                facilities.push({ ...finderRows[j], o: decodeOverlay(overlayRows[j], overlay.columns) });
             }
         }
-        const signalPermits = new Set();
-        for (const shard of signalShards) {
-            for (const signal of shard.facilities || []) {
-                const key = String(signal.permit_id);
-                signalPermits.add(key);
-                byPermit.set(key, { ...(byPermit.get(key) || {}), ...signal });
-            }
-        }
-        const facilities = [...byPermit.values()];
-        const expected = manifest.counts?.total;
+        assertNoDuplicates(facilities, 'full finder');
+        const expected = manifest.counts?.active;
         if (Number.isFinite(expected) && facilities.length !== expected) {
             throw new Error(`full roster count mismatch: ${facilities.length}/${expected}`);
         }
-        if (signalPermits.size !== byPermit.size
-            || [...byPermit.keys()].some((key) => !signalPermits.has(key))) {
-            throw new Error('full finder/signal shard membership mismatch');
-        }
         fullManifest = manifest;
+        overlayColumns = columns;
+        closedPromise = null;
         remember(facilities);
         return { ...manifest, facilities };
     }
@@ -118,8 +172,8 @@ export function createFoodApi({
     async function loadLite() {
         try {
             const manifest = await read(join(liteBase, 'manifest.json'), true);
-            if (manifest?.contract !== 'cleanplateva.finder-manifest.v3'
-                || manifest?.schema_version !== 3) {
+            if (manifest?.contract !== PUBLIC_MANIFEST_CONTRACT
+                || manifest?.schema_version !== SCHEMA_VERSION) {
                 throw new Error('unsupported public manifest');
             }
             const finderDescriptors = shardDescriptors(manifest.resources?.finder);
@@ -128,17 +182,12 @@ export function createFoodApi({
             }
             const finderShards = await Promise.all(finderDescriptors.map(
                 (item) => read(join(liteBase, item.path), true)));
-            if (finderShards.some((shard) =>
-                shard?.contract !== 'cleanplateva.finder-shard.v3'
-                || shard?.schema_version !== 3)) {
+            if (finderShards.some((shard) => !isShard(shard, FINDER_SHARD_CONTRACT))) {
                 throw new Error('unsupported public finder shard');
             }
             const facilities = finderShards.flatMap((shard) => shard.facilities || []);
-            const keys = new Set(facilities.map((facility) => String(facility.permit_id)));
+            assertNoDuplicates(facilities, 'public finder');
             const expected = manifest.counts?.total;
-            if (keys.size !== facilities.length) {
-                throw new Error('public finder has duplicate permit IDs');
-            }
             if (Number.isFinite(expected) && facilities.length !== expected) {
                 throw new Error(`public roster count mismatch: ${facilities.length}/${expected}`);
             }
@@ -163,39 +212,100 @@ export function createFoodApi({
         return standardsPromise;
     }
 
+    /** The lazy closed supplement: fetched once per Full manifest, on the
+     *  first "Show closed", merged into the roster and returned. Rows carry
+     *  the finder fields + `status` + `o` (their overlay row, decoded here). */
+    async function loadClosed() {
+        if (!fullManifest) return [];
+        if (!closedPromise) {
+            const descriptors = shardDescriptors(fullManifest.resources?.closed);
+            closedPromise = Promise.all(descriptors.map(
+                (item) => read(join(fullBase, item.path), true)))
+                .then((shards) => {
+                    if (shards.some((shard) => !isShard(shard, CLOSED_SHARD_CONTRACT))) {
+                        throw new Error('unsupported closed shard');
+                    }
+                    const facilities = shards.flatMap((shard) => shard.facilities || [])
+                        .map((row) => ({ ...row, o: decodeOverlay(row.o, overlayColumns) }));
+                    assertNoDuplicates(facilities, 'closed');
+                    const expected = fullManifest.counts?.closed;
+                    if (Number.isFinite(expected) && facilities.length !== expected) {
+                        throw new Error(`closed count mismatch: ${facilities.length}/${expected}`);
+                    }
+                    remember(facilities, { reset: false });
+                    return facilities;
+                })
+                .catch((error) => {
+                    closedPromise = null;   // a failed toggle can be retried
+                    throw error;
+                });
+        }
+        return closedPromise;
+    }
+
+    function detailPromise(permitID) {
+        const key = String(permitID);
+        const cached = details.get(key);
+        if (cached) {
+            // Refresh recency: delete + reinsert moves it to the end.
+            details.delete(key);
+            details.set(key, cached);
+            return cached;
+        }
+        const template = fullManifest.resources.details.path_template;
+        const relative = template.replace('{permit_id}', encodeURIComponent(permitID));
+        const promise = Promise.all([read(join(fullBase, relative)), getStandards()])
+            .then(([data, standards]) => {
+                if (data?.available && Array.isArray(data.inspections)) {
+                    for (const inspection of data.inspections) {
+                        inspection.checklist = decodeChecklist(inspection.checklist, standards);
+                    }
+                }
+                const row = roster.get(key);
+                if (row && data?.facility) {
+                    data.facility = { ...row, ...data.facility };
+                }
+                return data;
+            })
+            .catch((error) => {
+                details.delete(key);   // never cache a failure
+                throw error;
+            });
+        details.set(key, promise);
+        while (details.size > DETAIL_CACHE_SIZE) {
+            details.delete(details.keys().next().value);
+        }
+        return promise;
+    }
+
     return {
         async getFoodFacilities() {
             if (!forceLite) {
-                try { return await loadFullV3(); } catch (_) { /* public-tier fallback */ }
+                try { return await loadFullV4(); } catch (_) { /* public-tier fallback */ }
             }
             return loadLite();
+        },
+
+        /** Full only. Resolves to the closed rows (already merged into the
+         *  roster) or [] on Lite; rejects if the family cannot be read. */
+        loadClosed,
+
+        /** Warm the detail cache for a permit (hover). Never throws; the click
+         *  path re-reads through the same cache and reports its own error. */
+        prefetchDetail(permitID) {
+            if (!fullManifest) return Promise.resolve(null);
+            return detailPromise(permitID).catch(() => null);
         },
 
         async getFoodFacilityDetail(permitID) {
             if (!fullManifest) {
                 return {
                     available: false,
-                    reason: 'full Contract V3 manifest unavailable',
+                    reason: 'full Contract V4 manifest unavailable',
                 };
             }
-            const template = fullManifest.resources.details.path_template;
-            const encoded = encodeURIComponent(permitID);
-            const relative = template.replace('{permit_id}', encoded);
             try {
-                const [data, standards] = await Promise.all([
-                    read(join(fullBase, relative)),
-                    getStandards(),
-                ]);
-                if (data?.available && Array.isArray(data.inspections)) {
-                    for (const inspection of data.inspections) {
-                        inspection.checklist = decodeChecklist(inspection.checklist, standards);
-                    }
-                }
-                const cached = roster.get(String(permitID));
-                if (cached && data?.facility) {
-                    data.facility = { ...cached, ...data.facility };
-                }
-                return data;
+                return await detailPromise(permitID);
             } catch (error) {
                 return {
                     available: false,
