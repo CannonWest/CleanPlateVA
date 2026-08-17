@@ -8,7 +8,7 @@
 
 import { CLOSED_COLOR, GRADE_COLORS, LITE_MARKER_COLOR, NEW_COLOR, SRC } from './constants.js';
 import { stackKey, stackRingIcon } from './stacks.js';
-import { facilityPresentation, gradeColor, gradeForScore } from './presentation.js';
+import { coordsOf, facilityPresentation, gradeColor, gradeForScore } from './presentation.js';
 
 export const markerMethods = {
     // Marker fill = the facility grade color. (`gradeColor` is the data palette.)
@@ -108,7 +108,7 @@ export const markerMethods = {
     _toGeoJSON(filtered) {
         const groups = new Map();
         for (const f of filtered) {
-            const { lat, lon } = f.location || {};
+            const { lat, lon } = coordsOf(f);
             if (lat == null || lon == null) continue;
             const key = stackKey(lat, lon);
             const group = groups.get(key);

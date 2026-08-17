@@ -8,7 +8,8 @@
 
 import { GRADE_COLORS, NEW_COLOR } from './constants.js';
 import {
-    esc, fmtDate, fmtDateNum, gradeColor, gradePresentation, inspectionPresentation, permitUrl,
+    LOCATION_CLASS, esc, fmtDate, fmtDateNum, gradeColor, gradePresentation, inspectionPresentation,
+    locationClass, permitUrl,
 } from './presentation.js';
 import { gradeReceiptPresentation } from './receipt.js';
 
@@ -67,7 +68,7 @@ export const detailMethods = {
 
     /** Lite detail panel: identity + the hand-off to the official record. */
     _renderLiteDetail(f) {
-        const geoNote = this._geoNote(f.location?.source);
+        const geoNote = this._geoNote(f);
         return `
             <div class="food-detail-head">
                 <div class="food-detail-title">
@@ -90,12 +91,14 @@ export const detailMethods = {
             </div>`;
     },
 
-    _geoNote(source) {
-        // Rooftop-quality geocode sources get no flag.
-        if (source === 'zip_centroid') {
+    _geoNote(f) {
+        // Rooftop-quality points get no flag. The class comes from the V4
+        // finder's `loc` (both tiers) or a detail's `location.source`.
+        const cls = locationClass(f);
+        if (cls === LOCATION_CLASS.zip_centroid) {
             return '<span class="food-approx" title="Address didn\'t geocode — marker sits at the ZIP centroid, not the building">≈ ZIP-centroid</span>';
         }
-        if (source === 'census_batch' || source === 'census_oneline') {
+        if (cls === LOCATION_CLASS.street) {
             return '<span class="food-approx food-approx-street" title="Street-level only (Census centerline) — pin may sit ~50 m off, on the road rather than the building">≈ street-level</span>';
         }
         return '';
@@ -104,7 +107,7 @@ export const detailMethods = {
     _renderDetail(fac, inspections) {
         const latest = inspections[0] || null;
         const latestView = inspectionPresentation(latest);
-        const geoNote = this._geoNote(fac.location?.source);
+        const geoNote = this._geoNote(fac);
         const sets = this._disposSets(latest?.checklist);
 
         // The facility GRADE circle leads the panel for every facility; the
