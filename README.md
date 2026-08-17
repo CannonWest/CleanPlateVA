@@ -14,11 +14,12 @@ official VDH inspection record.
   fetched only after the visitor acknowledges the Terms of Use and Data
   Acknowledgment (About §06; `public/static/js/ack.js` — a first-load dialog
   that blocks and fetches nothing until answered, remembered per device).
-  **Interim (CPF-M1 shipped, M2/M3 ahead):** the `/data-full/*` channel is
-  still Cloudflare-Access-gated at the edge, so an acknowledging public
-  visitor currently lands on the basic map (the client falls back); Access
-  holders get the full tier. If full data is unavailable for any reason, the
-  same client falls back to the basic map.
+  **Interim (CPF-M1 + M2 shipped, M3 ahead):** the Worker serves `/data-full/*`
+  publicly, but the Cloudflare Access application still intercepts the apex
+  host at the edge, so an acknowledging visitor on `cleanplateva.com` currently
+  lands on the basic map (the client falls back) until M3 retires that app;
+  Access holders, and the `www` host, get the full tier. If full data is
+  unavailable for any reason, the same client falls back to the basic map.
 
 ## Architecture
 
@@ -26,13 +27,13 @@ official VDH inspection record.
 > acknowledgement instead of Access, the barest boot payload per view, and
 > real per-view URLs — is [`docs/architecture-v4.md`](docs/architecture-v4.md).
 > Contract V4 (the data below) shipped with the CPD arc; the acknowledgement
-> UX (CPF-M1) shipped 2026-08-17; the public transport (M2) and the Access
-> retirement (M3) are still ahead, and this section is rewritten when they land.
+> UX (CPF-M1) and the public transport (CPF-M2) shipped 2026-08-17; the Access
+> retirement (M3) is still ahead, and this section is rewritten when it lands.
 
 The site is a static MapLibre client. A small Cloudflare Worker
-([`src/worker.js`](src/worker.js)) serves [`public/`](public/) and proxies
-authenticated full-data reads from R2. It never queries VDH or CouchDB at
-request time.
+([`src/worker.js`](src/worker.js)) serves [`public/`](public/) and the full
+channel from R2 with public cache-control and an edge cache. It never queries
+VDH or CouchDB at request time.
 
 The client is plain ES modules under `public/static/js/` — no build step.
 `app.js` boots the page; `dataClient.js` loads the manifest-led tiers;
@@ -95,7 +96,7 @@ public/data/                       (public, git)
 ├── manifest.json                  # freshness + vocab + finder shard descriptors
 └── finder/<bucket>-<hash>.json    # the finder: active permits, identity + location
 
-/data-full/                        (R2, Access-gated until CPF)
+/data-full/                        (R2; public channel since CPF-M2 — Access still intercepts the apex until M3)
 ├── manifest.json                  # atomic snapshot pointer, published last
 ├── finder/<bucket>-<hash>.json    # the SAME finder bytes, republished
 ├── overlay/<bucket>-<hash>.json   # one judgment row per finder row, position-aligned
@@ -105,9 +106,10 @@ public/data/                       (public, git)
 ```
 
 The full publisher uploads changed data objects first and publishes
-`manifest.json` last. Content-addressed public shards use a long shared immutable cache;
-authenticated finder/overlay/closed shards use a long browser-private immutable cache.
-Mutable manifests and full detail objects revalidate quickly. The full publisher
+`manifest.json` last. Content-addressed shards on BOTH channels use a long shared
+immutable cache; mutable manifests revalidate every 60 s and full detail objects every
+300 s by ETag. The Worker answers repeat `/data-full/*` reads from the edge (Cache API,
+`X-Cache: HIT`/`MISS`) and turns an unchanged object's conditional request into a 304. The full publisher
 retains the previous manifest's referenced shards for one generation, so a
 browser holding a cached full manifest never sees missing resources during a
 publish.
