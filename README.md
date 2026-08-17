@@ -6,20 +6,26 @@ official VDH inspection record.
 
 ## Two tiers, one site
 
-- **Basic map (public, the default)** — a gray finder map with identity,
-  location, search/filter controls, and a hand-off to VDH. It exposes no
-  scores, grades, report dates, or inspection content.
+The tier boundary is **judgment, not secrecy** (design ref P1): everything is
+public; the judgment-bearing tier is fetched only after the visitor
+acknowledges the terms.
+
+- **Basic map (the default before acknowledgement, and the fallback)** — a
+  gray finder map with identity, location, search/filter controls, and a
+  hand-off to VDH. It exposes no scores, grades, report dates, or inspection
+  content. `?tier=lite` forces it and asks no terms.
 - **Inspection grades (Full)** — archived inspection histories, derived scores
   and facility grades, violations, checklists, temperatures, and comments,
-  fetched only after the visitor acknowledges the Terms of Use and Data
-  Acknowledgment (About §06; `public/static/js/ack.js` — a first-load dialog
-  that blocks and fetches nothing until answered, remembered per device).
-  **Interim (CPF-M1 + M2 shipped, M3 ahead):** the Worker serves `/data-full/*`
-  publicly, but the Cloudflare Access application still intercepts the apex
-  host at the edge, so an acknowledging visitor on `cleanplateva.com` currently
-  lands on the basic map (the client falls back) until M3 retires that app;
-  Access holders, and the `www` host, get the full tier. If full data is
-  unavailable for any reason, the same client falls back to the basic map.
+  fetched only after the visitor acknowledges the **Terms of Use and Data
+  Acknowledgment** (About §06). `public/static/js/ack.js` shows a first-load
+  dialog over the empty basemap that blocks and fetches nothing until
+  answered — "Agree and View Grades" loads Full, "Decline and Use Basic Map"
+  the basic map — remembers the answer per device
+  (`localStorage['cleanplateva.ack.v1']`; bump `ACK_VERSION` to re-ask), and
+  keeps a header control that re-opens the terms so the answer can change.
+  If full data is unavailable for any reason, the same client falls back to
+  the basic map. There is no login: the Cloudflare Access application that
+  used to gate `/data-full/*` was retired 2026-08-17 (CPF-M3).
 
 ## Architecture
 
@@ -27,8 +33,8 @@ official VDH inspection record.
 > acknowledgement instead of Access, the barest boot payload per view, and
 > real per-view URLs — is [`docs/architecture-v4.md`](docs/architecture-v4.md).
 > Contract V4 (the data below) shipped with the CPD arc; the acknowledgement
-> UX (CPF-M1) and the public transport (CPF-M2) shipped 2026-08-17; the Access
-> retirement (M3) is still ahead, and this section is rewritten when it lands.
+> gate, the public transport, and the Access retirement (CPF-M1..M3) shipped
+> 2026-08-17. CPX (the close-out sweep) is the remaining V4 arc.
 
 The site is a static MapLibre client. A small Cloudflare Worker
 ([`src/worker.js`](src/worker.js)) serves [`public/`](public/) and the full
@@ -78,7 +84,7 @@ cache-control headers; and `/data-full/*`, the R2-backed full channel, which
 is not a static asset and therefore *is* the shell under the fallback unless
 the worker runs first (before the fallback existed a miss fell through to the
 worker on its own; measured 2026-08-16, the fallback removed that path and
-the authenticated tier degraded to gray Lite until this entry was added).
+the full tier degraded to gray Lite until this entry was added).
 Static assets stay on the fast path: a missing `.js` there announces itself
 immediately as a console MIME error, and a per-file worker invocation would
 be a real request-quota cost for a cosmetic improvement. `app.py` and the
@@ -96,7 +102,7 @@ public/data/                       (public, git)
 ├── manifest.json                  # freshness + vocab + finder shard descriptors
 └── finder/<bucket>-<hash>.json    # the finder: active permits, identity + location
 
-/data-full/                        (R2; public channel since CPF-M2 — Access still intercepts the apex until M3)
+/data-full/                        (R2; public channel, edge-cached — the client fetches it after the acknowledgement)
 ├── manifest.json                  # atomic snapshot pointer, published last
 ├── finder/<bucket>-<hash>.json    # the SAME finder bytes, republished
 ├── overlay/<bucket>-<hash>.json   # one judgment row per finder row, position-aligned
