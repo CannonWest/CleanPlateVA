@@ -110,7 +110,10 @@ async function serveFullData(request, env, url) {
 
 function fullDataCacheControl(key) {
     if (key === 'manifest.json') return 'private, max-age=60, must-revalidate';
-    if (/^(finder|signals)\/[0-9a-f]+-[0-9a-f]{12}\.json$/.test(key)) {
+    // Content-addressed roster shards: Contract V4's finder / overlay / closed
+    // (the retired V3 signals family keeps the rule for its one retained
+    // generation after cutover).
+    if (/^(finder|overlay|closed|signals)\/[0-9a-f]+-[0-9a-f]{12}\.json$/.test(key)) {
         return 'private, max-age=31536000, immutable';
     }
     return 'private, max-age=300';

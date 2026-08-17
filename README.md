@@ -16,11 +16,11 @@ official VDH inspection record.
 
 ## Architecture
 
-> **Direction (V4):** the next design — public Full behind an acknowledgement
-> instead of Access, the barest boot payload per view, and real per-view URLs —
-> is specified in [`docs/architecture-v4.md`](docs/architecture-v4.md). That
-> doc is authoritative for where the site is going; this README stays
-> authoritative for the shipped V3 contract until the CPD arc cuts over.
+> **Design reference (V4):** the shared design — public Full behind an
+> acknowledgement instead of Access, the barest boot payload per view, and
+> real per-view URLs — is [`docs/architecture-v4.md`](docs/architecture-v4.md).
+> Contract V4 (the data below) shipped with the CPD arc; the acknowledgement
+> gate and public transport are the CPF arc, still ahead.
 
 The site is a static MapLibre client. A small Cloudflare Worker
 ([`src/worker.js`](src/worker.js)) serves [`public/`](public/) and proxies
@@ -81,24 +81,25 @@ The page declares its mount with `<base href>` (`/` here, rewritten to
 `/cleanplate/` by the CannonAI passthrough) and the router reads it from
 `document.baseURI`, which is what lets one build serve from either.
 
-Prepared data uses explicit Contract V3 manifests:
+Prepared data uses explicit Contract V4 manifests:
 
 ```text
-public/data/
-├── manifest.json                 # freshness + public shard descriptors
-└── finder/<bucket>-<hash>.json   # stable public finder shards
+public/data/                       (public, git)
+├── manifest.json                  # freshness + vocab + finder shard descriptors
+└── finder/<bucket>-<hash>.json    # the finder: active permits, identity + location
 
-/data-full/ (private R2)
-├── manifest.json                 # atomic snapshot pointer
-├── finder/<bucket>-<hash>.json   # identity/location/status shards
-├── signals/<bucket>-<hash>.json  # sparse grade/inspection-signal shards
-├── standards.json                # shared checklist vocabulary
-└── facility/<permitID>.json      # one facility's nested inspection history
+/data-full/                        (R2, Access-gated until CPF)
+├── manifest.json                  # atomic snapshot pointer, published last
+├── finder/<bucket>-<hash>.json    # the SAME finder bytes, republished
+├── overlay/<bucket>-<hash>.json   # one judgment row per finder row, position-aligned
+├── closed/<bucket>-<hash>.json    # non-active permits (finder fields + status + overlay row)
+├── standards.json                 # shared checklist vocabulary
+└── facility/<permitID>.json       # one facility's nested inspection history
 ```
 
 The full publisher uploads changed data objects first and publishes
 `manifest.json` last. Content-addressed public shards use a long shared immutable cache;
-authenticated finder/signal shards use a long browser-private immutable cache.
+authenticated finder/overlay/closed shards use a long browser-private immutable cache.
 Mutable manifests and full detail objects revalidate quickly. The full publisher
 retains the previous manifest's referenced shards for one generation, so a
 browser holding a cached full manifest never sees missing resources during a
@@ -118,55 +119,70 @@ not repeated on resume.
 
 ### Public finder contract
 
-`cleanplateva.finder-manifest.v3` points to 16 deterministic
-`cleanplateva.finder-shard.v3` files:
+`cleanplateva.finder-manifest.v4` points to 16 deterministic
+`cleanplateva.finder-shard.v4` files — the ONE finder family both tiers boot
+on (design ref §6):
 
 ```json
 {
-  "contract": "cleanplateva.finder-shard.v3",
-  "schema_version": 3,
+  "contract": "cleanplateva.finder-shard.v4",
+  "schema_version": 4,
   "bucket": "00",
   "facilities": []
 }
 ```
 
-Each facility has exactly ten top-level fields: `permit_id, name, address,
-address2, city, zip, tenant, location, is_restaurant, mobile`. `location` has
-exactly `lat, lon, precision, source, site_group_id, site_count, site_lat,
-site_lon, site_source`. The effective `lat`/`lon` use an accepted permit-level
-refinement when one exists and otherwise equal the physical-site fallback.
-The `site_*` fields always retain that fallback, while the stable group ID/count
-preserve address-level co-location lineage. The browser separately counts the
-effective `lat`/`lon` values in the loaded roster and shows a shared-map-point
-notice only while multiple facility records still render at that coordinate; a
-tenant refinement that separates successfully does not inherit its original
-site warning. `permit_id` + `tenant` build the district-scoped VDH link;
-`source: zip_centroid` identifies approximate locations; `mobile` lets the
-public map hide mobile units whose permit address is not where they normally
-operate.
+Each facility is a flat object with exactly thirteen fields: `permit_id,
+name, address, address2, city, zip, tenant, is_restaurant, mobile, pt, lat,
+lon, loc`. `lat`/`lon` are the effective point (an accepted permit-level
+refinement when one exists, else the physical-site fallback) rounded to 6
+decimal places at export; `loc` classifies it — `0` rooftop-quality, `1`
+street-level (Census centerline), `2` ZIP centroid — and drives the
+"≈ approximate location" notes. `pt` is a code into the manifest's
+`vocab.permit_type` list (sorted, so codes are a pure function of the archive);
+`is_restaurant` and `mobile` are the exporter's booleans (`is_restaurant` also
+uses name patterns, so it can never be derived from `pt`). `permit_id` +
+`tenant` build the district-scoped VDH link. Nothing judgment-bearing rides
+here — no scores, grades, dates, status, or inspection content (P6). Same-point
+stacks are computed client-side from the coordinates.
 
-Freshness intentionally lives only in `manifest.json`; every shard descriptor
-includes path, bucket, SHA-256, byte size, and record count. Shards contain no
-timestamp, so a grade-only refresh changes only the manifest and a single
-facility/location edit replaces only its bucket plus the manifest. There is no
-public `facilities.json` monolith or compatibility loader. The committed
-artifact contract is pinned by `tests/lite-roster-contract.test.mjs`.
+The manifest carries `freshness: {snapshot_id, newest_report}` — the archive
+snapshot and the newest inspection report it holds, which is what the footer
+and About state — and `vocab: {permit_type, loc, scope}`. Shard descriptors
+include path, bucket, SHA-256, byte size, and record count; shards contain no
+timestamp. There is no public `facilities.json` monolith or compatibility
+loader. The committed artifact contract is pinned by
+`tests/lite-roster-contract.test.mjs`.
 
 ### Full archive contract
 
-`cleanplateva.full-manifest.v3` points to 16 deterministic finder shards and 16
-sparse signal shards. The client joins them by `permit_id` in memory. Signal
-rows omit values the browser can derive or safely default:
+`cleanplateva.full-manifest.v4` names five families. **finder** — the same 16
+shards (same bytes) the public tier commits, republished under `/data-full/`
+so each tier flips atomically on its own manifest (P9). **overlay** — 16
+`cleanplateva.overlay-shard.v4` files, one positional row per finder row in
+the same bucket, in the same order; each shard's envelope carries
+`finder_sha256`, the digest of the finder shard it aligns to, and its
+`columns`:
 
-- `score_trend` and `declining` are derived from the compact `trend` events;
-- `latest_assessment` is absent when it is identical to `latest`;
-- false/empty grade defaults are omitted;
-- `newly_permitted` is present only when true.
+```text
+[grade_score, new, trend_delta, latest_yyyymmdd, base_yyyymmdd,
+ latest_scope_code, latest_out, latest_items, compliance_pct]
+```
 
-Compact trend tuples are oldest-first: broad/focused events are
-`["b", date, score, applicable, form]` and
-`["f", date, out, addressed, form]`; narrative/unknown events are
-`["n", date, verdict(, items)]` and `["u", date]`.
+The client fetches finder and overlay in parallel, checks the sha binding and
+the row count per bucket, and merges by position; a mismatch degrades to the
+public finder rather than rendering a misaligned map. The grade letter is
+never shipped — it is `gradeForScore(grade_score)`. `latest_items` is the
+addressed-item count for a focused visit and the applicable count for a broad
+one; `latest_scope_code` indexes `vocab.scope`. There is no series on the
+roster: the hover card renders instantly from the overlay (grade circle,
+NEW / no-grade text, last-broad and last-visit dates) and fills its sparkline
+in from the facility detail, fetched on hover through the same LRU the click
+panel reads. **closed** — the non-active permits as finder fields + `status`
++ `o` (their overlay row), fetched lazily on the first "Show closed".
+**standards** and **facility/*.json** are unchanged (the detail keeps
+`cleanplateva.facility-detail.v3`, deliberately: its bytes did not change at
+cutover, so nothing re-uploaded for naming symmetry).
 
 Facility detail files remain nested by design. Updating one inspection rewrites
 one small `facility/<permitID>.json` object rather than a statewide roster, and
@@ -178,11 +194,13 @@ R2 upload. Compact checklist rows use
 `1 compliant | 2 violation | 4 cos | 8 repeat | 16 sentinel`; `dataClient.js`
 expands them using `standards.json`.
 
-The client accepts Contract V3 only. A failed or gated full-manifest read falls
-back to the public V3 tier; a missing, incomplete, or older public manifest is
-reported as unavailable. The publisher's manifest-derived inventory forbids
-and deletes the retired monolithic full-roster artifact; arbitrary JSON in the
-local Full cache blocks publication instead of silently becoming public.
+The client accepts Contract V4 only. A failed or gated full-manifest read falls
+back to the public finder; a missing, incomplete, or older public manifest is
+reported as unavailable. The publisher's manifest-derived inventory is the
+only legal R2 object set (finder, overlay, closed, standards, details); the
+previous manifest's shards are retained for one generation, which is also how
+the retired V3 `signals/*` family was pruned after cutover. Arbitrary JSON in
+the local Full cache blocks publication instead of silently becoming public.
 Production publication also fetches both repositories and requires clean local
 `main` heads synchronized with `origin/main`. Broad attended migrations can
 checkpoint after the exact R2 dry-run and resume from the recorded phase/head

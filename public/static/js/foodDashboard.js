@@ -70,9 +70,10 @@ import { inspectionMethods } from './inspection.js';
 
 export { spiderOffsets, stackKey, stackRadius, stackRingIcon } from './stacks.js';
 export {
-    buildScopeSeries, facilityPresentation, focusedOutcomePresentation, gradePresentation,
-    inspectionCountsPresentation, inspectionPresentation, narrativeVerdictPresentation,
-    permitUrl, trendInspections,
+    buildScopeSeries, coordsOf, facilityPresentation, focusedOutcomePresentation,
+    gradePresentation, inspectionCountsPresentation, inspectionPresentation,
+    isActivePermit, isNewlyPermitted, isoFromYmd, latestDateOf, locationClass,
+    narrativeVerdictPresentation, permitUrl,
 } from './presentation.js';
 export { gradeReceiptPresentation } from './receipt.js';
 
@@ -206,11 +207,17 @@ export class FoodDashboard {
             const toggle = document.getElementById(id);
             if (!toggle) continue;
             toggle.checked = this._filters[field];
-            toggle.addEventListener('change', () => {
+            toggle.addEventListener('change', async () => {
                 this._filters[field] = toggle.checked;
                 try {
                     localStorage.setItem(storageKey, toggle.checked ? '1' : '0');
                 } catch (_) { /* private mode */ }
+                // "Show closed" on the Full tier pulls the lazy closed family
+                // the first time it is switched on; the boot never pays for
+                // it (design ref §5, D-DATA-7).
+                if (field === 'showClosed' && toggle.checked && this._mode !== 'lite') {
+                    await this._ensureClosedLoaded();
+                }
                 filtersChanged();
             });
         }
@@ -297,19 +304,20 @@ export class FoodDashboard {
         this._facilities = payload.facilities || [];
         this._byPermit = new Map(this._facilities.map((f) => [f.permit_id, f]));
         this._counts = payload.counts || null;
+        // Contract V4: the roster is the ACTIVE set; the closed permits are a
+        // lazy family fetched once, on the first "Show closed" (design ref §5).
+        this._closedLoaded = false;
+        if (!lite && this._filters.showClosed) await this._ensureClosedLoaded();
 
         const fetchedEl = document.getElementById('foodFetchedAt');
         if (fetchedEl) {
             const snap = payload.fetched_at ? payload.fetched_at.slice(0, 10) : null;
             // Keep publication time and source-record recency distinct:
             // export generation does not mean every report is that new.
-            // Lite ships no inspection dates, so it states snapshot alone.
-            let latest = null;
-            if (!lite) {
-                const dates = this._facilities.map((f) => f.latest?.date).filter(Boolean);
-                latest = dates.length ? dates.reduce((a, b) => (a > b ? a : b)) : null;
-            }
-            this._renderFreshness(fetchedEl, snap, latest);
+            // Contract V4 states the newest held report in the manifest on
+            // both tiers (`freshness.newest_report`) — one archive-wide date,
+            // no per-row scan, no per-facility judgment on the public tier.
+            this._renderFreshness(fetchedEl, snap, payload.freshness?.newest_report || null);
         }
 
         // Coverage in the footer is the ZIP count alone. The facility total
@@ -335,6 +343,28 @@ export class FoodDashboard {
         // sort, which the URL should mirror rather than a stale sort=score).
         this._applyPendingPermit();
         this._syncUrl();
+    }
+
+    /** Merge the lazy `closed/*` family into the roster once per load. The
+     *  data client memoizes the fetch, so a second toggle costs nothing; a
+     *  failed fetch leaves the toggle honest (closed rows simply absent) and
+     *  retries on the next switch. */
+    async _ensureClosedLoaded() {
+        if (this._closedLoaded || this._mode === 'lite') return;
+        if (typeof this.api?.loadClosed !== 'function') return;
+        let closed;
+        try {
+            closed = await this.api.loadClosed();
+        } catch (error) {
+            console.error('[data] closed family unavailable:', error);
+            return;
+        }
+        this._closedLoaded = true;
+        for (const f of closed || []) {
+            if (this._byPermit.has(f.permit_id)) continue;
+            this._facilities.push(f);
+            this._byPermit.set(f.permit_id, f);
+        }
     }
 
     /** Switch views. Real navigation (router.js): the path becomes `/`,

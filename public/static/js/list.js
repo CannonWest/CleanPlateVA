@@ -16,8 +16,10 @@ export const listMethods = {
         if (!body) return;
         const filtered = this._facilities.filter((f) => this._matchesFilters(f));
         const { key, dir } = this._sort;
+        // Sort keys ride the Contract V4 overlay (grade score, compliance,
+        // trend delta, latest date) — thin enough that the List needs no
+        // family of its own (design ref §5, §10.4).
         const val = (f) => {
-            const lt = f.latest || {};
             const fp = facilityPresentation(f);
             const assessment = fp.assessmentRecord || {};
             switch (key) {
@@ -26,8 +28,8 @@ export const listMethods = {
                 case 'zip': return f.zip || '';
                 case 'score': return fp.grade?.score ?? -1;
                 case 'compliance': return assessment.compliance_rate ?? -1;
-                case 'trend': return fp.trend.length >= 2 ? fp.trend[0] - fp.trend[1] : 0;
-                case 'date': return lt.date || '';
+                case 'trend': return fp.trendDelta ?? 0;
+                case 'date': return fp.latestDate || '';
                 default: return 0;
             }
         };
@@ -47,15 +49,14 @@ export const listMethods = {
         const shown = revealCount(filtered.length, this._page);
         const rows = filtered.slice(0, shown);
         body.innerHTML = rows.map((f) => {
-            const lt = f.latest || {};
             const fp = facilityPresentation(f);
             const latest = fp.latest;
             const g = fp.grade;
             const assessmentRecord = fp.assessmentRecord || {};
             const address = [f.address, f.address2].filter(Boolean).join(' ');
-            const t = fp.trend;
-            const arrow = t.length >= 2 ? (t[0] < t[1] ? '▼' : t[0] > t[1] ? '▲' : '▬') : '';
-            const tcol = t.length >= 2 ? '#228be6' : '';
+            const delta = fp.trendDelta;
+            const arrow = delta != null ? (delta < 0 ? '▼' : delta > 0 ? '▲' : '▬') : '';
+            const tcol = delta != null ? '#228be6' : '';
             // Focused rows carry the OUT ratio only — no raw score. See the
             // note in `_tooltipHTML`.
             const eventLine = latest.scope === 'focused'
@@ -77,7 +78,7 @@ export const listMethods = {
                         : '<span class="food-list-score food-list-score-none" title="No broad inspection captured">—</span>'}</td>
                 <td class="food-list-full-only food-list-col-compliance">${assessmentRecord.compliance_rate != null ? Math.round(assessmentRecord.compliance_rate * 100) + '%' : '—'}</td>
                 <td class="food-list-full-only food-list-col-trend" style="color:${tcol}">${arrow || '—'}</td>
-                <td class="food-list-date food-list-full-only food-list-col-date">${fmtDate(lt.date)}</td>
+                <td class="food-list-date food-list-full-only food-list-col-date">${fmtDate(fp.latestDate)}</td>
                 <td class="food-list-col-vdh"><a class="food-list-vdh-link" href="${permitUrl(f)}" target="_blank" rel="noopener" aria-label="View ${esc(f.name)} on VDH" title="View ${esc(f.name)} on VDH"><i class="bi bi-box-arrow-up-right" aria-hidden="true"></i></a></td>
             </tr>`;
         }).join('') + (filtered.length > shown

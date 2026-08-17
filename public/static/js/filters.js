@@ -5,22 +5,26 @@
  * foodDashboard.js (`this` is the dashboard).
  */
 
-import { esc, facilityPresentation } from './presentation.js';
+import { esc, facilityPresentation, isActivePermit, isNewlyPermitted } from './presentation.js';
 
 export const filterMethods = {
-    // Active = a live permit. Anything else (Business Closed / Withdrawn /
-    // Expired / Pending / *Closure / Suspended / Surrendered) is "closed".
+    // Active = a live permit. Contract V4 finder rows carry no status — the
+    // finder IS the active set — while closed rows (the lazy `closed/*`
+    // family) and detail facilities carry it; anything but "…permitted…"
+    // (Business Closed / Withdrawn / Expired / Pending / *Closure / Suspended
+    // / Surrendered) is "closed".
     _isActive(f) {
-        return (f.status || '').toLowerCase().includes('permitted');
+        return isActivePermit(f);
     },
 
-    // Newly permitted = the exporter's authoritative flag: active + no grade +
-    // a pre-opening on record + no routine/risk-factor inspection + zero
-    // violations. "No grade" alone is NOT enough — an unparsed routine that
-    // carries violations must never read as "cleared to open" (see cf_export_site
-    // _newly_permitted). Absent flag (older payload) degrades safely to false.
+    // Newly permitted = the exporter's authoritative flag (overlay `new`, or
+    // a detail's newly_permitted): active + no grade + a pre-opening on
+    // record + no routine/risk-factor inspection + zero violations. "No
+    // grade" alone is NOT enough — an unparsed routine that carries
+    // violations must never read as "cleared to open" (see cf_export_site
+    // _newly_permitted). Absent flag degrades safely to false.
     _isNew(f) {
-        return f.newly_permitted === true;
+        return isNewlyPermitted(f);
     },
 
     // Mobile food unit = VDH's permit type, verbatim from the exporter. Matched

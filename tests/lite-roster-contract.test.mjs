@@ -1,9 +1,16 @@
 /** The COMMITTED public finder shard set's shape -- a data tripwire.
  *
- * `cf_export_site.py --mode lite` writes content-addressed shards plus a small
- * mutable manifest. A stale publishing checkout can otherwise overwrite the
- * live data contract while CouchDB remains perfectly healthy. Assertions are
- * structural, never snapshot counts: ordinary data refreshes stay green.
+ * `cf_export_site.py --mode lite --contract v4` writes content-addressed
+ * shards plus a small mutable manifest. A stale publishing checkout can
+ * otherwise overwrite the live data contract while CouchDB remains perfectly
+ * healthy. Assertions are structural, never snapshot counts: ordinary data
+ * refreshes stay green.
+ *
+ * Contract V4 (design ref §6.2): the finder is ONE family shared by both
+ * tiers — active permits, judgment-free identity/location rows as objects at
+ * 6 dp with `pt` (a code into the manifest's `vocab.permit_type`),
+ * `is_restaurant`, `mobile`, and `loc` (0 rooftop · 1 street-level · 2 ZIP
+ * centroid). The manifest carries top-level `freshness` and `vocab`.
  */
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
@@ -21,22 +28,19 @@ const shards = descriptors.map((descriptor) => {
 });
 const facilities = shards.flatMap(({ payload }) => payload.facilities);
 
-// The lite identity contract (cf_export_site._shape_lite). Judgment fields
-// are absent BY DESIGN -- lite is a finder, not a grader.
+// The V4 finder contract (cf_export_site._shape_finder_v4). Judgment fields
+// are absent BY DESIGN -- the finder is shared by the public tier (P6).
 const FIELDS = [
-    'address', 'address2', 'city', 'is_restaurant', 'location', 'mobile',
-    'name', 'permit_id', 'tenant', 'zip',
-];
-const LOCATION_FIELDS = [
-    'lat', 'lon', 'precision', 'site_count', 'site_group_id', 'site_lat',
-    'site_lon', 'site_source', 'source',
+    'address', 'address2', 'city', 'is_restaurant', 'lat', 'loc', 'lon',
+    'mobile', 'name', 'permit_id', 'pt', 'tenant', 'zip',
 ];
 
-test('the committed public read model is manifest-led and shard-only', () => {
-    assert.equal(manifest.contract, 'cleanplateva.finder-manifest.v3');
-    assert.equal(manifest.schema_version, 3);
+test('the committed public read model is manifest-led, shard-only, and Contract V4', () => {
+    assert.equal(manifest.contract, 'cleanplateva.finder-manifest.v4');
+    assert.equal(manifest.schema_version, 4);
     assert.equal(manifest.available, true);
     assert.equal(manifest.mode, 'lite');
+    assert.deepEqual(Object.keys(manifest.resources), ['finder']);
     assert.deepEqual(Object.keys(manifest.resources.finder), ['shards']);
     assert.equal(descriptors.length, 16);
     assert.equal(existsSync(new URL('facilities.json', dataUrl)), false,
@@ -48,11 +52,23 @@ test('the committed public read model is manifest-led and shard-only', () => {
     );
 });
 
-test('every shard has the exact V3 contract and matches its descriptor', () => {
+test('the manifest states freshness and the code vocabularies', () => {
+    assert.deepEqual(Object.keys(manifest.freshness).sort(), ['newest_report', 'snapshot_id']);
+    assert.equal(manifest.freshness.snapshot_id, manifest.snapshot_id);
+    assert.match(manifest.freshness.newest_report, /^\d{4}-\d{2}-\d{2}$/);
+    assert.deepEqual(Object.keys(manifest.vocab).sort(), ['loc', 'permit_type', 'scope']);
+    assert.deepEqual(manifest.vocab.loc, ['rooftop', 'street', 'zip_centroid']);
+    assert.deepEqual(manifest.vocab.scope, ['unknown', 'broad', 'focused']);
+    assert.ok(manifest.vocab.permit_type.length >= 10, 'permit_type vocabulary looks truncated');
+    assert.deepEqual([...manifest.vocab.permit_type].sort(), manifest.vocab.permit_type,
+        'permit_type vocabulary is sorted (deterministic codes)');
+});
+
+test('every shard has the exact V4 contract and matches its descriptor', () => {
     for (const { descriptor, bytes, payload } of shards) {
         assert.match(descriptor.path, /^finder\/[0-9a-f]{2}-[0-9a-f]{12}\.json$/);
-        assert.equal(payload.contract, 'cleanplateva.finder-shard.v3');
-        assert.equal(payload.schema_version, 3);
+        assert.equal(payload.contract, 'cleanplateva.finder-shard.v4');
+        assert.equal(payload.schema_version, 4);
         assert.equal(payload.bucket, descriptor.bucket.toString(16).padStart(2, '0'));
         assert.equal('fetched_at' in payload, false,
             'content-addressed shards must stay byte-stable when data is unchanged');
@@ -66,26 +82,45 @@ test('every shard has the exact V3 contract and matches its descriptor', () => {
     assert.equal(manifest.counts.total, facilities.length);
 });
 
-test('every record carries the exact nested-location lite contract', () => {
+test('every record carries the exact flat V4 finder row', () => {
     const permits = new Set();
+    const vocabSize = manifest.vocab.permit_type.length;
     for (const facility of facilities) {
         assert.deepEqual(Object.keys(facility).sort(), FIELDS, facility.permit_id);
-        assert.deepEqual(Object.keys(facility.location).sort(), LOCATION_FIELDS,
-            facility.permit_id);
-        for (const retired of ['lat', 'lon', 'approx', 'geocode_source']) {
+        for (const retired of ['location', 'approx', 'geocode_source', 'precision', 'source',
+            'site_lat', 'site_lon', 'site_group_id', 'site_count']) {
             assert.equal(retired in facility, false,
-                `${retired} survived on V3 record ${facility.permit_id}`);
+                `${retired} survived on V4 record ${facility.permit_id}`);
         }
+        assert.equal(typeof facility.lat, 'number', facility.permit_id);
+        assert.equal(typeof facility.lon, 'number', facility.permit_id);
+        assert.ok(Number.isInteger(facility.loc) && facility.loc >= 0 && facility.loc <= 2,
+            `loc out of range on ${facility.permit_id}`);
+        assert.ok(Number.isInteger(facility.pt) && facility.pt >= 0 && facility.pt < vocabSize,
+            `pt outside the manifest vocabulary on ${facility.permit_id}`);
         assert.equal(permits.has(facility.permit_id), false,
             `duplicate permit ${facility.permit_id} across public shards`);
         permits.add(facility.permit_id);
     }
 });
 
-test('mobile is a real boolean and actually flags trucks', () => {
+test('coordinates are published at 6 dp (D-DATA-4)', () => {
+    const decimals = (n) => (String(n).split('.')[1] || '').length;
+    let over = 0;
+    for (const facility of facilities) {
+        if (decimals(facility.lat) > 6 || decimals(facility.lon) > 6) over++;
+    }
+    assert.equal(over, 0, `${over} rows carry more than 6 decimal places`);
+});
+
+test('mobile is a real boolean and actually flags trucks; pt agrees with it', () => {
     let trucks = 0;
+    const mobileCode = manifest.vocab.permit_type.indexOf('Mobile Food Unit');
+    assert.ok(mobileCode >= 0, 'Mobile Food Unit is in the vocabulary');
     for (const facility of facilities) {
         assert.equal(typeof facility.mobile, 'boolean', facility.permit_id);
+        assert.equal(facility.mobile, facility.pt === mobileCode,
+            `mobile and pt disagree on ${facility.permit_id}`);
         if (facility.mobile) trucks++;
     }
     assert.ok(trucks > 100,
@@ -106,9 +141,9 @@ test('tenant routes the VDH permit link to the right district', () => {
 });
 
 test('no judgment field leaked into the public tier', () => {
-    const banned = ['grade', 'score_trend', 'trend', 'latest',
-        'latest_assessment', 'status', 'permit_type', 'declining',
-        'inspection_count', 'newly_permitted'];
+    const banned = ['grade', 'grade_score', 'score_trend', 'trend', 'trend_delta', 'latest',
+        'latest_assessment', 'status', 'permit_type', 'declining', 'o',
+        'inspection_count', 'newly_permitted', 'new', 'compliance_pct'];
     for (const facility of facilities) {
         for (const key of banned) {
             assert.ok(!(key in facility),
