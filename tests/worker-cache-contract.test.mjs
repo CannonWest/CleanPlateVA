@@ -144,6 +144,30 @@ test('a miss reads R2 and stores the copy; the next read is an edge HIT that nev
     noCache();
 });
 
+test('an edge HIT re-asserts the contract Cache-Control — the zone rewrites what match() hands back', async () => {
+    // Measured on the host 2026-08-17: a stored `max-age=60` manifest came out
+    // of caches.default.match() as `max-age=14400` (the zone's Browser Cache
+    // TTL). The Worker must not pass that through, or a browser holds the
+    // small mutable pointer for four hours instead of revalidating in 60 s.
+    const { store } = fakeCaches();
+    store.set('https://cleanplateva.test/data-full/manifest.json', new Response('{}', {
+        status: 200,
+        headers: { 'Content-Type': 'application/json; charset=utf-8', 'ETag': '"m1"', 'Cache-Control': 'public, max-age=14400, must-revalidate' },
+    }));
+    store.set('https://cleanplateva.test/data-full/facility/P-9.json', new Response('{}', {
+        status: 200,
+        headers: { 'Content-Type': 'application/json; charset=utf-8', 'ETag': '"d1"', 'Cache-Control': 'public, max-age=14400' },
+    }));
+    const manifest = await worker.fetch(request('manifest.json'), env, ctx());
+    assert.equal(manifest.headers.get('X-Cache'), 'HIT');
+    assert.equal(manifest.headers.get('Cache-Control'), 'public, max-age=60, must-revalidate');
+    assert.equal(manifest.headers.get('ETag'), '"m1"');
+    const detail = await worker.fetch(request('facility/P-9.json'), env, ctx());
+    assert.equal(detail.headers.get('X-Cache'), 'HIT');
+    assert.equal(detail.headers.get('Cache-Control'), 'public, max-age=300');
+    noCache();
+});
+
 test('a HEAD is answered from the same cache entry, headers only, and never stores', async () => {
     const { calls } = fakeCaches();
     const c = ctx();
