@@ -237,6 +237,12 @@ export const routerMethods = {
         this._pendingPermit = state.permit ?? null;
         this._applyPendingPermit();
         this._setView(legacyAbout ? 'about' : view, { write: false });
+        // /about#aboutTerms — the footer's terms link as a cold-loadable URL.
+        // The normalizing replaceState that follows drops the hash, so the
+        // scroll is ours to do, not the browser's (ack.js).
+        if (view === 'about' && window.location.hash.toLowerCase() === '#aboutterms') {
+            this._showTermsSection?.();
+        }
     },
 
     /** Push dashboard filter state into the toolbar controls (search box,

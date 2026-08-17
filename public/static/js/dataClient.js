@@ -67,6 +67,11 @@ export function createFoodApi({
     fullBase = DEFAULT_FULL_BASE,
     liteBase = DEFAULT_LITE_BASE,
     forceLite = false,
+    // The acknowledgement gate (CPF, design ref §3 / D-ACK-1): the full tier
+    // is fetched only when the visitor has acknowledged the terms. Read at
+    // call time, so a decision made after boot governs the next load. The
+    // default keeps bare clients (tests, tools) on the old behavior.
+    isAcknowledged = () => true,
 } = {}) {
     let fullManifest = null;
     let overlayColumns = null;
@@ -170,6 +175,12 @@ export function createFoodApi({
     }
 
     async function loadLite() {
+        // The basic map carries no judgment surfaces: forget any full-tier
+        // state a previous load left behind, so a detail or closed read
+        // cannot be answered from it after the visitor declined the terms.
+        fullManifest = null;
+        overlayColumns = null;
+        closedPromise = null;
         try {
             const manifest = await read(join(liteBase, 'manifest.json'), true);
             if (manifest?.contract !== PUBLIC_MANIFEST_CONTRACT
@@ -280,7 +291,10 @@ export function createFoodApi({
 
     return {
         async getFoodFacilities() {
-            if (!forceLite) {
+            // ?tier=lite always wins (D-ACK-3); otherwise the full tier is
+            // tried only after the acknowledgement, and degrades to the
+            // basic map on any failure (P4).
+            if (!forceLite && isAcknowledged()) {
                 try { return await loadFullV4(); } catch (_) { /* public-tier fallback */ }
             }
             return loadLite();
