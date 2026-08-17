@@ -103,6 +103,7 @@ async function serveFullData(request, env, ctx, url) {
         return json({ available: false, reason: 'bad path' }, 400);
     }
 
+    const cacheControl = fullDataCacheControl(key);
     const cache = edgeCache();
     // The cache is keyed on GET; a HEAD is answered from the same entry.
     const cacheKey = request.method === 'GET'
@@ -110,7 +111,12 @@ async function serveFullData(request, env, ctx, url) {
         : new Request(request.url, { method: 'GET', headers: request.headers });
     if (cache) {
         const hit = await cache.match(cacheKey);
-        if (hit) return withDiagnostic(hit, 'HIT', request.method);
+        // The zone's Browser Cache TTL rewrites the Cache-Control that
+        // `match()` hands back (measured 2026-08-17: a stored max-age=60 came
+        // out as max-age=14400), so the contract's value is re-asserted on
+        // the way out — the browser must revalidate the manifest in 60 s and
+        // a detail in 300 s no matter which edge answered.
+        if (hit) return withDiagnostic(hit, 'HIT', request.method, cacheControl);
     }
 
     const object = await env.DATA_FULL.get(key, { onlyIf: request.headers });
@@ -120,7 +126,7 @@ async function serveFullData(request, env, ctx, url) {
     const headers = new Headers({
         'Content-Type': 'application/json; charset=utf-8',
         'ETag': object.httpEtag,
-        'Cache-Control': fullDataCacheControl(key),
+        'Cache-Control': cacheControl,
     });
     // R2 answered the condition: the object is unchanged, no body follows.
     if (object.body === undefined || object.body === null) {
@@ -132,7 +138,7 @@ async function serveFullData(request, env, ctx, url) {
         if (ctx && typeof ctx.waitUntil === 'function') ctx.waitUntil(store);
         else await store;
     }
-    return withDiagnostic(response, 'MISS', request.method);
+    return withDiagnostic(response, 'MISS', request.method, cacheControl);
 }
 
 /** Public cache-control for the full channel (design ref §9): the manifest
@@ -159,11 +165,13 @@ function edgeCache() {
     }
 }
 
-/** Return `response` with the X-Cache diagnostic, as a fresh Response so a
- *  cached body is never consumed in place; a HEAD gets the headers only. */
-function withDiagnostic(response, status, method) {
+/** Return `response` with the X-Cache diagnostic and the contract's
+ *  Cache-Control re-asserted, as a fresh Response so a cached body is never
+ *  consumed in place; a HEAD gets the headers only. */
+function withDiagnostic(response, status, method, cacheControl) {
     const headers = new Headers(response.headers);
     headers.set('X-Cache', status);
+    if (cacheControl) headers.set('Cache-Control', cacheControl);
     return new Response(method === 'HEAD' ? null : response.body, {
         status: response.status,
         statusText: response.statusText,
