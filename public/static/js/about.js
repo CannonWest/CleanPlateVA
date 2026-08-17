@@ -50,15 +50,26 @@ export const aboutMethods = {
         const latest = payload.freshness?.newest_report || null;
         const snapshot = payload.fetched_at ? fmtDate(payload.fetched_at.slice(0, 10)) : 'Not recorded';
 
-        setText('aboutTierLabel', lite ? 'Public finder' : 'Authenticated archive');
-        setText('aboutTierDetail', lite
-            ? 'Identity, geocoded location, and retained permit ID'
-            : 'Inspection histories plus CleanPlateVA-derived signals');
+        // The card states the tier actually loaded AND the answer on file —
+        // an acknowledged visitor whose full read failed (or who forced
+        // ?tier=lite) still sees the basic map, and the card must say why.
+        setText('aboutTierLabel', lite ? 'Basic map' : 'Inspection grades');
+        setText('aboutTierDetail', lite ? this._basicMapReason() : 'Terms acknowledged on this device');
         setText('aboutSnapshotDate', snapshot);
         const totalNumber = Number(total || 0);
         setText('aboutCoverageCount', `${totalNumber.toLocaleString()} `
             + `${totalNumber === 1 ? 'facility' : 'facilities'} · ${zips} ${zips === 1 ? 'ZIP' : 'ZIPs'}`);
         setText('aboutLatestDate', latest ? fmtDate(latest) : 'No dated report');
+    },
+
+    /** Why the basic map is what loaded, in the terms' vocabulary. */
+    _basicMapReason() {
+        if (this._forceLite) return 'Forced by ?tier=lite; no terms asked';
+        if (this._ack?.agreed) return 'Terms acknowledged; inspection data unavailable, basic map shown';
+        if (this._ack?.decided) {
+            return this._ack.persisted ? 'Terms declined on this device' : 'Terms declined for this visit';
+        }
+        return 'Terms not yet acknowledged';
     },
 
     _updateAboutUnavailable() {

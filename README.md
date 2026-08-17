@@ -6,13 +6,19 @@ official VDH inspection record.
 
 ## Two tiers, one site
 
-- **Lite (public, the default)** — a gray finder map with identity, location,
-  search/filter controls, and a hand-off to VDH. It exposes no scores, grades,
-  report dates, or inspection content.
-- **Full (authenticated)** — archived inspection histories, derived scores and
-  facility grades, violations, checklists, temperatures, and comments through
-  the Access-gated `/data-full/*` channel. If full data is unavailable, the
-  same client falls back to lite.
+- **Basic map (public, the default)** — a gray finder map with identity,
+  location, search/filter controls, and a hand-off to VDH. It exposes no
+  scores, grades, report dates, or inspection content.
+- **Inspection grades (Full)** — archived inspection histories, derived scores
+  and facility grades, violations, checklists, temperatures, and comments,
+  fetched only after the visitor acknowledges the Terms of Use and Data
+  Acknowledgment (About §06; `public/static/js/ack.js` — a first-load dialog
+  that blocks and fetches nothing until answered, remembered per device).
+  **Interim (CPF-M1 shipped, M2/M3 ahead):** the `/data-full/*` channel is
+  still Cloudflare-Access-gated at the edge, so an acknowledging public
+  visitor currently lands on the basic map (the client falls back); Access
+  holders get the full tier. If full data is unavailable for any reason, the
+  same client falls back to the basic map.
 
 ## Architecture
 
@@ -20,7 +26,8 @@ official VDH inspection record.
 > acknowledgement instead of Access, the barest boot payload per view, and
 > real per-view URLs — is [`docs/architecture-v4.md`](docs/architecture-v4.md).
 > Contract V4 (the data below) shipped with the CPD arc; the acknowledgement
-> gate and public transport are the CPF arc, still ahead.
+> UX (CPF-M1) shipped 2026-08-17; the public transport (M2) and the Access
+> retirement (M3) are still ahead, and this section is rewritten when they land.
 
 The site is a static MapLibre client. A small Cloudflare Worker
 ([`src/worker.js`](src/worker.js)) serves [`public/`](public/) and proxies
@@ -243,9 +250,14 @@ python app.py
 ```
 
 Open `http://127.0.0.1:5001`. Put an exported full tier under
-`public/data-full/` (gitignored) to exercise the authenticated presentation
-locally. Append `?tier=lite` to force the public experience and hide the
-sign-in CTA.
+`public/data-full/` (gitignored) to exercise the full presentation locally:
+the first visit shows the Terms of Use and Data Acknowledgment dialog over the
+empty basemap and fetches nothing until you answer; "Agree and View Grades"
+loads the full tier, "Decline and Use Basic Map" the basic map. The answer is
+remembered under `localStorage['cleanplateva.ack.v1']` (clear it, or bump
+`ACK_VERSION` in `ack.js`, to be asked again); the header's terms control
+re-opens the dialog. Append `?tier=lite` to force the basic map with no terms
+asked and the control hidden.
 
 `app.py` is the dev server *because* it does the view-path fallback (see
 Routes above). A bare static server over `public/` still works for the map,

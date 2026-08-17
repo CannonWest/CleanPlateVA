@@ -24,11 +24,9 @@ test('the About view is public, directly linkable, and replaces the footer formu
     assert.doesNotMatch(css, /food-mode-lite[^}]*foodAboutWrap/);
 });
 
-test('the header tab is the only way into About, and it lands you in the content', () => {
+test('the header tab and the footer terms link are the ways into About, and each lands you in the content', () => {
     // The footer's methodology link was the page's only [data-view-link]. It
-    // is gone; the header tab is now the sole entry point, so the scroll-top
-    // and title-focus it used to own had to move onto the tab handler or be
-    // silently lost.
+    // is gone; the header tab owns the scroll-top and title-focus it used to.
     assert.doesNotMatch(html, /data-view-link/);
     assert.doesNotMatch(html, /food-footer-about/);
     assert.doesNotMatch(css, /\.food-footer-about/);
@@ -40,6 +38,17 @@ test('the header tab is the only way into About, and it lands you in the content
     assert.match(handler, /view === 'about'/);
     assert.match(handler, /wrap\.scrollTop = 0/);
     assert.match(handler, /foodAboutTitle'\)\?\.focus\(\{ preventScroll: true \}\)/);
+
+    // CPF-M1 (D-ACK-2): the footer keeps the VDH line and gains ONE more way
+    // in — the "Terms & attribution" link, which lands on §06 with its
+    // (focusable) title focused, and is also a cold-loadable URL.
+    const footer = html.match(/<div class="food-source-footer[\s\S]*?\n {8}<\/div>/)?.[0] || '';
+    assert.match(footer, /VDH via MyHealthDepartment/);
+    assert.match(footer, /scores and grades calculated by CleanPlateVA/);
+    assert.match(footer, /<a href="about#aboutTerms" data-terms-link>Terms &amp; attribution<\/a>/);
+    assert.match(html, /<h2 id="aboutTermsTitle" tabindex="-1">/);
+    assert.match(dashboardSource, /_showTermsSection\(\) \{[\s\S]*?_setView\('about'\)[\s\S]*?getElementById\('aboutTerms'\)\?\.scrollIntoView[\s\S]*?getElementById\('aboutTermsTitle'\)\?\.focus/);
+    assert.match(dashboardSource, /window\.location\.hash\.toLowerCase\(\) === '#aboutterms'/);
 });
 
 test('the static score explainer states the production scoring coefficients', () => {
@@ -107,8 +116,21 @@ test('transparency content draws the official/derived boundary and full pipeline
     ]) {
         assert.match(html, new RegExp(step));
     }
-    assert.match(html, /Public finder/);
-    assert.match(html, /Authenticated archive/);
+    // The tier boundary is the acknowledgement (CPF-M1, design ref §3): the
+    // two tiers are the basic map and the inspection grades; the retired
+    // secrecy vocabulary (§14.1) is gone from the page.
+    assert.match(html, /Basic map/);
+    assert.match(html, /Inspection grades/);
+    assert.match(html, /Terms acknowledged/);
+    assert.doesNotMatch(html, /Public finder/);
+    assert.doesNotMatch(html, /Authenticated archive/);
+    assert.doesNotMatch(html, /Cloudflare Access/);
+    assert.doesNotMatch(dashboardSource, /Authenticated archive/);
+    // §05 names every location provider the pipeline actually wires.
+    for (const provider of ['VGIN', 'U.S. Census Bureau', 'OpenStreetMap/Nominatim', 'Overture Maps', 'Foursquare OS Places']) {
+        assert.match(html, new RegExp(`Pins come from address lookups[^<]*${provider.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')}`));
+    }
+    assert.match(html, /Some pins are manually placed after review/);
     assert.match(html, /VDH wins conflicts/);
     assert.match(html, /Exact red-flag ranking weights/);
     assert.match(html, /<b>\+10<\/b> risk-factor item/);

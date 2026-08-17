@@ -1440,13 +1440,12 @@ body.food-receipt-open { overflow: hidden; }
     .cp-tab { padding: 0 0.6rem; }
 }
 
-/* Phones: icon-only tabs + sign-in. The header is a no-wrap flex row and
-   body clips overflow, so its min-content width must stay under 360px —
-   with text labels it hits ~450px in lite mode and the theme switch
-   becomes unreachable. */
+/* Phones: icon-only tabs + terms control. The header is a no-wrap flex row
+   and body clips overflow, so its min-content width must stay under 360px —
+   with text labels it hits ~450px and the theme switch becomes unreachable. */
 @media (max-width: 575.98px) {
     .cp-tab-label,
-    .cp-signin-label { display: none; }
+    .cp-ack-label { display: none; }
     .cp-tabs { margin-left: 0.25rem; }
 }
 
@@ -1495,10 +1494,118 @@ body.food-receipt-open { overflow: hidden; }
 
 .food-lite-cta { margin: 1rem 0 0.5rem; }
 
-/* ?tier=lite dev/preview override (app.js FORCE_LITE): signing in cannot
-   change a forced tier, so the sign-in CTA is noise — keep it hidden even
-   after the dashboard's own lite-mode toggle would reveal it. */
-body.tier-forced-lite #signInBtn { display: none !important; }
+/* ?tier=lite dev/preview override (app.js FORCE_LITE): the override asks no
+   terms and no answer can change a forced tier, so the header's terms
+   control is noise there — hidden regardless of the stored answer. */
+body.tier-forced-lite #ackTermsBtn { display: none !important; }
+
+/* ── the acknowledgement dialog (ack.js, CPF-M1) ─────────────────────── */
+/* Same shape and layering as the grade receipt above: a fixed backdrop, a
+   card that becomes a bottom sheet on phones. The body scrolls — the terms
+   are long — and the two decision buttons stay pinned below it. Colors ride
+   the --cp-* palette, which flips under .theme-dark. */
+body.food-ack-open { overflow: hidden; }
+.food-ack-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    background: rgba(33, 37, 41, 0.55);
+}
+.theme-dark .food-ack-backdrop { background: rgba(0, 0, 0, 0.68); }
+.food-ack {
+    display: flex;
+    flex-direction: column;
+    width: min(44rem, 100%);
+    max-height: min(88vh, 100%);
+    background: var(--cp-surface-2);
+    color: var(--cp-text);
+    border: 1px solid var(--cp-border);
+    border-radius: 0.8rem;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.30);
+    outline: none;
+}
+.theme-dark .food-ack { box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55); }
+@media (max-width: 576px) {
+    .food-ack-backdrop { padding: 0; align-items: flex-end; }
+    .food-ack {
+        width: 100%;
+        max-height: 94vh;
+        border-radius: 0.8rem 0.8rem 0 0;
+        border-bottom: 0;
+    }
+}
+.food-ack-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.8rem;
+    padding: 0.95rem 1.1rem 0.8rem;
+    border-bottom: 1px solid var(--cp-border);
+}
+.food-ack-head > div:first-child { flex: 1 1 auto; min-width: 0; }
+.food-ack-head h5 { margin: 0 0 0.25rem; font-size: 1.08rem; }
+.food-ack-kicker {
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--cp-muted);
+}
+.food-ack-lede { margin: 0; font-size: 0.86rem; color: var(--cp-muted); }
+.food-ack-body {
+    overflow-y: auto;
+    padding: 0.4rem 1.1rem 0.9rem;
+    font-size: 0.9rem;
+    line-height: 1.55;
+    outline: none;
+}
+.food-ack-body:focus-visible { box-shadow: inset 0 0 0 2px var(--cp-accent); }
+.food-ack-body h3 {
+    font-size: 0.95rem;
+    font-weight: 700;
+    margin: 1rem 0 0.35rem;
+}
+.food-ack-body p { margin: 0 0 0.6rem; }
+.food-ack-body ul { padding-left: 1.2rem; margin: 0 0 0.6rem; }
+.food-ack-body li { margin-bottom: 0.2rem; }
+.food-ack-body a { color: var(--cp-accent); }
+.food-ack-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    justify-content: flex-end;
+    padding: 0.8rem 1.1rem 0.95rem;
+    border-top: 1px solid var(--cp-border);
+}
+@media (max-width: 576px) {
+    .food-ack-actions .btn { flex: 1 1 100%; }
+}
+.theme-dark .food-ack .btn-close { filter: invert(1) grayscale(100%) brightness(200%); }
+
+/* ── About §06 · Terms of Use and Data Acknowledgment ─────────────────── */
+/* The permanent long form of the acknowledgement; the dialog clones its
+   body. Same tokens as the dialog body so the two read identically. */
+.about-terms-body { max-width: 62rem; }
+.about-terms-body h3 {
+    font-size: 1.02rem;
+    font-weight: 700;
+    margin: 1.2rem 0 0.4rem;
+}
+.about-terms-body h3:first-child { margin-top: 0.2rem; }
+.about-terms-body p,
+.about-terms-body li {
+    font-size: 0.93rem;
+    line-height: 1.6;
+    color: var(--cp-text);
+}
+.about-terms-body p { margin: 0 0 0.65rem; }
+.about-terms-body ul { padding-left: 1.25rem; margin: 0 0 0.65rem; }
+.about-terms-body li { margin-bottom: 0.25rem; }
+.about-terms-body a { color: var(--cp-accent); }
+.about-terms-attribution strong { font-weight: 700; }
 
 /* iOS zoom-on-focus guard: sub-16px inputs trigger a forced page zoom. */
 @media (max-width: 767.98px) {
