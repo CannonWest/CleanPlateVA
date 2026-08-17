@@ -2,8 +2,10 @@
 //
 // The worker (src/worker.js) serves two tiers:
 //   - static assets from public/ (the site + the committed lite data)
-//   - /data-full/* from the R2 bucket (the full inspection archive,
-//     Cloudflare Access-gated at the edge; see src/worker.js)
+//   - /data-full/* from the R2 bucket (the full inspection archive — a
+//     PUBLIC channel since CPF-M2: public cache-control + Cache API at the
+//     edge; the tier boundary is the client's acknowledgement, see
+//     public/static/js/ack.js and design ref §9)
 //
 // Deployed by the Workers Builds git integration running
 // `npx wrangler deploy` on push. workers.dev publishing is off (no
