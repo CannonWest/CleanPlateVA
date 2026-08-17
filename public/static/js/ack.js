@@ -206,16 +206,19 @@ function renderTermsDialog({ blocking }) {
             <div class="food-ack" role="dialog" aria-modal="true" aria-labelledby="foodAckTitle" aria-describedby="foodAckBody" tabindex="-1">
                 <div class="food-ack-head">
                     <div>
-                        <div class="food-ack-kicker">CleanPlateVA</div>
                         <h5 id="foodAckTitle">Terms of Use and Data Acknowledgment</h5>
-                        <p class="food-ack-lede">Before using CleanPlateVA, please review and acknowledge the following terms.</p>
                     </div>
                     ${blocking ? '' : `<button type="button" class="btn-close" data-ack-close aria-label="Close"></button>`}
                 </div>
+                <!-- The terms sit in their own inset box, narrower than the
+                     dialog: the border stays put while the text scrolls inside
+                     it, so the reader can see how much is left. -->
                 <div class="food-ack-body" id="foodAckBody" tabindex="0"></div>
+                <!-- Decline left, Agree right (Cannon 2026-08-17): the
+                     affirmative action is where a reader ends up. -->
                 <div class="food-ack-actions">
-                    <button type="button" class="btn btn-primary" data-ack="${ACK_AGREED}">Agree and View Grades</button>
                     <button type="button" class="btn btn-outline-danger" data-ack="${ACK_DECLINED}">Decline and Use Basic Map</button>
+                    <button type="button" class="btn btn-primary" data-ack="${ACK_AGREED}">Agree and View Grades</button>
                 </div>
             </div>
         </div>`;
