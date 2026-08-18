@@ -222,9 +222,12 @@ NEW / no-grade text, last-broad and last-visit dates, and the trend — and
 request). The click panel fetches the facility detail. **closed** — the
 non-active permits as finder fields + `status` + `o` (their overlay row),
 fetched lazily on the first "Show closed".
-**standards** and **facility/*.json** are unchanged (the detail keeps
-`cleanplateva.facility-detail.v3`, deliberately: its bytes did not change at
-cutover, so nothing re-uploaded for naming symmetry).
+**standards** and **facility/*.json** are unchanged in shape; the detail's
+contract string is `cleanplateva.facility-detail.v4` (bumped 2026-08-18 for
+one-contract consistency — every published object is Contract V4 — once it was
+clear nothing consumed the string and the cutover had re-uploaded the details
+anyway; the client validates it on the click path and reports an unsupported
+detail as unavailable, uncached).
 
 Facility detail files remain nested by design. Updating one inspection rewrites
 one small `facility/<permitID>.json` object rather than a statewide roster, and

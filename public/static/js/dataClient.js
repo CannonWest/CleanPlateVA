@@ -24,6 +24,11 @@ export const PUBLIC_MANIFEST_CONTRACT = 'cleanplateva.finder-manifest.v4';
 export const FINDER_SHARD_CONTRACT = 'cleanplateva.finder-shard.v4';
 export const OVERLAY_SHARD_CONTRACT = 'cleanplateva.overlay-shard.v4';
 export const CLOSED_SHARD_CONTRACT = 'cleanplateva.closed-shard.v4';
+// The per-facility detail. Validated on the click path since 2026-08-18: a
+// detail whose contract this client does not understand is reported
+// unavailable (and not cached), never rendered by guesswork — the same P4
+// promise the manifests and shard families already carry.
+export const DETAIL_CONTRACT = 'cleanplateva.facility-detail.v4';
 export const SCHEMA_VERSION = 4;
 export const DETAIL_CACHE_SIZE = 200;   // LRU of decoded details (click path)
 
@@ -307,6 +312,12 @@ export function createFoodApi({
         const relative = template.replace('{permit_id}', encodeURIComponent(permitID));
         const promise = Promise.all([read(join(fullBase, relative)), getStandards()])
             .then(([data, standards]) => {
+                if (data?.available && (data.contract !== DETAIL_CONTRACT
+                    || data.schema_version !== SCHEMA_VERSION)) {
+                    // Thrown, not returned: the catch below evicts it, so a
+                    // detail mid-republish is retried on the next click.
+                    throw new Error('unsupported facility detail');
+                }
                 if (data?.available && Array.isArray(data.inspections)) {
                     for (const inspection of data.inspections) {
                         inspection.checklist = decodeChecklist(inspection.checklist, standards);
