@@ -1,0 +1,16 @@
+# CleanPlateVA — cache-control for the public data channel, applied by the
+# Workers static-assets layer (design ref docs/architecture-v4.md §9,
+# D-TRANSPORT-4, CPH-M3). These rules reach only responses the assets layer
+# serves — /data/* is deliberately NOT in wrangler.jsonc's run_worker_first,
+# so the basic map and the shared finder (which the full tier also fetches
+# from here first, by content-addressed name, R2 fallback on a miss) cost no
+# Worker requests. Two rules, no overlap: a header matched twice is joined.
+# The manifest is the small mutable pointer (P3: revalidate quickly); the
+# finder shards are content-addressed (a name changes iff its bytes do), so
+# they are cached forever.
+
+/data/manifest.json
+	Cache-Control: public, max-age=60, must-revalidate
+
+/data/finder/*
+	Cache-Control: public, max-age=31536000, immutable

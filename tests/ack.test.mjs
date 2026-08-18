@@ -150,7 +150,11 @@ test('acknowledged → full first; the gate is read at call time, so a later ans
     const full = await api.getFoodFacilities();
     assert.equal(full.mode, 'full');
     assert.equal(full.facilities[0].o.grade_score, 91);
-    assert.equal(fetchImpl.calls[fetchImpl.calls.length - 3], 'data-full/manifest.json');
+    // The agreed load opened with the full manifest (the finder shards then
+    // came off the static channel first, R2 fallback — CPH-M3).
+    const fullManifestAt = fetchImpl.calls.indexOf('data-full/manifest.json');
+    assert.ok(fullManifestAt > 0 && fetchImpl.calls[fullManifestAt - 1].startsWith('data/finder/'),
+        'the full manifest is asked right after the lite boot, before any full shard');
     agreed = false;                                             // "Decline and Use Basic Map", later
     const back = await api.getFoodFacilities();
     assert.equal(back.mode, 'lite');
