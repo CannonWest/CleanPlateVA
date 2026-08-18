@@ -149,7 +149,7 @@ There is no cross-system distributed transaction, but each tier changes through
 one atomic pointer (the R2 manifest or the Git commit), and completed phases are
 not repeated on resume.
 
-### Public finder contract
+### Shared finder contract
 
 `cleanplateva.finder-manifest.v4` points to 16 deterministic
 `cleanplateva.finder-shard.v4` files — the ONE finder family both tiers boot
@@ -239,9 +239,9 @@ R2 upload. Compact checklist rows use
 `1 compliant | 2 violation | 4 cos | 8 repeat | 16 sentinel`; `dataClient.js`
 expands them using `standards.json`.
 
-The client accepts Contract V4 only. A failed or gated full-manifest read falls
-back to the public finder; a missing, incomplete, or older public manifest is
-reported as unavailable. The publisher's manifest-derived inventory is the
+The client accepts Contract V4 only. A failed Full-manifest read falls back to
+the shared finder — the basic map — and a missing, incomplete, or older Lite
+manifest is reported as unavailable. The publisher's manifest-derived inventory is the
 only legal R2 object set (finder, overlay, closed, standards, details); the
 previous manifest's shards are retained for one generation, which is also how
 the retired V3 `signals/*` family was pruned after cutover. Arbitrary JSON in

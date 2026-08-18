@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <!-- The mount. Views are real paths (/, /list, /about — routes: static/js/router.js)
      and the static host serves this file for any of them, so every relative URL
-     below (assets, data, sign-in) resolves from here rather than from the current
+     below (assets, data, routes) resolves from here rather than from the current
      path. The CannonAI Food tab serves this same file under /cleanplate/ and
      rewrites this one href; the router reads the mount from document.baseURI. -->
 <base href="/">
@@ -163,7 +163,7 @@
                         <div class="about-live-card">
                             <span>Current access</span>
                             <strong id="aboutTierLabel">Loading…</strong>
-                            <small id="aboutTierDetail">Detecting data tier</small>
+                            <small id="aboutTierDetail">Checking this device</small>
                         </div>
                         <div class="about-live-card">
                             <span>Snapshot generated</span>

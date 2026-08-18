@@ -7,8 +7,8 @@ venv/
 
 # Data tiers. The LITE finder shards + freshness/integrity manifest are
 # committed and deploy with the site. The FULL
-# inspection archive is never committed — it's served from a private,
-# authenticated channel; data-full/ exists locally only for dev.
+# inspection archive is never committed — it's served from R2 behind the
+# terms acknowledgement; data-full/ exists locally only for dev.
 public/data/*
 !public/data/manifest.json
 !public/data/finder/
