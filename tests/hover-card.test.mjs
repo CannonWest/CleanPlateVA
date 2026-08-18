@@ -11,7 +11,7 @@
  *  series shape `buildScopeSeries()` builds from a detail, and the SAME
  *  `_sparkSvg` draws both, so the card cannot drift from the panel by
  *  construction — pinned byte-for-byte below. The roster's V3 `trend` tuple
- *  stream and its `trendInspections` decoder stay retired (design ref §14.1).
+ *  stream and its `trendInspections` decoder stay retired (design ref §14.1). retired-ok: the suite names what must stay retired
  *
  *  Hover never owns interaction. Leaving the marker removes the card
  *  immediately; clicking the marker opens the detail panel, where the trend
@@ -281,19 +281,19 @@ test('the card exists only while the pointer remains on its marker', () => {
     assert.match(source, /if \(this\._hoverPid === f\.permit_id\) return;/);
 });
 
-test('hover fetches nothing: no prefetch, no detail read, no dwell timer — the request diet', () => {
+test('hover fetches nothing: no prefetch, no detail read, no dwell timer — the request diet', () => {  // retired-ok: names the retired policy in the test title
     // The hover path touches no API method at all (CPH-M2): the card is a
-    // pure function of the roster row. `prefetchDetail` is retired from the
+    // pure function of the roster row. `prefetchDetail` is retired from the  // retired-ok: explains what is asserted absent below
     // client entirely (dead = deleted); the click panel keeps
     // getFoodFacilityDetail + the LRU.
-    assert.doesNotMatch(source, /prefetchDetail/);
+    assert.doesNotMatch(source, /prefetchDetail/);  // retired-ok: asserts the retired prefetch is gone
     assert.doesNotMatch(source, /_showHoverCard[\s\S]{0,900}?getFoodFacilityDetail/);
     assert.doesNotMatch(source, /_hoverCardHTML\(f, detail/);
     assert.doesNotMatch(source, /_hoverDwell|hoverDwellTimer/);
     assert.match(source, /_hoverCardHTML\(f\) \{/);
     assert.match(source, /const series = visitsOf\(f\);/);
     // The retired tuple decoder stays gone from the whole dashboard.
-    assert.doesNotMatch(source, /trendInspections|_trend_event|f\.trend\b/);
+    assert.doesNotMatch(source, /trendInspections|_trend_event|f\.trend\b/);  // retired-ok: asserts the retired roster decoders are gone
 });
 
 test('hover is display-only; trend and receipt interactions stay in the clicked panel', () => {
