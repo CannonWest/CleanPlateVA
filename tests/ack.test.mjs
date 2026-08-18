@@ -228,15 +228,36 @@ test('the dialog clones About §06 (one source of the words), blocks on first lo
     assert.match(html, /you may continue using the basic map without CleanPlateVA inspection grades/);
 });
 
-test('the header control replaced the sign-in button and follows the answer', () => {
+test('the header control replaced the sign-in button, invites only while the grades are hidden, and hands the way back to About', () => {
     assert.match(html, /<button type="button" class="btn btn-sm btn-outline-secondary text-nowrap" id="ackTermsBtn"/);
-    assert.match(html, /<span class="cp-ack-label">Terms<\/span>/);
+    assert.match(html, /<span class="cp-ack-label">View Grades<\/span>/);
+    // Accepted → the invitation hides; the single switch back is §06's panel.
+    assert.match(ackSource, /_syncAckControl\(\) \{[\s\S]*?btn\.classList\.toggle\('d-none', agreed\);/);
+    assert.doesNotMatch(ackSource, /agreed \? 'Terms' : 'View Grades'/);
+    // The panel lives OUTSIDE the cloned terms body, or the dialog would grow
+    // a second copy of the button.
+    const bodyStart = html.indexOf('<div class="about-terms-body" id="aboutTermsBody">');
+    const body = html.slice(bodyStart, html.indexOf('id="aboutTermsStatus"'));
+    assert.ok(bodyStart !== -1 && body, '#aboutTermsBody found');
+    assert.doesNotMatch(body, /aboutTermsStatus|aboutTermsAction|<button/);
+    assert.match(html, /<div class="about-terms-status d-none" id="aboutTermsStatus">/);
+    assert.match(html, /<button type="button" class="btn btn-outline-primary d-none" id="aboutTermsAction">/);
+    // Its two states, what the button does in each, and the dialog's colour
+    // language carried over: red is the way to the basic map, blue the way to
+    // the grades — outlined on both sides, since this is a standing
+    // preference rather than the dialog's fork.
+    assert.match(ackSource, /action\.textContent = 'Switch to the basic map';\s*action\.className = 'btn btn-outline-danger';/);
+    assert.match(ackSource, /action\.textContent = 'Review the terms and view grades';\s*action\.className = 'btn btn-outline-primary';/);
+    assert.match(ackSource, /if \(this\._ack\?\.agreed\) this\._decideAck\(ACK_DECLINED\);\s*else this\._openTerms\(\{ trigger: action \}\);/);
+    // ?tier=lite overrides any answer: state the override, offer no button.
+    assert.match(ackSource, /_syncTermsStatus\(\) \{[\s\S]*?if \(this\._forceLite\) \{[\s\S]*?\?tier=lite/);
+    assert.match(ackSource, /action\.classList\.toggle\('d-none', !!this\._forceLite\);/);
+    assert.match(css, /\.about-terms-status \{/);
     assert.doesNotMatch(html, /signInBtn/);
     assert.doesNotMatch(html, /data-full\/signin/);
     assert.doesNotMatch(html, /Sign in to view inspection detail/);
     assert.doesNotMatch(html, /cp-signin-label/);
     assert.doesNotMatch(dashboardSource, /signInBtn/);
-    assert.match(ackSource, /label\.textContent = agreed \? 'Terms' : 'View Grades';/);
     assert.match(css, /body\.tier-forced-lite #ackTermsBtn \{ display: none !important; \}/);
     // The About live card speaks the same vocabulary and states WHY the basic
     // map is what loaded.

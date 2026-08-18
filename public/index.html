@@ -48,13 +48,15 @@
             </button>
         </nav>
         <div class="ms-auto d-flex align-items-center gap-2">
-            <!-- The acknowledgement control (ack.js, CPF-M1): re-opens the Terms
-                 of Use and Data Acknowledgment so the answer can be changed later.
-                 Label follows the answer ("View Grades" until agreed, then
-                 "Terms"); hidden under ?tier=lite, which asks no terms. -->
+            <!-- The acknowledgement control (ack.js): the invitation into the
+                 grades. It is shown only while the terms have NOT been accepted
+                 (declined, or not yet answered) and hides once they are — an
+                 accepted visitor has nothing to act on here, and switches back
+                 from the panel at the bottom of About §06 instead. Hidden under
+                 ?tier=lite, which asks no terms. -->
             <button type="button" class="btn btn-sm btn-outline-secondary text-nowrap" id="ackTermsBtn"
                     title="Terms of Use and Data Acknowledgment" aria-label="Terms of Use and Data Acknowledgment">
-                <i class="bi bi-file-earmark-text"></i> <span class="cp-ack-label">Terms</span>
+                <i class="bi bi-file-earmark-text"></i> <span class="cp-ack-label">View Grades</span>
             </button>
             <button class="cp-theme-toggle" id="themeToggle" role="switch" aria-checked="true"
                     title="Toggle light/dark theme" aria-label="Dark mode">
@@ -632,7 +634,17 @@
                         <h3>Acknowledgment</h3>
                         <p>By selecting “Agree and View Grades”, you acknowledge that you have read and understood these terms and that CleanPlateVA’s scores and grades are independent calculations rather than official VDH ratings.</p>
                         <p>If you do not agree, you may continue using the basic map without CleanPlateVA inspection grades.</p>
-                        <p>Your selection will be remembered on this device and can be changed later from the map.</p>
+                        <p>Your selection will be remembered on this device and can be changed later from the About page.</p>
+                    </div>
+                    <!-- Which tier this device is on, and the one switch to the
+                         other. Deliberately OUTSIDE #aboutTermsBody: the
+                         acknowledgement dialog clones that element and brings
+                         its own buttons, so a control in there would be
+                         duplicated into the dialog. ack.js fills both the text
+                         and the button and removes the d-none. -->
+                    <div class="about-terms-status d-none" id="aboutTermsStatus">
+                        <p id="aboutTermsStatusText"></p>
+                        <button type="button" class="btn btn-outline-primary d-none" id="aboutTermsAction"></button>
                     </div>
                 </section>
             </div>
