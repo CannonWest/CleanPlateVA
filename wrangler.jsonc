@@ -1,11 +1,14 @@
 // Cloudflare Workers deployment config.
 //
-// The worker (src/worker.js) serves two tiers:
-//   - static assets from public/ (the site + the committed lite data)
-//   - /data-full/* from the R2 bucket (the full inspection archive — a
-//     PUBLIC channel since CPF-M2: public cache-control + Cache API at the
-//     edge; the tier boundary is the client's acknowledgement, see
-//     public/static/js/ack.js and design ref §9)
+// The worker (src/worker.js) serves ONE thing: /data-full/* from the R2
+// bucket (the full inspection archive — a PUBLIC channel since CPF-M2:
+// public cache-control + Cache API at the edge; the tier boundary is the
+// client's acknowledgement, see public/static/js/ack.js and design ref §9).
+// Everything else — the site, the committed public data channel /data/*, and
+// its cache-control (public/_headers) — is served by the static-assets
+// layer without invoking the worker at all (design ref §9, D-TRANSPORT-4,
+// CPH-M3): on Workers Free the metered unit is the request, and static-asset
+// requests served without the worker are free and unlimited.
 //
 // Deployed by the Workers Builds git integration running
 // `npx wrangler deploy` on push. workers.dev publishing is off (no
@@ -22,28 +25,30 @@
         // worker at all (docs: "define the routes that invoke your Worker
         // explicitly"; it also opts out of the Sec-Fetch-Mode heuristic).
         // Everything else is answered by the assets layer — including the
-        // SPA fallback below. Both channels the worker owns must therefore
-        // be listed:
-        //   /data/*       public channel — cache-control on the manifest and
-        //                 the content-addressed shards, and the re-404 of a
-        //                 missing shard the SPA fallback would otherwise
-        //                 answer with 200 + the HTML shell (dataClient would
-        //                 parse markup as JSON).
-        //   /data-full/*  the R2-backed full channel — not a static asset,
-        //                 so under the SPA fallback it is index.html unless
-        //                 the worker runs first. Before the fallback existed
-        //                 a miss fell through to the worker on its own; the
-        //                 fallback removed that path (measured 2026-08-16:
-        //                 the un-Access-gated www host answered
-        //                 /data-full/manifest.json with the shell, and the
-        //                 authenticated tier degraded to gray Lite).
+        // SPA fallback below. Only the R2-backed full channel needs the
+        // worker: it is not a static asset, so under the SPA fallback it
+        // would be index.html unless the worker runs first (measured
+        // 2026-08-16: with it absent, the www host answered
+        // /data-full/manifest.json with the shell and the full tier silently
+        // degraded to the basic map — hotfix #108).
+        //   /data/*  is NOT here (CPH-M3, 2026-08-18): the public data
+        //            channel is static — public/_headers carries its two
+        //            cache-control rules, and a request there costs no Worker
+        //            invocation. The one thing the worker used to add, the
+        //            re-404 of a missing shard the SPA fallback would answer
+        //            with 200 text/html, moved into the client: dataClient
+        //            treats an HTML answer on a shard path as a miss (the
+        //            full tier then falls back to R2 for that shard; the
+        //            basic map reports "unavailable"). A missing
+        //            /data/finder/<name> therefore returns the shell — that
+        //            is what proves the worker no longer sees /data/*.
         // Static assets deliberately stay on the fast path (no worker
         // invocation per file): a missing .js there surfaces immediately as
         // a console MIME error rather than a silent mis-parse.
-        "run_worker_first": ["/data/*", "/data-full/*"],
+        "run_worker_first": ["/data-full/*"],
         // Real per-view URLs (/list, /about — static/js/router.js): any path
         // that is not an asset gets index.html and the client routes it
-        // (unknown paths normalize to /). Assets and the /data/* + /data-full/*
+        // (unknown paths normalize to /). Assets and the /data-full/*
         // routing above are unaffected.
         "not_found_handling": "single-page-application"
     },

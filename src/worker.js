@@ -1,5 +1,5 @@
 /**
- * Worker entry: static site + the full-data channel.
+ * Worker entry: the full-data channel, and nothing else.
  *
  * Requests under /data-full/* are served from the R2 bucket (the complete
  * inspection archive — never part of the repo or the static assets). Since
@@ -9,22 +9,17 @@
  * the edge through the Cache API, so a shard or detail is read from R2 once
  * per colo per generation rather than once per visitor.
  *
- * Everything else falls through to the static assets in public/ — with one
- * correction on the way out, see `looksLikeAsset` below.
+ * The site and the committed public data channel (/data/*) are static
+ * assets served WITHOUT this worker (wrangler.jsonc lists only /data-full/*
+ * in run_worker_first; public/_headers carries /data/*'s cache-control).
+ * That is the request diet (design ref §9, D-TRANSPORT-4, CPH-M3): on
+ * Workers Free the metered unit is the request, and static-asset requests
+ * served without the worker are free. The re-404 of a missing /data/ shard
+ * that used to live here moved into the client, which treats the SPA
+ * fallback's HTML on a shard path as a miss.
  */
 
 const DATA_PREFIX = '/data-full/';
-
-// The site's view paths (/list, /about, …) are served by
-// `assets.not_found_handling: "single-page-application"`, which hands back
-// index.html for ANYTHING it cannot find — including a mistyped script or a
-// data shard that is genuinely missing. That turns a clean 404 into a 200
-// of HTML: `dataClient` would try to JSON.parse markup, and a bad <script>
-// src would fail on MIME type instead of saying "not found". So the worker
-// re-imposes the honest answer for paths that are obviously assets — a last
-// segment carrying a file extension other than .html — while leaving
-// extension-less view paths to the SPA fallback they exist for.
-const HTML_EXTENSIONS = new Set(['html', 'htm']);
 
 export default {
     async fetch(request, env, ctx) {
@@ -32,51 +27,12 @@ export default {
         if (url.pathname.startsWith(DATA_PREFIX)) {
             return serveFullData(request, env, ctx, url);
         }
-        const response = await env.ASSETS.fetch(request);
-        if (isSpaFallback(response) && looksLikeAsset(url.pathname)) {
-            return new Response('Not found', {
-                status: 404,
-                headers: { 'Content-Type': 'text/plain; charset=utf-8' },
-            });
-        }
-        const publicCache = publicDataCacheControl(url.pathname);
-        if (publicCache) {
-            const headers = new Headers(response.headers);
-            headers.set('Cache-Control', publicCache);
-            return new Response(response.body, {
-                status: response.status,
-                statusText: response.statusText,
-                headers,
-            });
-        }
-        return response;
+        // Unreachable under the deployed run_worker_first (only /data-full/*
+        // invokes the worker); kept so a widened list still serves the site
+        // rather than 404ing it.
+        return env.ASSETS.fetch(request);
     },
 };
-
-/** A path whose last segment carries a non-HTML file extension. */
-function looksLikeAsset(pathname) {
-    const last = pathname.split('/').pop() || '';
-    const dot = last.lastIndexOf('.');
-    if (dot <= 0 || dot === last.length - 1) return false;
-    return !HTML_EXTENSIONS.has(last.slice(dot + 1).toLowerCase());
-}
-
-/** The SPA fallback answers 200 with the HTML shell. A real asset is never
- *  both — so HTML on an asset path means "the fallback caught a miss". */
-function isSpaFallback(response) {
-    return response.status === 200
-        && (response.headers.get('Content-Type') || '').includes('text/html');
-}
-
-function publicDataCacheControl(pathname) {
-    if (pathname === '/data/manifest.json') {
-        return 'public, max-age=60, must-revalidate';
-    }
-    if (/^\/data\/finder\/[0-9a-f]+-[0-9a-f]{12}\.json$/.test(pathname)) {
-        return 'public, max-age=31536000, immutable';
-    }
-    return null;
-}
 
 /**
  * The full channel. GET/HEAD only; the object key is the path under the

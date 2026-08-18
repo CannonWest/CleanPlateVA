@@ -13,6 +13,8 @@ const { createFoodApi, decodeOverlay, DETAIL_CACHE_SIZE } = await import(
     `data:text/javascript;base64,${Buffer.from(source).toString('base64')}`
 );
 
+const SPA_SHELL = Symbol('spa-shell');
+
 function fakeFetch(payloads) {
     const calls = [];
     const fetchImpl = async (path) => {
@@ -22,7 +24,17 @@ function fakeFetch(payloads) {
         if (entry === undefined) {
             return { ok: false, status: 404, json: async () => ({}) };
         }
-        return { ok: true, status: 200, json: async () => structuredClone(entry) };
+        if (entry === SPA_SHELL) {
+            // The static-assets layer answering a path it cannot find with the
+            // site's own index.html, status 200 (`not_found_handling`).
+            return {
+                ok: true, status: 200,
+                headers: new Headers({ 'content-type': 'text/html; charset=utf-8' }),
+                json: async () => { throw new SyntaxError('Unexpected token <'); },
+            };
+        }
+        return { ok: true, status: 200, headers: new Headers({ 'content-type': 'application/json' }),
+            json: async () => structuredClone(entry) };
     };
     fetchImpl.calls = calls;
     return fetchImpl;
@@ -127,14 +139,60 @@ test('the V4 full manifest loads finder + overlay in parallel and merges by posi
             latest_scope_code: 1, latest_out: null, latest_items: 30, compliance_pct: 90 },
     });
     assert.equal(result.facilities[1].o.new, 1);
-    // Boot never touches closed, standards, or details.
+    // Boot never touches closed, standards, or details. The finder is asked
+    // of the static public channel FIRST (CPH-M3, D-TRANSPORT-4 — no Worker
+    // request there); this fixture has no static copy, so each shard falls
+    // back to R2 by the same content-addressed name.
     assert.deepEqual(fetchImpl.calls, [
         'data-full/manifest.json',
-        'data-full/finder/00-a.json',
-        'data-full/finder/01-b.json',
+        'data/finder/00-a.json',
+        'data/finder/01-b.json',
         'data-full/overlay/00-c.json',
         'data-full/overlay/01-d.json',
+        'data-full/finder/00-a.json',
+        'data-full/finder/01-b.json',
     ]);
+});
+
+test('the finder is read from the static public channel by name; R2 is the fallback for a missing name or the SPA shell', async () => {
+    // Same bytes under both roots (design ref §6.3, D-DATA-2) — the static
+    // copy is free on Workers Free, so it wins whenever the name is there.
+    const payloads = goodFull();
+    payloads['data/finder/00-a.json'] = structuredClone(payloads['data-full/finder/00-a.json']);
+    payloads['data/finder/01-b.json'] = SPA_SHELL;    // the assets layer's 200 of HTML for a name it lacks
+    const fetchImpl = fakeFetch(payloads);
+    const api = createFoodApi({ fetchImpl });
+    const result = await api.getFoodFacilities();
+    assert.equal(result.mode, 'full');
+    assert.equal(result.facilities.length, 2);
+    assert.equal(result.facilities[0].o.grade_score, 91);        // bucket 00 came from static…
+    assert.ok(fetchImpl.calls.includes('data/finder/00-a.json'));
+    assert.ok(!fetchImpl.calls.includes('data-full/finder/00-a.json'), 'no R2 read for a shard the static tree has');
+    assert.ok(fetchImpl.calls.includes('data/finder/01-b.json'));  // …bucket 01 hit the shell…
+    assert.ok(fetchImpl.calls.includes('data-full/finder/01-b.json'), '…and fell back to R2 by the same name');
+    // The overlay never leaves R2 (it is not a static asset).
+    assert.ok(!fetchImpl.calls.some((p) => p.startsWith('data/overlay/')));
+});
+
+test('the SPA shell on a data path is a miss, never markup to parse — full degrades to the basic map, the basic map reports unavailable', async () => {
+    // The full manifest answered by the shell (a fail-open bypass, or a
+    // missing object under the assets fallback) → the public finder.
+    const shellFull = { ...goodFull(), 'data-full/manifest.json': SPA_SHELL,
+        'data/manifest.json': liteManifest, 'data/finder/00-public.json': liteShard };
+    const api = createFoodApi({ fetchImpl: fakeFetch(shellFull) });
+    const back = await api.getFoodFacilities();
+    assert.equal(back.mode, 'lite');
+    assert.equal(back.facilities.length, 1);
+    // The public manifest itself answered by the shell → the honest "no data".
+    const shellLite = createFoodApi({ fetchImpl: fakeFetch({ 'data/manifest.json': SPA_SHELL }), forceLite: true });
+    const none = await shellLite.getFoodFacilities();
+    assert.equal(none.available, false);
+    assert.equal(none.reason, 'no data published yet');
+    // A public shard answered by the shell → the same, not a JSON parse error.
+    const shellShard = createFoodApi({ fetchImpl: fakeFetch({ 'data/manifest.json': liteManifest, 'data/finder/00-public.json': SPA_SHELL }), forceLite: true });
+    const broken = await shellShard.getFoodFacilities();
+    assert.equal(broken.available, false);
+    assert.equal(broken.reason, 'no data published yet');
 });
 
 test('an overlay bound to a different finder shard is rejected — the client degrades to the finder', async () => {

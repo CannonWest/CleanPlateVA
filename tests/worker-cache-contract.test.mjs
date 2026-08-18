@@ -4,6 +4,7 @@ import test from 'node:test';
 
 const source = readFileSync(new URL('../src/worker.js', import.meta.url), 'utf8');
 const wrangler = readFileSync(new URL('../wrangler.jsonc', import.meta.url), 'utf8');
+const headersFile = readFileSync(new URL('../public/_headers', import.meta.url), 'utf8');
 const worker = (await import(
     `data:text/javascript;base64,${Buffer.from(source).toString('base64')}`
 )).default;
@@ -49,35 +50,65 @@ test('the retired Access check and sign-in route are gone from the worker (desig
     assert.equal(signin.status, 404);
 });
 
-test('both data channels are listed in run_worker_first', () => {
+test('only the full channel invokes the worker; the public channel is static (CPH-M3)', () => {
     // In array form, run_worker_first is THE set of paths that invoke the
     // worker; anything else is answered by the assets layer, SPA fallback
-    // included. The public channel needs the worker for cache-control and
-    // the re-404 of a masked miss (CPR-M1b); the full channel needs it
-    // because /data-full/* is not a static asset at all — without this entry
-    // the SPA fallback answers index.html and the full tier silently
-    // degrades to the basic map (production regression 2026-08-16, found
-    // via the www host). CPF-M2 keeps both entries.
+    // included. The full channel needs the worker because /data-full/* is
+    // not a static asset at all — without this entry the SPA fallback
+    // answers index.html and the full tier silently degrades to the basic
+    // map (production regression 2026-08-16, found via the www host).
+    // /data/* is deliberately NOT listed (design ref §9, D-TRANSPORT-4): on
+    // Workers Free every worker invocation is a metered request, and the
+    // committed public channel is plain static assets whose cache-control
+    // rides in public/_headers.
     const list = wrangler.match(/"run_worker_first"\s*:\s*\[([^\]]*)\]/);
     assert.ok(list, 'run_worker_first must be an explicit array');
     const patterns = [...list[1].matchAll(/"([^"]+)"/g)].map((m) => m[1]);
-    assert.deepEqual(patterns.sort(), ['/data-full/*', '/data/*']);
+    assert.deepEqual(patterns, ['/data-full/*']);
 });
 
-test('the public manifest also revalidates quickly', async () => {
-    // The worker must SEE the public data channel — it sets these headers,
-    // and (CPR-M1b) re-404s a shard the SPA fallback would have masked.
-    const response = await worker.fetch(
-        new Request('https://cleanplateva.test/data/manifest.json'), env, ctx());
-    assert.equal(response.headers.get('Cache-Control'),
-        'public, max-age=60, must-revalidate');
+test('the public channel cache-control lives in public/_headers, not the worker', () => {
+    // The assets layer applies these; the worker never sees /data/*. Same
+    // TTL shape the full channel uses: the small mutable manifest revalidates
+    // in a minute, content-addressed shards are immutable.
+    const rules = parseHeadersFile(headersFile);
+    assert.deepEqual(rules, [
+        ['/data/manifest.json', ['Cache-Control: public, max-age=60, must-revalidate']],
+        ['/data/finder/*', ['Cache-Control: public, max-age=31536000, immutable']],
+    ]);
+    // …and the worker carries none of it any more (design ref §14.1).
+    assert.doesNotMatch(source, /publicDataCacheControl|looksLikeAsset|isSpaFallback|HTML_EXTENSIONS/);
+    assert.doesNotMatch(source, /\/data\/manifest\.json|\/data\/finder\//);
 });
 
-test('content-addressed public finder shards are shared-cache immutable', async () => {
-    const response = await worker.fetch(
-        new Request('https://cleanplateva.test/data/finder/0f-123456abcdef.json'), env, ctx());
-    assert.equal(response.headers.get('Cache-Control'),
-        'public, max-age=31536000, immutable');
+/** _headers → [[pattern, [header lines…]], …]; comments and blanks skipped. */
+function parseHeadersFile(text) {
+    const rules = [];
+    for (const raw of text.split(/\r?\n/)) {
+        const line = raw.replace(/\s+$/, '');
+        if (!line.trim() || line.trim().startsWith('#')) continue;
+        if (/^\s/.test(line)) rules[rules.length - 1][1].push(line.trim());
+        else rules.push([line.trim(), []]);
+    }
+    return rules;
+}
+
+test('the worker passes anything that is not /data-full/* to the assets layer untouched', async () => {
+    // Unreachable in production (run_worker_first), but a widened list must
+    // still serve the site rather than 404 it — and must not re-impose the
+    // retired cache-control / re-404 logic on the way out.
+    const seen = [];
+    const passthrough = {
+        ...env,
+        ASSETS: { fetch: async (req) => { seen.push(new URL(req.url).pathname); return new Response('asset', { status: 200, headers: { 'Content-Type': 'application/json' } }); } },
+    };
+    for (const path of ['/data/manifest.json', '/data/finder/0f-123456abcdef.json', '/', '/list', '/static/js/app.js']) {
+        const response = await worker.fetch(new Request(`https://cleanplateva.test${path}`), passthrough, ctx());
+        assert.equal(response.status, 200, path);
+        assert.equal(response.headers.get('Cache-Control'), null, `${path}: the worker adds no cache-control to assets`);
+        assert.equal(response.headers.get('X-Cache'), null, path);
+    }
+    assert.deepEqual(seen, ['/data/manifest.json', '/data/finder/0f-123456abcdef.json', '/', '/list', '/static/js/app.js']);
 });
 
 test('content-addressed full-tier shards are shared-cache immutable too', async () => {
@@ -232,60 +263,4 @@ test('the worker works without a Cache API (the node harness): plain MISSes, not
     assert.equal(response.status, 200);
     assert.equal(response.headers.get('X-Cache'), 'MISS');
     assert.equal(await response.text(), '{}');
-});
-
-// CPR-M1b: `assets.not_found_handling: "single-page-application"` gives the
-// view paths their shell — and would give a mistyped asset or a genuinely
-// missing data shard the same 200 of HTML. The worker re-imposes a 404 on
-// asset-shaped paths so a miss still reads as a miss.
-const spaEnv = {
-    ...env,
-    ASSETS: {
-        fetch: async () => new Response('<!DOCTYPE html><html>…</html>', {
-            status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8' },
-        }),
-    },
-};
-const assetEnv = (contentType) => ({
-    ...env,
-    ASSETS: {
-        fetch: async () => new Response('{}', {
-            status: 200, headers: { 'Content-Type': contentType },
-        }),
-    },
-});
-const get = (path, e = spaEnv) => worker.fetch(new Request(`https://cleanplateva.test${path}`), e, ctx());
-
-test('the SPA fallback does not turn a missing asset into a 200 of HTML', async () => {
-    for (const path of [
-        '/static/js/missing.js',
-        '/static/css/nope.css',
-        '/data/finder/00-deadbeef1234.json',
-        '/data/manifest.json',
-        '/favicon.ico',
-        '/deep/path/file.json',
-    ]) {
-        const response = await get(path);
-        assert.equal(response.status, 404, path);
-    }
-});
-
-test('view paths still get their shell, and real assets still pass through', async () => {
-    // Extension-less paths are the SPA fallback's whole purpose.
-    for (const path of ['/', '/list', '/about', '/nonsense/deep', '/list/']) {
-        const response = await get(path);
-        assert.equal(response.status, 200, path);
-        assert.match(response.headers.get('Content-Type') || '', /text\/html/, path);
-    }
-    // A path that really is HTML keeps working.
-    assert.equal((await get('/index.html')).status, 200);
-    // A found asset is untouched — including the cache-control rewrite path.
-    const shard = await get('/data/finder/0f-123456abcdef.json', assetEnv('application/json'));
-    assert.equal(shard.status, 200);
-    assert.equal(shard.headers.get('Cache-Control'), 'public, max-age=31536000, immutable');
-    // A 404 the assets binding produces on its own is passed along as-is.
-    const real404 = await worker.fetch(new Request('https://cleanplateva.test/static/js/x.js'), {
-        ...env, ASSETS: { fetch: async () => new Response('nope', { status: 404 }) },
-    }, ctx());
-    assert.equal(real404.status, 404);
 });

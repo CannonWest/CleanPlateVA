@@ -1,7 +1,11 @@
 /** CleanPlateVA prepared-data client for manifest-led Contract V4.
  *
  * Both tiers boot on the same finder family (active permits, judgment-free
- * identity/location rows). Full adds the position-aligned overlay at boot —
+ * identity/location rows) — and the full tier reads those finder shards from
+ * the static public channel first, by content-addressed name, falling back
+ * to R2 only for a name the static tree lacks (CPH-M3, D-TRANSPORT-4: no
+ * Worker request for the shared half of the boot). Full adds the
+ * position-aligned overlay at boot —
  * one row per finder row, bound to the finder shard it aligns to by the
  * finder shard's sha256 in the overlay envelope, carrying the hover card's
  * whole content including its `visits` series — and reads the lazy closed
@@ -91,10 +95,44 @@ export function createFoodApi({
                 error.status = response.status;
                 throw error;
             }
+            // The static-assets layer answers a path it cannot find with the
+            // site's own HTML shell, status 200 (`not_found_handling:
+            // single-page-application`). On a data path that is a miss, not
+            // markup to parse — the honest 404 the Worker used to re-impose
+            // now lives here (CPH-M3, design ref §9): the full tier falls
+            // back to R2 for that shard, the basic map reports "unavailable".
+            if (isHtml(response)) {
+                const error = new Error('no data published yet');
+                error.status = 404;
+                error.spaFallback = true;
+                throw error;
+            }
             return await response.json();
         } catch (error) {
             if (!quiet) console.error(`[data] Failed to fetch ${path}:`, error);
             throw error;
+        }
+    }
+
+    function isHtml(response) {
+        const type = response.headers?.get?.('content-type') || '';
+        return type.toLowerCase().includes('text/html');
+    }
+
+    /** The finder is the same bytes in git and R2, content-addressed (design
+     *  ref §6.3, D-DATA-2), so a shard's name says which bytes it is. Read
+     *  it from the static public channel first — no Worker request on
+     *  Workers Free (D-TRANSPORT-4) — and fall back to R2 only when that
+     *  exact name is absent there (the minutes between a site deploy and the
+     *  R2 flip) or answered with the SPA shell. Same name, same bytes: the
+     *  fallback can never serve a different generation than the manifest
+     *  named. Both reads are quiet — a static miss is an expected state, and
+     *  the caller reports the R2 failure if that fails too. */
+    async function readFinderShard(path) {
+        try {
+            return await read(join(liteBase, path), true);
+        } catch (_) {
+            return read(join(fullBase, path), true);
         }
     }
 
@@ -131,7 +169,7 @@ export function createFoodApi({
             throw new Error('full manifest has incomplete resources');
         }
         const [finderShards, overlayShards] = await Promise.all([
-            Promise.all(finderDescriptors.map((item) => read(join(fullBase, item.path), true))),
+            Promise.all(finderDescriptors.map((item) => readFinderShard(item.path))),
             Promise.all(overlayDescriptors.map((item) => read(join(fullBase, item.path), true))),
         ]);
         if (finderShards.some((shard) => !isShard(shard, FINDER_SHARD_CONTRACT))
