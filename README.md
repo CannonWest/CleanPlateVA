@@ -181,7 +181,7 @@ the same bucket, in the same order; each shard's envelope carries
 
 ```text
 [grade_score, new, trend_delta, latest_yyyymmdd, base_yyyymmdd,
- latest_scope_code, latest_out, latest_items, compliance_pct]
+ latest_scope_code, latest_out, latest_items, compliance_pct, visits]
 ```
 
 The client fetches finder and overlay in parallel, checks the sha binding and
@@ -189,12 +189,22 @@ the row count per bucket, and merges by position; a mismatch degrades to the
 public finder rather than rendering a misaligned map. The grade letter is
 never shipped — it is `gradeForScore(grade_score)`. `latest_items` is the
 addressed-item count for a focused visit and the applicable count for a broad
-one; `latest_scope_code` indexes `vocab.scope`. There is no series on the
-roster: the hover card renders instantly from the overlay (grade circle,
-NEW / no-grade text, last-broad and last-visit dates) and fills its sparkline
-in from the facility detail, fetched on hover through the same LRU the click
-panel reads. **closed** — the non-active permits as finder fields + `status`
-+ `o` (their overlay row), fetched lazily on the first "Show closed".
+one; `latest_scope_code` indexes `vocab.scope`. `visits` is the hover
+sparkline's series — one entry per inspection, oldest-first, in a compact
+`[kind, yyyymmdd, value…]` form: `[1, d, score]` a broad visit with a
+published score (`[1, d]` without one — an x-slot with no mark), `[2, d, out,
+addressed]` a focused re-check with a trustworthy ratio (`[2, d]` without — a
+baseline tick), `[3, d, code]` a scope-unknown Follow-Up with an adjudicated
+written verdict (1 all corrected · 2 priority corrected · 3 none corrected;
+`[3, d, 4, ins, outs]` an item-by-item verdict), `[0, d]` nothing claimable.
+The exporter writes exactly the marks the sparkline would derive from the
+detail (verified across the archive by `tools/visits-crosscheck.mjs`), so
+the hover card renders **completely from the row in memory** — grade circle,
+NEW / no-grade text, last-broad and last-visit dates, and the trend — and
+**nothing is fetched on hover** (on Workers Free the metered unit is the
+request). The click panel fetches the facility detail. **closed** — the
+non-active permits as finder fields + `status` + `o` (their overlay row),
+fetched lazily on the first "Show closed".
 **standards** and **facility/*.json** are unchanged (the detail keeps
 `cleanplateva.facility-detail.v3`, deliberately: its bytes did not change at
 cutover, so nothing re-uploaded for naming symmetry).

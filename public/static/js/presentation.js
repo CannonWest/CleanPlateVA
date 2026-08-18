@@ -416,8 +416,9 @@ export function gradePresentation(facility = {}) {
 export function facilityPresentation(facility = {}) {
     if (facility.o && !facility.latest) {
         // A Contract V4 roster row: everything the map and the List need at
-        // boot rides on the overlay. The trend series is NOT here — the
-        // sparkline comes from the detail on hover/click (D-DATA-10).
+        // boot rides on the overlay. `trend` stays empty here — the sparkline
+        // reads the row's `visits` through visitsOf() (hover) or the detail's
+        // inspections through buildScopeSeries() (panel), one renderer.
         const o = facility.o;
         const latest = overlayLatestPresentation(o);
         const compliance = Number.isFinite(Number(o.compliance_pct)) && o.compliance_pct != null
@@ -463,6 +464,83 @@ export function facilityPresentation(facility = {}) {
         trend: [],
         trendDelta: null,
         declining: false,
+    };
+}
+
+// ── the overlay's `visits` → the sparkline series (CPH, D-DATA-13) ────────
+// One entry per inspection, oldest-first, `[kind, yyyymmdd, value…]`:
+//   [1, d, score]           broad with a published score — the score line
+//   [1, d]                  broad, no score — an x-slot with no mark
+//   [2, d, out, addressed]  focused, ratio known — ◇ at (addressed − out)/addressed
+//   [2, d]                  focused, ratio unknown — baseline tick
+//   [3, d, code]            adjudicated verdict — 1 all_corrected · 2 priority_corrected · 3 none_corrected
+//   [3, d, 4, ins, outs]    adjudicated `items` verdict — the IN / OUT counts
+//   [0, d]                  nothing claimable — baseline tick
+// The exporter (cannon-food `_visit_event`) writes exactly what the renderer
+// would derive from the detail; visitsOf() turns it back into the series
+// shape buildScopeSeries() builds, so the SAME presentation functions and
+// the SAME `_sparkSvg` draw the hover card and the click panel. Cross-checked
+// 27,919 / 27,919 across the archive at CPH-M0/M1 (tools/visits-crosscheck.mjs).
+export const VISIT_KIND = { unknown: 0, broad: 1, focused: 2, narrative: 3 };
+export const VISIT_VERDICT = { 1: 'all_corrected', 2: 'priority_corrected', 3: 'none_corrected', 4: 'items' };
+
+const EMPTY_PRESENTATION = {
+    count: null, formCount: null, broadEligible: false, gradeEligible: false,
+    score: null, compliant: null, out: null, outIsDistinct: false,
+};
+
+/** An adjudication block that narrativeVerdictPresentation() reads the same
+ *  way it reads the detail's: only the IN / OUT counts matter to the
+ *  sparkline (height, glyph, tone, count), so the item numbers are
+ *  placeholders — the hover card never prints them. */
+function syntheticItems(ins, outs) {
+    const items = {};
+    for (let i = 1; i <= ins; i++) items[String(i)] = 'IN';
+    for (let i = 1; i <= outs; i++) items[String(ins + i)] = 'OUT';
+    return items;
+}
+
+function visitEvent(entry, index, total) {
+    const [kind, ymd, ...rest] = Array.isArray(entry) ? entry : [];
+    const date = isoFromYmd(Number.isInteger(ymd) ? ymd : 0);
+    const inspection = { date };
+    let presentation = { ...EMPTY_PRESENTATION, scope: 'unknown' };
+    if (kind === VISIT_KIND.broad) {
+        const score = Number.isFinite(rest[0]) ? Number(rest[0]) : null;
+        inspection.score = score;
+        presentation = { ...EMPTY_PRESENTATION, scope: 'broad', broadEligible: true,
+            gradeEligible: score != null, score };
+    } else if (kind === VISIT_KIND.focused) {
+        const known = rest.length >= 2 && Number.isFinite(rest[0]) && Number.isFinite(rest[1]);
+        presentation = known
+            ? { ...EMPTY_PRESENTATION, scope: 'focused', count: Number(rest[1]),
+                formCount: Number(rest[1]), out: Number(rest[0]), outIsDistinct: true }
+            : { ...EMPTY_PRESENTATION, scope: 'focused' };
+    } else if (kind === VISIT_KIND.narrative) {
+        const verdict = VISIT_VERDICT[rest[0]];
+        if (verdict === 'items') {
+            const ins = Number.isInteger(rest[1]) ? rest[1] : 0;
+            const outs = Number.isInteger(rest[2]) ? rest[2] : 0;
+            if (ins || outs) {
+                inspection.adjudication = { status: 'adjudicated', verdict, items: syntheticItems(ins, outs) };
+            }
+        } else if (verdict) {
+            inspection.adjudication = { status: 'adjudicated', verdict };
+        }
+    }
+    return { inspection, presentation, index, historyIndex: total - 1 - index };
+}
+
+/** A Contract V4 roster row's `visits` as the series the sparkline draws —
+ *  the same shape buildScopeSeries() returns for a detail's inspections. */
+export function visitsOf(f) {
+    const visits = Array.isArray(f?.o?.visits) ? f.o.visits : [];
+    const events = visits.map((entry, index) => visitEvent(entry, index, visits.length));
+    return {
+        events,
+        broad: events.filter((event) => event.presentation.gradeEligible),
+        focused: events.filter((event) => event.presentation.scope === 'focused'),
+        unknown: events.filter((event) => event.presentation.scope === 'unknown'),
     };
 }
 

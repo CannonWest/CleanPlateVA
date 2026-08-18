@@ -76,7 +76,7 @@ export {
     buildScopeSeries, coordsOf, facilityPresentation, focusedOutcomePresentation,
     gradePresentation, inspectionCountsPresentation, inspectionPresentation,
     isActivePermit, isNewlyPermitted, isoFromYmd, latestDateOf, locationClass,
-    narrativeVerdictPresentation, permitUrl,
+    narrativeVerdictPresentation, permitUrl, visitsOf,
 } from './presentation.js';
 export { gradeReceiptPresentation } from './receipt.js';
 

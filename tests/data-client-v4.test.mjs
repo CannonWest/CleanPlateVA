@@ -189,14 +189,17 @@ test('the closed family loads once, on demand, and joins the roster', async () =
     assert.equal(detail.available, false);   // no fixture file — but the roster row was consulted
 });
 
-test('hover prefetch and click share one detail cache; the detail merges the roster row and decodes checklists', async () => {
+test('clicks read through one detail cache; the detail merges the roster row and decodes checklists', async () => {
     const fetchImpl = fakeFetch(goodFull());
     const api = createFoodApi({ fetchImpl });
     await api.getFoodFacilities();
 
-    const prefetched = await api.prefetchDetail('A');
+    // CPH-M2: nothing is fetched on hover — the client has no prefetch at
+    // all (dead = deleted); the click path is the only detail reader.
+    assert.equal(typeof api.prefetchDetail, 'undefined');
     const clicked = await api.getFoodFacilityDetail('A');
-    assert.equal(prefetched, clicked, 'one promise, one object');
+    const again = await api.getFoodFacilityDetail('A');
+    assert.equal(clicked, again, 'one promise, one object');
     assert.equal(fetchImpl.calls.filter((p) => p === 'data-full/facility/A.json').length, 1);
     assert.equal(fetchImpl.calls.filter((p) => p === 'data-full/standards.json').length, 1);
     assert.equal(clicked.facility.name, 'Alpha (detail)');
@@ -208,14 +211,15 @@ test('hover prefetch and click share one detail cache; the detail merges the ros
     });
 });
 
-test('a failed detail is not cached; prefetch never throws; the LRU is bounded', async () => {
+test('a failed detail is not cached; the LRU is bounded', async () => {
     const payloads = goodFull();
     const fetchImpl = fakeFetch(payloads);
     const api = createFoodApi({ fetchImpl });
     await api.getFoodFacilities();
-    assert.equal(await api.prefetchDetail('MISSING'), null);
     const miss = await api.getFoodFacilityDetail('MISSING');
     assert.equal(miss.available, false);
+    const missAgain = await api.getFoodFacilityDetail('MISSING');
+    assert.equal(missAgain.available, false);
     // Two attempts, two fetches: the miss was not cached.
     assert.equal(fetchImpl.calls.filter((p) => p === 'data-full/facility/MISSING.json').length, 2);
     // Fill past the cap: the oldest entry is evicted and re-fetched.
@@ -232,7 +236,6 @@ test('detail before any full manifest reports the tier honestly', async () => {
     const detail = await api.getFoodFacilityDetail('A');
     assert.equal(detail.available, false);
     assert.match(detail.reason, /Contract V4 manifest unavailable/);
-    assert.equal(await api.prefetchDetail('A'), null);
     assert.deepEqual(await api.loadClosed(), []);
 });
 
