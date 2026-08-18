@@ -36,10 +36,15 @@ acknowledges the terms.
 > gate, the public transport, and the Access retirement (CPF-M1..M3) shipped
 > 2026-08-17. CPX (the close-out sweep) is the remaining V4 arc.
 
-The site is a static MapLibre client. A small Cloudflare Worker
-([`src/worker.js`](src/worker.js)) serves [`public/`](public/) and the full
-channel from R2 with public cache-control and an edge cache. It never queries
-VDH or CouchDB at request time.
+The site is a static MapLibre client. Cloudflare's static-assets layer serves
+[`public/`](public/) — the page, the modules, and the committed public data
+channel — and a small Cloudflare Worker ([`src/worker.js`](src/worker.js))
+serves only the full channel from R2, with public cache-control and an edge
+cache. Nothing queries VDH or CouchDB at request time, and nothing invokes
+the Worker for a static file: on Workers Free the metered unit is the
+request, so the basic map costs zero Worker requests and the acked boot
+seventeen (the full manifest and sixteen overlay shards); the shared finder
+is read from the static channel by content-addressed name.
 
 The client is plain ES modules under `public/static/js/` — no build step.
 `app.js` boots the page; `dataClient.js` loads the manifest-led tiers;
@@ -67,29 +72,29 @@ Serving this needs one thing from the host: any non-asset path must return
 `assets.not_found_handling` in [`wrangler.jsonc`](wrangler.jsonc); `app.py`
 and the CannonAI embed mount mirror it.
 
-A missing asset must still 404, and Cloudflare's setting alone does not do
-that — it is all-or-nothing, so a genuinely missing data shard would come
-back as `200 text/html` and `dataClient` would parse markup as JSON.
-[`src/worker.js`](src/worker.js) re-imposes the honest answer for the paths
-it sees: an asset-shaped request (last segment carrying a non-HTML
-extension) answered with the HTML shell is returned as a 404.
+That setting is all-or-nothing: a genuinely missing data shard comes back as
+`200 text/html` too. The client keeps that honest — `dataClient` treats the
+HTML shell on any data path as a miss, never as JSON: the full tier falls
+back to R2 for that shard, the basic map reports "no data published yet".
 
-Which paths it sees is set by `run_worker_first`, and in its array form that
-list is *the* set of paths that invoke the worker at all — everything else,
-SPA fallback included, is answered by the assets layer. So it names both
-channels the worker owns and nothing else: `/data/*`, the public channel,
-where a masked 404 is *silent* (the client mis-parses and degrades with a
-confusing reason) and which already routes through the worker for its
-cache-control headers; and `/data-full/*`, the R2-backed full channel, which
-is not a static asset and therefore *is* the shell under the fallback unless
-the worker runs first (before the fallback existed a miss fell through to the
-worker on its own; measured 2026-08-16, the fallback removed that path and
-the full tier degraded to gray Lite until this entry was added).
-Static assets stay on the fast path: a missing `.js` there announces itself
-immediately as a console MIME error, and a per-file worker invocation would
-be a real request-quota cost for a cosmetic improvement. `app.py` and the
-embed mount have no such split — they decide before serving, so everything
-404s correctly there.
+`run_worker_first` in [`wrangler.jsonc`](wrangler.jsonc) is, in its array
+form, *the* set of paths that invoke the worker at all — everything else,
+SPA fallback included, is answered by the assets layer without a Worker
+request. It names exactly one thing: `/data-full/*`, the R2-backed full
+channel, which is not a static asset and therefore *is* the shell under the
+fallback unless the worker runs first (measured 2026-08-16: with it absent
+the full tier silently degraded to the basic map). The public channel
+`/data/*` is static: its cache-control lives in
+[`public/_headers`](public/_headers) (the manifest revalidates in 60 s;
+content-addressed finder shards are immutable), and the client fetches the
+finder from there first — same bytes as the R2 copy, content-addressed, so a
+name the static tree lacks (the minutes between a site deploy and the R2
+flip) simply falls back to R2 by the same name. Static assets stay on the
+fast path: a missing `.js` announces itself as a console MIME error, and a
+per-file worker invocation would be a request-quota cost for a cosmetic
+improvement. `app.py` and the embed mount have no such split — they decide
+before serving, so everything 404s correctly there (and `_headers` is a
+Workers-only file, inert locally).
 
 The page declares its mount with `<base href>` (`/` here, rewritten to
 `/cleanplate/` by the CannonAI passthrough) and the router reads it from
@@ -114,11 +119,23 @@ public/data/                       (public, git)
 The full publisher uploads changed data objects first and publishes
 `manifest.json` last. Content-addressed shards on BOTH channels use a long shared
 immutable cache; mutable manifests revalidate every 60 s and full detail objects every
-300 s by ETag. The Worker answers repeat `/data-full/*` reads from the edge (Cache API,
+300 s by ETag (the public channel's rules ride in `public/_headers`, the full
+channel's in the Worker). The Worker answers repeat `/data-full/*` reads from the edge (Cache API,
 `X-Cache: HIT`/`MISS`) and turns an unchanged object's conditional request into a 304. The full publisher
 retains the previous manifest's referenced shards for one generation, so a
 browser holding a cached full manifest never sees missing resources during a
 publish.
+
+**Request budget** (design ref §9). Workers Free meters requests — 100K/day,
+reset 00:00 UTC — and static-asset requests served without the Worker do
+not count. Per session, measured on production: dialog before answering 0;
+basic map **0** Worker requests (17 static); acked boot **17** (`/data-full/`
+manifest + 16 overlay; the 16 finder shards are static); hovers **0** (the
+card draws from the overlay's `visits`); each distinct facility clicked +1
+(its detail) plus `standards.json` once. Should the daily cap ever trip, the
+full channel fails and the client degrades to the basic map, which is static
+and keeps working; the Worker's route can additionally be set to fail open
+where Cloudflare offers the setting.
 
 Publication is driven from cannon-food by a strict source-fact change set or an
 explicit full-build run ID. The persistent local Full cache is treated as a
