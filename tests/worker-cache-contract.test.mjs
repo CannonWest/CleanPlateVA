@@ -67,15 +67,27 @@ test('only the full channel invokes the worker; the public channel is static (CP
     assert.deepEqual(patterns, ['/data-full/*']);
 });
 
-test('the public channel cache-control lives in public/_headers, not the worker', () => {
+test('the public channel cache-control lives in public/_headers, not the worker — one rule per committed shard, by name', () => {
     // The assets layer applies these; the worker never sees /data/*. Same
     // TTL shape the full channel uses: the small mutable manifest revalidates
-    // in a minute, content-addressed shards are immutable.
+    // in a minute, content-addressed shards are immutable. The shards are
+    // listed BY NAME, not as /data/finder/*: measured on production
+    // 2026-08-18, a splat rule also stamps `immutable` on the SPA shell the
+    // assets layer returns for a name the tree lacks (a browser or the edge
+    // would hold that shell for a year); an unlisted name falls back to
+    // `max-age=0, must-revalidate`, and the client treats the shell as a
+    // miss. cannon-food's publisher regenerates the file from the Lite
+    // manifest with every publish — this pins the two in step.
+    const manifest = JSON.parse(readFileSync(new URL('../public/data/manifest.json', import.meta.url), 'utf8'));
+    const shards = manifest.resources.finder.shards.slice().sort((a, b) => a.bucket - b.bucket);
     const rules = parseHeadersFile(headersFile);
     assert.deepEqual(rules, [
         ['/data/manifest.json', ['Cache-Control: public, max-age=60, must-revalidate']],
-        ['/data/finder/*', ['Cache-Control: public, max-age=31536000, immutable']],
+        ...shards.map((s) => [`/data/${s.path}`, ['Cache-Control: public, max-age=31536000, immutable']]),
     ]);
+    assert.equal(rules.length, 17);
+    assert.ok(!rules.some(([pattern]) => pattern.includes('*')), 'no splat rule');
+    assert.match(headersFile, /^# CleanPlateVA/);
     // …and the worker carries none of it any more (design ref §14.1).
     assert.doesNotMatch(source, /publicDataCacheControl|looksLikeAsset|isSpaFallback|HTML_EXTENSIONS/);
     assert.doesNotMatch(source, /\/data\/manifest\.json|\/data\/finder\//);
