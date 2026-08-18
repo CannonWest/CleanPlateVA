@@ -255,13 +255,14 @@ test('serving fallbacks: <base href> mount, Cloudflare SPA not-found handling, d
     assert.match(html, /src="static\/js\/app\.js"/);
     // Cloudflare: any non-asset path gets index.html; the data routing is untouched
     assert.match(wrangler, /"not_found_handling":\s*"single-page-application"/);
-    // …and BOTH data channels keep routing through the worker: in array form
-    // run_worker_first is the complete set of worker-invoking paths, so the
-    // public channel (cache-control + the re-404 of a masked shard) and the
-    // R2-backed full channel (not an asset — the shell otherwise) must both
-    // be listed. Exact membership is asserted in worker-cache-contract.test.mjs.
-    assert.match(wrangler, /"run_worker_first":\s*\[[^\]]*"\/data\/\*"[^\]]*\]/);
+    // …and the R2-backed full channel keeps routing through the worker: in
+    // array form run_worker_first is the complete set of worker-invoking
+    // paths, and /data-full/* is not an asset (the shell otherwise). The
+    // public channel is static since CPH-M3 (its cache-control lives in
+    // public/_headers; the client treats the shell on a shard path as a
+    // miss). Exact membership is asserted in worker-cache-contract.test.mjs.
     assert.match(wrangler, /"run_worker_first":\s*\[[^\]]*"\/data-full\/\*"[^\]]*\]/);
+    assert.doesNotMatch(wrangler, /"run_worker_first":\s*\[[^\]]*"\/data\/\*"[^\]]*\]/);
     // app.py: files are served, extension-less paths get index.html, missing assets 404
     assert.match(appPy, /static_folder=None/);
     assert.match(appPy, /if target is not None and target\.is_file\(\):\s*return send_from_directory\(PUBLIC, subpath\)/);
