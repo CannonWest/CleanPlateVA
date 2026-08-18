@@ -4,8 +4,11 @@
  *
  * The three views are real paths — `/` (Map, canonical; `/map` is accepted
  * and normalized), `/list`, `/about` — and the state a visitor can share
- * rides in the query string: `q · zip · grade · restaurants · closed · new ·
+ * rides in the query string: `q · grade · restaurants · closed · new ·
  * mobile · permit` on every view, plus List-only `sort · dir · page`.
+ * `zip` is RETIRED — the ZIP select folded into the search box, which now
+ * matches a ZIP by prefix — so a legacy `?zip=23220` is read once, folded
+ * into `q`, and cleared from the address bar.
  * Only NON-DEFAULT state is written, so shared links stay short, and foreign
  * params (`?tier=lite`, the dev override) pass through untouched. On load and
  * on popstate the URL wins for every key it names; a key the URL omits falls
@@ -46,6 +49,10 @@ export const VIEWS = ['map', 'list', 'about'];
 const VIEW_SEGMENT = { map: '', list: 'list', about: 'about' };
 const SEGMENT_VIEW = { '': 'map', map: 'map', list: 'list', about: 'about' };
 
+// The keys the router OWNS: parsed on the way in, and cleared from the query
+// before every write. `zip` stays on this list precisely BECAUSE it is retired
+// — that is what strips a legacy `?zip=` from the address once its value has
+// been folded into `q`. It is never written back.
 export const URL_KEYS = ['q', 'zip', 'grade', 'restaurants', 'closed', 'new', 'mobile',
     'permit', 'sort', 'dir', 'page'];
 export const SORT_KEYS = ['address', 'name', 'zip', 'score', 'compliance', 'trend', 'date'];
@@ -109,7 +116,13 @@ export function parseUrlState(search) {
         const q = p.get('q').trim().toLowerCase();
         if (q) s.q = q;
     }
-    if (p.has('zip') && /^\d{5}$/.test(p.get('zip').trim())) s.zip = p.get('zip').trim();
+    // Legacy `?zip=23220` from the retired ZIP select. The search box matches
+    // ZIP by prefix, so folding the value into `q` preserves what the shared
+    // link meant. A URL carrying BOTH keeps its `q`: the two cannot be AND-ed
+    // in one field, and `q` is what the visitor actually typed.
+    if (s.q === undefined && p.has('zip') && /^\d{5}$/.test(p.get('zip').trim())) {
+        s.q = p.get('zip').trim();
+    }
     if (p.has('grade') && GRADES.includes(p.get('grade').toUpperCase())) {
         s.grade = p.get('grade').toUpperCase();
     }
@@ -148,7 +161,6 @@ export function serializeUrlState(state, {
     for (const k of URL_KEYS) p.delete(k);
     const filters = state.filters || {};
     if (filters.q) p.set('q', filters.q);
-    if (filters.zip) p.set('zip', filters.zip);
     if (filters.grade) p.set('grade', filters.grade);
     for (const [key, field] of Object.entries(FLAG_FIELDS)) {
         const fallback = flagDefaults[field] ?? FLAG_DEFAULTS[field];
@@ -213,7 +225,7 @@ export const routerMethods = {
 
     /** Read window.location into dashboard state and the DOM. Every URL key
      *  the address carries wins; absent keys fall back to their defaults —
-     *  the persisted toggles from localStorage, empty search / ZIP / grade,
+     *  the persisted toggles from localStorage, empty search / grade,
      *  the tier's default sort, page 1, no selection. */
     _applyLocation() {
         const legacyAbout = window.location.hash.toLowerCase() === '#about';
@@ -221,7 +233,6 @@ export const routerMethods = {
         const state = parseUrlState(window.location.search);
         const stored = storedFlagDefaults(window.localStorage, this._storageKeys);
         this._filters.q = state.q ?? '';
-        this._filters.zip = state.zip ?? '';
         this._filters.grade = state.grade ?? '';
         for (const field of Object.values(FLAG_FIELDS)) {
             this._filters[field] = state[field] ?? stored[field];
@@ -246,12 +257,10 @@ export const routerMethods = {
     },
 
     /** Push dashboard filter state into the toolbar controls (search box,
-     *  ZIP select, grade chips, the four toggles). */
+     *  grade chips, the four toggles). */
     _syncToolbarFromState() {
         const search = document.getElementById('foodSearch');
         if (search && search.value.trim().toLowerCase() !== this._filters.q) search.value = this._filters.q;
-        const zip = document.getElementById('foodZipFilter');
-        if (zip) zip.value = this._filters.zip;   // no-op until the options exist; _populateZipFilter re-applies
         document.querySelectorAll('#foodGradeChips button[data-grade]').forEach((b) => {
             b.classList.toggle('active', (b.dataset.grade || '') === this._filters.grade);
         });

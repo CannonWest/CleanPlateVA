@@ -26,7 +26,7 @@ const proto = dashboard.FoodDashboard.prototype;
 const ctx = (filters = {}, mode = 'full') => ({
     _mode: mode,
     _filters: {
-        q: '', zip: '', grade: '', restaurantsOnly: false,
+        q: '', grade: '', restaurantsOnly: false,
         showClosed: true, showNew: true, showMobile: false, ...filters,
     },
     _isActive: proto._isActive,

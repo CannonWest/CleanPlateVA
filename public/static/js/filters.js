@@ -1,6 +1,6 @@
 /**
  * Toolbar filters — the active / newly-permitted / mobile-unit predicates,
- * the filter match every view applies, the counts pill, and the ZIP select.
+ * the filter match every view applies, and the counts pill.
  * `filterMethods` is installed on FoodDashboard.prototype by
  * foodDashboard.js (`this` is the dashboard).
  */
@@ -39,7 +39,7 @@ export const filterMethods = {
     },
 
     _matchesFilters(f) {
-        const { q, zip, grade, restaurantsOnly, showClosed, showNew, showMobile } = this._filters;
+        const { q, grade, restaurantsOnly, showClosed, showNew, showMobile } = this._filters;
         const lite = this._mode === 'lite';
         // Explicit === false so payloads without the field pass through
         // rather than blanking the map.
@@ -58,10 +58,17 @@ export const filterMethods = {
             const letter = facilityPresentation(f).grade?.letter || null;
             if (letter !== grade) return false;
         }
-        if (zip && f.zip !== zip) return false;
         if (q) {
+            // ZIP is folded into this one box (the select is retired). The text
+            // fields match ANYWHERE; the ZIP matches from the START. That
+            // asymmetry is the whole point: "231" should mean the 231** ZIPs,
+            // and a substring test also returns 22311 / 22312 / 22314 / 22315 —
+            // Alexandria, 425 rows, when the visitor typed a Richmond prefix
+            // (measured against the committed roster). A full "23220" still
+            // matches, and a digit run that is really a street number is still
+            // found through `hay`.
             const hay = `${f.name || ''} ${f.address || ''} ${f.city || ''}`.toLowerCase();
-            if (!hay.includes(q)) return false;
+            if (!hay.includes(q) && !String(f.zip || '').startsWith(q)) return false;
         }
         return true;
     },
@@ -86,19 +93,5 @@ export const filterMethods = {
         countsEl.title = filtered
             ? `${filteredLen.toLocaleString()} of ${total.toLocaleString()} facilities match the active filters`
             : `${total.toLocaleString()} facilities in this snapshot`;
-    },
-
-    _populateZipFilter() {
-        const sel = document.getElementById('foodZipFilter');
-        if (!sel) return;
-        // A URL-carried ZIP (router.js) arrives before the options exist, so
-        // the filter state, not the empty select, is what to restore.
-        const current = sel.value || this._filters.zip;
-        const zips = this._counts?.by_zip || {};
-        const sorted = Object.keys(zips).sort();
-        sel.innerHTML = '<option value="">All zips</option>'
-            + sorted.map((z) =>
-                `<option value="${esc(z)}">${esc(z)} (${zips[z]})</option>`).join('');
-        if (sorted.includes(current)) sel.value = current;
     },
 };
