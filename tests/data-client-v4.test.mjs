@@ -96,9 +96,20 @@ const goodFull = () => ({
     ]),
     'data-full/standards.json': { 1: { category: 'Food', text: 'Protected from contamination' } },
     'data-full/facility/A.json': {
+        contract: 'cleanplateva.facility-detail.v4',
+        schema_version: 4,
         available: true,
         facility: { permit_id: 'A', name: 'Alpha (detail)', location: { lat: 1, lon: 2, source: 'vgin_addresspoint' } },
         inspections: [{ checklist: [[1, 'OUT', 10]] }],
+    },
+    // A detail this client does not understand (the pre-2026-08-18 string):
+    // reported unavailable, never rendered, never cached.
+    'data-full/facility/OLD.json': {
+        contract: 'cleanplateva.facility-detail.v3',
+        schema_version: 3,
+        available: true,
+        facility: { permit_id: 'OLD', name: 'Old (detail)' },
+        inspections: [],
     },
 });
 
@@ -267,6 +278,25 @@ test('clicks read through one detail cache; the detail merges the roster row and
         item: 1, disposition: 'OUT', category: 'Food', standard_text: 'Protected from contamination',
         compliant: false, violation: true, cos: false, repeat: true, is_sentinel: false,
     });
+});
+
+test('a detail with an unsupported contract is unavailable, not cached, and retried on the next click', async () => {
+    const fetchImpl = fakeFetch(goodFull());
+    const api = createFoodApi({ fetchImpl });
+    await api.getFoodFacilities();
+
+    const first = await api.getFoodFacilityDetail('OLD');
+    assert.equal(first.available, false);
+    assert.equal(first.reason, 'unsupported facility detail');
+    const second = await api.getFoodFacilityDetail('OLD');
+    assert.equal(second.available, false);
+    // Not cached as a failure: the object was fetched again (a republish in
+    // flight would be picked up on the next click).
+    assert.equal(fetchImpl.calls.filter((p) => p === 'data-full/facility/OLD.json').length, 2);
+    // The good detail still validates and renders.
+    const good = await api.getFoodFacilityDetail('A');
+    assert.equal(good.available, true);
+    assert.equal(good.contract, 'cleanplateva.facility-detail.v4');
 });
 
 test('a failed detail is not cached; the LRU is bounded', async () => {
