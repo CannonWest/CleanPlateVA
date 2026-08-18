@@ -1638,8 +1638,10 @@ body.food-ack-open { overflow: hidden; }
 .about-terms-body a { color: var(--cp-accent); }
 .about-terms-attribution strong { font-weight: 700; }
 /* §06's status panel: where this device stands and the one switch to the
-   other tier. Sits below the terms, outlined like the dialog's own box so the
-   two read as one surface. */
+   other tier. Outlined in the site accent rather than the neutral border, so
+   the one interactive block at the end of a long document is visibly the
+   thing to act on. The token flips per theme (#4dabf7 dark / #1971c2 light),
+   which is the palette's rule for accents on the dark surface. */
 .about-terms-status {
     display: flex;
     flex-wrap: wrap;
@@ -1649,7 +1651,7 @@ body.food-ack-open { overflow: hidden; }
     margin-top: 1.1rem;
     padding: 0.85rem 1rem;
     background: var(--cp-surface);
-    border: 1px solid var(--cp-border);
+    border: 1px solid var(--cp-accent);
     border-radius: 0.6rem;
 }
 .about-terms-status p {
