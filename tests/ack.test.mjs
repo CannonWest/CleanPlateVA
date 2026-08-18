@@ -252,7 +252,9 @@ test('the header control replaced the sign-in button, invites only while the gra
     // ?tier=lite overrides any answer: state the override, offer no button.
     assert.match(ackSource, /_syncTermsStatus\(\) \{[\s\S]*?if \(this\._forceLite\) \{[\s\S]*?\?tier=lite/);
     assert.match(ackSource, /action\.classList\.toggle\('d-none', !!this\._forceLite\);/);
-    assert.match(css, /\.about-terms-status \{/);
+    // The panel is outlined in the accent, not the neutral border: it is the
+    // one interactive block at the end of a long document.
+    assert.match(css, /\.about-terms-status \{[^}]*border: 1px solid var\(--cp-accent\);/);
     assert.doesNotMatch(html, /signInBtn/);
     assert.doesNotMatch(html, /data-full\/signin/);
     assert.doesNotMatch(html, /Sign in to view inspection detail/);
