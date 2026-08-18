@@ -233,6 +233,14 @@ body {
    so dropping the unit never reduces the pill to a bare number. */
 @media (max-width: 1499.98px) {
     .food-count-unit { display: none; }
+}
+/* The search box holds its full 260px ~300px longer than the count pill holds
+   its unit word, because the ZIP select it replaced (2026-08-18) took ~110px
+   of this row with it — and the box inherited that select's job, so it is the
+   control that should spend the freed width. Measured on the full tier at
+   260px: one line down to 1180px, wraps at 1160px. The squeeze therefore
+   starts at the lg breakpoint, with ~20px of margin. */
+@media (max-width: 1199.98px) {
     .food-toolbar .food-search { max-width: 190px; }
 }
 /* Lite is the public face and hides the grade chips + show-closed (~276px),

@@ -66,6 +66,11 @@ const RETIRED = [
   // --- CPR ---
   { re: /CAP = 600/, why: 'the List tail is load-more, 50 per chunk (CPR-M1b)' },
 
+  // --- the ZIP select, folded into the search box (2026-08-18) ---
+  { re: /foodZipFilter/, why: 'the ZIP select is retired; one search box matches name/address/city and ZIP by prefix' },
+  { re: /_populateZipFilter/, why: 'nothing populates a select that no longer exists' },
+  { re: /All zips/, why: 'the empty option is gone along with the select' },
+
   // --- retired test files ---
   { re: /data-client-v3\.test\.mjs/, why: 'replaced by data-client-v4.test.mjs (CPD-M3)' },
 ];

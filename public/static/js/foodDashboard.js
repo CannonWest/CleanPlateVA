@@ -41,7 +41,7 @@
  *   map.js           MapLibre plumbing, layers, interactions, locate, theme
  *   markers.js       marker paint, GeoJSON, marker rebuild
  *   hover.js         marker-bound hover card
- *   filters.js       filter predicates, counts pill, ZIP select
+ *   filters.js       filter predicates and the counts pill
  *   list.js          List view
  *   about.js         footer freshness + About live cards
  *   detail.js        detail panel, grade hero, grade-receipt modal
@@ -126,7 +126,7 @@ export class FoodDashboard {
         this._byPermit = new Map();
         this._counts = null;
         this._filters = {
-            q: '', zip: '', grade: '',
+            q: '', grade: '',
             // "Restaurants only" — hide the permits nobody eats out at
             // (schools / daycares / care homes / hospitals / hotel breakfast
             // bars / caterers / commissaries / private clubs / camps).
@@ -193,11 +193,6 @@ export class FoodDashboard {
                 this._filters.q = (search.value || '').trim().toLowerCase();
                 filtersChanged();
             }, 150);
-        });
-
-        document.getElementById('foodZipFilter')?.addEventListener('change', (e) => {
-            this._filters.zip = e.target.value;
-            filtersChanged();
         });
 
         document.getElementById('foodGradeChips')
@@ -362,7 +357,6 @@ export class FoodDashboard {
 
         this._updateAboutStatus(payload, lite);
 
-        this._populateZipFilter();
         this._ensureMap();
         // If the map predates a mode flip, restyle the cluster tint to match.
         if (this._mapReady) {
