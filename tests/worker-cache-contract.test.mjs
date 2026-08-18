@@ -36,9 +36,9 @@ test('the mutable manifest revalidates quickly — publicly, with no Access head
 });
 
 test('the retired Access check and sign-in route are gone from the worker (design ref §14.1)', async () => {
-    assert.doesNotMatch(source, /Cf-Access-Jwt-Assertion/);
+    assert.doesNotMatch(source, /Cf-Access-Jwt-Assertion/);  // retired-ok: asserts the retired Access header is gone
     assert.doesNotMatch(source, /signin/);
-    assert.doesNotMatch(source, /private, max-age/);
+    assert.doesNotMatch(source, /private, max-age/);  // retired-ok: asserts the retired private cache-control is gone
     // A request without any Access header is served, not 403'd.
     noCache();
     const response = await worker.fetch(request('facility/P-1.json'), env, ctx());
@@ -89,7 +89,7 @@ test('the public channel cache-control lives in public/_headers, not the worker 
     assert.ok(!rules.some(([pattern]) => pattern.includes('*')), 'no splat rule');
     assert.match(headersFile, /^# CleanPlateVA/);
     // …and the worker carries none of it any more (design ref §14.1).
-    assert.doesNotMatch(source, /publicDataCacheControl|looksLikeAsset|isSpaFallback|HTML_EXTENSIONS/);
+    assert.doesNotMatch(source, /publicDataCacheControl|looksLikeAsset|isSpaFallback|HTML_EXTENSIONS/);  // retired-ok: asserts the retired Worker helpers are gone
     assert.doesNotMatch(source, /\/data\/manifest\.json|\/data\/finder\//);
 });
 

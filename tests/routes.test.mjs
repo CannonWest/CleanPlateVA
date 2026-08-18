@@ -151,7 +151,7 @@ test('D-DATA-11: load-more reveals N chunks of 50 and the page clamps to what th
     assert.equal(maxPage(22378), 448);
     // the List no longer caps at 600; it slices to the revealed count and offers more
     const list = moduleSource('list.js');
-    assert.doesNotMatch(list, /CAP = 600/);
+    assert.doesNotMatch(list, /CAP = 600/);  // retired-ok: asserts the retired List cap is gone
     assert.match(list, /revealCount\(filtered\.length, this\._page\)/);
     assert.match(list, /food-list-more-btn/);
     assert.match(list, /this\._page \+= 1;\s*this\._rebuildList\(\);\s*this\._syncUrl\(\);/);

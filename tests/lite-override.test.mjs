@@ -55,6 +55,6 @@ test('forced lite marks the body, asks no terms, and hides the terms control', (
         /body\.tier-forced-lite #ackTermsBtn \{ display: none !important; \}/,
     );
     // The retired sign-in affordance is gone for good (design ref §14.1).
-    assert.doesNotMatch(css, /#signInBtn/);
-    assert.doesNotMatch(css, /cp-signin-label/);
+    assert.doesNotMatch(css, /#signInBtn/);  // retired-ok: asserts the retired sign-in control is gone
+    assert.doesNotMatch(css, /cp-signin-label/);  // retired-ok: asserts the retired sign-in class is gone
 });

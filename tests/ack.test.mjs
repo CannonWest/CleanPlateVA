@@ -258,11 +258,11 @@ test('the header control replaced the sign-in button, invites only while the gra
     // The panel is outlined in the accent, not the neutral border: it is the
     // one interactive block at the end of a long document.
     assert.match(css, /\.about-terms-status \{[^}]*border: 1px solid var\(--cp-accent\);/);
-    assert.doesNotMatch(html, /signInBtn/);
+    assert.doesNotMatch(html, /signInBtn/);  // retired-ok: asserts the retired sign-in control is gone
     assert.doesNotMatch(html, /data-full\/signin/);
-    assert.doesNotMatch(html, /Sign in to view inspection detail/);
-    assert.doesNotMatch(html, /cp-signin-label/);
-    assert.doesNotMatch(dashboardSource, /signInBtn/);
+    assert.doesNotMatch(html, /Sign in to view inspection detail/);  // retired-ok: asserts the retired sign-in copy is gone
+    assert.doesNotMatch(html, /cp-signin-label/);  // retired-ok: asserts the retired sign-in class is gone
+    assert.doesNotMatch(dashboardSource, /signInBtn/);  // retired-ok: asserts the retired sign-in control is gone
     assert.match(css, /body\.tier-forced-lite #ackTermsBtn \{ display: none !important; \}/);
     // The About live card speaks the same vocabulary and states WHY the basic
     // map is what loaded.
