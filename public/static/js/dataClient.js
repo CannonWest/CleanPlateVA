@@ -3,11 +3,13 @@
  * Both tiers boot on the same finder family (active permits, judgment-free
  * identity/location rows). Full adds the position-aligned overlay at boot —
  * one row per finder row, bound to the finder shard it aligns to by the
- * finder shard's sha256 in the overlay envelope — and reads the lazy closed
- * family only on "Show closed". Facility detail is fetched per permit (hover
- * prefetch and click share one LRU cache) and standards once. A manifest or
- * shard this client does not understand degrades to the public finder; there
- * is no dual-contract path (design ref P4).
+ * finder shard's sha256 in the overlay envelope, carrying the hover card's
+ * whole content including its `visits` series — and reads the lazy closed
+ * family only on "Show closed". Facility detail is fetched per permit on
+ * CLICK only (an LRU makes repeat clicks free; nothing is fetched on hover —
+ * CPH, D-DATA-13) and standards once. A manifest or shard this client does
+ * not understand degrades to the public finder; there is no dual-contract
+ * path (design ref P4).
  */
 
 const DEFAULT_FULL_BASE = 'data-full';
@@ -19,7 +21,7 @@ export const FINDER_SHARD_CONTRACT = 'cleanplateva.finder-shard.v4';
 export const OVERLAY_SHARD_CONTRACT = 'cleanplateva.overlay-shard.v4';
 export const CLOSED_SHARD_CONTRACT = 'cleanplateva.closed-shard.v4';
 export const SCHEMA_VERSION = 4;
-export const DETAIL_CACHE_SIZE = 200;   // D-DATA-10: LRU of decoded details
+export const DETAIL_CACHE_SIZE = 200;   // LRU of decoded details (click path)
 
 export function decodeChecklist(rows, standards) {
     if (!Array.isArray(rows) || !rows.length || !Array.isArray(rows[0])) return rows;
@@ -304,13 +306,8 @@ export function createFoodApi({
          *  roster) or [] on Lite; rejects if the family cannot be read. */
         loadClosed,
 
-        /** Warm the detail cache for a permit (hover). Never throws; the click
-         *  path re-reads through the same cache and reports its own error. */
-        prefetchDetail(permitID) {
-            if (!fullManifest) return Promise.resolve(null);
-            return detailPromise(permitID).catch(() => null);
-        },
-
+        /** The nested per-facility history, on click (P5). One request per
+         *  distinct facility per session (LRU); standards once. */
         async getFoodFacilityDetail(permitID) {
             if (!fullManifest) {
                 return {

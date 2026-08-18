@@ -355,9 +355,9 @@ export const mapMethods = {
         // Marker-bound hover preview (skipped on touch devices — tap opens the
         // detail panel directly). The popup is display-only and mouse-
         // transparent: leaving the marker removes it immediately. Full tier
-        // renders the grade hero instantly from the overlay and fills the
-        // sparkline in from the prefetched detail (hover.js); interactive
-        // trend/receipt behavior belongs only to the clicked panel.
+        // renders the whole card — grade hero, dates, sparkline — from the
+        // overlay row in memory (hover.js); nothing is fetched on hover.
+        // Interactive trend/receipt behavior belongs only to the clicked panel.
         if (!coarse) {
             this._hoverPopup = new maplibregl.Popup({
                 closeButton: false, closeOnClick: false,
