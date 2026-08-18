@@ -289,6 +289,9 @@ Every fork the runways inherit. **Resolver** = the milestone that must close it;
 
 Every term, name, path, header, or number that an arc retires goes here **in the PR that retires it** (CPD-M3, CPF-M3, and any hotfix). CPX-M0 greps live prose and code for this list; CPX-M2 turns it into per-repo tests. Columns: what · replaced by · retired by · owner repo(s) for the tripwire.
 
+
+**Which test owns which rows (CPX-M2, D-CLOSEOUT-1 — per-repo lists).** `tests/retired-vocabulary.test.mjs` here covers the rows owned by *site*; `cannon-food/tests/test_retired_vocabulary.py` (Tier-0) covers *cannon-food* and *c-ground-code*, scanning both from the shared checkout. Neither list is the whole table: both are deliberately restricted to strings that are dead outright, and each file names the rows it skips and why. Rows needing context a regex cannot supply — `signals/`, `facilities.json`, `Contract V3`, roster-level field names, `#about`, `run_worker_first` — stay here, with this section as the human-readable union. A deliberate historical mention escapes with an inline `retired-ok` marker on its line (D-CLOSEOUT-2).
+
 **Exempt from the tripwire (history is allowed to say old words):** `c-ground-code/runway/archive/**`, `runway/HISTORY.md`, `cannon-food/references/retros/**`, `c-ground-code/memory/**` (memories are dated observations; CPX-M1 re-bases identity cards by hand), this doc's §13 and this §14.1, git history, and any line carrying an explicit `retired-ok` marker for a deliberate historical mention.
 
 | Retired | Replaced by | Retired by | Tripwire owner |
