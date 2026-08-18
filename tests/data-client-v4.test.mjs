@@ -105,7 +105,7 @@ const goodFull = () => ({
     // A detail this client does not understand (the pre-2026-08-18 string):
     // reported unavailable, never rendered, never cached.
     'data-full/facility/OLD.json': {
-        contract: 'cleanplateva.facility-detail.v3',
+        contract: 'cleanplateva.facility-detail.v3',  // retired-ok: a v3 fixture proving the client rejects it
         schema_version: 3,
         available: true,
         facility: { permit_id: 'OLD', name: 'Old (detail)' },
@@ -232,7 +232,7 @@ test('a misaligned overlay (row count) or a bad active count degrades to the fin
 
 test('a V3 full manifest is not understood — no dual-contract path', async () => {
     const payloads = {
-        'data-full/manifest.json': { ...fullManifest, contract: 'cleanplateva.full-manifest.v3', schema_version: 3 },
+        'data-full/manifest.json': { ...fullManifest, contract: 'cleanplateva.full-manifest.v3', schema_version: 3 },  // retired-ok: a v3 fixture proving the client rejects it
         'data/manifest.json': liteManifest,
         'data/finder/00-public.json': liteShard,
     };
@@ -265,7 +265,7 @@ test('clicks read through one detail cache; the detail merges the roster row and
 
     // CPH-M2: nothing is fetched on hover — the client has no prefetch at
     // all (dead = deleted); the click path is the only detail reader.
-    assert.equal(typeof api.prefetchDetail, 'undefined');
+    assert.equal(typeof api.prefetchDetail, 'undefined');  // retired-ok: asserts the retired prefetch is gone
     const clicked = await api.getFoodFacilityDetail('A');
     const again = await api.getFoodFacilityDetail('A');
     assert.equal(clicked, again, 'one promise, one object');
@@ -346,7 +346,7 @@ test('a public finder shard is not loaded without its V4 manifest, and V3 public
     assert.deepEqual(noManifest.calls, ['data/manifest.json']);
 
     const v3 = fakeFetch({
-        'data/manifest.json': { ...liteManifest, contract: 'cleanplateva.finder-manifest.v3', schema_version: 3 },
+        'data/manifest.json': { ...liteManifest, contract: 'cleanplateva.finder-manifest.v3', schema_version: 3 },  // retired-ok: a v3 fixture proving the client rejects it
         'data/finder/00-public.json': liteShard,
     });
     const refused = await createFoodApi({ fetchImpl: v3, forceLite: true }).getFoodFacilities();

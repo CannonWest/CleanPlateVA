@@ -122,10 +122,10 @@ test('transparency content draws the official/derived boundary and full pipeline
     assert.match(html, /Basic map/);
     assert.match(html, /Inspection grades/);
     assert.match(html, /Terms acknowledged/);
-    assert.doesNotMatch(html, /Public finder/);
-    assert.doesNotMatch(html, /Authenticated archive/);
+    assert.doesNotMatch(html, /Public finder/);  // retired-ok: asserts the retired tier label is gone
+    assert.doesNotMatch(html, /Authenticated archive/);  // retired-ok: asserts the retired tier label is gone
     assert.doesNotMatch(html, /Cloudflare Access/);
-    assert.doesNotMatch(dashboardSource, /Authenticated archive/);
+    assert.doesNotMatch(dashboardSource, /Authenticated archive/);  // retired-ok: asserts the retired tier label is gone
     // §05 names every location provider the pipeline actually wires.
     for (const provider of ['VGIN', 'U.S. Census Bureau', 'OpenStreetMap/Nominatim', 'Overture Maps', 'Foursquare OS Places']) {
         assert.match(html, new RegExp(`Pins come from address lookups[^<]*${provider.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')}`));
@@ -147,9 +147,9 @@ test('transparency content draws the official/derived boundary and full pipeline
     assert.match(dashboardSource, /Archive snapshot published \$\{fmtDate\(snapshotIso\)\}/);
     // Contract V4: the newest held report is a manifest fact on both tiers —
     // read from `freshness.newest_report`, never scanned off the rows, and no
-    // longer withheld from the public tier ("Not exposed publicly" is gone).
+    // longer withheld from the public tier ("Not exposed publicly" is gone).  // retired-ok: names the retired footer text to assert its absence
     assert.match(dashboardSource, /payload\.freshness\?\.newest_report/);
-    assert.doesNotMatch(dashboardSource, /Not exposed publicly/);
+    assert.doesNotMatch(dashboardSource, /Not exposed publicly/);  // retired-ok: asserts the retired footer text is gone
     assert.doesNotMatch(dashboardSource, /\.map\(\(f\) => f\.latest\?\.date\)/);
     assert.doesNotMatch(dashboardSource, /fetchedEl\.textContent = latest \? `as of/);
 });
