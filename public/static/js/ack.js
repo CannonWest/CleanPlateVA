@@ -13,9 +13,12 @@
  *     BLOCKING (D-ACK-1): the empty basemap renders behind it and NO data is
  *     fetched until the visitor answers — Agree loads the full tier, Decline
  *     loads the basic map. Nobody pays for both;
- *   · the header control (#ackTermsBtn, where the sign-in button was) that
- *     re-opens the same dialog — the answer "can be changed later from the
- *     map", as the terms promise — and the footer's in-app link to §06.
+ *   · the two ways back. The header control (#ackTermsBtn, where the sign-in
+ *     button was) is the invitation INTO the grades and shows only while they
+ *     are not being shown; once the terms are accepted it hides, and the
+ *     single switch back out is About §06's status panel — which is what the
+ *     terms mean by "changed later from the About page"
+ *     (#aboutTermsStatus). The footer's in-app link reaches that section.
  *
  * Only the two buttons persist a decision. Escape on the first-load dialog is
  * a decline for this page load and writes nothing, so the next load asks
@@ -76,6 +79,14 @@ export const ackMethods = {
     _installAck() {
         const btn = document.getElementById('ackTermsBtn');
         btn?.addEventListener('click', () => this._openTerms({ trigger: btn }));
+        // About §06's panel: the one switch an accepted visitor still has.
+        // Accepted → decline outright (a downgrade needs no acknowledgement);
+        // otherwise → the terms, which is where accepting belongs.
+        const action = document.getElementById('aboutTermsAction');
+        action?.addEventListener('click', () => {
+            if (this._ack?.agreed) this._decideAck(ACK_DECLINED);
+            else this._openTerms({ trigger: action });
+        });
         document.querySelectorAll('[data-terms-link]').forEach((link) => {
             link.addEventListener('click', (e) => {
                 e.preventDefault();
@@ -90,20 +101,51 @@ export const ackMethods = {
         return !this._forceLite && !!this._ack && !this._ack.decided;
     },
 
-    /** Header control: label and hint follow the decision. Declined (or not
-     *  yet asked) invites the visitor to the grades; agreed offers the terms
-     *  for re-reading or changing the answer. Hidden under ?tier=lite by CSS. */
+    /** The header control is the invitation into the grades, so it exists
+     *  only while they are NOT being shown: declined or not yet asked. Once
+     *  the terms are accepted it hides — there is nothing left to invite, and
+     *  the way back out is About §06's panel (`_syncTermsStatus`). Also
+     *  hidden under ?tier=lite by CSS, which asks no terms at all. */
     _syncAckControl() {
         const btn = document.getElementById('ackTermsBtn');
-        if (!btn) return;
+        if (btn) {
+            const agreed = !!this._ack?.agreed;
+            btn.classList.toggle('d-none', agreed);
+            const hint = 'Acknowledge the Terms of Use to view inspection grades';
+            btn.title = hint;
+            btn.setAttribute('aria-label', hint);
+        }
+        this._syncTermsStatus();
+    },
+
+    /** About §06's panel: which tier this device is on, and the single switch
+     *  to the other one. `?tier=lite` overrides any answer, so there the panel
+     *  states the override and offers nothing to press. */
+    _syncTermsStatus() {
+        const panel = document.getElementById('aboutTermsStatus');
+        const text = document.getElementById('aboutTermsStatusText');
+        const action = document.getElementById('aboutTermsAction');
+        if (!panel || !text || !action) return;
         const agreed = !!this._ack?.agreed;
-        const label = btn.querySelector('.cp-ack-label');
-        if (label) label.textContent = agreed ? 'Terms' : 'View Grades';
-        const hint = agreed
-            ? 'Terms of Use and Data Acknowledgment'
-            : 'Acknowledge the Terms of Use to view inspection grades';
-        btn.title = hint;
-        btn.setAttribute('aria-label', hint);
+        if (this._forceLite) {
+            text.textContent = 'The basic map is in effect for this visit because the address '
+                + 'includes ?tier=lite. Inspection grades are not shown, and no acknowledgement is asked.';
+        } else if (agreed) {
+            text.textContent = 'These terms are acknowledged on this device, and CleanPlateVA '
+                + 'inspection grades are shown. The acknowledgement can be withdrawn at any time.';
+            // Same colour language as the dialog — red is the way to the
+            // basic map, blue the way to the grades — but outlined on both
+            // sides here: this is a standing preference, not a fork.
+            action.textContent = 'Switch to the basic map';
+            action.className = 'btn btn-outline-danger';
+        } else {
+            text.textContent = 'These terms are not acknowledged on this device. The basic map is '
+                + 'shown, without CleanPlateVA inspection grades.';
+            action.textContent = 'Review the terms and view grades';
+            action.className = 'btn btn-outline-primary';
+        }
+        action.classList.toggle('d-none', !!this._forceLite);
+        panel.classList.remove('d-none');
     },
 
     /** Open the terms dialog. `blocking` is the first-load shape (D-ACK-1):
