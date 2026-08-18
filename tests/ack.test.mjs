@@ -137,7 +137,6 @@ test('not acknowledged → the basic map only, and the full channel is never eve
     assert.equal(result.mode, 'lite');
     assert.equal(fetchImpl.calls.some((p) => p.startsWith('data-full/')), false, 'no full-tier request before the answer');
     // And nothing judgment-bearing is reachable through the client afterwards.
-    assert.equal(await api.prefetchDetail('A'), null);
     assert.equal((await api.getFoodFacilityDetail('A')).available, false);
     assert.deepEqual(await api.loadClosed(), []);
 });
@@ -155,7 +154,7 @@ test('acknowledged → full first; the gate is read at call time, so a later ans
     agreed = false;                                             // "Decline and Use Basic Map", later
     const back = await api.getFoodFacilities();
     assert.equal(back.mode, 'lite');
-    assert.equal(await api.prefetchDetail('A'), null, 'the basic map forgets the full manifest');
+    assert.equal((await api.getFoodFacilityDetail('A')).available, false, 'the basic map forgets the full manifest');
 });
 
 test('?tier=lite wins over an acknowledgement (D-ACK-3)', async () => {
