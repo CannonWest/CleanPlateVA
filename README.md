@@ -59,13 +59,20 @@ how the suites import the graph and its concatenated source.
 ### Routes
 
 Each view is a real path — `/` (map), `/list`, `/about` — and the shareable
-state rides in the query string: `q`, `zip`, `grade`, `restaurants`,
-`closed`, `new`, `mobile`, `permit` on every view, plus `sort`, `dir`, and
-`page` (the List's load-more position, 50 rows per chunk) on `/list`. A URL
-wins over the stored toggle preferences for whatever it names; only
-non-default state is written, so shared links stay short. `/map` and any
-unknown path normalize to `/`, and the legacy `#about` hash migrates to
-`/about`.
+state rides in the query string: `q`, `grade`, `restaurants`, `closed`,
+`new`, `mobile`, `permit` on every view, plus `sort`, `dir`, and `page` (the
+List's load-more position, 50 rows per chunk) on `/list`. A URL wins over the
+stored toggle preferences for whatever it names; only non-default state is
+written, so shared links stay short. `/map` and any unknown path normalize to
+`/`, and the legacy `#about` hash migrates to `/about`.
+
+`q` is the whole search: name, address, and city match as a substring
+anywhere, and the ZIP matches as a **prefix**, so `232` means the 232\*\* ZIPs
+while `3231 Duke St` still answers to `231` through its address. That split is
+deliberate — a substring test on the ZIP answers `231` with Alexandria's
+22311/22312/22314/22315. The ZIP dropdown this replaced is retired, and a
+legacy `?zip=23220` is read once, folded into `q`, and cleared from the
+address bar.
 
 Serving this needs one thing from the host: any non-asset path must return
 `index.html` so the client can route it. Cloudflare does that through

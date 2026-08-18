@@ -62,12 +62,16 @@ test('document.title names the view; the Map keeps the page title', () => {
 });
 
 test('D-URL-3: the URL state set — filters, permit, and List sort/dir/page — parses and validates', () => {
+    // `zip` is RETIRED as shareable state but stays on the owned-key list:
+    // that is what strips a legacy `?zip=` from the address after its value
+    // has been folded into `q` (the ZIP select is gone; search matches ZIP by
+    // prefix). It is parsed on the way in and never written back.
     assert.deepEqual(URL_KEYS, ['q', 'zip', 'grade', 'restaurants', 'closed', 'new', 'mobile',
         'permit', 'sort', 'dir', 'page']);
     const s = parseUrlState('?q=Pizza+Hut&zip=23294&grade=b&restaurants=1&closed=1&new=0&mobile=1'
         + '&permit=0006F03C-9C54-4D3D-8253-0E4663C55669&sort=score&dir=desc&page=3&tier=lite');
     assert.deepEqual(s, {
-        q: 'pizza hut', zip: '23294', grade: 'B',
+        q: 'pizza hut', grade: 'B',
         restaurantsOnly: true, showClosed: true, showNew: false, showMobile: true,
         permit: '0006F03C-9C54-4D3D-8253-0E4663C55669', sortKey: 'score', sortDir: 'desc', page: 3,
     });
@@ -80,10 +84,21 @@ test('D-URL-3: the URL state set — filters, permit, and List sort/dir/page —
     assert.deepEqual(parseUrlState('?closed=true&new=false&mobile=off'), { showClosed: true, showNew: false, showMobile: false });
     assert.deepEqual(parseUrlState('?closed=maybe'), {});
     assert.deepEqual(parseUrlState('?page=999999999'), { page: 10000 });
+    // Legacy `?zip=` folds into the search box, so an old shared link keeps
+    // its meaning — the search matches a ZIP by prefix, and a full five-digit
+    // ZIP still names exactly one ZIP.
+    assert.deepEqual(parseUrlState('?zip=23294'), { q: '23294' });
+    assert.deepEqual(parseUrlState('?zip=23294&grade=a'), { q: '23294', grade: 'A' });
+    // A URL carrying both keeps `q`: they cannot be AND-ed in one field, and
+    // `q` is what the visitor actually typed.
+    assert.deepEqual(parseUrlState('?q=taco&zip=23294'), { q: 'taco' });
+    // An invalid legacy zip is still nothing at all — it does not become a search.
+    assert.deepEqual(parseUrlState('?zip=2329'), {});
+    assert.deepEqual(parseUrlState('?zip=abcde'), {});
 });
 
 test('D-URL-4: only non-default state is written; List-only keys only on the List; foreign params survive', () => {
-    const defaults = { q: '', zip: '', grade: '', restaurantsOnly: false, showClosed: false, showNew: true, showMobile: false };
+    const defaults = { q: '', grade: '', restaurantsOnly: false, showClosed: false, showNew: true, showMobile: false };
     assert.equal(serializeUrlState({ view: 'map', filters: defaults, permit: null, sort: { key: 'score', dir: 'asc' }, page: 1 }), '');
     assert.equal(serializeUrlState({ view: 'list', filters: defaults, sort: { key: 'score', dir: 'asc' }, page: 1 }), '');
     // toggles: the shipped default is unwritten in either direction
@@ -91,9 +106,9 @@ test('D-URL-4: only non-default state is written; List-only keys only on the Lis
     assert.equal(serializeUrlState({ view: 'map', filters: { ...defaults, showClosed: true, showMobile: true, restaurantsOnly: true } }),
         '?restaurants=1&closed=1&mobile=1');
     // List-only keys
-    const listState = { view: 'list', filters: { ...defaults, zip: '23294' }, sort: { key: 'name', dir: 'desc' }, page: 3 };
-    assert.equal(serializeUrlState(listState), '?zip=23294&sort=name&dir=desc&page=3');
-    assert.equal(serializeUrlState({ ...listState, view: 'map' }), '?zip=23294');
+    const listState = { view: 'list', filters: { ...defaults, q: '23294' }, sort: { key: 'name', dir: 'desc' }, page: 3 };
+    assert.equal(serializeUrlState(listState), '?q=23294&sort=name&dir=desc&page=3');
+    assert.equal(serializeUrlState({ ...listState, view: 'map' }), '?q=23294');
     // the tier's default sort is unwritten; a non-default dir alone is written with its key
     assert.equal(serializeUrlState({ view: 'list', filters: defaults, sort: { key: 'name', dir: 'asc' } },
         { defaultSort: { key: 'name', dir: 'asc' } }), '');
@@ -101,8 +116,10 @@ test('D-URL-4: only non-default state is written; List-only keys only on the Lis
     // permit and search
     assert.equal(serializeUrlState({ view: 'map', filters: { ...defaults, q: 'pizza hut' }, permit: 'ABC-123' }), '?q=pizza+hut&permit=ABC-123');
     // ?tier=lite (and anything else foreign) passes through; our stale keys are replaced
-    assert.equal(serializeUrlState({ view: 'map', filters: { ...defaults, zip: '23294' } }, { current: '?tier=lite&zip=00000&page=9' }),
-        '?tier=lite&zip=23294');
+    // ...and a stale `zip` is CLEARED rather than carried, because the router
+    // still owns the key even though it never writes it again.
+    assert.equal(serializeUrlState({ view: 'map', filters: { ...defaults, q: '23294' } }, { current: '?tier=lite&zip=00000&page=9' }),
+        '?tier=lite&q=23294');
     // Reload-stable: "default" for a toggle is what an OMITTED key falls back to —
     // the visitor's persisted value — so a toggle equal to it is unwritten and one
     // that differs is written even when it sits at the shipped default. Otherwise
@@ -125,14 +142,14 @@ test('D-URL-4: only non-default state is written; List-only keys only on the Lis
 test('URL state round-trips: parse(serialize(state)) names exactly the non-default state', () => {
     const state = {
         view: 'list',
-        filters: { q: 'taco', zip: '24060', grade: 'F', restaurantsOnly: true, showClosed: true, showNew: false, showMobile: true },
+        filters: { q: 'taco', grade: 'F', restaurantsOnly: true, showClosed: true, showNew: false, showMobile: true },
         permit: 'B4E2CB07-3B0F-4B27-B1BE-4B7A0E7A9F1E',
         sort: { key: 'date', dir: 'desc' },
         page: 4,
     };
     const parsed = parseUrlState(serializeUrlState(state));
     assert.deepEqual(parsed, {
-        q: 'taco', zip: '24060', grade: 'F',
+        q: 'taco', grade: 'F',
         restaurantsOnly: true, showClosed: true, showNew: false, showMobile: true,
         permit: state.permit, sortKey: 'date', sortDir: 'desc', page: 4,
     });
@@ -234,13 +251,16 @@ test('the legacy #about hash migrates to /about and view switches route through 
 test('every filter change resets the load-more position and mirrors into the URL', () => {
     const orch = moduleSource('foodDashboard.js');
     assert.match(orch, /const filtersChanged = \(\) => \{\s*this\._page = 1;\s*this\._rebuildMarkers\(\);\s*this\._syncUrl\(\);\s*\};/);
-    // search, zip, grade chips, and the four toggles all go through it
-    assert.equal((orch.match(/filtersChanged\(\);/g) || []).length, 4);
+    // search, grade chips, and the four toggles all go through it — the ZIP
+    // select that used to be the fourth caller is retired.
+    assert.equal((orch.match(/filtersChanged\(\);/g) || []).length, 3);
     assert.match(orch, /for \(const \[id, field, storageKey\] of toggles\)/);
     // sort headers reset the page too
     assert.match(orch, /this\._sort = \{ key: k, dir: 'asc' \};\s*this\._page = 1;\s*this\._rebuildList\(\);\s*this\._syncUrl\(\);/);
-    // the ZIP select restores a URL-carried zip once its options exist
-    assert.match(moduleSource('filters.js'), /const current = sel\.value \|\| this\._filters\.zip;/);
+    // the ZIP select is gone, and nothing is left wiring one up
+    assert.doesNotMatch(orch, /foodZipFilter|_populateZipFilter/);   // retired-ok: asserting absence
+    assert.doesNotMatch(moduleSource('filters.js'), /foodZipFilter|_populateZipFilter/);   // retired-ok
+    assert.doesNotMatch(moduleSource('router.js'), /foodZipFilter/);   // retired-ok
 });
 
 test('serving fallbacks: <base href> mount, Cloudflare SPA not-found handling, dev server view paths', () => {
