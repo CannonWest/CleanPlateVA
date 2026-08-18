@@ -77,16 +77,27 @@ test('filters cluster grows rather than trusting its wrap-folded max-content', (
 });
 
 test('status degrades in tiers instead of wrapping the toolbar', () => {
-    // Under 1500 the count sheds its unit and the search narrows, buying the
-    // filter cluster room for its four switches.
+    // Under 1500 the count sheds its unit word, buying the filter cluster room
+    // for its four switches.
     const blocks = [...css.matchAll(/@media \(max-width: 1499\.98px\)\s*\{([\s\S]*?)\n\}/g)]
         .map((m) => m[1]).join('\n');
     assert.match(blocks, /\.food-count-unit\s*\{\s*display:\s*none/);
-    assert.match(blocks, /\.food-search\s*\{\s*max-width/);
 
     // Same width drops the dates to their short form before the footer wraps.
     assert.match(blocks, /\.food-freshness-full\s*\{\s*display:\s*none/);
     assert.match(blocks, /\.food-freshness-short\s*\{\s*display:\s*inline/);
+
+    // The search box narrows in a THIRD tier, at lg rather than xxl. It moved
+    // there when the ZIP select left the row (2026-08-18) and handed its
+    // ~110px to the control that inherited its job — the box now carries
+    // name / address / city / ZIP and says so in its placeholder. Measured on
+    // the full tier at 260px: one line down to 1180px, wraps at 1160px, so lg
+    // leaves ~20px of margin.
+    const lg = [...css.matchAll(/@media \(max-width: 1199\.98px\)\s*\{([\s\S]*?)\n\}/g)]
+        .map((m) => m[1]).join('\n');
+    assert.match(lg, /\.food-search\s*\{\s*max-width:\s*190px/);
+    // ...and it is NOT also squeezed at 1500, which would silently undo that.
+    assert.doesNotMatch(blocks, /\.food-search/);
 
     // Default state is the full phrasing; short is the exception.
     assert.match(css, /\.food-freshness-short\s*\{\s*display:\s*none/);
