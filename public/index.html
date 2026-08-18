@@ -486,8 +486,8 @@
                             <span class="about-pipeline-step">6</span>
                             <i class="bi bi-cloud-arrow-up"></i>
                             <h3>Publish two contracts</h3>
-                            <p>Small manifests name each prepared snapshot. Data objects publish first and the manifest flips last; full archive JSON lives in private R2 behind the Access-gated Worker.</p>
-                            <div><code>static lite</code><code>private full</code><code>full → lite fallback</code></div>
+                            <p>Small manifests name each prepared snapshot. Data objects publish first and the manifest flips last; the full archive JSON lives in R2 and is served by the Worker once the terms have been acknowledged.</p>
+                            <div><code>static lite</code><code>acknowledged full</code><code>full → lite fallback</code></div>
                         </li>
                     </ol>
                     <div class="about-pipeline-note"><i class="bi bi-link-45deg"></i><span>VDH GUIDs stay attached through the path. Views link back where the corresponding MyHealthDepartment tenant route is available.</span></div>
