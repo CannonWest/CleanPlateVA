@@ -272,6 +272,13 @@ Routes above). A bare static server over `public/` still works for the map,
 but loading `/list` or `/about` directly will 404 on it — reach those through
 the in-page tabs, or use `app.py`.
 
+`tools/` holds dev-only checks that are not part of the site:
+`tools/visits-crosscheck.mjs` runs the real sparkline pipeline over every
+detail under `public/data-full/facility/` and compares the marks with the
+overlay's `visits` column (`--view public/data-full`, or `--dump` a
+permit→visits map) — the exporter/renderer parity proof behind design ref
+D-DATA-13. `node --test tests/*.test.mjs` runs the suites.
+
 ## Data source
 
 Inspection records originate from the
