@@ -6,7 +6,7 @@ routes it. Not used in deployment.
 
 Two optional environment variables point the two data channels at alternate
 roots so the client can be exercised against a materialization that is not
-the checkout's own (CPD-M2 QA against cannon-food's `--contract v4 --out`):
+the checkout's own (CPD-M2 QA against cannon-food's `--mode lite --out`):
 
     CLEANPLATE_DATA_ROOT       serves /data/*       (default public/data)
     CLEANPLATE_DATA_FULL_ROOT  serves /data-full/*  (default public/data-full)
