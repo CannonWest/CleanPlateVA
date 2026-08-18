@@ -517,26 +517,20 @@ test('no surface pairs a focused re-check with its raw report score', () => {
     // the one number that must NOT appear — it reads near 100 on any focused
     // docket regardless of outcome, so beside a real signal it wins the glance.
     // Under Contract V4 the roster row's overlay carries no per-visit score at
-    // all (grade score only); the raw 92 can reach the card only through the
-    // prefetched detail's inspection rows — and even there it prints nowhere.
+    // all (grade score only) — and since CPH the hover series it carries is
+    // the exporter's `visits`, whose focused entries hold the OUT/addressed
+    // ratio and NEVER a raw score (the exporter publishes null for non-broad
+    // scores; `[2, d, out, addressed]` has no slot for one). The card is a
+    // pure function of the row, so 92 cannot reach it at all.
     const rowV4 = {
         permit_id: 'CF6DE8B6', name: 'Lakeside Grill', address: '6920 Lakeside Ave',
         zip: '23228', lat: 37.6, lon: -77.5, loc: 0,
         o: { grade_score: 20, new: 0, trend_delta: -5, latest_yyyymmdd: 20260402,
             base_yyyymmdd: 20260204, latest_scope_code: 2, latest_out: 3, latest_items: 3,
-            compliance_pct: null },
-    };
-    const detail = {
-        available: true,
-        inspections: [
-            { date: '2026-04-02', score: 92, checklist_present: true,
-                checklist: [1, 2, 3].map((item) => ({ item, disposition: 'OUT', violation: true })) },
-            { date: '2026-02-04', score: 25, checklist_present: true,
-                checklist: Array.from({ length: 35 }, (_, i) => ({ item: i + 1, disposition: i < 3 ? 'OUT' : 'IN', violation: i < 3, compliant: i >= 3 })) },
-        ],
+            compliance_pct: null, visits: [[1, 20260204, 25], [2, 20260402, 3, 3]] },
     };
     const card = proto._hoverCardHTML.call(
-        Object.assign(Object.create(proto), { _mode: 'full' }), rowV4, detail);
+        Object.assign(Object.create(proto), { _mode: 'full' }), rowV4);
     assert.doesNotMatch(card, /raw 92|score 92/, 'card still prints the raw score');
     assert.doesNotMatch(card, /\b92\b/, 'card still prints 92 somewhere');
     assert.match(card, /3\/3/);   // the honest signal survives — on the diamond

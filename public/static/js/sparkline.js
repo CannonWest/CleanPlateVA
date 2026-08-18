@@ -11,22 +11,36 @@ import {
     buildScopeSeries, esc, fmtDate, focusedOutcomePresentation, narrativeVerdictPresentation,
 } from './presentation.js';
 
+// The static markup around one plot. Initial render at the default viewBox
+// width; _bindSparkline (panel only) re-renders at a width matched to the
+// card's rendered size so the points spread to fill it (the height stays
+// locked — see _sparkSvg and the CSS). `dashboard` is whatever object carries
+// `_sparkSvg` + `_scoreColor` — the FoodDashboard prototype in the app, a bare
+// context in the suites.
+function sparkMarkup(dashboard, series) {
+    if (!series?.events?.length) return '';
+    const { svg, nodes } = dashboard._sparkSvg(series, 280);
+    return `<div class="food-spark" data-spark-nodes="${esc(JSON.stringify(nodes))}">
+            <span class="food-grade-caption">Trend</span>
+            ${svg}
+        </div>`;
+}
+
 export const sparklineMethods = {
     // One comparison history: broad assessments form the connected line;
     // focused inspections keep their time position as unconnected raw-formula
     // diamonds, colored by their own OUT/addressed compliance outcome. They do
     // not join the broad score line. Unknown-scope events are baseline ticks.
     _sparkline(inspections) {
-        const series = buildScopeSeries(inspections);
-        if (!series.events.length) return '';
-        // Initial render at the default viewBox width; _bindSparkline re-renders
-        // at a width matched to the card's rendered size so the points spread to
-        // fill it (the height stays locked — see _sparkSvg and the CSS).
-        const { svg, nodes } = this._sparkSvg(series, 280);
-        return `<div class="food-spark" data-spark-nodes="${esc(JSON.stringify(nodes))}">
-            <span class="food-grade-caption">Trend</span>
-            ${svg}
-        </div>`;
+        return sparkMarkup(this, buildScopeSeries(inspections));
+    },
+
+    // The one renderer behind both surfaces: the click panel hands it the
+    // detail's inspections (through buildScopeSeries, above); the hover card
+    // hands it the roster row's `visits` (through presentation.visitsOf) —
+    // same series shape, same marks, no fetch.
+    _sparklineFromSeries(series) {
+        return sparkMarkup(this, series);
     },
 
     // The trend SVG for a given viewBox width W, plus the hover node registry.
