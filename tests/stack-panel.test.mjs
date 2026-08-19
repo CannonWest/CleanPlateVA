@@ -106,9 +106,13 @@ test('the web tells the panel how far to stand off', () => {
     assert.equal(Math.round(spiderReach([[30, 40]], 7.5)), 58);
     const stacks = moduleSource('stacks.js');
     assert.match(stacks, /reach: spiderReach\(offsets, coarse \? 10\.5 : 7\.5\)/);
-    // Above by preference, flipped below only when the top would run off.
-    assert.match(stacks, /const fitsAbove = at\.y \+ up - height \/ 2 >= 8;/);
-    assert.match(stacks, /setOffset\(\[0, fitsAbove \? up : \(reach \+ gap \+ height \/ 2\)\]\)/);
+    // Above by preference; flipped below when the top would run off; and when
+    // NEITHER fits — a short map with a tall panel — clamped onto the map
+    // rather than left hanging off its bottom edge, which is where the flip
+    // put it on a 534px-tall viewport before this clamp existed.
+    assert.match(stacks, /if \(at\.y \+ up - half >= EDGE\) \{/);
+    assert.match(stacks, /\} else if \(at\.y \+ down \+ half <= view - EDGE\) \{/);
+    assert.match(stacks, /const centre = Math\.min\(Math\.max\(at\.y \+ dy, EDGE \+ half\), view - EDGE - half\);/);
 });
 
 test('a filter change re-seats the open web instead of closing it', () => {
