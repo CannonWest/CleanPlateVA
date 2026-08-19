@@ -255,9 +255,10 @@ test('the legacy #about hash migrates to /about and view switches route through 
 test('every filter change resets the load-more position and mirrors into the URL', () => {
     const orch = moduleSource('foodDashboard.js');
     assert.match(orch, /const filtersChanged = \(\) => \{\s*this\._page = 1;\s*this\._rebuildMarkers\(\);\s*this\._syncUrl\(\);\s*\};/);
-    // search, grade chips, and the four toggles all go through it — the ZIP
-    // select that used to be the fourth caller is retired.
-    assert.equal((orch.match(/filtersChanged\(\);/g) || []).length, 3);
+    // search, the clear button, grade chips, and the four toggles all go
+    // through it. (The ZIP select was a caller until it was retired; the clear
+    // button took the slot back.)
+    assert.equal((orch.match(/filtersChanged\(\);/g) || []).length, 4);
     assert.match(orch, /for \(const \[id, field, storageKey\] of toggles\)/);
     // sort headers reset the page too
     assert.match(orch, /this\._sort = \{ key: k, dir: 'asc' \};\s*this\._page = 1;\s*this\._rebuildList\(\);\s*this\._syncUrl\(\);/);

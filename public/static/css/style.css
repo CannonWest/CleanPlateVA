@@ -156,7 +156,52 @@ body {
 .food-map-error { font-size: 0.9rem; }
 
 .food-toolbar { background: var(--cp-surface); border-color: var(--cp-border) !important; }
-.food-toolbar .food-search { max-width: 260px; }
+/* The one search box. The wrapper owns the width because the input no longer
+   stands alone: a leading glyph says what the field is, and a trailing button
+   clears it. Both sit INSIDE the field's box, so the input carries padding for
+   them rather than the row carrying extra children. */
+.food-toolbar .food-search-wrap { max-width: 260px; }
+.food-search-wrap { position: relative; display: flex; align-items: center; min-width: 0; flex: 1 1 auto; }
+.food-search-wrap .food-search { width: 100%; padding-left: 1.9rem; padding-right: 1.8rem; }
+
+.food-search-icon {
+    position: absolute; left: .62rem; top: 50%; transform: translateY(-50%);
+    color: var(--cp-muted); font-size: .8rem; line-height: 1;
+    pointer-events: none;   /* the glyph is a label, not a target */
+}
+
+/* Ours, because the native one is not good enough: Chrome paints
+   ::-webkit-search-cancel-button only while the field is hovered or focused,
+   so it disappears from a field that still holds a query, and Firefox paints
+   none at all. This one is themeable, keyboard-reachable, and present exactly
+   when there is something to clear. */
+.food-search-clear {
+    position: absolute; right: .28rem; top: 50%; transform: translateY(-50%);
+    display: none; align-items: center; justify-content: center;
+    width: 1.35rem; height: 1.35rem; padding: 0;
+    border: 0; border-radius: 50%; background: transparent;
+    color: var(--cp-muted); font-size: .65rem; line-height: 1; cursor: pointer;
+}
+/* CSS, not JS: :placeholder-shown tracks the real value, so a query the router
+   restored from ?q= gets the button too, with no state to keep in sync. An
+   empty field's button is display:none, which also takes it out of tab order. */
+.food-search:not(:placeholder-shown) ~ .food-search-clear { display: flex; }
+.food-search-clear:hover { color: var(--cp-text); background: var(--cp-surface-3); }
+.food-search-clear:focus-visible {
+    color: var(--cp-text); background: var(--cp-surface-3);
+    outline: 2px solid var(--cp-accent); outline-offset: 1px;
+}
+/* Two clear buttons would be one too many. */
+.food-search::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }
+
+/* A finger needs more than 22px. The field is only ~34px tall, so ~30px is the
+   practical ceiling — the same reasoning that bumps marker radius on coarse
+   pointers rather than pretending 7px is tappable. */
+@media (pointer: coarse) {
+    .food-search-clear { width: 1.85rem; height: 1.85rem; font-size: .72rem; }
+    .food-search-wrap .food-search { padding-right: 2.15rem; }
+}
+
 
 /* Toolbar clusters. Filters wrap among themselves; status never splits (its
    three parts are one readout). min-width:0 lets filters shrink instead of
@@ -241,7 +286,18 @@ body {
    260px: one line down to 1180px, wraps at 1160px. The squeeze therefore
    starts at the lg breakpoint, with ~20px of margin. */
 @media (max-width: 1199.98px) {
-    .food-toolbar .food-search { max-width: 190px; }
+    /* 200, not the 190 this was before the field grew a glyph and a clear
+       button: those cost ~59px of the box's INNER width, and 200 is the widest
+       squeeze that still saves a toolbar row at both pinch points (measured on
+       the full tier: 190/200 hold the row where 210+ loses it). */
+    .food-toolbar .food-search-wrap { max-width: 200px; }
+}
+/* On a phone the box already has the row to itself (measured at 375: no
+   companions on its line, and widening to 300px costs no toolbar height) and
+   the font comes up to 16px — the size that stops iOS zooming a focused field
+   — so the placeholder needs MORE room here, not less. Let it take the row. */
+@media (max-width: 575.98px) {
+    .food-toolbar .food-search-wrap { max-width: none; flex-basis: 100%; }
 }
 /* Lite is the public face and hides the grade chips + show-closed (~276px),
    so its toolbar has room the full tier doesn't — a bare "17,286" in a pill
