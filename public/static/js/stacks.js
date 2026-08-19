@@ -281,7 +281,7 @@ export const stackMethods = {
         // line, not once the gesture finishes. Safe against the easeTo below,
         // which only ever raises zoom.
         this._map.on('zoom', this._onSpiderZoom);
-        this._openStackPanel(group, page);
+        this._openStackPanel(group, page, { centring: recenter });
         // Centre the web and give it clear ground. Zoom never decreases: a
         // stack opened while already close in should not be pushed back out.
         // Skipped when the web is only being RE-seated after a filter change —
@@ -291,6 +291,12 @@ export const stackMethods = {
                 center: lngLat,
                 zoom: Math.max(this._map.getZoom(), STACK_OPEN_ZOOM),
                 duration: 550,
+            });
+            // The stack has arrived: stop assuming and start measuring.
+            this._map.once('moveend', () => {
+                if (!this._stackPanel) return;
+                this._stackPanel.pinnedY = null;
+                this._positionStackPanel();
             });
         }
     },
@@ -302,7 +308,7 @@ export const stackMethods = {
      *  never did. It rides a MapLibre Marker so the map moves it for free,
      *  offset in SCREEN space clear of the web's outer reach — the same trick
      *  the legs use, for the same reason. */
-    _openStackPanel(group, page = 1) {
+    _openStackPanel(group, page = 1, { centring = false } = {}) {
         this._closeStackPanel();
         if (typeof maplibregl === 'undefined' || !this._map) return;
         const el = document.createElement('div');
@@ -313,6 +319,16 @@ export const stackMethods = {
         el.addEventListener('click', (e) => e.stopPropagation());
         this._stackPanel = {
             el, group, page, marker: null, place: sharedPlace(group.members),
+            // Where to reckon the stack to BE while the opening ease is flying
+            // it to the middle. Without this the panel is placed against the
+            // pre-ease camera — against wherever the visitor happened to click
+            // — so a stack in the top third opens the panel BELOW it and then
+            // jumps sides mid-flight. Measured: on a 946px map the panel needs
+            // the stack at y >= 298 to fit above it, so every click in the top
+            // 31% opened downward, and a shorter map makes that band bigger.
+            pinnedY: centring
+                ? this._map.getContainer().getBoundingClientRect().height / 2
+                : null,
         };
         this._renderStackPanel();
         this._stackPanel.marker = new maplibregl.Marker({ element: el })
@@ -402,7 +418,10 @@ export const stackMethods = {
         const gap = 16;
         const half = (panel.el.offsetHeight || 0) / 2;
         const view = this._map.getContainer().getBoundingClientRect().height;
-        const at = this._map.project(panel.marker.getLngLat());   // container-relative
+        const projected = this._map.project(panel.marker.getLngLat());  // container-relative
+        // `pinnedY` is where the opening ease is taking the stack; once it
+        // lands, the real projection takes over for every later pan and zoom.
+        const at = { y: panel.pinnedY ?? projected.y };
         const up = -(reach + gap + half);
         const down = reach + gap + half;
         const EDGE = 8;
