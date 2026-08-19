@@ -115,6 +115,26 @@ test('the web tells the panel how far to stand off', () => {
     assert.match(stacks, /const centre = Math\.min\(Math\.max\(at\.y \+ dy, EDGE \+ half\), view - EDGE - half\);/);
 });
 
+test('the panel opens where the stack is GOING, not where it was clicked', () => {
+    // Opening a stack eases it to the middle, but the panel was placed against
+    // the PRE-ease camera — against wherever the visitor happened to click. A
+    // stack in the top of the map therefore opened its panel downward and then
+    // jumped sides mid-flight, which is what "it opens downward a lot of the
+    // time" was. Measured on a 946px map: the panel needs the stack at y >= 298
+    // to fit above it, so every click in the top 31% opened the wrong way, and
+    // a shorter map makes that band bigger.
+    const stacks = moduleSource('stacks.js');
+    assert.match(stacks, /pinnedY: centring\s*\?\s*this\._map\.getContainer\(\)\.getBoundingClientRect\(\)\.height \/ 2\s*:\s*null,/);
+    assert.match(stacks, /const at = \{ y: panel\.pinnedY \?\? projected\.y \};/);
+    assert.match(stacks, /this\._openStackPanel\(group, page, \{ centring: recenter \}\);/);
+    // And once the stack lands, measuring takes over from assuming — so every
+    // later pan and zoom re-decides normally.
+    assert.match(stacks, /this\._map\.once\('moveend', \(\) => \{[\s\S]{0,200}?pinnedY = null;[\s\S]{0,80}?_positionStackPanel\(\);/);
+    // A re-seat after a filter change does NOT centre, so it must not pin:
+    // there the stack really is where it is projected.
+    assert.match(stacks, /_openStackPanel\(group, page = 1, \{ centring = false \} = \{\}\)/);
+});
+
 test('a filter change re-seats the open web instead of closing it', () => {
     const markers = moduleSource('markers.js');
     // The page position is carried across, so re-rendering does not throw the
