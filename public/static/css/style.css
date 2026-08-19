@@ -450,12 +450,27 @@ body {
 .theme-dark .food-stack-panel-where { color: var(--cp-muted); }
 
 .food-stack-panel-list { list-style: none; margin: 0; padding: 0; }
+/* The row IS the control: a real button, so it is tabbable and pressable
+   without any role/tabindex bolted on. */
 .food-stack-row {
     display: flex;
     align-items: center;
     gap: 0.4rem;
-    padding: 0.25rem 0.3rem;
+    width: 100%;
+    padding: 0.3rem;
+    border: 0;
     border-radius: 0.3rem;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+.food-stack-row:hover { background: #eef2f7; }
+.theme-dark .food-stack-row:hover { background: rgba(77, 171, 247, 0.16); }
+.food-stack-row:focus-visible {
+    outline: 2px solid var(--cp-accent);
+    outline-offset: -2px;
 }
 /* Pointing at a leg lights its row and the other way round, so the ring and
    the list are one thing rather than two lists of the same places. */
@@ -473,20 +488,6 @@ body {
 .food-stack-row-suite { flex: 0 0 auto; color: #5f6b7a; }
 .theme-dark .food-stack-row-suite { color: var(--cp-muted); }
 .food-stack-row .food-list-score { flex: 0 0 auto; }
-.food-stack-row-open {
-    flex: 0 0 auto;
-    padding: 0.05rem 0.4rem;
-    border-radius: 0.25rem;
-    border: 1px solid #ced4da;
-    background: transparent;
-    color: inherit;
-    font-size: 0.72rem;
-    cursor: pointer;
-}
-.food-stack-row-open:hover { background: #eef2f7; }
-.theme-dark .food-stack-row-open { border-color: var(--cp-border); }
-.theme-dark .food-stack-row-open:hover { background: rgba(77, 171, 247, 0.16); }
-
 .food-stack-panel-pager {
     display: flex;
     align-items: center;
