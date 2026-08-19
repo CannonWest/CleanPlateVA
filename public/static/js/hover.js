@@ -20,16 +20,62 @@ export const hoverMethods = {
     _hideHoverCard() {
         this._hoverPid = null;
         this._hoverPopup?.remove();
+        this._yieldStackPanel(false);
     },
 
-    _showHoverCard(lngLat, f) {
-        const popup = this._hoverPopup;
+    /** The popup to use, built with the anchor this moment needs.
+     *
+     *  MapLibre opens a popup UPWARD by default, and the stack panel stands
+     *  above the web — so a leg's card and the panel compete for the same
+     *  strip of screen and the panel would yield on nearly every hover. That
+     *  is worse than it sounds: the row the leg lights up lives IN the panel,
+     *  so yielding hides the very highlight the hover just produced. Anchoring
+     *  a leg's card to 'top' hangs it BELOW the leg instead, where the panel
+     *  is not, and the two coexist the way they should. Recreated rather than
+     *  mutated because `anchor` is a construction option. */
+    _hoverPopupFor(anchor) {
+        if (this._hoverPopup && this._hoverPopupAnchor === anchor) return this._hoverPopup;
+        if (typeof maplibregl === 'undefined') return this._hoverPopup;
+        this._hoverPopup?.remove();
+        this._hoverPopup = new maplibregl.Popup({
+            closeButton: false, closeOnClick: false,
+            offset: 12, maxWidth: '280px', className: 'food-tip',
+            ...(anchor ? { anchor } : {}),
+        });
+        this._hoverPopupAnchor = anchor;
+        return this._hoverPopup;
+    },
+
+    _showHoverCard(lngLat, f, { below = false } = {}) {
+        const popup = this._hoverPopupFor(below ? 'top' : null);
         if (!popup) return;
         this._hoverPid = f.permit_id;
         const lite = this._mode === 'lite';
         // Lite keeps the slim name+address tip; the hero card needs the room.
         popup.setMaxWidth(lite ? '280px' : '380px');
         popup.setLngLat(lngLat).setHTML(this._hoverCardHTML(f)).addTo(this._map);
+        this._yieldStackPanel(this._hoverCardCollides());
+    },
+
+    /** Does the open card land on top of the stack panel? Both are placed to
+     *  avoid it — the panel sits clear of the web's outer reach, and the card
+     *  hangs off a leg inside it — but a tall card on a short map runs out of
+     *  room, and then something has to give. */
+    _hoverCardCollides() {
+        const panel = this._stackPanel?.el;
+        const card = this._hoverPopup?.getElement();
+        if (!panel || !card) return false;
+        const a = panel.getBoundingClientRect();
+        const b = card.getBoundingClientRect();
+        if (!a.width || !b.width) return false;
+        return a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+    },
+
+    /** The active hover wins (Cannon, 2026-08-19): the panel is a standing
+     *  reference, the card is what the pointer is asking about right now. It
+     *  comes back the moment the pointer leaves. */
+    _yieldStackPanel(yielding) {
+        this._stackPanel?.el?.classList.toggle('is-yielded', !!yielding);
     },
 
     // The hover card previews the detail panel's grade hero: name + address,

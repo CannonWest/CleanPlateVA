@@ -413,11 +413,7 @@ export const mapMethods = {
         // overlay row in memory (hover.js); nothing is fetched on hover.
         // Interactive trend/receipt behavior belongs only to the clicked panel.
         if (!coarse) {
-            this._hoverPopup = new maplibregl.Popup({
-                closeButton: false, closeOnClick: false,
-                offset: 12, maxWidth: '280px',
-                className: 'food-tip',
-            });
+            this._hoverPopupFor(null);   // hover.js owns the construction
             map.on('mousemove', (e) => this._onMapHover(e));
             // Leaving the canvas is not a mousemove, so the card would hang.
             map.on('mouseout', () => {
@@ -440,6 +436,14 @@ export const mapMethods = {
     /** Hover: cursor, and the card for whatever the pointer means. */
     _onMapHover(e) {
         const map = this._map;
+        // Markers are DOM children of the map CONTAINER, not siblings of it,
+        // so a pointer over a spider leg or the stack panel still bubbles a
+        // map-level mousemove. That is not "the pointer is over empty ground":
+        // the leg owns that moment and has already opened its own card, and
+        // without this guard the card is shown by the leg and hidden again by
+        // this handler on the very same movement. Layer-scoped handlers never
+        // had the problem because they only fired over their own features.
+        if (e.originalEvent?.target?.closest?.('.maplibregl-marker')) return;
         const hit = this._pickMarkAt(e.point);
         if (!hit) {
             map.getCanvas().style.cursor = '';

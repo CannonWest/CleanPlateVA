@@ -71,7 +71,10 @@ import { sparklineMethods } from './sparkline.js';
 import { inspectionMethods } from './inspection.js';
 import { ackMethods } from './ack.js';
 
-export { spiderOffsets, stackKey, stackRadius, stackRingIcon } from './stacks.js';
+export {
+    baseAddress, memberSuite, sharedPlace, spiderOffsets, spiderReach, stackKey,
+    stackRadius, stackRingIcon, STACK_PANEL_PAGE,
+} from './stacks.js';
 export {
     buildScopeSeries, coordsOf, facilityPresentation, focusedOutcomePresentation,
     gradePresentation, inspectionCountsPresentation, inspectionPresentation,
@@ -113,10 +116,18 @@ export class FoodDashboard {
         this._mapReady = false;      // first style.load has run (source exists)
         this._styleIsDark = null;
         this._hoverPopup = null;
+        // Which anchor the current popup was built with: null = MapLibre's
+        // automatic choice, 'top' = hanging below its point (hover.js).
+        this._hoverPopupAnchor = null;
         this._hoverPid = null;       // permit under the open hover card
         this._geojson = null;        // last-built FeatureCollection (re-applied on style swaps)
         this._stacks = new Map();    // coord key → { key, lat, lon, members }
         this._spider = null;         // the open stack's DOM legs, if any
+        // The list that opens with a web (stacks.js): which places share the
+        // point, paginated, with a way into each. Rides its own MapLibre
+        // marker, so the map keeps it over its stack for free.
+        this._stackPanel = null;
+        this._onStackPanelMove = () => this._positionStackPanel();
         // Stable reference so the movestart listener can be removed again: a
         // web survives a camera move (its legs are screen offsets) but an open
         // hover card is pinned to a geographic point and would drift.

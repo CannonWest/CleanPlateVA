@@ -413,6 +413,109 @@ body {
     stroke-dasharray: 2 3;
 }
 
+/* The list that opens with a web. A ring of identical dots answers "how
+   many" but not "which"; this answers both, and is the only way into a
+   stacked place that does not require aiming at a 15px dot. It rides its own
+   MapLibre marker, offset in screen space clear of the web's outer reach, so
+   it never covers the legs it is describing. */
+.food-stack-panel {
+    width: 300px;
+    max-width: 80vw;
+    padding: 0.5rem 0.55rem 0.4rem;
+    border-radius: 0.5rem;
+    background: #fff;
+    border: 1px solid #dee2e6;
+    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.22);
+    font-size: 0.8rem;
+    line-height: 1.35;
+    color: #212529;
+    cursor: default;
+    /* The card that a hovered leg opens takes priority when the two collide
+       (hover.js). Visibility rather than display so the panel keeps its box
+       and the offset maths does not jump while it is away. */
+    transition: opacity 0.12s ease;
+}
+.food-stack-panel.is-yielded { opacity: 0; pointer-events: none; }
+.theme-dark .food-stack-panel {
+    background: var(--cp-surface-3);
+    border-color: var(--cp-border);
+    color: var(--cp-text);
+}
+
+.food-stack-panel-head { margin-bottom: 0.4rem; }
+.food-stack-panel-head strong { font-size: 0.84rem; }
+/* The line the members have in COMMON — a third of stacks disagree on the
+   full address, so the suite lives on the row instead (stacks.js). */
+.food-stack-panel-where { color: #5f6b7a; font-size: 0.75rem; }
+.theme-dark .food-stack-panel-where { color: var(--cp-muted); }
+
+.food-stack-panel-list { list-style: none; margin: 0; padding: 0; }
+.food-stack-row {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.25rem 0.3rem;
+    border-radius: 0.3rem;
+}
+/* Pointing at a leg lights its row and the other way round, so the ring and
+   the list are one thing rather than two lists of the same places. */
+.food-stack-row.is-linked { background: #eef2f7; }
+.theme-dark .food-stack-row.is-linked { background: rgba(77, 171, 247, 0.16); }
+.food-stack-row-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+/* Never truncated: at one address the suite is the only thing telling two
+   rows apart, so the NAME gives way and this does not. */
+.food-stack-row-suite { flex: 0 0 auto; color: #5f6b7a; }
+.theme-dark .food-stack-row-suite { color: var(--cp-muted); }
+.food-stack-row .food-list-score { flex: 0 0 auto; }
+.food-stack-row-open {
+    flex: 0 0 auto;
+    padding: 0.05rem 0.4rem;
+    border-radius: 0.25rem;
+    border: 1px solid #ced4da;
+    background: transparent;
+    color: inherit;
+    font-size: 0.72rem;
+    cursor: pointer;
+}
+.food-stack-row-open:hover { background: #eef2f7; }
+.theme-dark .food-stack-row-open { border-color: var(--cp-border); }
+.theme-dark .food-stack-row-open:hover { background: rgba(77, 171, 247, 0.16); }
+
+.food-stack-panel-pager {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.4rem;
+    margin-top: 0.35rem;
+    padding-top: 0.3rem;
+    border-top: 1px solid #e9ecef;
+    color: #5f6b7a;
+    font-size: 0.72rem;
+}
+.theme-dark .food-stack-panel-pager { border-top-color: var(--cp-border); color: var(--cp-muted); }
+.food-stack-page {
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font-size: 0.95rem;
+    line-height: 1;
+    padding: 0 0.35rem;
+    cursor: pointer;
+}
+.food-stack-page:disabled { opacity: 0.35; cursor: default; }
+
+/* The leg a row is pointing at. A ring, not a transform: MapLibre owns each
+   leg's `transform` to place it, and a second one here would fight it. */
+.food-spider-leg.is-linked {
+    box-shadow: 0 0 0 3px rgba(77, 171, 247, 0.9);
+}
+
 /* What is left of the bubble while its web is open: the point the ring
    belongs to, dimmed, so the fan reads as anchored rather than free-floating.
    Neutral and semi-transparent, so it works over either basemap. */
