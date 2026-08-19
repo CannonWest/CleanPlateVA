@@ -95,6 +95,10 @@ test('D-URL-3: the URL state set — filters, permit, and List sort/dir/page —
     // An invalid legacy zip is still nothing at all — it does not become a search.
     assert.deepEqual(parseUrlState('?zip=2329'), {});
     assert.deepEqual(parseUrlState('?zip=abcde'), {});
+    // Words are separated, not spelled: runs of whitespace collapse so that
+    // "richmond   taco" and "richmond taco" are one shared link, not two.
+    assert.deepEqual(parseUrlState('?q=Richmond+++Taco'), { q: 'richmond taco' });
+    assert.deepEqual(parseUrlState('?q=%20%20richmond%20%20taco%20%20'), { q: 'richmond taco' });
 });
 
 test('D-URL-4: only non-default state is written; List-only keys only on the List; foreign params survive', () => {

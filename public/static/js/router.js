@@ -113,7 +113,10 @@ export function parseUrlState(search) {
     const p = new URLSearchParams(search || '');
     const s = {};
     if (p.has('q')) {
-        const q = p.get('q').trim().toLowerCase();
+        // Same canonical form the search box produces: trimmed, lower-cased,
+        // and internal whitespace runs collapsed (words are separated, not
+        // spelled), so ?q=richmond+++taco and ?q=richmond+taco are one state.
+        const q = p.get('q').trim().toLowerCase().replace(/\s+/g, ' ');
         if (q) s.q = q;
     }
     // Legacy `?zip=23220` from the retired ZIP select. The search box matches
