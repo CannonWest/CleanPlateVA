@@ -396,13 +396,27 @@ export const stackMethods = {
         if (!panel || !spider || !this._map) return;
         const reach = spider.reach || 0;
         const gap = 16;
-        const height = panel.el.offsetHeight || 0;
-        const at = this._map.project(panel.marker.getLngLat());
-        const up = -(reach + gap + height / 2);
-        // Would its top edge clear the map's top edge? If not, flip under the
-        // web rather than let it hang off screen.
-        const fitsAbove = at.y + up - height / 2 >= 8;
-        panel.marker.setOffset([0, fitsAbove ? up : (reach + gap + height / 2)]);
+        const half = (panel.el.offsetHeight || 0) / 2;
+        const view = this._map.getContainer().getBoundingClientRect().height;
+        const at = this._map.project(panel.marker.getLngLat());   // container-relative
+        const up = -(reach + gap + half);
+        const down = reach + gap + half;
+        const EDGE = 8;
+        let dy;
+        if (at.y + up - half >= EDGE) {
+            dy = up;                                    // preferred: above the web
+        } else if (at.y + down + half <= view - EDGE) {
+            dy = down;                                  // flipped under it
+        } else {
+            // Neither side fits — a short map, a tall panel, or both. Keep it
+            // ON the map and accept some overlap with the web: a panel hanging
+            // off the bottom edge is no use to anyone, and this is the "screen
+            // is very tight" case where something has to give.
+            dy = at.y > view / 2 ? up : down;
+            const centre = Math.min(Math.max(at.y + dy, EDGE + half), view - EDGE - half);
+            dy = centre - at.y;
+        }
+        panel.marker.setOffset([0, dy]);
     },
 
     /** Light the leg that belongs to a row, and vice versa. A ring highlight
