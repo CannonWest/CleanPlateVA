@@ -162,13 +162,46 @@ test('the ZIP select is gone from the markup and the box says what it takes', ()
     assert.doesNotMatch(html, /foodZipFilter|All zips/);   // retired-ok: asserting absence
     assert.doesNotMatch(html, /<select[^>]*id="food/);
     const input = html.match(/<input[^>]*id="foodSearch"[\s\S]*?>/)?.[0] || '';
-    // The placeholder has to clear the SQUEEZED box (171px of inner width at
-    // the lg breakpoint), not just the roomy one. "Search name, address, or
-    // ZIP…" measured 188px and truncated; this is 145px, 26px to spare. The
-    // verb is redundant on a type=search input — the aria-label carries the
-    // full sentence for screen readers.
-    assert.match(input, /placeholder="Name, address, or ZIP…"/);
+    // The placeholder has to clear the SQUEEZED box, and that budget shrank
+    // when the field grew a leading glyph and a trailing clear button: ~59px
+    // of the box's inner width now belongs to them, leaving 141px at the lg
+    // squeeze. "Name, address, or ZIP…" measured 145px and truncated by 4px;
+    // dropping the "or" gives 128px, 13px to spare. The verb went earlier for
+    // the same reason and is doubly redundant now that a magnifying glass sits
+    // in the field — the aria-label carries the full sentence for screen
+    // readers either way.
+    assert.match(input, /placeholder="Name, address, ZIP…"/);
     assert.match(input, /aria-label="[^"]*ZIP[^"]*"/);
+});
+
+test('the field carries a leading glyph and a clear button that STAYS', () => {
+    const css = readFileSync(new URL('../public/static/css/style.css', import.meta.url), 'utf8');
+    // The glyph says what the field is, and is a label rather than a target.
+    assert.match(html, /<i class="bi bi-search food-search-icon" aria-hidden="true">/);
+    assert.match(css, /\.food-search-icon\s*\{[^}]*pointer-events:\s*none/);
+
+    // Ours, not the native pseudo-element. Chrome paints
+    // ::-webkit-search-cancel-button only while the field is hovered or
+    // focused — so it vanishes from a field that still holds a query — and
+    // Firefox paints none at all. Suppressing it also keeps us from showing
+    // two X's at once.
+    assert.match(html, /<button type="button" class="food-search-clear" id="foodSearchClear"/);
+    assert.match(html, /aria-label="Clear search"/);
+    assert.match(css, /\.food-search::-webkit-search-cancel-button\s*\{[^}]*appearance:\s*none/);
+
+    // Visibility is CSS off :placeholder-shown, not JS state: a value the
+    // router restored from ?q= gets the button with nothing to keep in sync,
+    // and an empty field's button is display:none, which also drops it out of
+    // the tab order.
+    assert.match(css, /\.food-search:not\(:placeholder-shown\) ~ \.food-search-clear\s*\{\s*display:\s*flex/);
+    assert.match(css, /\.food-search-clear\s*\{[^}]*display:\s*none/);
+
+    // A finger needs more than the 22px a mouse is fine with; the field is
+    // only ~34px tall, so ~30px is the practical ceiling.
+    assert.match(css, /@media \(pointer: coarse\)\s*\{[\s\S]*?\.food-search-clear\s*\{[^}]*width:\s*1\.85rem/);
+
+    // The WRAPPER owns the width — the glyph and button sit inside the box.
+    assert.match(css, /\.food-toolbar \.food-search-wrap\s*\{\s*max-width:\s*260px/);
 });
 
 test('one predicate owns the rules: per-field, per-term, ZIP by prefix', () => {

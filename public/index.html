@@ -82,10 +82,23 @@
                  something, each possibly a different field — "richmond taco"
                  is taco in the name and Richmond in the city — and a quoted
                  phrase must be found whole, inside one field (filters.js). -->
-            <input type="search" class="form-control form-control-sm food-search" id="foodSearch"
-                   placeholder="Name, address, or ZIP…"
-                   aria-label="Search facilities by name, address, city, or ZIP code"
-                   title="Every word must match — name, address, or city anywhere, or a ZIP prefix. Try: richmond taco &middot; 23220 &middot; &quot;taco bell&quot; in quotes to keep words together.">
+            <div class="food-search-wrap">
+                <i class="bi bi-search food-search-icon" aria-hidden="true"></i>
+                <input type="search" class="form-control form-control-sm food-search" id="foodSearch"
+                       placeholder="Name, address, ZIP…"
+                       aria-label="Search facilities by name, address, city, or ZIP code"
+                       title="Every word must match — name, address, or city anywhere, or a ZIP prefix. Try: richmond taco &middot; 23220 &middot; &quot;taco bell&quot; in quotes to keep words together.">
+                <!-- Ours, not the native ::-webkit-search-cancel-button: that one
+                     is painted only while the field is hovered or focused (and
+                     not at all in Firefox), so it vanishes from a field that
+                     still has something in it. Shown by CSS off
+                     :placeholder-shown, so a value the router restored from ?q=
+                     gets the button too, with no JS state to keep in sync. -->
+                <button type="button" class="food-search-clear" id="foodSearchClear"
+                        aria-label="Clear search" title="Clear search">
+                    <i class="bi bi-x-lg" aria-hidden="true"></i>
+                </button>
+            </div>
             <div class="btn-group btn-group-sm" id="foodGradeChips" role="group" aria-label="Grade filter">
                 <button type="button" class="btn btn-outline-secondary active" data-grade="">All</button>
                 <button type="button" class="btn btn-outline-secondary" data-grade="A" title="Facility grade — broad assessment adjusted by follow-up re-checks · score ≥90">A</button>

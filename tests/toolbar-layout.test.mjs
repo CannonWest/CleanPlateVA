@@ -95,7 +95,9 @@ test('status degrades in tiers instead of wrapping the toolbar', () => {
     // leaves ~20px of margin.
     const lg = [...css.matchAll(/@media \(max-width: 1199\.98px\)\s*\{([\s\S]*?)\n\}/g)]
         .map((m) => m[1]).join('\n');
-    assert.match(lg, /\.food-search\s*\{\s*max-width:\s*190px/);
+    // The WRAPPER carries the width — the input gained a leading glyph and a
+    // trailing clear button that sit inside the field's box.
+    assert.match(lg, /\.food-search-wrap\s*\{\s*max-width:\s*200px/);
     // ...and it is NOT also squeezed at 1500, which would silently undo that.
     assert.doesNotMatch(blocks, /\.food-search/);
 
