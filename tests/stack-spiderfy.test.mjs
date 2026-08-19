@@ -373,8 +373,13 @@ test('the tethers are one marker, drawn under the legs', () => {
     assert.match(source, /svg\.classList\.add\('food-spider-web'\)/);
 });
 
-test('a click on empty map closes the web without racing the layer handler', () => {
-    assert.match(source, /queryRenderedFeatures\(e\.point, \{ layers: \[LYR_STACKS\] \}\)/);
+test('a click on empty map closes the web, and one handler decides', () => {
+    // There is no layer handler left to race. A single map-level click asks
+    // _pickMarkAt once and acts on the one answer, so the dismissal and the
+    // selection can no longer disagree about what was under the pointer —
+    // which is what the old queryRenderedFeatures re-check existed to prevent.
+    assert.equal((source.match(/map\.on\('click'/g) || []).length, 1);
+    assert.match(source, /if \(this\._spider && \(!hit \|\| hit\.layerId !== LYR_STACKS\)\) this\._dismissSpider\(\);/);
     assert.match(source, /e\.key === 'Escape' && this\._spider && !this\._receiptHost/);
 });
 

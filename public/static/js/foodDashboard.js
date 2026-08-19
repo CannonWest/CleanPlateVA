@@ -80,6 +80,13 @@ export {
 } from './presentation.js';
 export { gradeReceiptPresentation } from './receipt.js';
 export { searchTerms } from './filters.js';
+export {
+    clusterRadius, hitSlop, markRadius, pickMark, pointRadius, MARK_RANK,
+} from './markers.js';
+export {
+    CLUSTER_RADII, CLUSTER_STEPS, HIT_SLOP_COARSE, HIT_SLOP_FINE,
+    POINT_RADIUS_COARSE, POINT_RADIUS_FINE,
+} from './constants.js';
 
 export class FoodDashboard {
     constructor(api, { ack = null, forceLite = false } = {}) {
