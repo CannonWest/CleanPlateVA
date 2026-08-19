@@ -190,7 +190,11 @@ export class FoodDashboard {
         search?.addEventListener('input', () => {
             clearTimeout(this._searchDebounce);
             this._searchDebounce = setTimeout(() => {
-                this._filters.q = (search.value || '').trim().toLowerCase();
+                // Runs of whitespace separate words, they do not mean
+                // anything, so they never reach the filter state or the URL —
+                // "richmond   taco" shares a link with "richmond taco". The box
+                // itself keeps whatever was typed.
+                this._filters.q = (search.value || '').trim().toLowerCase().replace(/\s+/g, ' ');
                 filtersChanged();
             }, 150);
         });

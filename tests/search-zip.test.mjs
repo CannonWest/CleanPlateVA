@@ -92,9 +92,47 @@ test('the ZIP select is gone from the markup and the search box says what it tak
     assert.match(input, /aria-label="[^"]*ZIP[^"]*"/);
 });
 
-test('one predicate owns the rule: the ZIP prefix lives beside the text substring', () => {
+test('every word must match, and each word may match a DIFFERENT field', () => {
+    // The whole point: no single substring of "name address city" can express
+    // this, because the address sits between the two fields a visitor pairs.
+    // "richmond taco" read as 0 results before token matching.
+    assert.deepEqual(hits(ROWS, 'richmond taco'), ['Taco Bell']);
+    assert.deepEqual(hits(ROWS, 'taco richmond'), ['Taco Bell']);   // order-independent
+    assert.deepEqual(hits(ROWS, 'rosa richmond'), ['Sub Rosa']);
+    // A ZIP is just another word, and keeps its prefix rule inside the set.
+    assert.deepEqual(hits(ROWS, '23220 taco'), ['Taco Bell']);
+    assert.deepEqual(hits(ROWS, '232 rosa'), ['Sub Rosa']);
+    assert.deepEqual(hits(ROWS, '231 taco'), []);          // 231 matches no ZIP here
+    // EVERY word, not any: one miss rejects the row.
+    assert.deepEqual(hits(ROWS, 'taco zzz'), []);
+    assert.deepEqual(hits(ROWS, 'richmond alexandria'), []);
+    // Runs of whitespace collapse; stray padding is harmless.
+    assert.deepEqual(hits(ROWS, 'richmond   taco'), ['Taco Bell']);
+});
+
+test('a single word behaves exactly as it did before token matching', () => {
+    // Measured across the committed 24,990-row roster when this landed:
+    // "taco" 423 both ways, "231" identical — token matching is additive,
+    // and only multi-word queries change.
+    for (const q of ['taco', 'richmond', '232', '23220', '3220', 'zzz']) {
+        const tokenised = hits(ROWS, q);
+        const single = ROWS.filter((f) => {
+            const hay = `${f.name} ${f.address} ${f.city}`.toLowerCase();
+            return hay.includes(q) || String(f.zip).startsWith(q);
+        }).map((f) => f.name);
+        assert.deepEqual(tokenised, single, `single-word "${q}" drifted`);
+    }
+});
+
+test('one predicate owns the rule: ZIP prefix and text substring, once per word', () => {
     const filters = moduleSource('filters.js');
-    assert.match(filters, /!hay\.includes\(q\) && !String\(f\.zip \|\| ''\)\.startsWith\(q\)/);
+    // String.raw so the assertion reads as the source does, not as escape soup.
+    assert.ok(filters.includes(String.raw`for (const term of q.split(/\s+/))`),
+        'the query is split on whitespace and every term is tested');
+    assert.match(filters, /!hay\.includes\(term\) && !zip\.startsWith\(term\)/);
     // No second, exact-match ZIP test survives alongside it.
     assert.doesNotMatch(filters, /f\.zip !== zip/);
+    // ...and no whole-query substring test survives either, which is what
+    // would silently put "richmond taco" back to zero.
+    assert.doesNotMatch(filters, /hay\.includes\(q\)/);
 });
