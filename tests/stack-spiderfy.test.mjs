@@ -338,13 +338,21 @@ test('zooming back past stack view takes the web with it', () => {
     assert.match(source, /this\._map\?\.off\('zoom', this\._onSpiderZoom\)/);
 });
 
-test('an open web is torn down whenever its ground shifts', () => {
+test('an open web survives a filter change by re-seating, not closing', () => {
     // The legs are DOM markers; setData knows nothing about them, so every
-    // path that can dissolve or re-count a stack has to say so explicitly.
-    assert.match(source, /_rebuildMarkers\(\) \{[\s\S]{0,700}?_dismissSpider\(\);/);
+    // path that can dissolve or re-count a stack still tears the web down.
+    assert.match(source, /_rebuildMarkers\(\) \{[\s\S]{0,1200}?_dismissSpider\(\);/);
+    // Since 2026-08-19 it is torn down and RE-SEATED against the surviving
+    // members rather than simply closed: a filter change updates the open
+    // stack instead of closing it out from under the visitor. No recentre —
+    // the visitor moved a switch, not the camera.
+    assert.match(source, /if \(open\) this\._expandStack\(open\.key, \{ recenter: false, page: open\.page \}\);/);
+    // Which member count survives is _expandStack's own guard: a stack that is
+    // gone, or down to one, simply declines to reopen and becomes a lone dot.
+    assert.match(source, /_expandStack\(key, \{ recenter = true, page = 1 \} = \{\}\) \{[\s\S]{0,200}?members\.length < 2\) return;/);
     // A style swap tears down the layers _setStackFilter needs to restore.
     assert.match(source, /_dismissSpider\(\);[\s\S]{0,200}?this\._styleIsDark = dark;/);
-    assert.match(source, /_expandStack\(key\) \{[\s\S]{0,300}?this\._dismissSpider\(\);/);
+    assert.match(source, /_expandStack\(key, \{[\s\S]{0,60}?\) \{[\s\S]{0,300}?this\._dismissSpider\(\);/);
 });
 
 test('counts and their bubbles change together on zoom', () => {

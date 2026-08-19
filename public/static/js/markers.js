@@ -229,7 +229,13 @@ export const markerMethods = {
         // A filter flip can remove the very marker the open card anchors to;
         // don't leave the card floating over nothing. The same flip can
         // dissolve or re-count the stack an open web belongs to, and its legs
-        // are DOM markers that setData knows nothing about.
+        // are DOM markers that setData knows nothing about — so the web is
+        // torn down here and re-seated below against the NEW membership
+        // (Cannon, 2026-08-19: a filter change should update the open stack,
+        // not close it out from under the visitor).
+        const open = this._spider
+            ? { key: this._spider.key, page: this._stackPanel?.page || 1 }
+            : null;
         this._hideHoverCard();
         this._dismissSpider();
 
@@ -239,5 +245,10 @@ export const markerMethods = {
         // style.load re-installs it with this._geojson as its data.
         if (this._mapReady) this._map.getSource(SRC)?.setData(this._geojson);
         this._updateCounts(filtered.length);
+        // Re-seat the web on what survived. `_expandStack` declines a stack
+        // that is gone or down to one member, which is exactly the wanted
+        // behaviour: the last place standing is a lone dot, not a ring of one.
+        // No recentre — the visitor moved a switch, not the camera.
+        if (open) this._expandStack(open.key, { recenter: false, page: open.page });
     },
 };

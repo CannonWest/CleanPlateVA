@@ -278,7 +278,10 @@ test('the card exists only while the pointer remains on its marker', () => {
     // One map-level mousemove now resolves every mark type at once — a padded
     // hit test has to see them together to judge which is nearest — so the
     // card is dismissed by the miss branch rather than by a layer mouseleave.
-    assert.match(source, /_onMapHover\(e\) \{[\s\S]{0,240}?if \(!hit\) \{[\s\S]{0,160}?_hideHoverCard\(\)/);
+    assert.match(source, /_onMapHover\(e\) \{[\s\S]{0,1000}?if \(!hit\) \{[\s\S]{0,160}?_hideHoverCard\(\)/);
+    // ...but a mousemove that came from a spider leg is that LEG's business:
+    // it opens its own card, and this handler must not hide it right back.
+    assert.match(source, /closest\?\.\('\.maplibregl-marker'\)\) return;[\s\S]{0,120}?_pickMarkAt/);
     // Leaving the canvas is not a mousemove, so it needs its own exit.
     assert.match(source, /map\.on\('mouseout'[\s\S]{0,200}?_hideHoverCard\(\)/);
     assert.doesNotMatch(source, /_scheduleHoverHide|_cancelHoverHide|_hoverHideTimer/);
@@ -312,7 +315,7 @@ test('hover is display-only; trend and receipt interactions stay in the clicked 
 test('the card dismisses when its ground shifts: select, cluster zoom, rebuild', () => {
     assert.match(source, /this\._hideHoverCard\(\);   \/\/ the panel takes over/);
     assert.match(source, /_hideHoverCard\(\);   \/\/ the anchor marker is about to dissolve/);
-    assert.match(source, /_rebuildMarkers\(\) \{[\s\S]{0,600}?_hideHoverCard\(\);/);
+    assert.match(source, /_rebuildMarkers\(\) \{[\s\S]{0,1200}?_hideHoverCard\(\);/);
 });
 
 test('the popup sizes per tier and the hero card gets its width', () => {
