@@ -10,6 +10,7 @@ import {
     CLOSED_COLOR, GRADE_COLORS, LITE_MARKER_COLOR, LYR_STACKS, LYR_STACK_COUNT, LYR_STACK_RING,
     NEW_COLOR,
 } from './constants.js';
+import { esc, facilityPresentation, gradeColor } from './presentation.js';
 
 // ── same-coordinate stacks ─────────────────────────────────────────────
 //
@@ -120,6 +121,77 @@ export function spiderOffsets(count, { spacing = 18, first = 26, step = 22 } = {
     return offsets;
 }
 
+// ── what a stack has in common ──────────────────────────────────────────
+//
+// The panel's header says "N places share this address", which assumes the
+// members agree on one. A third of them do not: measured on the committed
+// roster, 665 of 1,950 stacks carry at least two different address strings —
+// almost always the same doorway with its suite folded in differently
+// ("42010 Village Center Plaza #130" beside "42010 Village Center Plaza" with
+// "#180" in address2), sometimes a spelling variant ("142 S Main St" vs "142
+// South Main Street"), and occasionally a different city on the same plaza
+// (Aldie and Stone Ridge both at 20105).
+//
+// So the header carries what the members have in COMMON and each row carries
+// what makes it different. Cannon's call, 2026-08-19.
+
+export const STACK_PANEL_PAGE = 5;
+
+// A suite/unit token at the END of an address line. Only the tail is stripped:
+// one in the middle ("1541 Premium Outlets #170 Blvd.") is left alone and
+// falls out of the vote below instead, which is safer than guessing.
+const TRAILING_UNIT = /[\s,]*(?:#|ste\.?|suite|unit|apt\.?|rm\.?|bldg\.?)\s*[\w-]+\.?\s*$/i;
+
+export function baseAddress(value) {
+    return String(value || '').trim().replace(TRAILING_UNIT, '').trim();
+}
+
+/** The most common value, ties broken toward the SHORTEST — the short one is
+ *  the address without a suite folded into it, which is exactly the shared
+ *  part a header wants. */
+function commonest(values) {
+    const counts = new Map();
+    for (const value of values) {
+        if (value) counts.set(value, (counts.get(value) || 0) + 1);
+    }
+    let best = null;
+    for (const [value, n] of counts) {
+        if (!best || n > best.n || (n === best.n && value.length < best.value.length)) {
+            best = { value, n };
+        }
+    }
+    return best ? best.value : '';
+}
+
+/** The one line the header states for a whole stack. */
+export function sharedPlace(members = []) {
+    return {
+        address: commonest(members.map((m) => baseAddress(m.address))),
+        city: commonest(members.map((m) => m.city)),
+        zip: commonest(members.map((m) => m.zip)),
+    };
+}
+
+/** What distinguishes ONE member from that shared line — its suite, normally.
+ *  A member whose street line does not start with the shared one keeps its own
+ *  address in full: better a long row than a row implying it is somewhere it
+ *  is not. */
+export function memberSuite(member, sharedAddress) {
+    const explicit = String(member?.address2 || '').trim();
+    if (explicit) return explicit;
+    const own = String(member?.address || '').trim();
+    if (!sharedAddress || !own || own === sharedAddress) return '';
+    if (own.toLowerCase().startsWith(sharedAddress.toLowerCase())) {
+        return own.slice(sharedAddress.length).replace(/^[\s,]+/, '').trim();
+    }
+    return own;
+}
+
+/** How far the web reaches, so the panel can clear it. */
+export function spiderReach(offsets, legRadius) {
+    return offsets.reduce((max, [x, y]) => Math.max(max, Math.hypot(x, y)), 0) + legRadius;
+}
+
 export const stackMethods = {
     // ── spiderfied stacks ───────────────────────────────────────────────
 
@@ -137,7 +209,7 @@ export const stackMethods = {
      *  replaced by a dimmed anchor, so the ring visibly belongs to the point
      *  it came from.
      */
-    _expandStack(key) {
+    _expandStack(key, { recenter = true, page = 1 } = {}) {
         const group = this._stacks?.get(key);
         if (!group || group.members.length < 2) return;
         this._dismissSpider();
@@ -154,15 +226,18 @@ export const stackMethods = {
         markers.push(new maplibregl.Marker({ element: anchor })
             .setLngLat(lngLat).addTo(this._map));
 
+        const legEls = [];
         group.members.forEach((f, i) => {
             const paint = this._markerPaint(f);
             const el = document.createElement('div');
             el.className = 'food-spider-leg';
+            el.dataset.i = String(i);
             el.style.setProperty('--leg-fill', paint.fill);
             el.style.setProperty('--leg-stroke', paint.stroke);
             el.style.setProperty('--leg-stroke-width', `${paint.strokeW}px`);
             el.style.opacity = String(paint.fillOpacity);
             el.title = f.name || '';
+            legEls.push(el);
             el.addEventListener('click', (ev) => {
                 // Markers are DOM siblings of the canvas, so this would
                 // otherwise also read as a click on empty map and close the
@@ -178,29 +253,177 @@ export const stackMethods = {
                     // unprojected against the current camera — otherwise
                     // every card in the ring points at the middle.
                     const p = this._map.project(lngLat);
+                    // Below the leg while the panel is up — the panel owns the
+                    // space above the web, and a card opening into it would
+                    // hide the row this same hover just highlighted.
                     this._showHoverCard(this._map.unproject(
-                        [p.x + offsets[i][0], p.y + offsets[i][1]]), f);
+                        [p.x + offsets[i][0], p.y + offsets[i][1]]), f,
+                    { below: !!this._stackPanel });
                 });
                 el.addEventListener('mouseleave', () => this._hideHoverCard());
             }
+            // Both directions of the link (Cannon, 2026-08-19): pointing at a
+            // leg lights its row, so a ring of identical dots stops being a
+            // guessing game about which is which.
+            el.addEventListener('mouseenter', () => this._linkStackRow(i, true));
+            el.addEventListener('mouseleave', () => this._linkStackRow(i, false));
             markers.push(new maplibregl.Marker({ element: el, offset: offsets[i] })
                 .setLngLat(lngLat).addTo(this._map));
         });
 
-        this._spider = { key, markers };
+        this._spider = {
+            key, markers, legEls, lngLat,
+            reach: spiderReach(offsets, coarse ? 10.5 : 7.5),
+        };
         this._setStackFilter(key);
         this._map.on('movestart', this._onSpiderMove);
         // `zoom`, not `zoomend` — the web should go as the camera crosses the
         // line, not once the gesture finishes. Safe against the easeTo below,
         // which only ever raises zoom.
         this._map.on('zoom', this._onSpiderZoom);
+        this._openStackPanel(group, page);
         // Centre the web and give it clear ground. Zoom never decreases: a
         // stack opened while already close in should not be pushed back out.
-        this._map.easeTo({
-            center: lngLat,
-            zoom: Math.max(this._map.getZoom(), STACK_OPEN_ZOOM),
-            duration: 550,
+        // Skipped when the web is only being RE-seated after a filter change —
+        // the visitor did not ask for the camera to move, they moved a switch.
+        if (recenter) {
+            this._map.easeTo({
+                center: lngLat,
+                zoom: Math.max(this._map.getZoom(), STACK_OPEN_ZOOM),
+                duration: 550,
+            });
+        }
+    },
+
+    /** The list that opens with a web.
+     *
+     *  A ring of identical dots answers "how many" but not "which"; this
+     *  answers both, and gives a keyboard a way in that a ring of DOM markers
+     *  never did. It rides a MapLibre Marker so the map moves it for free,
+     *  offset in SCREEN space clear of the web's outer reach — the same trick
+     *  the legs use, for the same reason. */
+    _openStackPanel(group, page = 1) {
+        this._closeStackPanel();
+        if (typeof maplibregl === 'undefined' || !this._map) return;
+        const el = document.createElement('div');
+        el.className = 'food-stack-panel';
+        // A click in here belongs to the panel. Markers are DOM siblings of
+        // the canvas, so without this the map would also read it as a click on
+        // empty ground and close the very web the panel belongs to.
+        el.addEventListener('click', (e) => e.stopPropagation());
+        this._stackPanel = {
+            el, group, page, marker: null, place: sharedPlace(group.members),
+        };
+        this._renderStackPanel();
+        this._stackPanel.marker = new maplibregl.Marker({ element: el })
+            .setLngLat(group.lngLat || [group.lon, group.lat]).addTo(this._map);
+        this._positionStackPanel();
+        this._map.on('move', this._onStackPanelMove);
+    },
+
+    _renderStackPanel() {
+        const panel = this._stackPanel;
+        if (!panel) return;
+        const { members } = panel.group;
+        const lite = this._mode === 'lite';
+        const pages = Math.max(1, Math.ceil(members.length / STACK_PANEL_PAGE));
+        panel.page = Math.min(Math.max(1, panel.page), pages);
+        const from = (panel.page - 1) * STACK_PANEL_PAGE;
+        const shown = members.slice(from, from + STACK_PANEL_PAGE);
+        const { address, city, zip } = panel.place;
+        const where = [address, [city, zip].filter(Boolean).join(' ')]
+            .filter(Boolean).join(' · ');
+
+        panel.el.innerHTML = `
+            <div class="food-stack-panel-head">
+                <strong>${members.length} places share this address</strong>
+                ${where ? `<div class="food-stack-panel-where">${esc(where)}</div>` : ''}
+            </div>
+            <ul class="food-stack-panel-list">
+                ${shown.map((f, n) => this._stackRowHTML(f, from + n, lite)).join('')}
+            </ul>
+            ${pages > 1 ? `
+            <div class="food-stack-panel-pager">
+                <button type="button" class="food-stack-page" data-step="-1"
+                        ${panel.page === 1 ? 'disabled' : ''} aria-label="Previous places">‹</button>
+                <span>${from + 1}–${from + shown.length} of ${members.length}</span>
+                <button type="button" class="food-stack-page" data-step="1"
+                        ${panel.page === pages ? 'disabled' : ''} aria-label="More places">›</button>
+            </div>` : ''}`;
+
+        panel.el.querySelectorAll('.food-stack-page').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                panel.page += Number(btn.dataset.step);
+                this._renderStackPanel();
+                this._positionStackPanel();   // a shorter last page changes height
+            });
         });
+        panel.el.querySelectorAll('.food-stack-row').forEach((row) => {
+            const i = Number(row.dataset.i);
+            row.addEventListener('mouseenter', () => this._linkStackLeg(i, true));
+            row.addEventListener('mouseleave', () => this._linkStackLeg(i, false));
+            row.querySelector('.food-stack-row-open')?.addEventListener('click', () => {
+                this._linkStackLeg(i, false);
+                this._select(members[i]);
+            });
+        });
+    },
+
+    _stackRowHTML(f, i, lite) {
+        const suite = memberSuite(f, this._stackPanel?.place?.address || '');
+        const fp = facilityPresentation(f);
+        const g = fp.grade;
+        const score = lite ? ''
+            : g ? `<span class="food-list-score" style="background:${gradeColor(g.letter)}">${esc(g.letter)} ${esc(g.score)}</span>`
+                : this._isNew(f)
+                    ? '<span class="food-list-score food-list-score-new" title="Newly permitted; grade pending a broad inspection">NEW</span>'
+                    : '<span class="food-list-score food-list-score-none" title="No broad inspection captured">—</span>';
+        return `<li class="food-stack-row" data-i="${i}">
+            <span class="food-stack-row-name">${esc(f.name)}</span>${
+    suite ? `<span class="food-stack-row-suite">${esc(suite)}</span>` : ''}
+            ${score}
+            <button type="button" class="food-stack-row-open"
+                    aria-label="Open ${esc(f.name)}">Open</button>
+        </li>`;
+    },
+
+    /** Sit clear of the web — above it by preference, below when the panel
+     *  would otherwise run off the top of the map. Offsets are screen-space,
+     *  so this is recomputed as the camera moves rather than baked in. */
+    _positionStackPanel() {
+        const panel = this._stackPanel;
+        const spider = this._spider;
+        if (!panel || !spider || !this._map) return;
+        const reach = spider.reach || 0;
+        const gap = 16;
+        const height = panel.el.offsetHeight || 0;
+        const at = this._map.project(panel.marker.getLngLat());
+        const up = -(reach + gap + height / 2);
+        // Would its top edge clear the map's top edge? If not, flip under the
+        // web rather than let it hang off screen.
+        const fitsAbove = at.y + up - height / 2 >= 8;
+        panel.marker.setOffset([0, fitsAbove ? up : (reach + gap + height / 2)]);
+    },
+
+    /** Light the leg that belongs to a row, and vice versa. A ring highlight
+     *  rather than a transform: MapLibre owns each leg's `transform` to place
+     *  it, and a second one here would fight it. */
+    _linkStackLeg(i, on) {
+        this._spider?.legEls?.[i]?.classList.toggle('is-linked', on);
+    },
+
+    _linkStackRow(i, on) {
+        this._stackPanel?.el
+            ?.querySelector(`.food-stack-row[data-i="${i}"]`)
+            ?.classList.toggle('is-linked', on);
+    },
+
+    _closeStackPanel() {
+        const panel = this._stackPanel;
+        if (!panel) return;
+        this._map?.off('move', this._onStackPanelMove);
+        panel.marker?.remove();
+        this._stackPanel = null;
     },
 
     /** The dashed tethers, as ONE marker rather than a line layer.
@@ -233,6 +456,7 @@ export const stackMethods = {
     },
 
     _dismissSpider() {
+        this._closeStackPanel();
         if (!this._spider) return;
         this._map?.off('movestart', this._onSpiderMove);
         this._map?.off('zoom', this._onSpiderZoom);

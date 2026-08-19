@@ -185,8 +185,14 @@ test('one padded query feeds both hover and click', () => {
     // Every mark type in ONE query: they have to be compared to each other,
     // which layer-scoped handlers could never do.
     assert.match(map, /\[LYR_STACKS, LYR_POINTS, LYR_CLUSTERS\]\.filter/);
-    assert.match(map, /_onMapHover\(e\)[\s\S]{0,200}?_pickMarkAt\(e\.point\)/);
-    assert.match(map, /_onMapClick\(e\)[\s\S]{0,200}?_pickMarkAt\(e\.point\)/);
+    assert.match(map, /_onMapHover\(e\)[\s\S]{0,900}?_pickMarkAt\(e\.point\)/);
+    assert.match(map, /_onMapClick\(e\)[\s\S]{0,400}?_pickMarkAt\(e\.point\)/);
+    // Markers are DOM children of the map CONTAINER, so a pointer over a
+    // spider leg still bubbles a map-level mousemove. Hovering one must not
+    // read as "over empty ground" — the leg has already opened its own card,
+    // and this handler would hide it again on the same movement. Layer-scoped
+    // handlers never had the problem; going map-level introduced it.
+    assert.match(map, /if \(e\.originalEvent\?\.target\?\.closest\?\.\('\.maplibregl-marker'\)\) return;/);
     // The card still anchors to the MARKER, never to the pointer.
     assert.match(map, /_showHoverCard\(hit\.feature\.geometry\.coordinates\.slice\(\), f\)/);
     // No layer-scoped mouse handlers survive to disagree with the picker.
