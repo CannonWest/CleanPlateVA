@@ -7,6 +7,42 @@
 
 import { esc, facilityPresentation, isActivePermit, isNewlyPermitted } from './presentation.js';
 
+/** Split a query into the terms every row must satisfy.
+ *
+ *  A `"quoted phrase"` is ONE term and must be found whole; everything else
+ *  splits on whitespace. An unterminated quote is forgiving — `"taco bell`
+ *  is the phrase `taco bell`, because the closing quote is usually just not
+ *  typed yet and the alternative is a term beginning with `"` that can never
+ *  match anything. Empty quotes contribute nothing.
+ *
+ *  Terms come back lower-cased. Both entry points already lower-case `q` (the
+ *  search box and `parseUrlState`), but folding it in here means the predicate
+ *  is case-insensitive on its own terms rather than on its callers' manners.
+ */
+let lastQuery = null;
+let lastTerms = [];
+
+export function searchTerms(q) {
+    // Memoised on the query because _matchesFilters calls this once per ROW —
+    // 24,990 times per keystroke. Parsing per row cost 28.6 ms per full pass
+    // against 13.6 ms hoisted; the earlier whitespace-only `split` was 10.4 vs
+    // 8.2, which is why it was left uncached until the tokeniser arrived. This
+    // is a memo of one derived value, not a second copy of the query: it keys
+    // off `q` itself, so nothing can go stale and no caller has to remember to
+    // refresh it. Frozen because the array is shared with every caller.
+    if (q === lastQuery) return lastTerms;
+    const terms = [];
+    const token = /"([^"]*)"?|(\S+)/g;
+    let m;
+    while ((m = token.exec(q)) !== null) {
+        const term = (m[1] ?? m[2]).trim().toLowerCase();
+        if (term) terms.push(term);
+    }
+    lastQuery = q;
+    lastTerms = Object.freeze(terms);
+    return lastTerms;
+}
+
 export const filterMethods = {
     // Active = a live permit. Contract V4 finder rows carry no status — the
     // finder IS the active set — while closed rows (the lazy `closed/*`
@@ -67,24 +103,32 @@ export const filterMethods = {
             // (measured against the committed roster). A full "23220" still
             // matches, and a digit run that is really a street number is still
             // found through `hay`.
-            const hay = `${f.name || ''} ${f.address || ''} ${f.city || ''}`.toLowerCase();
+            // Each field is tested SEPARATELY rather than joined into one
+            // haystack, because a quoted phrase must not span the seam between
+            // two fields. Joined, `"taco bell"` also matches a place named
+            // "...Taco" standing on "Bell St" — the taqueria-on-Bell-Street
+            // case quotes exist to exclude. The roster carries 28,250 distinct
+            // seam bigrams and NONE of them occur inside a single field, so
+            // every one would have been a phantom phrase hit ("hwy madison" =
+            // "4764 S Amherst Hwy" + "Madison Heights"). Bare words are
+            // unaffected either way: a word has no space, so it can never
+            // straddle the seam to begin with.
+            const fields = [f.name || '', f.address || '', f.city || ''];
             const zip = String(f.zip || '');
-            // EVERY word must land, but each is free to land in a DIFFERENT
-            // field — that is what one substring of `hay` cannot express, since
-            // the address sits between the two fields a visitor pairs:
+            // EVERY term must land, but each is free to land in a DIFFERENT
+            // field — that is what one whole-query substring cannot express,
+            // since the address sits between the two fields a visitor pairs:
             // "richmond taco" is taco in the NAME and Richmond in the CITY, and
             // it read as 0 results until this loop. Order-independent by
             // construction, so "taco richmond" is the same query. A ZIP joins in
-            // as just another word: "23220 taco".
+            // as just another term: "23220 taco". Quoting rejoins words that
+            // must travel together: `"taco bell"` is one term and one field.
             //
-            // Splitting per row rather than caching the terms: measured 10.4 ms
-            // per full 24,990-row pass vs 8.2 ms with the split hoisted, both far
-            // inside the 150 ms search debounce and behind the marker rebuild
-            // that follows. Not worth a second copy of `q` to keep in sync.
-            // (An empty term from stray whitespace is harmless — `includes('')`
-            // is true — so the split needs no filtering.)
-            for (const term of q.split(/\s+/)) {
-                if (!hay.includes(term) && !zip.startsWith(term)) return false;
+            // `searchTerms` memoises on `q`, so this is one string compare
+            // per row rather than a re-parse (see the note there).
+            for (const term of searchTerms(q)) {
+                if (!fields.some((s) => s.toLowerCase().includes(term))
+                    && !zip.startsWith(term)) return false;
             }
         }
         return true;
