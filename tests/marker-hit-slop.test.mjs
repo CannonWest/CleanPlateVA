@@ -45,8 +45,16 @@ test('slop turns a 7px dot into roughly a 17px target', () => {
     assert.ok(dot(0)?.inside, 'dead centre');
     assert.ok(dot(7)?.inside, 'on the edge is still inside');
     assert.ok(dot(12) && !dot(12).inside, 'past the edge but within slop');
-    assert.ok(dot(17), 'the far edge of the slop still answers');
+    assert.ok(dot(17), 'gap === slop is a hit, by this function');
     assert.equal(dot(17.5), null, 'beyond slop, nothing');
+    // Live, the reach is one pixel tighter than this function allows, and on
+    // purpose: `queryRenderedFeatures` only offers candidates whose DRAWN
+    // circle intersects the padded box, so a mark exactly `slop` past its own
+    // edge is never even a candidate. Measured against a real map (Playwright,
+    // an isolated marker 139px from its nearest neighbour): the card opens at
+    // 0 / 12 / 15px and not at 17px. The box is the honest gate — it scales
+    // with each mark's radius for free — so this function stays inclusive and
+    // the query decides the last pixel.
     // A fingertip reaches further, from a bigger dot.
     const tap = (d) => pickMark([at(POINTS, d, POINT_RADIUS_COARSE)], HIT_SLOP_COARSE);
     assert.ok(tap(26), 'coarse: 10px dot + 16px slop');
