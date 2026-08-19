@@ -362,7 +362,10 @@ export const stackMethods = {
             const i = Number(row.dataset.i);
             row.addEventListener('mouseenter', () => this._linkStackLeg(i, true));
             row.addEventListener('mouseleave', () => this._linkStackLeg(i, false));
-            row.querySelector('.food-stack-row-open')?.addEventListener('click', () => {
+            // The whole row opens the place (Cannon, 2026-08-19) — an "Open"
+            // button beside it was a second target for the thing the row
+            // already is.
+            row.addEventListener('click', () => {
                 this._linkStackLeg(i, false);
                 this._select(members[i]);
             });
@@ -378,12 +381,13 @@ export const stackMethods = {
                 : this._isNew(f)
                     ? '<span class="food-list-score food-list-score-new" title="Newly permitted; grade pending a broad inspection">NEW</span>'
                     : '<span class="food-list-score food-list-score-none" title="No broad inspection captured">—</span>';
-        return `<li class="food-stack-row" data-i="${i}">
-            <span class="food-stack-row-name">${esc(f.name)}</span>${
+        return `<li>
+            <button type="button" class="food-stack-row" data-i="${i}"
+                    aria-label="Open ${esc(f.name)}">
+                <span class="food-stack-row-name">${esc(f.name)}</span>${
     suite ? `<span class="food-stack-row-suite">${esc(suite)}</span>` : ''}
-            ${score}
-            <button type="button" class="food-stack-row-open"
-                    aria-label="Open ${esc(f.name)}">Open</button>
+                ${score}
+            </button>
         </li>`;
     },
 

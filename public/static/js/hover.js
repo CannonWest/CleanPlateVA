@@ -15,6 +15,13 @@ import {
     latestDateOf, locationClass, visitsOf, LOCATION_CLASS,
 } from './presentation.js';
 
+// How much of the stack panel a hover card may sit on before the card is moved
+// to the other side of its marker. Cannon's line, 2026-08-19: a card covering
+// the WHOLE panel has to move; one clipping its edge is honestly fine. Area,
+// not a rectangle test — an overlap that leaves the header and most rows
+// readable is not worth making the card jump.
+const PANEL_COVER_LIMIT = 0.6;
+
 export const hoverMethods = {
     // ── marker-bound hover card ────────────────────────────────────────
     _hideHoverCard() {
@@ -47,28 +54,47 @@ export const hoverMethods = {
     },
 
     _showHoverCard(lngLat, f, { below = false } = {}) {
-        const popup = this._hoverPopupFor(below ? 'top' : null);
-        if (!popup) return;
+        if (!this._hoverPopupFor(below ? 'top' : null)) return;
         this._hoverPid = f.permit_id;
         const lite = this._mode === 'lite';
-        // Lite keeps the slim name+address tip; the hero card needs the room.
-        popup.setMaxWidth(lite ? '280px' : '380px');
-        popup.setLngLat(lngLat).setHTML(this._hoverCardHTML(f)).addTo(this._map);
-        this._yieldStackPanel(this._hoverCardCollides());
+        const html = this._hoverCardHTML(f);
+        const place = (anchor) => {
+            const popup = this._hoverPopupFor(anchor);
+            // Lite keeps the slim name+address tip; the hero card needs room.
+            popup.setMaxWidth(lite ? '280px' : '380px');
+            popup.setLngLat(lngLat).setHTML(html).addTo(this._map);
+        };
+        place(below ? 'top' : null);
+        // Any card that would bury the stack panel moves to the other side of
+        // its own marker — not just the legs inside the web (Cannon,
+        // 2026-08-19). Measured after placing rather than predicted: a card is
+        // a slim tip in Lite and a hero with a sparkline in Full, so its
+        // height is not knowable up front. Both placements happen in one task,
+        // so nothing is painted in between and the move is invisible.
+        if (this._stackPanel && !below && this._panelCoveredBy() > PANEL_COVER_LIMIT) {
+            place('top');
+        }
+        // Only if moving it did not help does the panel step aside.
+        this._yieldStackPanel(this._panelCoveredBy() > PANEL_COVER_LIMIT);
     },
 
-    /** Does the open card land on top of the stack panel? Both are placed to
-     *  avoid it — the panel sits clear of the web's outer reach, and the card
-     *  hangs off a leg inside it — but a tall card on a short map runs out of
-     *  room, and then something has to give. */
-    _hoverCardCollides() {
+    /** How much of the stack panel the open card sits on, 0–1 of its area.
+     *
+     *  A fraction rather than a yes/no because clipping a corner is fine and
+     *  burying the thing is not: a card that leaves most of the panel readable
+     *  can stay where it is, which keeps cards from hopping around every time
+     *  they brush an edge. */
+    _panelCoveredBy() {
         const panel = this._stackPanel?.el;
         const card = this._hoverPopup?.getElement();
-        if (!panel || !card) return false;
+        if (!panel || !card) return 0;
         const a = panel.getBoundingClientRect();
         const b = card.getBoundingClientRect();
-        if (!a.width || !b.width) return false;
-        return a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+        if (!a.width || !a.height || !b.width) return 0;
+        const w = Math.min(a.right, b.right) - Math.max(a.left, b.left);
+        const h = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+        if (w <= 0 || h <= 0) return 0;
+        return (w * h) / (a.width * a.height);
     },
 
     /** The active hover wins (Cannon, 2026-08-19): the panel is a standing
