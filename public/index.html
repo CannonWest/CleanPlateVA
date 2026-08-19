@@ -78,11 +78,13 @@
           <div class="food-toolbar-filters d-flex align-items-center gap-2 flex-wrap">
             <!-- One box for name / address / city / ZIP. The ZIP select it
                  replaced is retired: text matches anywhere, a ZIP matches from
-                 the start, so "231" means the 231** ZIPs (filters.js). -->
+                 the start, so "231" means the 231** ZIPs. Every word must match
+                 something, each possibly a different field — "richmond taco"
+                 is taco in the name and Richmond in the city (filters.js). -->
             <input type="search" class="form-control form-control-sm food-search" id="foodSearch"
                    placeholder="Name, address, or ZIP…"
                    aria-label="Search facilities by name, address, city, or ZIP code"
-                   title="Filter facilities by name / address / city substring, or by ZIP prefix">
+                   title="Every word must match — name, address, or city anywhere, or a ZIP prefix. Try &quot;richmond taco&quot;.">
             <div class="btn-group btn-group-sm" id="foodGradeChips" role="group" aria-label="Grade filter">
                 <button type="button" class="btn btn-outline-secondary active" data-grade="">All</button>
                 <button type="button" class="btn btn-outline-secondary" data-grade="A" title="Facility grade — broad assessment adjusted by follow-up re-checks · score ≥90">A</button>

@@ -66,13 +66,19 @@ stored toggle preferences for whatever it names; only non-default state is
 written, so shared links stay short. `/map` and any unknown path normalize to
 `/`, and the legacy `#about` hash migrates to `/about`.
 
-`q` is the whole search: name, address, and city match as a substring
-anywhere, and the ZIP matches as a **prefix**, so `232` means the 232\*\* ZIPs
-while `3231 Duke St` still answers to `231` through its address. That split is
-deliberate — a substring test on the ZIP answers `231` with Alexandria's
-22311/22312/22314/22315. The ZIP dropdown this replaced is retired, and a
-legacy `?zip=23220` is read once, folded into `q`, and cleared from the
-address bar.
+`q` is the whole search, over four fields. It is split on whitespace and
+**every word must match something**, but each word may match a *different*
+field — so `richmond taco` is taco in the name and Richmond in the city, and
+`23220 taco` pairs a ZIP with a name. Order does not matter. Within one word,
+name / address / city match as a substring anywhere, and the ZIP matches as a
+**prefix**: `232` means the 232\*\* ZIPs, while `3231 Duke St` still answers to
+`231` through its address. The prefix split is deliberate — a substring test on
+the ZIP answers `231` with Alexandria's 22311/22312/22314/22315.
+
+A single word behaves exactly as it did before word matching (`taco` = 423 rows
+either way); only multi-word queries change. The ZIP dropdown all this replaced
+is retired, and a legacy `?zip=23220` is read once, folded into `q`, and cleared
+from the address bar.
 
 Serving this needs one thing from the host: any non-asset path must return
 `index.html` so the client can route it. Cloudflare does that through
