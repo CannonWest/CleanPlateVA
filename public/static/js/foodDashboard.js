@@ -200,6 +200,17 @@ export class FoodDashboard {
             }, 150);
         });
 
+        // Clearing is a deliberate act, so it does not wait out the typing
+        // debounce the way a keystroke does — and it hands focus back to the
+        // field, because the visitor's next move is almost always a new query.
+        document.getElementById('foodSearchClear')?.addEventListener('click', () => {
+            clearTimeout(this._searchDebounce);
+            if (search) search.value = '';
+            this._filters.q = '';
+            filtersChanged();
+            search?.focus();
+        });
+
         document.getElementById('foodGradeChips')
             ?.querySelectorAll('button[data-grade]').forEach((btn) => {
                 btn.addEventListener('click', () => {
