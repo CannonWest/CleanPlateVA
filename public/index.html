@@ -80,11 +80,12 @@
                  replaced is retired: text matches anywhere, a ZIP matches from
                  the start, so "231" means the 231** ZIPs. Every word must match
                  something, each possibly a different field — "richmond taco"
-                 is taco in the name and Richmond in the city (filters.js). -->
+                 is taco in the name and Richmond in the city — and a quoted
+                 phrase must be found whole, inside one field (filters.js). -->
             <input type="search" class="form-control form-control-sm food-search" id="foodSearch"
                    placeholder="Name, address, or ZIP…"
                    aria-label="Search facilities by name, address, city, or ZIP code"
-                   title="Every word must match — name, address, or city anywhere, or a ZIP prefix. Try &quot;richmond taco&quot;.">
+                   title="Every word must match — name, address, or city anywhere, or a ZIP prefix. Try: richmond taco &middot; 23220 &middot; &quot;taco bell&quot; in quotes to keep words together.">
             <div class="btn-group btn-group-sm" id="foodGradeChips" role="group" aria-label="Grade filter">
                 <button type="button" class="btn btn-outline-secondary active" data-grade="">All</button>
                 <button type="button" class="btn btn-outline-secondary" data-grade="A" title="Facility grade — broad assessment adjusted by follow-up re-checks · score ≥90">A</button>
