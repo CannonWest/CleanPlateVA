@@ -141,6 +141,21 @@ test('the panel pages in fives and never outlives its web', () => {
     assert.match(stacks, /el\.addEventListener\('click', \(e\) => e\.stopPropagation\(\)\)/);
 });
 
+test('the whole row is the control, and it is a real button', () => {
+    const stacks = moduleSource('stacks.js');
+    // A <button>, so the keyboard reaches it and Enter/Space work without a
+    // role or tabindex bolted on.
+    assert.match(stacks, /<button type="button" class="food-stack-row" data-i="\$\{i\}"/);
+    assert.match(stacks, /aria-label="Open \$\{esc\(f\.name\)\}"/);
+    assert.match(stacks, /row\.addEventListener\('click', \(\) => \{[\s\S]{0,120}?this\._select\(members\[i\]\)/);
+    // The separate Open button is gone — it was a second target for the thing
+    // the row already is.
+    assert.doesNotMatch(stacks, /food-stack-row-open/);
+    assert.doesNotMatch(css, /\.food-stack-row-open/);
+    assert.match(css, /\.food-stack-row \{[^}]*cursor: pointer/);
+    assert.match(css, /\.food-stack-row:focus-visible \{/);
+});
+
 test('the panel is judgment-free on the basic map', () => {
     // P6: Lite ships no scores, so the rows are names and suites only.
     const stacks = moduleSource('stacks.js');
@@ -157,12 +172,13 @@ test('the row and its leg light each other up', () => {
     assert.doesNotMatch(css, /\.food-spider-leg\.is-linked \{[^}]*transform:/);
 });
 
-test('an active hover card takes the space when the two collide', () => {
+test('an active hover card takes the space only when moving it did not help', () => {
     const hover = moduleSource('hover.js');
-    // Measured, not assumed: they only trade places when the rectangles
-    // actually overlap, so the usual case is both on screen at once.
-    assert.match(hover, /return a\.left < b\.right && b\.left < a\.right && a\.top < b\.bottom && b\.top < a\.bottom;/);
-    assert.match(hover, /this\._yieldStackPanel\(this\._hoverCardCollides\(\)\)/);
+    // Measured, not assumed, and by area: a card is moved to the other side of
+    // its marker first, and only a card that STILL buries the panel makes the
+    // panel step aside.
+    assert.match(hover, /_panelCoveredBy\(\) \{/);
+    assert.match(hover, /this\._yieldStackPanel\(this\._panelCoveredBy\(\) > PANEL_COVER_LIMIT\)/);
     // ...and the panel comes straight back when the pointer leaves.
     assert.match(hover, /_hideHoverCard\(\) \{[\s\S]{0,200}?this\._yieldStackPanel\(false\)/);
     // Opacity, not display: the panel keeps its box so the offset maths does
@@ -192,13 +208,27 @@ test('a leg card hangs BELOW its leg while the panel is up', () => {
     assert.match(hover, /\.\.\.\(anchor \? \{ anchor \} : \{\}\)/);
     assert.match(hover, /_showHoverCard\(lngLat, f, \{ below = false \} = \{\}\)/);
     assert.match(stacks, /\{ below: !!this\._stackPanel \}\);/);
-    // The yield stays as the last resort for when they still cannot both fit.
-    assert.match(hover, /_yieldStackPanel\(this\._hoverCardCollides\(\)\)/);
+    // ...and the same move now applies to ANY marker's card, not just the
+    // legs inside the web: an ordinary marker beside the stack used to open
+    // upward straight over the panel, which then vanished entirely.
+    assert.match(hover, /if \(this\._stackPanel && !below && this\._panelCoveredBy\(\) > PANEL_COVER_LIMIT\) \{\s*place\('top'\);/);
+    // Coverage is a FRACTION, not a rectangle test: clipping an edge is fine,
+    // burying the panel is not, and a boolean would make cards hop around
+    // every time they brushed a corner. 0.6 is calibrated against Cannon's own
+    // two examples, measured on the Carytown stack: East Coast Provisions
+    // covers 52% and he called it fine, so it is left alone; McDonald's 6684
+    // covers 93%, moves to the other side, and — still buried there, being
+    // right beside the panel — makes the panel step aside. The other ten
+    // markers in view covered 0–16% and are never touched.
+    assert.match(hover, /const PANEL_COVER_LIMIT = 0\.6;/);
+    assert.match(hover, /return \(w \* h\) \/ \(a\.width \* a\.height\);/);
+    // The yield stays as the last resort for when moving it did not help.
+    assert.match(hover, /_yieldStackPanel\(this\._panelCoveredBy\(\) > PANEL_COVER_LIMIT\)/);
 });
 
 test('the panel is chrome, so every rule has a dark pair', () => {
     for (const sel of ['.food-stack-panel', '.food-stack-panel-where', '.food-stack-row.is-linked',
-        '.food-stack-row-suite', '.food-stack-panel-pager']) {
+        '.food-stack-row-suite', '.food-stack-panel-pager', '.food-stack-row:hover']) {
         const escaped = sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         assert.match(css, new RegExp(`\\.theme-dark ${escaped}\\b`), `${sel} needs a dark pair`);
     }
