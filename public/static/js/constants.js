@@ -80,6 +80,29 @@ export const LYR_STACK_RING = 'food-stack-ring';
 export const LYR_STACKS = 'food-stacks';
 export const LYR_STACK_COUNT = 'food-stack-count';
 
+// ── mark geometry ───────────────────────────────────────────────────────
+//
+// Radii the PAINT and the HIT TEST both read. They have to come from one place:
+// a hit test that disagrees with what is drawn is worse than no hit test at
+// all, because the map stops answering where it looks like it should.
+
+// A lone place. 7px is a comfortable mouse target and a poor finger one.
+export const POINT_RADIUS_FINE = 7;
+export const POINT_RADIUS_COARSE = 10;
+
+// Proximity-cluster bubbles, stepped by the PLACES inside (`sum`), matching
+// STACK_RADII's shape in stacks.js.
+export const CLUSTER_RADII = [12, 16, 22];   // <10 · <50 · 50+
+export const CLUSTER_STEPS = [10, 50];
+
+// How far outside a mark still counts as pointing at it (Cannon, 2026-08-19).
+// Slop is about the POINTER's precision, not the mark's size, so it is a flat
+// number rather than a fraction of the radius: it turns the 7px dot into a
+// ~17px target (about 6x the area) and leaves the 22px cluster barely changed.
+// Coarse pointers get more because a fingertip is not a pixel.
+export const HIT_SLOP_FINE = 10;
+export const HIT_SLOP_COARSE = 16;
+
 // Highest form item that counts as a foodborne-illness risk factor
 // (cf_lib.RISK_FACTOR_MAX_ITEM). Shared by the inspection-count chips
 // and the grade-receipt math.

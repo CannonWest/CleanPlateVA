@@ -6,9 +6,86 @@
  * FoodDashboard.prototype by foodDashboard.js (`this` is the dashboard).
  */
 
-import { CLOSED_COLOR, GRADE_COLORS, LITE_MARKER_COLOR, NEW_COLOR, SRC } from './constants.js';
-import { stackKey, stackRingIcon } from './stacks.js';
+import {
+    CLOSED_COLOR, CLUSTER_RADII, CLUSTER_STEPS, GRADE_COLORS, HIT_SLOP_COARSE, HIT_SLOP_FINE,
+    LITE_MARKER_COLOR, LYR_CLUSTERS, LYR_POINTS, LYR_STACKS, NEW_COLOR, POINT_RADIUS_COARSE,
+    POINT_RADIUS_FINE, SRC,
+} from './constants.js';
+import { stackKey, stackRadius, stackRingIcon } from './stacks.js';
 import { coordsOf, facilityPresentation, gradeColor, gradeForScore } from './presentation.js';
+
+// ── hit testing ─────────────────────────────────────────────────────────
+//
+// You should not have to land on a 7px dot exactly. Pointer events are
+// therefore resolved against a padded box rather than the mark itself, and
+// something has to decide who wins when several marks are in reach.
+//
+// The rule keeps precise pointing EXACTLY as it was. If the pointer is
+// genuinely inside a mark, the answer is the one the map paints on top —
+// stacks over lone dots over clusters — which is what MapLibre's own
+// layer-scoped events did. Slop only ever ADDS reach; it never changes who
+// wins when you were already on target.
+//
+// Outside every mark, nearest wins by the gap to the mark's EDGE, not by the
+// distance to its centre. A mark's centre is not where anyone is pointing —
+// its rim is what they see. Measured from centres, a cursor 6px off a big
+// cluster's rim answers with a small dot 8px off its own, purely because the
+// dot's middle is nearer than the cluster's; the edge gap answers with the
+// thing the cursor is nearly touching. So this favours the BIG mark you are
+// beside, which is the right way round.
+
+export const MARK_RANK = { [LYR_STACKS]: 3, [LYR_POINTS]: 2, [LYR_CLUSTERS]: 1 };
+
+export function pointRadius(coarse) {
+    return coarse ? POINT_RADIUS_COARSE : POINT_RADIUS_FINE;
+}
+
+export function hitSlop(coarse) {
+    return coarse ? HIT_SLOP_COARSE : HIT_SLOP_FINE;
+}
+
+/** Cluster bubble radius for a place count — the JS twin of the layer's
+ *  `step` expression, which is built from the same constants. */
+export function clusterRadius(sum) {
+    const n = Number(sum) || 0;
+    if (n >= CLUSTER_STEPS[1]) return CLUSTER_RADII[2];
+    return n >= CLUSTER_STEPS[0] ? CLUSTER_RADII[1] : CLUSTER_RADII[0];
+}
+
+/** What a rendered feature's radius is, by the layer it came from. */
+export function markRadius(layerId, properties = {}, coarse = false) {
+    if (layerId === LYR_CLUSTERS) return clusterRadius(properties.sum);
+    if (layerId === LYR_STACKS) return stackRadius(Number(properties.stack) || 1);
+    return pointRadius(coarse);
+}
+
+/** Choose the mark a pointer meant, from candidates already measured against
+ *  it. Each candidate is `{ layerId, dx, dy, radius }` in screen pixels plus
+ *  whatever the caller wants carried through. Returns the winner annotated
+ *  with `gap` and `inside`, or null when nothing is within `slop`. */
+export function pickMark(candidates, slop) {
+    let best = null;
+    for (const candidate of candidates) {
+        const gap = Math.hypot(candidate.dx, candidate.dy) - candidate.radius;
+        if (gap > slop) continue;                       // out of reach entirely
+        const inside = gap <= 0;
+        const rank = MARK_RANK[candidate.layerId] ?? 0;
+        const next = { ...candidate, gap, inside, rank };
+        if (!best) { best = next; continue; }
+        // Being ON a mark always beats being merely near one.
+        if (inside !== best.inside) { if (inside) best = next; continue; }
+        if (inside) {
+            // Both under the pointer: what is painted on top wins, exactly as
+            // before slop existed. Centre-most breaks a tie within one layer.
+            if (rank > best.rank || (rank === best.rank && gap < best.gap)) best = next;
+        } else if (gap < best.gap || (gap === best.gap && rank > best.rank)) {
+            // Neither is under the pointer: nearest edge wins, and only a true
+            // tie falls back to the layer order.
+            best = next;
+        }
+    }
+    return best;
+}
 
 export const markerMethods = {
     // Marker fill = the facility grade color. (`gradeColor` is the data palette.)

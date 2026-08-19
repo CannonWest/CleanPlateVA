@@ -275,7 +275,12 @@ test('the shared-site text is gone, not just hidden', () => {
 // ── marker-bound dismissal + panel-only interaction (source pins) ─────
 
 test('the card exists only while the pointer remains on its marker', () => {
-    assert.match(source, /map\.on\('mouseleave', LYR_POINTS[\s\S]{0,120}?_hideHoverCard\(\)/);
+    // One map-level mousemove now resolves every mark type at once — a padded
+    // hit test has to see them together to judge which is nearest — so the
+    // card is dismissed by the miss branch rather than by a layer mouseleave.
+    assert.match(source, /_onMapHover\(e\) \{[\s\S]{0,240}?if \(!hit\) \{[\s\S]{0,160}?_hideHoverCard\(\)/);
+    // Leaving the canvas is not a mousemove, so it needs its own exit.
+    assert.match(source, /map\.on\('mouseout'[\s\S]{0,200}?_hideHoverCard\(\)/);
     assert.doesNotMatch(source, /_scheduleHoverHide|_cancelHoverHide|_hoverHideTimer/);
     // Hovering within the same marker still avoids needless re-renders.
     assert.match(source, /if \(this\._hoverPid === f\.permit_id\) return;/);

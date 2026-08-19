@@ -7,14 +7,15 @@
  */
 
 import {
-    DARK_MAJOR_ROAD_LABEL_COLOR, DARK_MAJOR_ROAD_LABEL_LAYER, GRADE_COLORS, LYR_CLUSTERS,
-    LYR_CLUSTER_COUNT, LYR_POINTS, LYR_STACKS, LYR_STACK_COUNT, LYR_STACK_RING, SRC, STYLE_DARK,
-    STYLE_LIGHT, VA_BOUNDS, VA_FIT,
+    CLUSTER_RADII, CLUSTER_STEPS, DARK_MAJOR_ROAD_LABEL_COLOR, DARK_MAJOR_ROAD_LABEL_LAYER,
+    GRADE_COLORS, LYR_CLUSTERS, LYR_CLUSTER_COUNT, LYR_POINTS, LYR_STACKS, LYR_STACK_COUNT,
+    LYR_STACK_RING, SRC, STYLE_DARK, STYLE_LIGHT, VA_BOUNDS, VA_FIT,
 } from './constants.js';
 import {
     CLUSTER_MAX_ZOOM, LONE_PLACE_FILTER, STACK_FILTER, STACK_RADII, STACK_RING_COLORS,
     STACK_RING_GAP,
 } from './stacks.js';
+import { hitSlop, markRadius, pickMark, pointRadius } from './markers.js';
 import { coordsOf } from './presentation.js';
 
 export const mapMethods = {
@@ -194,8 +195,12 @@ export const mapMethods = {
                 'circle-color': this._clusterColors(),
                 // Sized by places, like the label counts them — a bubble over
                 // one food court should not read smaller than its neighbours.
+                // Same constants the hit test measures against (markers.js
+                // clusterRadius) — a target that disagrees with the paint is
+                // worse than no slop at all.
                 'circle-radius': ['step', ['get', 'sum'],
-                    12, 10, 16, 50, 22],
+                    CLUSTER_RADII[0], CLUSTER_STEPS[0], CLUSTER_RADII[1],
+                    CLUSTER_STEPS[1], CLUSTER_RADII[2]],
                 'circle-opacity': 0.85,
                 'circle-stroke-width': 4,
                 'circle-stroke-color': 'rgba(255, 255, 255, 0.35)',
@@ -245,7 +250,9 @@ export const mapMethods = {
             paint: {
                 // 7px circles are sub-finger touch targets — bump on
                 // coarse-pointer devices; tap→detail stays the primary path.
-                'circle-radius': window.matchMedia('(pointer: coarse)').matches ? 10 : 7,
+                // Both radii live in constants.js because the hit test has to
+                // measure against exactly what is drawn.
+                'circle-radius': pointRadius(this._coarsePointer()),
                 'circle-color': ['get', 'fill'],
                 'circle-opacity': ['get', 'fillOpacity'],
                 'circle-stroke-color': ['get', 'stroke'],
@@ -346,11 +353,58 @@ export const mapMethods = {
         }
     },
 
-    /** One-time delegated event wiring. MapLibre keys these by layer id, so
-     *  they survive style swaps (they just idle while the layer is absent). */
+    _coarsePointer() {
+        return window.matchMedia('(pointer: coarse)').matches;
+    },
+
+    /** Which mark did the pointer mean?
+     *
+     *  Events are resolved against a box padded by `hitSlop` rather than
+     *  against the mark itself, so a 7px dot answers to roughly a 17px target.
+     *  `pickMark` (markers.js) settles overlaps: on-target keeps the painted
+     *  z-order exactly as MapLibre's layer-scoped events did, and only a
+     *  pointer that is inside nothing falls back to nearest-edge.
+     *
+     *  Returns the winning candidate — `{ feature, layerId, gap, inside }` —
+     *  or null when the pointer is not near anything. */
+    _pickMarkAt(point) {
+        const map = this._map;
+        if (!map || !this._mapReady) return null;
+        const layers = [LYR_STACKS, LYR_POINTS, LYR_CLUSTERS].filter((id) => map.getLayer(id));
+        if (!layers.length) return null;
+        const coarse = this._coarsePointer();
+        const slop = hitSlop(coarse);
+        const box = [
+            [point.x - slop, point.y - slop],
+            [point.x + slop, point.y + slop],
+        ];
+        let features;
+        try {
+            features = map.queryRenderedFeatures(box, { layers });
+        } catch (_) {
+            return null;            // style swap mid-move: the layers are gone
+        }
+        if (!features.length) return null;
+        const candidates = features.map((feature) => {
+            const at = map.project(feature.geometry.coordinates);
+            return {
+                feature,
+                layerId: feature.layer.id,
+                dx: at.x - point.x,
+                dy: at.y - point.y,
+                radius: markRadius(feature.layer.id, feature.properties, coarse),
+            };
+        });
+        return pickMark(candidates, slop);
+    },
+
+    /** One-time event wiring. These hang off the MAP rather than off layer
+     *  ids — a padded hit test has to see every mark type at once to judge
+     *  which is nearest — so they survive style swaps on their own, and
+     *  `_pickMarkAt` simply finds no layers while one is in flight. */
     _bindMapInteractions() {
         const map = this._map;
-        const coarse = window.matchMedia('(pointer: coarse)').matches;
+        const coarse = this._coarsePointer();
 
         // Marker-bound hover preview (skipped on touch devices — tap opens the
         // detail panel directly). The popup is display-only and mouse-
@@ -364,71 +418,15 @@ export const mapMethods = {
                 offset: 12, maxWidth: '280px',
                 className: 'food-tip',
             });
-            map.on('mousemove', LYR_POINTS, (e) => {
-                const feat = e.features?.[0];
-                const f = feat && this._byPermit.get(feat.properties.pid);
-                if (!f) return;
-                map.getCanvas().style.cursor = 'pointer';
-                // Same facility → leave the card alone. Re-rendering on every
-                // mousemove is needless work while the pointer stays on its
-                // marker.
-                if (this._hoverPid === f.permit_id) return;
-                this._showHoverCard(feat.geometry.coordinates.slice(), f);
-            });
-            map.on('mouseleave', LYR_POINTS, () => {
-                map.getCanvas().style.cursor = '';
-                this._hideHoverCard();
-            });
-            map.on('mouseenter', LYR_CLUSTERS, () => {
-                map.getCanvas().style.cursor = 'pointer';
-            });
-            map.on('mouseleave', LYR_CLUSTERS, () => {
-                map.getCanvas().style.cursor = '';
-            });
-
-            // A stack is a container, not a place, so it gets a line saying
-            // what it holds and how to open it — never the facility card,
-            // which would have to pick one of the permits to be about.
-            map.on('mousemove', LYR_STACKS, (e) => {
-                const feat = e.features?.[0];
-                if (!feat) return;
-                map.getCanvas().style.cursor = 'pointer';
-                const token = `stack:${feat.properties.skey}`;
-                if (this._hoverPid === token) return;
-                this._hoverPid = token;
-                const n = feat.properties.stack;
-                this._hoverPopup?.setMaxWidth('240px');
-                this._hoverPopup
-                    ?.setLngLat(feat.geometry.coordinates.slice())
-                    .setHTML('<div class="food-hover-card"><div class="food-hover-card-head">'
-                        + `<strong>${n} places at this point</strong>`
-                        + '<div class="food-tip-sub">click to fan them out</div>'
-                        + '</div></div>')
-                    .addTo(map);
-            });
-            map.on('mouseleave', LYR_STACKS, () => {
+            map.on('mousemove', (e) => this._onMapHover(e));
+            // Leaving the canvas is not a mousemove, so the card would hang.
+            map.on('mouseout', () => {
                 map.getCanvas().style.cursor = '';
                 this._hideHoverCard();
             });
         }
 
-        map.on('click', LYR_STACKS, (e) => {
-            const feat = e.features?.[0];
-            if (!feat) return;
-            this._hideHoverCard();
-            this._expandStack(feat.properties.skey);
-        });
-
-        // Anywhere else on the map closes an open web. The layer handler above
-        // runs for this same click, so ask what is actually under the pointer
-        // rather than racing it — and note the open stack is filtered OUT of
-        // LYR_STACKS, so clicking its own anchor closes it too.
-        map.on('click', (e) => {
-            if (!this._spider || !map.getLayer(LYR_STACKS)) return;
-            if (!map.queryRenderedFeatures(e.point, { layers: [LYR_STACKS] }).length) {
-                this._dismissSpider();
-            }
-        });
+        map.on('click', (e) => this._onMapClick(e));
 
         // Escape closes the web, unless the grade-receipt modal is up and
         // owns the key.
@@ -437,28 +435,94 @@ export const mapMethods = {
                 this._dismissSpider();
             }
         });
+    },
 
-        map.on('click', LYR_POINTS, (e) => {
-            const feat = e.features?.[0];
-            const f = feat && this._byPermit.get(feat.properties.pid);
-            if (f) {
-                this._hideHoverCard();   // the panel takes over
-                this._select(f);
-            }
-        });
+    /** Hover: cursor, and the card for whatever the pointer means. */
+    _onMapHover(e) {
+        const map = this._map;
+        const hit = this._pickMarkAt(e.point);
+        if (!hit) {
+            map.getCanvas().style.cursor = '';
+            this._hideHoverCard();
+            return;
+        }
+        map.getCanvas().style.cursor = 'pointer';
 
-        // Cluster click → zoom to the level where it breaks apart
-        // (getClusterExpansionZoom is Promise-based in MapLibre).
-        map.on('click', LYR_CLUSTERS, async (e) => {
-            const feat = e.features?.[0];
-            if (!feat) return;
+        if (hit.layerId === LYR_CLUSTERS) {
+            // A cluster is a camera control, not a place: cursor only.
+            this._hideHoverCard();
+            return;
+        }
+
+        if (hit.layerId === LYR_STACKS) {
+            // A stack is a container, not a place, so it gets a line saying
+            // what it holds and how to open it — never the facility card,
+            // which would have to pick one of the permits to be about.
+            const token = `stack:${hit.feature.properties.skey}`;
+            if (this._hoverPid === token) return;
+            this._hoverPid = token;
+            const n = hit.feature.properties.stack;
+            this._hoverPopup?.setMaxWidth('240px');
+            this._hoverPopup
+                ?.setLngLat(hit.feature.geometry.coordinates.slice())
+                .setHTML('<div class="food-hover-card"><div class="food-hover-card-head">'
+                    + `<strong>${n} places at this point</strong>`
+                    + '<div class="food-tip-sub">click to fan them out</div>'
+                    + '</div></div>')
+                .addTo(map);
+            return;
+        }
+
+        const f = this._byPermit.get(hit.feature.properties.pid);
+        if (!f) return;
+        // Same facility → leave the card alone. Re-rendering on every
+        // mousemove is needless work while the pointer stays on its marker.
+        if (this._hoverPid === f.permit_id) return;
+        // Anchored to the MARKER, never to the pointer: the card points at the
+        // thing it is about, which is the whole reason it has a tail.
+        this._showHoverCard(hit.feature.geometry.coordinates.slice(), f);
+    },
+
+    /** Click: open a stack, select a place, or break a cluster apart. */
+    _onMapClick(e) {
+        const map = this._map;
+        const hit = this._pickMarkAt(e.point);
+
+        // Anything that is not this stack closes an open web — including empty
+        // map, and including the open stack's own dimmed anchor, which is
+        // filtered out of the stack layer while its web is up and so is never
+        // a hit.
+        if (this._spider && (!hit || hit.layerId !== LYR_STACKS)) this._dismissSpider();
+        if (!hit) return;
+
+        if (hit.layerId === LYR_STACKS) {
+            this._hideHoverCard();
+            this._expandStack(hit.feature.properties.skey);
+            return;
+        }
+
+        if (hit.layerId === LYR_CLUSTERS) {
             this._hideHoverCard();   // the anchor marker is about to dissolve
-            try {
-                const zoom = await map.getSource(SRC)
-                    .getClusterExpansionZoom(feat.properties.cluster_id);
-                map.easeTo({ center: feat.geometry.coordinates, zoom: zoom + 0.5 });
-            } catch (_) { /* cluster dissolved mid-click */ }
-        });
+            this._zoomToCluster(hit.feature);
+            return;
+        }
+
+        const f = this._byPermit.get(hit.feature.properties.pid);
+        if (f) {
+            this._hideHoverCard();   // the panel takes over
+            this._select(f);
+        }
+    },
+
+    /** Cluster click → zoom to the level where it breaks apart
+     *  (getClusterExpansionZoom is Promise-based in MapLibre). */
+    async _zoomToCluster(feature) {
+        const map = this._map;
+        try {
+            const zoom = await map.getSource(SRC)
+                .getClusterExpansionZoom(feature.properties.cluster_id);
+            map.easeTo({ center: feature.geometry.coordinates, zoom: zoom + 0.5 });
+        } catch (_) { /* cluster dissolved mid-click */ }
     },
 
     // ── locate feedback ─────────────────────────────────────────────────
