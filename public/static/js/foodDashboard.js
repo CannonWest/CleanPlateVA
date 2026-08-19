@@ -79,6 +79,7 @@ export {
     narrativeVerdictPresentation, permitUrl, visitsOf,
 } from './presentation.js';
 export { gradeReceiptPresentation } from './receipt.js';
+export { searchTerms } from './filters.js';
 
 export class FoodDashboard {
     constructor(api, { ack = null, forceLite = false } = {}) {
