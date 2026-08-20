@@ -24,7 +24,7 @@ import { dashboard, dashboardSource as source } from './support/dashboard.mjs';
 
 const proto = dashboard.FoodDashboard.prototype;
 const { facilityPresentation, isoFromYmd, visitsOf, buildScopeSeries,
-    approximateLabel, locationClass, LOCATION_CLASS } = dashboard;
+    approximateLabel, locationClass, fitAnchor, LOCATION_CLASS } = dashboard;
 
 const rows = (count, out = 0, dupes = 0) => {
     const list = Array.from({ length: count }, (_, index) => ({
@@ -275,6 +275,52 @@ test('the shared-site text is gone, not just hidden', () => {
 
 // ── marker-bound dismissal + panel-only interaction (source pins) ─────
 
+test('the card is kept inside the map, on whichever axis the map shrank', () => {
+    // `.food-map-wrap` clips its overflow, so a card past the map's edge is
+    // not merely ugly — the overhang is cut off. And BOTH edges move now: the
+    // splitter trades width with the side panel and height with the stacked
+    // bottom bar, so the box a card must fit is the map's own rect, which
+    // shrinks on whichever axis was dragged. Measured with the panel open: a
+    // card near the right edge ran 66px past it. MapLibre flips at the left
+    // and top edges by itself, but did not at the right.
+    //
+    // Anchor names say where the POPUP'S corner sits, so they read inverted:
+    // hanging off the RIGHT edge is fixed by anchoring 'right', which puts the
+    // card to the LEFT of its point.
+    const view = { left: 100, top: 100, right: 800, bottom: 700 };
+    const card = (left, top, w = 220, h = 60) =>
+        ({ left, top, right: left + w, bottom: top + h });
+
+    // Comfortably inside: nothing to do, so nothing re-renders.
+    assert.equal(fitAnchor(card(300, 300), view), null);
+
+    // Off one edge at a time.
+    assert.equal(fitAnchor(card(700, 300), view), 'right');       // over the RIGHT
+    assert.equal(fitAnchor(card(20, 300), view), 'left');         // over the LEFT
+    assert.equal(fitAnchor(card(300, 680), view), 'bottom');      // over the BOTTOM
+    assert.equal(fitAnchor(card(300, 60), view), 'top');          // over the TOP
+
+    // A corner needs both, vertical component first (MapLibre's order).
+    assert.equal(fitAnchor(card(700, 680), view), 'bottom-right');
+    assert.equal(fitAnchor(card(20, 60), view), 'top-left');
+
+    // Correcting an anchor that already has a component REPLACES the opposite
+    // one rather than stacking a contradiction like "left-right".
+    assert.equal(fitAnchor(card(700, 300), view, 'left'), 'right');
+    assert.equal(fitAnchor(card(700, 300), view, 'top'), 'top-right');
+    assert.equal(fitAnchor(card(300, 680), view, 'top'), 'bottom');
+
+    // The stacked case: the bottom bar has taken the lower half, so the map's
+    // box ends higher and a card that used to fit now does not.
+    const short = { left: 100, top: 100, right: 800, bottom: 400 };
+    assert.equal(fitAnchor(card(300, 360), short), 'bottom');   // bottom 420 > 400
+    assert.equal(fitAnchor(card(300, 300), short), null);       // bottom 360 still fits
+    // The very same card is fine in the taller box — which is the point: the
+    // fit is against the map's CURRENT rect, so dragging the bottom bar up
+    // changes the answer without anything else being told.
+    assert.equal(fitAnchor(card(300, 360), view), null);
+});
+
 test('the card exists only while the pointer remains on its marker', () => {
     // One map-level mousemove now resolves every mark type at once — a padded
     // hit test has to see them together to judge which is nearest — so the
@@ -320,12 +366,24 @@ test('the card dismisses when its ground shifts: select, cluster zoom, rebuild',
 });
 
 test('the popup sizes per tier and the hero card gets its width', () => {
-    assert.match(source, /setMaxWidth\(lite \? '280px' : '380px'\)/);
+    // The tier still decides the card's ambition, but the MAP decides its
+    // ceiling: neither width may exceed the box it is drawn in, because the
+    // wrap clips its overflow. Measured with the panel dragged to 900px on a
+    // 1280px window — a 349px map against a 380px hero, 217px lost off the
+    // right edge — and the same on the other axis once the stacked bar is
+    // dragged up: a 193px map against a 263px card, 179px lost into the panel.
+    assert.match(source, /Math\.max\(TIP_MIN_WIDTH, Math\.min\(lite \? 280 : 380, room\)\)/);
+    assert.match(source, /'--cp-tip-max-h'/);
+    assert.match(source, /const TIP_MIN_WIDTH = 220;/);
+    assert.match(source, /const TIP_MIN_HEIGHT = 96;/);
     assert.match(source, /dashboard\._sparkSvg\(series, 280\)/);   // one plot markup for both surfaces
     const css = readFileSync(
         new URL('../public/static/css/style.css', import.meta.url), 'utf8');
     assert.match(css, /\.food-tip,\s*\n\.food-tip \.maplibregl-popup-content \{ pointer-events: none; \}/);
     assert.match(css, /\.food-tip \.food-hover-card \{ width: 352px/);
+    // The height cap is a variable because only the module knows the map's
+    // current height — the splitter changes it on every drag frame.
+    assert.match(css, /max-height: var\(--cp-tip-max-h, none\);/);
     assert.match(css, /\.food-tip:has\(\.food-hover-card\) \.maplibregl-popup-content/);
 });
 
