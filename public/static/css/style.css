@@ -620,22 +620,30 @@ body {
     width: 10px;
     margin: 0 -0.425rem;        /* eat into the .food-body gap, don't widen it */
     align-self: stretch;
-    border-radius: 999px;
     cursor: col-resize;
     background: transparent;
-    /* The line itself, drawn short of the corners so it reads as a grip
-       rather than a border on either neighbour. */
-    background-image: linear-gradient(var(--cp-border), var(--cp-border));
-    background-size: 2px calc(100% - 2.5rem);
-    background-position: center;
-    background-repeat: no-repeat;
-    transition: background-size 0.12s ease, background-image 0.12s ease;
+    /* The 10px box is the TARGET; the pill inside is the only part drawn. */
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
-.food-splitter:hover,
-.food-splitter:focus-visible,
-body.is-splitting .food-splitter {
-    background-image: linear-gradient(var(--cp-accent), var(--cp-accent));
-    background-size: 4px calc(100% - 1rem);
+/* A short centred grip, not a full-height rule: a line running the height of
+   the row reads as a border belonging to one of its neighbours, and at the
+   accent colour it read as a selection. This is the desktop-app idiom — a
+   small handle that says "grab here" and otherwise stays out of the way. */
+.food-splitter-grip {
+    width: 4px;
+    height: 56px;
+    border-radius: 999px;
+    background: var(--cp-border);
+    transition: background-color 0.12s ease;
+}
+/* Hovered, focused, or being dragged: the same grip, lifted a step toward the
+   foreground. Emphasis by tone rather than by hue or size, so nothing jumps. */
+.food-splitter:hover .food-splitter-grip,
+.food-splitter:focus-visible .food-splitter-grip,
+body.is-splitting .food-splitter-grip {
+    background: var(--cp-muted);
 }
 .food-splitter:focus-visible { outline: 2px solid var(--cp-accent); outline-offset: 2px; }
 /* Nothing to divide when the panel is closed. `:has` keeps this in CSS rather
