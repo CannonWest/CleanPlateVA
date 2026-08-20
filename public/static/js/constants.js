@@ -91,6 +91,17 @@ export const DETAIL_WIDTH_DEFAULT = 400;
 export const DETAIL_WIDTH_MIN = 300;
 export const DETAIL_WIDTH_MAX_FRACTION = 0.7;
 
+// Stacked (narrow windows), the same divider runs the other way and trades
+// HEIGHT. A separate stored key because these are different measurements of
+// different things: a width remembered on a desktop must not come back as a
+// height on a phone. No fixed default — 60% of the row is what the stacked
+// layout always gave the panel, and a share travels between screens where a
+// pixel count does not.
+export const DETAIL_HEIGHT_KEY = 'cleanplateva.detailHeight';
+export const DETAIL_HEIGHT_DEFAULT_FRACTION = 0.6;
+export const DETAIL_HEIGHT_MIN = 180;
+export const DETAIL_HEIGHT_MAX_FRACTION = 0.8;
+
 // ── mark geometry ───────────────────────────────────────────────────────
 //
 // Radii the PAINT and the HIT TEST both read. They have to come from one place:
