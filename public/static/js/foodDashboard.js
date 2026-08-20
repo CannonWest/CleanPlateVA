@@ -76,10 +76,11 @@ export {
     stackOpenDrop, stackRadius, stackRingIcon, STACK_PANEL_GAP, STACK_PANEL_PAGE,
 } from './stacks.js';
 export {
-    buildScopeSeries, coordsOf, facilityPresentation, focusedOutcomePresentation,
-    gradePresentation, inspectionCountsPresentation, inspectionPresentation,
-    isActivePermit, isNewlyPermitted, isoFromYmd, latestDateOf, locationClass,
-    narrativeVerdictPresentation, permitUrl, visitsOf,
+    approximateLabel, buildScopeSeries, coordsOf, facilityPresentation,
+    focusedOutcomePresentation, gradePresentation, inspectionCountsPresentation,
+    inspectionPresentation, isActivePermit, isNewlyPermitted, isoFromYmd,
+    latestDateOf, locationClass, LOCATION_CLASS, narrativeVerdictPresentation,
+    permitUrl, visitsOf,
 } from './presentation.js';
 export { gradeReceiptPresentation } from './receipt.js';
 export { searchTerms } from './filters.js';

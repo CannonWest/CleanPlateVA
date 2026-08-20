@@ -62,7 +62,7 @@ const fullManifest = {
     snapshot_id: 'snapshot-1',
     fetched_at: '2026-08-16T12:00:00Z',
     freshness: { snapshot_id: 'snapshot-1', newest_report: '2026-08-07' },
-    vocab: { permit_type: ['Fast Food', 'Full Service Restaurant'], loc: ['rooftop', 'street', 'zip_centroid'], scope: ['unknown', 'broad', 'focused'] },
+    vocab: { permit_type: ['Fast Food', 'Full Service Restaurant'], loc: ['rooftop', 'street', 'zip_centroid', 'venue'], scope: ['unknown', 'broad', 'focused'] },
     counts: { total: 3, active: 2, closed: 1, by_grade: {}, by_zip: {} },
     resources: {
         finder: { shards: [

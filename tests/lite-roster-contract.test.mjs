@@ -10,7 +10,7 @@
  * tiers — active permits, judgment-free identity/location rows as objects at
  * 6 dp with `pt` (a code into the manifest's `vocab.permit_type`),
  * `is_restaurant`, `mobile`, and `loc` (0 rooftop · 1 street-level · 2 ZIP
- * centroid). The manifest carries top-level `freshness` and `vocab`.
+ * centroid, 3 venue). The manifest carries top-level `freshness` and `vocab`.
  */
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
@@ -57,7 +57,15 @@ test('the manifest states freshness and the code vocabularies', () => {
     assert.equal(manifest.freshness.snapshot_id, manifest.snapshot_id);
     assert.match(manifest.freshness.newest_report, /^\d{4}-\d{2}-\d{2}$/);
     assert.deepEqual(Object.keys(manifest.vocab).sort(), ['loc', 'permit_type', 'scope']);
-    assert.deepEqual(manifest.vocab.loc, ['rooftop', 'street', 'zip_centroid']);
+    // `loc` is APPEND-ONLY: a code is positional identity, so the first three
+    // are frozen forever and a new class may only join the end. `venue` (3)
+    // appears here once the venue-anchor arc's first publish lands; asserting
+    // the frozen prefix plus a known-name check keeps this true on both sides
+    // of that publish without ever permitting a renumbering.
+    assert.deepEqual(manifest.vocab.loc.slice(0, 3),
+        ['rooftop', 'street', 'zip_centroid']);
+    assert.deepEqual(manifest.vocab.loc.slice(3).filter((n) => n !== 'venue'), [],
+        'unknown loc class — the client must learn it before it is published');
     assert.deepEqual(manifest.vocab.scope, ['unknown', 'broad', 'focused']);
     assert.ok(manifest.vocab.permit_type.length >= 10, 'permit_type vocabulary looks truncated');
     assert.deepEqual([...manifest.vocab.permit_type].sort(), manifest.vocab.permit_type,
