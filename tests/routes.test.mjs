@@ -245,7 +245,9 @@ test('the legacy #about hash migrates to /about and view switches route through 
     assert.match(orch, /_setView\(mode, \{ write = true \} = \{\}\)/);
     assert.match(orch, /if \(write\) this\._syncUrl\(\{ push: changed \}\);/);
     assert.match(orch, /document\.title = titleForView\(mode, this\._baseTitle\)/);
-    assert.match(orch, /routerMethods\]/);
+    // The router's methods reach the prototype through the install list;
+    // the list's tail is not the point, membership is.
+    assert.match(orch, /routerMethods[,\]]/);
     // selecting a facility pushes ?permit=; closing replaces it away
     const detail = moduleSource('detail.js');
     assert.match(detail, /async _select\(f, \{ write = true \} = \{\}\)[\s\S]{0,400}?if \(write\) this\._syncUrl\(\{ push: true \}\);/);

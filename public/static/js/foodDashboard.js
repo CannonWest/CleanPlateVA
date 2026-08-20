@@ -70,6 +70,7 @@ import { detailMethods } from './detail.js';
 import { sparklineMethods } from './sparkline.js';
 import { inspectionMethods } from './inspection.js';
 import { ackMethods } from './ack.js';
+import { splitterMethods } from './splitter.js';
 
 export {
     baseAddress, memberSuite, sharedPlace, spiderOffsets, spiderReach, stackKey,
@@ -83,6 +84,12 @@ export {
     permitUrl, visitsOf,
 } from './presentation.js';
 export { gradeReceiptPresentation } from './receipt.js';
+export {
+    clampDetailWidth, detailWidthCeiling, readStoredDetailWidth, rowContentWidth,
+} from './splitter.js';
+export {
+    DETAIL_WIDTH_DEFAULT, DETAIL_WIDTH_KEY, DETAIL_WIDTH_MAX_FRACTION, DETAIL_WIDTH_MIN,
+} from './constants.js';
 export { searchTerms } from './filters.js';
 export {
     clusterRadius, hitSlop, markRadius, pickMark, pointRadius, MARK_RANK,
@@ -308,6 +315,9 @@ export class FoodDashboard {
         // (ack.js). The dialog itself is load()'s business.
         this._installAck();
 
+        // The map / panel divider (splitter.js).
+        this._installSplitter();
+
         // Restyle the basemap when the body's theme class changes.
         new MutationObserver(() => this._applyTheme())
             .observe(document.body, { attributes: true, attributeFilter: ['class'] });
@@ -461,7 +471,7 @@ export class FoodDashboard {
 // unchanged; only their file moved.
 for (const bundle of [mapMethods, markerMethods, hoverMethods, stackMethods, filterMethods,
     listMethods, aboutMethods, detailMethods, sparklineMethods, inspectionMethods, ackMethods,
-    routerMethods]) {
+    routerMethods, splitterMethods]) {
     for (const [name, fn] of Object.entries(bundle)) {
         Object.defineProperty(FoodDashboard.prototype, name, {
             value: fn, writable: true, configurable: true, enumerable: false,
