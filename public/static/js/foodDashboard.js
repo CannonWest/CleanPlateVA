@@ -73,7 +73,7 @@ import { ackMethods } from './ack.js';
 
 export {
     baseAddress, memberSuite, sharedPlace, spiderOffsets, spiderReach, stackKey,
-    stackRadius, stackRingIcon, STACK_PANEL_PAGE,
+    stackOpenDrop, stackRadius, stackRingIcon, STACK_PANEL_GAP, STACK_PANEL_PAGE,
 } from './stacks.js';
 export {
     buildScopeSeries, coordsOf, facilityPresentation, focusedOutcomePresentation,
