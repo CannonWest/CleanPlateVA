@@ -85,10 +85,13 @@ export {
 } from './presentation.js';
 export { gradeReceiptPresentation } from './receipt.js';
 export {
-    clampDetailWidth, detailWidthCeiling, readStoredDetailWidth, rowContentWidth,
+    clampDetailSize, clampDetailWidth, detailSizeCeiling, detailWidthCeiling,
+    readStoredDetailSize, readStoredDetailWidth, rowContentSize, rowContentWidth, SPLIT_AXES,
 } from './splitter.js';
 export {
-    DETAIL_WIDTH_DEFAULT, DETAIL_WIDTH_KEY, DETAIL_WIDTH_MAX_FRACTION, DETAIL_WIDTH_MIN,
+    DETAIL_HEIGHT_DEFAULT_FRACTION, DETAIL_HEIGHT_KEY, DETAIL_HEIGHT_MAX_FRACTION,
+    DETAIL_HEIGHT_MIN, DETAIL_WIDTH_DEFAULT, DETAIL_WIDTH_KEY, DETAIL_WIDTH_MAX_FRACTION,
+    DETAIL_WIDTH_MIN,
 } from './constants.js';
 export { searchTerms } from './filters.js';
 export {
