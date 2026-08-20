@@ -610,10 +610,52 @@ body {
 }
 .theme-dark .food-map-note .btn-close { filter: invert(1) grayscale(100%) brightness(160%); }
 
+/* ── the map / panel divider ──────────────────────────────────────────── */
+/* Sits in the row's gap rather than adding to it, so turning the divider on
+   does not shove the layout sideways. The hit area is wider than the line:
+   a 1px target is a fair description of the graphic and a poor one of the
+   thing you have to grab. */
+.food-splitter {
+    flex: 0 0 auto;
+    width: 10px;
+    margin: 0 -0.425rem;        /* eat into the .food-body gap, don't widen it */
+    align-self: stretch;
+    border-radius: 999px;
+    cursor: col-resize;
+    background: transparent;
+    /* The line itself, drawn short of the corners so it reads as a grip
+       rather than a border on either neighbour. */
+    background-image: linear-gradient(var(--cp-border), var(--cp-border));
+    background-size: 2px calc(100% - 2.5rem);
+    background-position: center;
+    background-repeat: no-repeat;
+    transition: background-size 0.12s ease, background-image 0.12s ease;
+}
+.food-splitter:hover,
+.food-splitter:focus-visible,
+body.is-splitting .food-splitter {
+    background-image: linear-gradient(var(--cp-accent), var(--cp-accent));
+    background-size: 4px calc(100% - 1rem);
+}
+.food-splitter:focus-visible { outline: 2px solid var(--cp-accent); outline-offset: 2px; }
+/* Nothing to divide when the panel is closed. `:has` keeps this in CSS rather
+   than making every show/hide path remember to toggle a second element. */
+.food-body:has(.food-detail.d-none) .food-splitter { display: none; }
+/* While dragging, the whole window is the drag surface: without this the
+   cursor flickers between elements and the pointer selects text on the way. */
+body.is-splitting { cursor: col-resize; user-select: none; }
+body.is-splitting #foodMap { pointer-events: none; }
+
 /* ── detail panel ─────────────────────────────────────────────────────── */
 .food-detail {
+    /* JS sets an explicit width (splitter.js); this is the pre-drag default
+       and the fallback when storage is unreadable. `flex: 0 0 auto` is what
+       makes the panel hold that width and the map absorb the remainder. */
     width: 400px;
-    max-width: 45%;
+    flex: 0 0 auto;
+    /* Mirrors DETAIL_WIDTH_MAX_FRACTION so the CSS cap and the JS clamp can
+       never disagree about where the bar stops. */
+    max-width: 70%;
     border: 1px solid var(--cp-border);
     border-radius: 0.75rem;
     background: var(--cp-surface);
@@ -1604,8 +1646,11 @@ body.food-receipt-open { overflow: hidden; }
    (map keeps ~40%) — the map is context, the facility view is the focus. */
 @media (max-width: 900px) {
     .food-body { flex-direction: column; padding: 0.6rem 0.6rem 0.35rem; gap: 0.6rem; }
+    /* Stacked: the panel sits UNDER the map, so a vertical divider has nothing
+       to divide and the max-height below governs the split instead. */
+    .food-splitter { display: none; }
     .food-detail {
-        width: 100%;
+        width: 100% !important;   /* beats the inline width the splitter sets */
         max-width: 100%;
         max-height: 60%;
     }
