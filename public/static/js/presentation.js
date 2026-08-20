@@ -17,7 +17,10 @@ import { AGGREGATE_TENANT, GRADE_COLORS, PORTAL_BASE, RF_MAX_ITEM } from './cons
 // `grade`, …) is untouched, so one presentation serves both.
 
 export const OVERLAY_SCOPES = ['unknown', 'broad', 'focused'];
-export const LOCATION_CLASS = { rooftop: 0, street: 1, zip_centroid: 2 };
+// Codes are identity, not a quality ordering. `venue` is a better pin than
+// `street` but is APPENDED at 3, because the exporter may only ever append:
+// a shard already on disk has to keep meaning what it meant.
+export const LOCATION_CLASS = { rooftop: 0, street: 1, zip_centroid: 2, venue: 3 };
 
 /** yyyymmdd int → ISO date, or null. */
 export function isoFromYmd(value) {
@@ -34,14 +37,30 @@ export function coordsOf(f) {
     return { lat, lon };
 }
 
-/** 0 rooftop-quality · 1 street-level (Census centerline) · 2 ZIP centroid —
- *  the finder's `loc` code, or derived from a detail's location.source. */
+/** 0 rooftop-quality · 1 street-level (Census centerline) · 2 ZIP centroid ·
+ *  3 venue-level (seated on the venue, not the unit) — the finder's `loc`
+ *  code, or derived from a detail's location.source. */
 export function locationClass(f) {
     if (Number.isInteger(f?.loc)) return f.loc;
     const source = f?.location?.source;
     if (source === 'zip_centroid') return LOCATION_CLASS.zip_centroid;
+    if (source === 'venue_anchor') return LOCATION_CLASS.venue;
     if (source === 'census_batch' || source === 'census_oneline') return LOCATION_CLASS.street;
     return LOCATION_CLASS.rooftop;
+}
+
+/** Short qualifier for an approximate pin, '' when it is rooftop-quality.
+ *  Deliberately just the class name: the hover is a glance, and the detail
+ *  panel's `_geoNote` carries the explanation and the tooltip. One switch so a new class cannot be qualified in one surface
+ *  and silently unqualified in the other — which is exactly what happened to
+ *  ZIP centroids, warned on the Lite hover and nowhere on the Full one. */
+export function approximateLabel(f) {
+    switch (locationClass(f)) {
+        case LOCATION_CLASS.zip_centroid: return 'approximate location';
+        case LOCATION_CLASS.venue: return 'venue-level';
+        case LOCATION_CLASS.street: return 'street-level';
+        default: return '';
+    }
 }
 
 /** The last-visit date of a roster row or detail facility, ISO or null. */

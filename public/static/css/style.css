@@ -665,10 +665,15 @@ body {
     font-style: italic;
     color: #e8590c;
 }
-.food-approx-street {
+/* `street` and `venue` are both mild qualifications — a real place, just not
+   the exact unit — so they drop the ZIP-centroid warning orange above for the
+   same quiet grey. Only a centroid pin is actually misleading. */
+.food-approx-street,
+.food-approx-venue {
     color: #868e96;
 }
-.theme-dark .food-approx-street {
+.theme-dark .food-approx-street,
+.theme-dark .food-approx-venue {
     color: #8b93a4;
 }
 

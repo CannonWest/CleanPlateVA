@@ -23,7 +23,8 @@ import test from 'node:test';
 import { dashboard, dashboardSource as source } from './support/dashboard.mjs';
 
 const proto = dashboard.FoodDashboard.prototype;
-const { facilityPresentation, isoFromYmd, visitsOf, buildScopeSeries } = dashboard;
+const { facilityPresentation, isoFromYmd, visitsOf, buildScopeSeries,
+    approximateLabel, locationClass, LOCATION_CLASS } = dashboard;
 
 const rows = (count, out = 0, dupes = 0) => {
     const list = Array.from({ length: count }, (_, index) => ({
@@ -326,4 +327,60 @@ test('the popup sizes per tier and the hero card gets its width', () => {
     assert.match(css, /\.food-tip,\s*\n\.food-tip \.maplibregl-popup-content \{ pointer-events: none; \}/);
     assert.match(css, /\.food-tip \.food-hover-card \{ width: 352px/);
     assert.match(css, /\.food-tip:has\(\.food-hover-card\) \.maplibregl-popup-content/);
+});
+
+// ── approximate-location qualifiers (venue-anchor arc, 2026-08-19) ─────
+
+test('the loc vocabulary is append-only and venue is the appended class', () => {
+    // A `loc` code is positional identity: renumbering would make every shard
+    // already on disk mean something else.
+    assert.deepEqual(LOCATION_CLASS,
+        { rooftop: 0, street: 1, zip_centroid: 2, venue: 3 });
+});
+
+test('a venue-anchored site classifies and labels as venue-level', () => {
+    assert.equal(locationClass({ loc: 3 }), LOCATION_CLASS.venue);
+    // A detail-shaped facility derives the same class from its source.
+    assert.equal(locationClass({ location: { source: 'venue_anchor' } }),
+        LOCATION_CLASS.venue);
+    assert.equal(approximateLabel({ loc: 3 }), 'venue-level');
+});
+
+test('every class but rooftop is qualified, and rooftop is never qualified', () => {
+    assert.equal(approximateLabel({ loc: 0 }), '');
+    assert.equal(approximateLabel({ loc: 1 }), 'street-level');
+    assert.equal(approximateLabel({ loc: 2 }), 'approximate location');
+    assert.equal(approximateLabel({ loc: 3 }), 'venue-level');
+});
+
+test('BOTH tiers qualify an approximate pin on hover, not just lite', () => {
+    // Until 2026-08-19 only the lite card carried the note, so the tier with
+    // MORE information gave LESS warning: a full-tier hover over a DCA
+    // concession showed a Crystal City rooftop with no hint it was a centroid.
+    const row = (loc) => ({
+        permit_id: 'V', name: 'DCA - Five Guys', address: 'WNA- Concourse D',
+        city: 'Arlington', lat: 38.8527, lon: -77.0427, loc,
+    });
+    for (const [loc, label] of [[2, 'approximate location'], [3, 'venue-level'],
+        [1, 'street-level']]) {
+        for (const mode of ['lite', 'full']) {
+            const html = proto._hoverCardHTML.call(cardCtx(mode), row(loc));
+            assert.match(html, new RegExp(`≈ ${label}`), `${mode} loc=${loc}`);
+        }
+    }
+    for (const mode of ['lite', 'full']) {
+        assert.doesNotMatch(proto._hoverCardHTML.call(cardCtx(mode), row(0)), /≈ /,
+            `${mode} must not qualify a rooftop pin`);
+    }
+});
+
+test('the detail panel explains the venue class rather than claiming a building', () => {
+    const note = proto._geoNote.call(cardCtx('full'), { loc: 3 });
+    assert.match(note, /≈ venue-level/);
+    assert.match(note, /food-approx-venue/);
+    // The claim has to hold for the WEAKEST case the class covers — a campus
+    // spread over many buildings — so it must not say "the building".
+    assert.doesNotMatch(note, /not the building/);
+    assert.match(note, /not at its own unit/);
+    assert.equal(proto._geoNote.call(cardCtx('full'), { loc: 0 }), '');
 });
