@@ -24,7 +24,10 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { dashboard, moduleSource } from './support/dashboard.mjs';
 
-const { baseAddress, memberSuite, sharedPlace, spiderReach, STACK_PANEL_PAGE } = dashboard;
+const {
+    baseAddress, memberSuite, sharedPlace, spiderReach, stackOpenDrop,
+    STACK_PANEL_GAP, STACK_PANEL_PAGE,
+} = dashboard;
 const css = readFileSync(new URL('../public/static/css/style.css', import.meta.url), 'utf8');
 
 const place = (name, address, address2 = '', city = 'Stone Ridge', zip = '20105') =>
@@ -124,15 +127,41 @@ test('the panel opens where the stack is GOING, not where it was clicked', () =>
     // to fit above it, so every click in the top 31% opened the wrong way, and
     // a shorter map makes that band bigger.
     const stacks = moduleSource('stacks.js');
-    assert.match(stacks, /pinnedY: centring\s*\?\s*this\._map\.getContainer\(\)\.getBoundingClientRect\(\)\.height \/ 2\s*:\s*null,/);
     assert.match(stacks, /const at = \{ y: panel\.pinnedY \?\? projected\.y \};/);
     assert.match(stacks, /this\._openStackPanel\(group, page, \{ centring: recenter \}\);/);
+    // The pin names the landing spot the camera is actually aiming at — which
+    // is NOT the bare centre (see the drop below); naming a different place
+    // would just move the wrong-side problem rather than fix it.
+    assert.match(stacks, /this\._stackPanel\.pinnedY = view \/ 2 \+ stackOpenDrop\(el\.offsetHeight\);/);
+    assert.match(stacks, /offset: \[0, stackOpenDrop\(this\._stackPanel\?\.el\?\.offsetHeight\)\]/);
     // And once the stack lands, measuring takes over from assuming — so every
     // later pan and zoom re-decides normally.
     assert.match(stacks, /this\._map\.once\('moveend', \(\) => \{[\s\S]{0,200}?pinnedY = null;[\s\S]{0,80}?_positionStackPanel\(\);/);
     // A re-seat after a filter change does NOT centre, so it must not pin:
     // there the stack really is where it is projected.
     assert.match(stacks, /_openStackPanel\(group, page = 1, \{ centring = false \} = \{\}\)/);
+});
+
+test('the stack lands below centre so the panel and web are centred together', () => {
+    // Centring the STACK centres the wrong thing. What a visitor looks at is
+    // the panel above plus the web around, and that block hangs upward — so
+    // centring the stack left the panel crowding the top edge, and on a short
+    // map pushed it to the wrong side entirely. Dropping the stack by half the
+    // panel (plus its gap) centres the BLOCK instead. Cannon's idea.
+    assert.equal(stackOpenDrop(218), (STACK_PANEL_GAP + 218) / 2);
+    assert.equal(stackOpenDrop(0), STACK_PANEL_GAP / 2);
+    assert.equal(stackOpenDrop(undefined), STACK_PANEL_GAP / 2);
+
+    // Measured on the Dulles stack Cannon screenshotted (858px map, 218px
+    // panel, reach 56): the stack lands 117px below centre and the block —
+    // panel top 256 to web bottom 601 — centres exactly on the map's 429.
+    //
+    // It also lowers the map height at which the panel still fits above, from
+    // 2*(8 + reach + gap + panelH) = 595px down to 2*(8 + reach) + gap +
+    // panelH = 361px, because the stack-centred version wasted a whole half
+    // viewport above the stack. Verified at 418px: above, and fully on the map.
+    const stacks = moduleSource('stacks.js');
+    assert.match(stacks, /export function stackOpenDrop\(panelHeight\) \{\s*return \(STACK_PANEL_GAP \+ \(panelHeight \|\| 0\)\) \/ 2;/);
 });
 
 test('a filter change re-seats the open web instead of closing it', () => {
