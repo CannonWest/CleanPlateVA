@@ -22,6 +22,40 @@ import {
 // readable is not worth making the card jump.
 const PANEL_COVER_LIMIT = 0.6;
 
+// Floors for the card's own box. Below these it is not a card any more, and a
+// map that small is not really being read — better a card that overhangs a
+// sliver than one squeezed to nothing.
+const TIP_MIN_WIDTH = 220;
+const TIP_MIN_HEIGHT = 96;
+
+/** Correct a popup anchor so the card lands INSIDE the map.
+ *
+ *  `.food-map-wrap` clips its overflow, so a card that runs past the map's
+ *  edge is not merely ugly — the part of it beyond the edge is cut off, and
+ *  the edge that matters most is the one the detail panel or the stacked
+ *  bottom bar has just moved inward. Measured with the panel open: a card near
+ *  the right edge ran 66px past it and lost that strip. MapLibre flips at the
+ *  left and top edges on its own but did not at the right.
+ *
+ *  Anchor names say where the POPUP'S OWN corner sits, so they read inverted:
+ *  hanging off the right edge is fixed by anchoring `right`, which puts the
+ *  card to the LEFT of its point. Returns null when nothing needs moving, so
+ *  the common case re-renders nothing.
+ */
+export function fitAnchor(card, view, anchor = null) {
+    const parts = new Set(String(anchor || '').split('-').filter(Boolean));
+    let moved = false;
+    if (card.right > view.right) { parts.delete('left'); parts.add('right'); moved = true; }
+    else if (card.left < view.left) { parts.delete('right'); parts.add('left'); moved = true; }
+    if (card.bottom > view.bottom) { parts.delete('top'); parts.add('bottom'); moved = true; }
+    else if (card.top < view.top) { parts.delete('bottom'); parts.add('top'); moved = true; }
+    if (!moved) return null;
+    // MapLibre wants the vertical component first.
+    const vertical = parts.has('top') ? 'top' : (parts.has('bottom') ? 'bottom' : '');
+    const horizontal = parts.has('left') ? 'left' : (parts.has('right') ? 'right' : '');
+    return [vertical, horizontal].filter(Boolean).join('-') || null;
+}
+
 export const hoverMethods = {
     // ── marker-bound hover card ────────────────────────────────────────
     _hideHoverCard() {
@@ -58,13 +92,29 @@ export const hoverMethods = {
         this._hoverPid = f.permit_id;
         const lite = this._mode === 'lite';
         const html = this._hoverCardHTML(f);
+        const view = this._mapViewBox();
         const place = (anchor) => {
             const popup = this._hoverPopupFor(anchor);
-            // Lite keeps the slim name+address tip; the hero card needs room.
-            popup.setMaxWidth(lite ? '280px' : '380px');
+            // Lite keeps the slim name+address tip; the hero card needs room —
+            // but neither may be WIDER THAN THE MAP. `.food-map-wrap` clips its
+            // overflow, so a card bigger than its container is not re-anchored
+            // out of trouble, it is sliced. The splitter made that reachable:
+            // drag the panel to 70% and a 1280px window leaves a 349px map
+            // against a 380px hero, which lost 217px off its right edge.
+            const room = Math.round(view.right - view.left);
+            popup.setMaxWidth(`${Math.max(TIP_MIN_WIDTH, Math.min(lite ? 280 : 380, room))}px`);
             popup.setLngLat(lngLat).setHTML(html).addTo(this._map);
+            // The same argument on the other axis, which the stacked splitter
+            // reaches sooner: drag the bottom bar up and a 193px map faces the
+            // same 263px card, overflowing 179px INTO the panel. Capped here
+            // rather than in the stylesheet because only this knows the map's
+            // current height. A card with no room left is abbreviated, which
+            // is at least a clean edge inside the map instead of a slice.
+            popup.getElement().style.setProperty(
+                '--cp-tip-max-h', `${Math.max(TIP_MIN_HEIGHT, Math.round(view.bottom - view.top))}px`);
         };
-        place(below ? 'top' : null);
+        let anchor = below ? 'top' : null;
+        place(anchor);
         // Any card that would bury the stack panel moves to the other side of
         // its own marker — not just the legs inside the web (Cannon,
         // 2026-08-19). Measured after placing rather than predicted: a card is
@@ -72,10 +122,34 @@ export const hoverMethods = {
         // height is not knowable up front. Both placements happen in one task,
         // so nothing is painted in between and the move is invisible.
         if (this._stackPanel && !below && this._panelCoveredBy() > PANEL_COVER_LIMIT) {
-            place('top');
+            anchor = 'top';
+            place(anchor);
         }
+        // ...and whatever it settled on, keep the card inside the map, because
+        // the wrap clips what hangs over the edge. Last, so it corrects the
+        // final placement rather than one the rule above may replace. One
+        // pass: the corrected anchor moves the card AWAY from the edge it
+        // overshot, so a second could only chase it back.
+        const fixed = fitAnchor(
+            this._hoverPopup.getElement().getBoundingClientRect(),
+            this._mapViewBox(), anchor);
+        if (fixed) place(fixed);
         // Only if moving it did not help does the panel step aside.
         this._yieldStackPanel(this._panelCoveredBy() > PANEL_COVER_LIMIT);
+    },
+
+    /** The box a card has to stay inside: the map itself, whose wrapper clips
+     *  overflow. Inset slightly so a card does not sit flush against the edge
+     *  it was just moved off. */
+    _mapViewBox() {
+        const el = document.getElementById('foodMap');
+        if (!el) return { left: 0, top: 0, right: Infinity, bottom: Infinity };
+        const r = el.getBoundingClientRect();
+        const inset = 4;
+        return {
+            left: r.left + inset, top: r.top + inset,
+            right: r.right - inset, bottom: r.bottom - inset,
+        };
     },
 
     /** How much of the stack panel the open card sits on, 0–1 of its area.

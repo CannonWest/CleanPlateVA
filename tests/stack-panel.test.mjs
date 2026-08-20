@@ -260,7 +260,7 @@ test('a leg card hangs BELOW its leg while the panel is up', () => {
     // ...and the same move now applies to ANY marker's card, not just the
     // legs inside the web: an ordinary marker beside the stack used to open
     // upward straight over the panel, which then vanished entirely.
-    assert.match(hover, /if \(this\._stackPanel && !below && this\._panelCoveredBy\(\) > PANEL_COVER_LIMIT\) \{\s*place\('top'\);/);
+    assert.match(hover, /if \(this\._stackPanel && !below && this\._panelCoveredBy\(\) > PANEL_COVER_LIMIT\) \{\s*anchor = 'top';\s*place\(anchor\);/);
     // Coverage is a FRACTION, not a rectangle test: clipping an edge is fine,
     // burying the panel is not, and a boolean would make cards hop around
     // every time they brushed a corner. 0.6 is calibrated against Cannon's own
