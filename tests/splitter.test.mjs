@@ -1,20 +1,24 @@
-/** The drag handle between the map and the facility panel.
+/** The drag handle between the map and the facility panel — on both axes.
  *
- *  `.food-body` is a flex row: the map grows, the panel holds a width. The bar
- *  only sets that width, so nothing else in the layout has to know about it.
+ *  `.food-body` is a flex container: the map grows, the panel holds a size. The
+ *  bar only sets that size, so nothing else in the layout has to know about it.
+ *  Wide windows lay the two out side by side and it trades WIDTH; under 900px
+ *  the body stacks and the same bar lies down and trades HEIGHT.
  *
  *  What this pins, in order of how badly it breaks when wrong:
  *
- *  1. THE MAP IS RESIZED ON EVERY DRAG FRAME. MapLibre sizes its canvas to the
- *     container it was handed, and a flex reflow is not a window resize —
- *     without `resize()` the canvas keeps its old width and the basemap
- *     stretches. Per frame, not per drag-end, so the map tracks the bar.
+ *  1. THE AXIS IS ASKED OF THE LAYOUT, not of a copy of the breakpoint. The
+ *     CSS owns 900px; a second copy in the JS is one more thing to drift.
  *
- *  2. THE CLAMP AND THE CSS CAP AGREE. A handle that travels somewhere the
- *     panel refuses to follow reads as broken faster than one that stops.
+ *  2. THE MAP IS RESIZED ON EVERY DRAG FRAME. MapLibre sizes its canvas to the
+ *     container it was handed, and a flex reflow is not a window resize.
  *
- *  3. IT IS A REAL SEPARATOR. Focusable, arrow-key operable: a divider that
- *     only answers to a mouse is a divider half the visitors cannot move.
+ *  3. THE CLAMP AND THE CSS CAP AGREE, on both axes. A handle that travels
+ *     somewhere the panel refuses to follow reads as broken faster than one
+ *     that stops.
+ *
+ *  4. THE TWO SIZES DO NOT MIX. A width remembered on a desktop must not come
+ *     back as a height on a phone.
  */
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -22,67 +26,137 @@ import test from 'node:test';
 import { dashboard, moduleSource } from './support/dashboard.mjs';
 
 const {
-    clampDetailWidth, detailWidthCeiling, readStoredDetailWidth,
-    DETAIL_WIDTH_DEFAULT, DETAIL_WIDTH_KEY, DETAIL_WIDTH_MAX_FRACTION, DETAIL_WIDTH_MIN,
+    clampDetailSize, clampDetailWidth, detailSizeCeiling, detailWidthCeiling,
+    readStoredDetailSize, readStoredDetailWidth, SPLIT_AXES,
+    DETAIL_HEIGHT_DEFAULT_FRACTION, DETAIL_HEIGHT_KEY, DETAIL_HEIGHT_MAX_FRACTION,
+    DETAIL_HEIGHT_MIN, DETAIL_WIDTH_DEFAULT, DETAIL_WIDTH_KEY, DETAIL_WIDTH_MAX_FRACTION,
+    DETAIL_WIDTH_MIN,
 } = dashboard;
 const html = readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
 const css = readFileSync(new URL('../public/static/css/style.css', import.meta.url), 'utf8');
 
+const wide = SPLIT_AXES.horizontal;
+const tall = SPLIT_AXES.stacked;
 const storage = (value) => ({ getItem: () => value, setItem() {} });
 
-test('the panel is clamped between a readable floor and a share of the row', () => {
-    // 1400px row → ceiling 980.
+test('each axis carries its own everything, and the two never mix', () => {
+    // One description per axis, so the drag, clamp, keys and storage all read
+    // from the same place instead of each branching on the layout separately.
+    assert.equal(wide.prop, 'width');
+    assert.equal(wide.other, 'height');
+    assert.equal(tall.prop, 'height');
+    assert.equal(tall.other, 'width');
+
+    // Separate keys: these measure different things, and a width remembered on
+    // a desktop must not come back as a height on a phone.
+    assert.equal(wide.key, DETAIL_WIDTH_KEY);
+    assert.equal(tall.key, DETAIL_HEIGHT_KEY);
+    assert.notEqual(wide.key, tall.key);
+
+    // A separator BETWEEN columns is itself vertical, and vice versa.
+    assert.equal(wide.ariaOrientation, 'vertical');
+    assert.equal(tall.ariaOrientation, 'horizontal');
+
+    // The growing key points AWAY from the panel on each axis, so the divider
+    // always travels the way the key does.
+    assert.equal(wide.grow, 'ArrowLeft');
+    assert.equal(wide.shrink, 'ArrowRight');
+    assert.equal(tall.grow, 'ArrowUp');
+    assert.equal(tall.shrink, 'ArrowDown');
+});
+
+test('the axis is asked of the layout, never of a second copy of 900px', () => {
+    const splitter = moduleSource('splitter.js');
+    assert.match(splitter, /getComputedStyle\(body\)\.flexDirection === 'column'/);
+    // The breakpoint lives in the stylesheet and nowhere in the module's CODE.
+    // Comments may say 900 — explaining the arrangement is not duplicating it —
+    // so the prose is stripped before asking.
+    assert.match(css, /@media \(max-width: 900px\)/);
+    const code = splitter.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    assert.doesNotMatch(code, /900/);
+    assert.doesNotMatch(code, /matchMedia/);
+});
+
+test('each axis is clamped between its own floor and its own share', () => {
+    // Width: 1400px row → ceiling 980.
     assert.equal(clampDetailWidth(500, 1400), 500);
-    // Rounded, because the width lands in a style property: 1400 * 0.7 is
-    // 979.9999999999999 in floating point, and a fractional width leaves a
-    // seam against the map's border.
+    // Rounded, because the size lands in a style property: 1400 * 0.7 is
+    // 979.9999999999999 in floating point.
     assert.equal(clampDetailWidth(5000, 1400), Math.round(1400 * DETAIL_WIDTH_MAX_FRACTION));
     assert.equal(clampDetailWidth(10, 1400), DETAIL_WIDTH_MIN);
-    // A row so narrow that the fraction falls under the floor: the floor wins,
-    // because a panel too small to read is worse than one that crowds the map.
-    assert.equal(clampDetailWidth(400, 300), DETAIL_WIDTH_MIN);
-    // Before first layout there is no row to measure against; only the floor
-    // applies, so an opening panel never starts life pinned to 300.
-    assert.equal(clampDetailWidth(900, 0), 900);
-    // Junk in, shipped default out — never NaN into a style property.
-    assert.equal(clampDetailWidth(undefined, 1400), DETAIL_WIDTH_DEFAULT);
-    assert.equal(clampDetailWidth(NaN, 1400), DETAIL_WIDTH_DEFAULT);
-    assert.equal(clampDetailWidth('nonsense', 1400), DETAIL_WIDTH_DEFAULT);
-    // Whole pixels: a fractional width leaves a seam against the map's border.
+    assert.equal(clampDetailWidth(400, 300), DETAIL_WIDTH_MIN);   // floor beats fraction
+    assert.equal(clampDetailWidth(900, 0), 900);                  // no row to measure yet
     assert.equal(clampDetailWidth(432.6, 1400), 433);
+
+    // Height: a taller share and a lower floor, because stacked the panel is
+    // the point and the map is context.
+    assert.equal(clampDetailSize(400, 800, tall), 400);
+    assert.equal(clampDetailSize(5000, 800, tall), Math.round(800 * DETAIL_HEIGHT_MAX_FRACTION));
+    assert.equal(clampDetailSize(10, 800, tall), DETAIL_HEIGHT_MIN);
+    assert.ok(tall.maxFraction > wide.maxFraction, 'stacked gives the panel more');
+    assert.ok(tall.min < wide.min, 'and needs less to stay readable');
+
+    // Junk in, the AXIS default out — never NaN into a style property.
+    assert.equal(clampDetailWidth(undefined, 1400), DETAIL_WIDTH_DEFAULT);
+    assert.equal(clampDetailSize(NaN, 800, tall), Math.round(800 * DETAIL_HEIGHT_DEFAULT_FRACTION));
 });
 
 test('the bar reports the ceiling it actually has', () => {
     // Asked directly, NOT by running an infinite request through the clamp:
-    // that function answers a non-finite request with the DEFAULT, so the
-    // separator advertised aria-valuemax=400 at every window size. Caught in
-    // the browser, not here — the first version of this suite never asserted
-    // the value, only that the attribute existed.
+    // that answers a non-finite request with the DEFAULT, so the separator
+    // advertised aria-valuemax=400 at every window size. Caught in the
+    // browser, not here — the first version of this suite asserted only that
+    // the attribute existed, never its value.
     assert.equal(detailWidthCeiling(1400), 980);
     assert.equal(detailWidthCeiling(300), DETAIL_WIDTH_MIN);   // floor beats fraction
     assert.equal(detailWidthCeiling(0), Number.POSITIVE_INFINITY);
+    assert.equal(detailSizeCeiling(800, tall), 640);
     assert.notEqual(detailWidthCeiling(1400), DETAIL_WIDTH_DEFAULT);
-    // An infinite ceiling is not an attribute value; it is simply not written.
     const splitter = moduleSource('splitter.js');
     assert.match(splitter, /if \(Number\.isFinite\(ceiling\)\) bar\.setAttribute\('aria-valuemax'/);
 });
 
-test('a stored width is a preference, not state to trust', () => {
+test('a stored size is a preference, not state to trust', () => {
     assert.equal(readStoredDetailWidth(storage('520')), 520);
-    assert.equal(readStoredDetailWidth(storage(null)), DETAIL_WIDTH_DEFAULT);
-    assert.equal(readStoredDetailWidth(storage('')), DETAIL_WIDTH_DEFAULT);
-    assert.equal(readStoredDetailWidth(storage('wide')), DETAIL_WIDTH_DEFAULT);
-    assert.equal(readStoredDetailWidth(storage('-40')), DETAIL_WIDTH_DEFAULT);
+    for (const bad of [null, '', 'wide', '-40']) {
+        assert.equal(readStoredDetailWidth(storage(bad)), DETAIL_WIDTH_DEFAULT, `"${bad}"`);
+    }
     // Private mode throws on read rather than returning null.
     assert.equal(readStoredDetailWidth({ getItem() { throw new Error('denied'); } }),
         DETAIL_WIDTH_DEFAULT);
     assert.equal(readStoredDetailWidth(undefined), DETAIL_WIDTH_DEFAULT);
+
+    // Stacked falls back to a SHARE of the row, not a pixel count: 60% is what
+    // the stacked layout always gave the panel, and a fraction travels between
+    // screens where a pixel count does not.
+    assert.equal(readStoredDetailSize(storage(null), tall, 800),
+        Math.round(800 * DETAIL_HEIGHT_DEFAULT_FRACTION));
+    assert.equal(readStoredDetailSize(storage('330'), tall, 800), 330);
     assert.equal(DETAIL_WIDTH_KEY, 'cleanplateva.detailWidth');
+    assert.equal(DETAIL_HEIGHT_KEY, 'cleanplateva.detailHeight');
+});
+
+test('crossing the breakpoint re-reads that axis, and clears the other property', () => {
+    const splitter = moduleSource('splitter.js');
+    // A stale inline width would fight the stacked layout, and vice versa.
+    assert.match(splitter, /panel\.style\[axis\.other\] = '';/);
+    assert.match(splitter, /panel\.style\[axis\.prop\] = `\$\{size\}px`;/);
+    // Two triggers, because they catch different things and re-applying is
+    // idempotent: the observer sees the ROW change for any reason and runs
+    // after layout, the window event covers a viewport change without it.
+    // NEITHER is verifiable in the preview pane — it never paints, so
+    // ResizeObserver callbacks are never delivered, and its resize tool moves
+    // the viewport without dispatching `resize` (both measured at zero). What
+    // IS verified is the handler itself: called by hand while stacked it
+    // switches the orientation, clears the width and restores the stored
+    // height. So this pair is reasoned; the work it does is tested.
+    assert.match(splitter, /new ResizeObserver\(\(\) => this\._restoreDetailSize\(\)\)\.observe\(body\)/);
+    assert.match(splitter, /window\.addEventListener\('resize', \(\) => this\._restoreDetailSize\(\)\)/);
+    assert.match(splitter, /_restoreDetailSize\(\) \{[\s\S]{0,260}?readStoredDetailSize\(/);
 });
 
 test('the map is resized as the bar moves, not once it stops', () => {
     const splitter = moduleSource('splitter.js');
-    // A flex reflow is not a window resize; MapLibre needs telling.
     assert.match(splitter, /frame = requestAnimationFrame\(\(\) => \{ frame = 0; this\._map\?\.resize\(\); \}\)/);
     // rAF-throttled, so a fast drag does not queue a resize per pointer event.
     assert.match(splitter, /if \(!frame\) \{/);
@@ -90,79 +164,84 @@ test('the map is resized as the bar moves, not once it stops', () => {
     assert.match(splitter, /const end = \(e\) => \{[\s\S]{0,320}?this\._map\?\.resize\(\);/);
 });
 
-test('the clamp and the CSS cap cannot disagree about where the bar stops', () => {
-    // 0.7 in the JS, 70% in the CSS. If these drift, the handle travels past
-    // where the panel will follow.
+test('the clamp and the CSS cap cannot disagree, on either axis', () => {
     assert.equal(DETAIL_WIDTH_MAX_FRACTION, 0.7);
     assert.match(css, /\.food-detail \{[\s\S]{0,700}?max-width: 70%;/);
-    // `flex: 0 0 auto` is what makes the panel hold its width and the map
-    // absorb the remainder — without it the panel just shrinks back.
     assert.match(css, /\.food-detail \{[\s\S]{0,700}?flex: 0 0 auto;/);
-});
-
-test('it is a real separator, and it is reachable', () => {
-    assert.match(html, /id="foodSplitter" role="separator"/);
-    assert.match(html, /aria-orientation="vertical" tabindex="0"/);
-    assert.match(html, /aria-label="Resize the facility panel"/);
+    // Stacked, the cap is on the other axis and mirrors the other constant.
+    assert.equal(DETAIL_HEIGHT_MAX_FRACTION, 0.8);
+    assert.match(css, /@media \(max-width: 900px\)[\s\S]{0,900}?max-height: 80%;/);
+    // Both are measured against the row's CONTENT box, not clientWidth —
+    // padding put them 22px apart once.
     const splitter = moduleSource('splitter.js');
-    // Left grows the panel, because the panel is to the RIGHT of the bar —
-    // the inverse would feel backwards to anyone watching the divider move.
-    assert.match(splitter, /e\.key === 'ArrowLeft'\) next = width \+ step/);
-    assert.match(splitter, /e\.key === 'ArrowRight'\) next = width - step/);
-    assert.match(splitter, /aria-valuenow/);
-    // Double-click restores the shipped width — the escape hatch for a
-    // divider dragged somewhere regrettable.
-    assert.match(splitter, /addEventListener\('dblclick'[\s\S]{0,120}?DETAIL_WIDTH_DEFAULT/);
+    assert.match(splitter, /export function rowContentSize\(el, prop = 'width'\)/);
+    assert.match(splitter, /\['paddingTop', 'paddingBottom'\] : \['paddingLeft', 'paddingRight'\]/);
 });
 
-test('the bar exists only where there is something to divide', () => {
-    // Closed panel: nothing to drag against. `:has` keeps this in CSS so no
-    // show/hide path has to remember to toggle a second element.
+test('the bar lies down when the body stacks, rather than standing down', () => {
+    // It used to be display:none below 900px. Same 10px target, same grip,
+    // rotated — and the cursor turns with it.
+    const stacked = css.match(/@media \(max-width: 900px\)\s*\{[\s\S]*?\n\}/)[0];
+    assert.match(stacked, /\.food-splitter \{[\s\S]{0,200}?height: 10px;/);
+    assert.match(stacked, /cursor: row-resize;/);
+    assert.match(stacked, /\.food-splitter-grip \{ width: 56px; height: 4px; \}/);
+    assert.doesNotMatch(stacked, /\.food-splitter \{ display: none; \}/);
+    // The panel no longer needs `!important` to beat a stale inline width,
+    // because the module clears whichever property the axis does not own.
+    assert.doesNotMatch(stacked, /width: 100% !important/);
+    // Closed panel still means no divider, on both axes.
     assert.match(css, /\.food-body:has\(\.food-detail\.d-none\) \.food-splitter \{ display: none; \}/);
-    // Stacked under 900px, where a VERTICAL bar divides nothing and the
-    // stacked max-height governs instead.
-    assert.match(css, /@media \(max-width: 900px\)[\s\S]{0,400}?\.food-splitter \{ display: none; \}/);
-    // ...and the stacked panel has to beat the inline width the splitter set.
-    assert.match(css, /width: 100% !important;/);
-});
-
-test('the grip is measured, not derived, so the bar tracks the cursor', () => {
-    // The bar carries negative margins so it sits IN the row's gap rather than
-    // widening it, which makes the distance from its centre to the panel's edge
-    // a function of gap, margin and border. Computing that by hand left the bar
-    // drifting 7px behind the cursor (measured); taking it at grab time makes
-    // the grip land wherever the visitor actually took hold.
-    const splitter = moduleSource('splitter.js');
-    assert.match(splitter, /grip = panel\s*\?\s*panel\.getBoundingClientRect\(\)\.left - \(barBox\.left \+ barBox\.width \/ 2\)/);
-    assert.match(splitter, /this\._applyDetailWidth\(rect\.right - padRight - e\.clientX - grip\)/);
-    // The negative margin is the reason the grip cannot be a constant.
-    const css = readFileSync(new URL('../public/static/css/style.css', import.meta.url), 'utf8');
-    assert.match(css, /\.food-splitter \{[\s\S]{0,400}?margin: 0 -0\.425rem;/);
 });
 
 test('the grip is a short handle, and it emphasises by tone not by hue', () => {
     // A rule running the full height of the row reads as a border belonging to
-    // one of its neighbours, and at the accent colour it read as a selection —
-    // Cannon, 2026-08-20, against the desktop-app idiom. The 10px box stays the
-    // TARGET; only the pill inside it is drawn.
+    // one of its neighbours, and at the accent colour it read as a selection.
+    // The 10px box stays the TARGET; only the pill inside it is drawn.
     assert.match(css, /\.food-splitter-grip \{[\s\S]{0,200}?height: 56px;/);
     assert.match(css, /\.food-splitter-grip \{[\s\S]{0,200}?border-radius: 999px;/);
     assert.doesNotMatch(css, /\.food-splitter[^}]*background-size/);
 
     // Hover, focus and drag lift the SAME grip one step toward the foreground.
-    // No accent fill and no size change, so nothing jumps under the cursor.
+    // Measured on production with transitions disabled — dark #2a3140 →
+    // #97a1b3, light #dee2e6 → #5f6b7a, size and radius unchanged.
     assert.match(css, /body\.is-splitting \.food-splitter-grip \{\s*background: var\(--cp-muted\);/);
     assert.match(css, /\.food-splitter-grip \{[\s\S]{0,200}?background: var\(--cp-border\);/);
-    assert.match(css, /\.food-splitter-grip \{[\s\S]{0,220}?transition: background-color/);
-    // Both tones are themed variables, so the grip gets its dark pair free.
     assert.doesNotMatch(css, /\.food-splitter-grip[^}]*--cp-accent/);
 
     // A real element rather than a ::before. The grip's appearance IS the
-    // feature here, and a pseudo-element's computed style reads back stale —
-    // it reported the same colour in both themes and in every state, which
-    // made the one thing worth checking the one thing unverifiable.
+    // feature, and a pseudo-element's computed style cannot be read back.
     assert.match(html, /<span class="food-splitter-grip" aria-hidden="true"><\/span>/);
     assert.doesNotMatch(css, /\.food-splitter::before/);
+});
+
+test('it is a real separator, and it is reachable', () => {
+    assert.match(html, /id="foodSplitter" role="separator"/);
+    assert.match(html, /tabindex="0"/);
+    assert.match(html, /aria-label="Resize the facility panel"/);
+    const splitter = moduleSource('splitter.js');
+    // Keyed off the axis, so the same handler serves both layouts.
+    assert.match(splitter, /if \(e\.key === axis\.grow\) next = size \+ step/);
+    assert.match(splitter, /else if \(e\.key === axis\.shrink\) next = size - step/);
+    // The orientation is corrected whenever the size is applied, so it is
+    // right after a breakpoint crossing and not only at first paint.
+    assert.match(splitter, /bar\.setAttribute\('aria-orientation', axis\.ariaOrientation\)/);
+    // Double-click restores that axis's default — the escape hatch for a
+    // divider dragged somewhere regrettable.
+    assert.match(splitter, /addEventListener\('dblclick'[\s\S]{0,200}?axis\.defaultSize/);
+});
+
+test('the grip is measured, not derived, so the bar tracks the cursor', () => {
+    // The bar carries negative margins so it sits IN the gap rather than
+    // widening it, which makes the distance from its centre to the panel's
+    // edge a function of gap, margin and border. Computing it by hand left the
+    // bar drifting 7px behind the cursor (measured); taking it at grab time
+    // makes the grip land wherever the visitor took hold — on either axis.
+    const splitter = moduleSource('splitter.js');
+    assert.match(splitter, /panelBox\.top - \(barBox\.top \+ barBox\.height \/ 2\)/);
+    assert.match(splitter, /panelBox\.left - \(barBox\.left \+ barBox\.width \/ 2\)/);
+    assert.match(splitter, /- e\.clientY - grip/);
+    assert.match(splitter, /- e\.clientX - grip/);
+    assert.match(css, /\.food-splitter \{[\s\S]{0,400}?margin: 0 -0\.425rem;/);
 });
 
 test('the drag surface is the window, not the 10px bar', () => {
@@ -170,11 +249,8 @@ test('the drag surface is the window, not the 10px bar', () => {
     // pointer selects text on its way across the map.
     assert.match(css, /body\.is-splitting \{ cursor: col-resize; user-select: none; \}/);
     const splitter = moduleSource('splitter.js');
-    // Capture keeps the drag alive when the pointer outruns a 10px bar, but
-    // a refused capture must not refuse the drag.
+    // Capture keeps the drag alive when the pointer outruns a 10px bar, but a
+    // refused capture must not refuse the drag.
     assert.match(splitter, /try \{ bar\.setPointerCapture\(e\.pointerId\); \} catch/);
     assert.match(splitter, /addEventListener\('pointercancel', end\)/);
-    // A window that narrows can put a stored width past the ceiling, leaving
-    // the map a sliver; re-clamp against the new row.
-    assert.match(splitter, /window\.addEventListener\('resize'[\s\S]{0,140}?_applyDetailWidth/);
 });
