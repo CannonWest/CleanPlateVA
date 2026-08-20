@@ -11,8 +11,8 @@
  */
 
 import {
-    esc, gradePresentation, facilityPresentation, isActivePermit, isNewlyPermitted,
-    latestDateOf, locationClass, visitsOf, LOCATION_CLASS,
+    approximateLabel, esc, gradePresentation, facilityPresentation, isActivePermit,
+    isNewlyPermitted, latestDateOf, visitsOf,
 } from './presentation.js';
 
 // How much of the stack panel a hover card may sit on before the card is moved
@@ -112,11 +112,18 @@ export const hoverMethods = {
     // raw scores). Controls are deliberately omitted here; those belong to
     // the clicked detail panel.
     _hoverCardHTML(f) {
+        // Both tiers qualify an approximate pin. Until 2026-08-19 only Lite
+        // did, so the tier carrying MORE information gave LESS warning: a
+        // Full-tier hover over a DCA concession showed a Crystal City rooftop
+        // with no hint, and you had to click into the panel to learn it was a
+        // centroid.
+        const approx = approximateLabel(f);
+        const approxLine = approx
+            ? `<br><span class="food-tip-sub">≈ ${esc(approx)}</span>` : '';
         if (this._mode === 'lite') {
             return `<strong>${esc(f.name)}</strong><br>`
                 + `${esc(f.address || '')}${f.city ? ', ' + esc(f.city) : ''}`
-                + (locationClass(f) === LOCATION_CLASS.zip_centroid
-                    ? '<br><span class="food-tip-sub">≈ approximate location</span>' : '');
+                + approxLine;
         }
         const grade = gradePresentation(f);
         const latestView = facilityPresentation(f).latest;
@@ -143,7 +150,7 @@ export const hoverMethods = {
                 <div class="food-hover-card-head">
                     <strong>${esc(f.name)}</strong>
                     ${active ? '' : `<span class="food-tip-closed">${esc(f.status || 'closed')}</span>`}
-                    <div class="food-tip-sub">${esc(f.address || '')}${f.address2 ? ' ' + esc(f.address2) : ''}${f.city ? ', ' + esc(f.city) : ''}</div>
+                    <div class="food-tip-sub">${esc(f.address || '')}${f.address2 ? ' ' + esc(f.address2) : ''}${f.city ? ', ' + esc(f.city) : ''}${approxLine}</div>
                 </div>
                 ${heroBlock}
             </div>`;
