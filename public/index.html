@@ -162,7 +162,14 @@
             <div class="food-splitter" id="foodSplitter" role="separator"
                  aria-orientation="vertical" tabindex="0"
                  aria-label="Resize the facility panel"
-                 title="Drag to resize · double-click to reset"></div>
+                 title="Drag to resize · double-click to reset">
+                <!-- A real element, not a ::before: the grip is the only part
+                     of this control that is drawn, and a pseudo-element's
+                     computed style cannot be read back reliably — which is a
+                     poor property for the one piece whose appearance IS the
+                     feature. -->
+                <span class="food-splitter-grip" aria-hidden="true"></span>
+            </div>
             <aside class="food-detail d-none" id="foodDetail" aria-live="polite">
                 <div class="food-detail-inner" id="foodDetailInner"></div>
             </aside>

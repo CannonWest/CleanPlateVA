@@ -140,6 +140,31 @@ test('the grip is measured, not derived, so the bar tracks the cursor', () => {
     assert.match(css, /\.food-splitter \{[\s\S]{0,400}?margin: 0 -0\.425rem;/);
 });
 
+test('the grip is a short handle, and it emphasises by tone not by hue', () => {
+    // A rule running the full height of the row reads as a border belonging to
+    // one of its neighbours, and at the accent colour it read as a selection —
+    // Cannon, 2026-08-20, against the desktop-app idiom. The 10px box stays the
+    // TARGET; only the pill inside it is drawn.
+    assert.match(css, /\.food-splitter-grip \{[\s\S]{0,200}?height: 56px;/);
+    assert.match(css, /\.food-splitter-grip \{[\s\S]{0,200}?border-radius: 999px;/);
+    assert.doesNotMatch(css, /\.food-splitter[^}]*background-size/);
+
+    // Hover, focus and drag lift the SAME grip one step toward the foreground.
+    // No accent fill and no size change, so nothing jumps under the cursor.
+    assert.match(css, /body\.is-splitting \.food-splitter-grip \{\s*background: var\(--cp-muted\);/);
+    assert.match(css, /\.food-splitter-grip \{[\s\S]{0,200}?background: var\(--cp-border\);/);
+    assert.match(css, /\.food-splitter-grip \{[\s\S]{0,220}?transition: background-color/);
+    // Both tones are themed variables, so the grip gets its dark pair free.
+    assert.doesNotMatch(css, /\.food-splitter-grip[^}]*--cp-accent/);
+
+    // A real element rather than a ::before. The grip's appearance IS the
+    // feature here, and a pseudo-element's computed style reads back stale —
+    // it reported the same colour in both themes and in every state, which
+    // made the one thing worth checking the one thing unverifiable.
+    assert.match(html, /<span class="food-splitter-grip" aria-hidden="true"><\/span>/);
+    assert.doesNotMatch(css, /\.food-splitter::before/);
+});
+
 test('the drag surface is the window, not the 10px bar', () => {
     // Without this the cursor flickers between elements mid-drag and the
     // pointer selects text on its way across the map.
