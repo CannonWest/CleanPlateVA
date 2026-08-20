@@ -80,6 +80,17 @@ export const LYR_STACK_RING = 'food-stack-ring';
 export const LYR_STACKS = 'food-stacks';
 export const LYR_STACK_COUNT = 'food-stack-count';
 
+// ── the map / panel divider ─────────────────────────────────────────────
+//
+// The panel's width is the visitor's to set (splitter.js). 400px is what it
+// shipped at; the floor is where the grade hero and the checklist rows stop
+// being readable, and the ceiling keeps the map from becoming a sliver — the
+// panel is the focus, but a facility finder with no map is not a finder.
+export const DETAIL_WIDTH_KEY = 'cleanplateva.detailWidth';
+export const DETAIL_WIDTH_DEFAULT = 400;
+export const DETAIL_WIDTH_MIN = 300;
+export const DETAIL_WIDTH_MAX_FRACTION = 0.7;
+
 // ── mark geometry ───────────────────────────────────────────────────────
 //
 // Radii the PAINT and the HIT TEST both read. They have to come from one place:
