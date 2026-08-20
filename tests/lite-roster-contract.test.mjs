@@ -93,6 +93,7 @@ test('every shard has the exact V4 contract and matches its descriptor', () => {
 test('every record carries the exact flat V4 finder row', () => {
     const permits = new Set();
     const vocabSize = manifest.vocab.permit_type.length;
+    const locVocabSize = manifest.vocab.loc.length;
     for (const facility of facilities) {
         assert.deepEqual(Object.keys(facility).sort(), FIELDS, facility.permit_id);
         for (const retired of ['location', 'approx', 'geocode_source', 'precision', 'source',
@@ -102,8 +103,8 @@ test('every record carries the exact flat V4 finder row', () => {
         }
         assert.equal(typeof facility.lat, 'number', facility.permit_id);
         assert.equal(typeof facility.lon, 'number', facility.permit_id);
-        assert.ok(Number.isInteger(facility.loc) && facility.loc >= 0 && facility.loc <= 2,
-            `loc out of range on ${facility.permit_id}`);
+        assert.ok(Number.isInteger(facility.loc) && facility.loc >= 0 && facility.loc < locVocabSize,
+            `loc outside the manifest vocabulary on ${facility.permit_id}`);
         assert.ok(Number.isInteger(facility.pt) && facility.pt >= 0 && facility.pt < vocabSize,
             `pt outside the manifest vocabulary on ${facility.permit_id}`);
         assert.equal(permits.has(facility.permit_id), false,
