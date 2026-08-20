@@ -137,6 +137,25 @@ export function spiderOffsets(count, { spacing = 18, first = 26, step = 22 } = {
 
 export const STACK_PANEL_PAGE = 5;
 
+// Breathing room between the panel and the web's outer reach.
+export const STACK_PANEL_GAP = 16;
+
+/** How far BELOW the map's centre an opening stack should land.
+ *
+ *  Centring the stack itself centres the wrong thing: what a visitor is
+ *  looking at is the panel ABOVE plus the web AROUND, and that whole block
+ *  hangs upward from the stack. Dropping the stack by half the panel's own
+ *  height (plus its gap) centres the block instead — the panel takes the
+ *  space above, the web keeps the space below, and neither runs off an edge.
+ *  Cannon's idea, 2026-08-19.
+ *
+ *  It also lowers the map height at which the panel still fits above: the
+ *  block needs `2*reach + panelH + gap + 16` of room either way, but the
+ *  stack-centred version wasted half a viewport above the stack. */
+export function stackOpenDrop(panelHeight) {
+    return (STACK_PANEL_GAP + (panelHeight || 0)) / 2;
+}
+
 // A suite/unit token at the END of an address line. Only the tail is stripped:
 // one in the middle ("1541 Premium Outlets #170 Blvd.") is left alone and
 // falls out of the vote below instead, which is safer than guessing.
@@ -290,6 +309,9 @@ export const stackMethods = {
             this._map.easeTo({
                 center: lngLat,
                 zoom: Math.max(this._map.getZoom(), STACK_OPEN_ZOOM),
+                // Land the stack below centre so the panel above it and the
+                // web below it are centred as one block (stackOpenDrop).
+                offset: [0, stackOpenDrop(this._stackPanel?.el?.offsetHeight)],
                 duration: 550,
             });
             // The stack has arrived: stop assuming and start measuring.
@@ -326,13 +348,20 @@ export const stackMethods = {
             // jumps sides mid-flight. Measured: on a 946px map the panel needs
             // the stack at y >= 298 to fit above it, so every click in the top
             // 31% opened downward, and a shorter map makes that band bigger.
-            pinnedY: centring
-                ? this._map.getContainer().getBoundingClientRect().height / 2
-                : null,
+            // Not the bare centre: the opening ease drops the stack by
+            // `stackOpenDrop` so the panel-plus-web block is what ends up
+            // centred, and the pin has to name the same place or the panel
+            // would be positioned for a landing spot the camera is not aiming
+            // at. Filled in below, once the panel has a measured height.
+            pinnedY: null,
         };
         this._renderStackPanel();
         this._stackPanel.marker = new maplibregl.Marker({ element: el })
             .setLngLat(group.lngLat || [group.lon, group.lat]).addTo(this._map);
+        if (centring) {
+            const view = this._map.getContainer().getBoundingClientRect().height;
+            this._stackPanel.pinnedY = view / 2 + stackOpenDrop(el.offsetHeight);
+        }
         this._positionStackPanel();
         this._map.on('move', this._onStackPanelMove);
     },
@@ -415,7 +444,7 @@ export const stackMethods = {
         const spider = this._spider;
         if (!panel || !spider || !this._map) return;
         const reach = spider.reach || 0;
-        const gap = 16;
+        const gap = STACK_PANEL_GAP;
         const half = (panel.el.offsetHeight || 0) / 2;
         const view = this._map.getContainer().getBoundingClientRect().height;
         const projected = this._map.project(panel.marker.getLngLat());  // container-relative
