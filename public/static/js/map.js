@@ -420,6 +420,16 @@ export const mapMethods = {
                 map.getCanvas().style.cursor = '';
                 this._hideHoverCard();
             });
+            // An open card outlives the geometry it was placed in. The
+            // splitter shrinks the map horizontally against the sidebar and
+            // vertically against the bottom bar; a pan or a wheel-zoom slides
+            // the card's point across it. Both events, because a resize is not
+            // a move and a move is not a resize — measured live, a card left
+            // open through a drag to a 341px map sat 147px behind the sidebar,
+            // and a 160px pan carried one exactly that far out. The reflow
+            // measures before it acts, so quiet frames cost a rect read.
+            map.on('resize', () => this._reflowHoverCard());
+            map.on('move', () => this._reflowHoverCard());
         }
 
         map.on('click', (e) => this._onMapClick(e));
