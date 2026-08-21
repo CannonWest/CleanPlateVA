@@ -331,8 +331,14 @@ test('zooming back past stack view takes the web with it', () => {
     // still drawn.
     assert.match(source, /const CLUSTER_MAX_ZOOM = \d+;/);
     assert.match(source, /clusterMaxZoom: CLUSTER_MAX_ZOOM,/);
+    // FLOORED (2026-08-21). The constant is a TILE zoom and the 512px source
+    // draws tile floor(cameraZoom), so the camera is on clustered z12 tiles
+    // anywhere in [12, 13). Compared bare, the web outlived its own bubble
+    // for a full zoom level on the way out. Pinned as source text because the
+    // bug is invisible to a unit test: both forms dismiss eventually. Still a
+    // floor TEST rather than a crossing test, so zooming IN cannot satisfy it.
     assert.match(source,
-        /getZoom\(\) <= CLUSTER_MAX_ZOOM[\s\S]{0,80}?this\._dismissSpider\(\)/);
+        /Math\.floor\(this\._map\.getZoom\(\)\) <= CLUSTER_MAX_ZOOM[\s\S]{0,80}?this\._dismissSpider\(\)/);
     // `zoom`, not `zoomend`: it should go as the camera crosses the line.
     assert.match(source, /this\._map\.on\('zoom', this\._onSpiderZoom\)/);
     assert.match(source, /this\._map\?\.off\('zoom', this\._onSpiderZoom\)/);

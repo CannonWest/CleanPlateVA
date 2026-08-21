@@ -40,12 +40,17 @@ export const STACK_RING_GAP = 4;           // halo sits this far outside the cor
 // would sit 16px away, tangled in the ring. Never zooms OUT.
 const STACK_OPEN_ZOOM = 17;
 
-// Above this zoom points stand alone and stacks are drawn; at or below it
-// proximity clustering swallows them. ONE constant because two consumers must
-// agree exactly: the source clusters on it, and an open web is dismissed when
-// the camera crosses back over it. Set them apart and you get either legs
+// Above this TILE zoom points stand alone and stacks are drawn; at or below
+// it proximity clustering swallows them. ONE constant because two consumers
+// must agree exactly: the source clusters on it, and an open web is dismissed
+// once the camera falls back to it. Set them apart and you get either legs
 // hanging over a clustered map or a web that vanishes while its bubble is
 // still on screen.
+//
+// A tile zoom, not a camera zoom — the distinction is load-bearing for the
+// second consumer. The source is 512px, so it draws tile floor(cameraZoom):
+// every camera zoom in [12, 13) is reading clustered z12 tiles, and the web
+// has to go at the TOP of that band, not the bottom (see _onSpiderZoom).
 export const CLUSTER_MAX_ZOOM = 12;
 
 // Dashed halos are pre-drawn images because MapLibre circle layers have no
