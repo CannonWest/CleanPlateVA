@@ -148,8 +148,22 @@ export class FoodDashboard {
         // by a proximity cluster. The bubble is gone from the canvas at that
         // point, but the legs are DOM markers and would hang over the
         // clustered map until something else dismissed them.
+        //
+        // FLOORED, because the two numbers being compared are different kinds
+        // of zoom: `clusterMaxZoom` is a TILE zoom, and a 512px source draws
+        // tile floor(cameraZoom) — so a camera at 12.4 is already reading
+        // clustered z12 tiles. Measured against the live map: tileZoom is 12
+        // for every camera zoom in [12, 13), and supercluster only emits
+        // individual points from z13. Comparing the fractional camera zoom
+        // straight across left a whole level where the bubble had already
+        // been swallowed and the legs were still fanned out around a point
+        // with no mark under it (Cannon, 2026-08-21).
+        //
+        // One-directional on purpose: this is a floor test, not a crossing
+        // test, so zooming IN can never satisfy it. A web only ever dies on
+        // the way back out.
         this._onSpiderZoom = () => {
-            if (this._map && this._map.getZoom() <= CLUSTER_MAX_ZOOM) {
+            if (this._map && Math.floor(this._map.getZoom()) <= CLUSTER_MAX_ZOOM) {
                 this._dismissSpider();
             }
         };
