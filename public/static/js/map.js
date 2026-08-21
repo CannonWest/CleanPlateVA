@@ -428,8 +428,11 @@ export const mapMethods = {
             // open through a drag to a 341px map sat 147px behind the sidebar,
             // and a 160px pan carried one exactly that far out. The reflow
             // measures before it acts, so quiet frames cost a rect read.
-            map.on('resize', () => this._reflowHoverCard());
-            map.on('move', () => this._reflowHoverCard());
+            // Scheduled, not called: these listeners are registered before any
+            // popup exists, so they run before MapLibre has moved the card and
+            // would measure it where it used to be.
+            map.on('resize', () => this._scheduleHoverReflow());
+            map.on('move', () => this._scheduleHoverReflow());
         }
 
         map.on('click', (e) => this._onMapClick(e));
