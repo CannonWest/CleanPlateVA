@@ -24,7 +24,7 @@ import { dashboard, dashboardSource as source } from './support/dashboard.mjs';
 
 const proto = dashboard.FoodDashboard.prototype;
 const { facilityPresentation, isoFromYmd, visitsOf, buildScopeSeries,
-    approximateLabel, locationClass, fitAnchor, LOCATION_CLASS } = dashboard;
+    approximateLabel, locationClass, fitAnchor, needsReflow, LOCATION_CLASS } = dashboard;
 
 const rows = (count, out = 0, dupes = 0) => {
     const list = Array.from({ length: count }, (_, index) => ({
@@ -480,4 +480,127 @@ test('the detail panel explains the venue class rather than claiming a building'
     assert.doesNotMatch(note, /not the building/);
     assert.match(note, /not at its own unit/);
     assert.equal(proto._geoNote.call(cardCtx('full'), { loc: 0 }), '');
+});
+
+test('an open card is placed AGAIN when the map moves out from under it', () => {
+    // Placement is only true for the geometry it was measured in, and two
+    // things move that geometry while a card is still on screen: the splitter
+    // (horizontally against the sidebar, vertically against the bottom bar)
+    // and a pan or zoom sliding the card's own point across the map. Measured
+    // on production before this existed — a card placed in an 814px map sat
+    // 147px behind the sidebar after a drag to 341px, and a 160px pan carried
+    // another one exactly 160px out.
+    const view = { left: 100, top: 100, right: 800, bottom: 700 };
+    const card = (left, top, w = 300, h = 120) => ({
+        left, top, width: w, height: h, right: left + w, bottom: top + h,
+    });
+
+    const short = { left: 100, top: 100, right: 800, bottom: 400 };
+    const placed = (v, nudged) => ({ view: v, nudged });
+
+    // Nothing owed: inside the box, no offset being carried.
+    assert.equal(needsReflow(card(300, 300), view, placed(view, false)), false);
+
+    // Each edge on its own — the sidebar's edge and the bottom bar's edge are
+    // the two this exists for, but all four are the same rule.
+    assert.equal(needsReflow(card(600, 300), view, placed(view, false)), true); // past RIGHT
+    assert.equal(needsReflow(card(20, 300), view, placed(view, false)), true);  // past LEFT
+    assert.equal(needsReflow(card(300, 650), view, placed(view, false)), true); // past BOTTOM
+    assert.equal(needsReflow(card(300, 40), view, placed(view, false)), true);  // past TOP
+
+    // A card sitting flush against the edge is INSIDE — the nudge lands them
+    // there deliberately, and treating flush as stale would re-show for ever.
+    assert.equal(needsReflow(card(500, 300), view, placed(view, false)), false); // right = 800
+
+    // A NUDGED card whose map has since changed shape: the offset was owed to
+    // the old box, and holding it once the splitter hands the room back leaves
+    // the card stranded away from its marker.
+    assert.equal(needsReflow(card(300, 300), view, placed(short, true)), true);
+
+    // ...but a nudged card in the SAME box is where it belongs. This is the
+    // difference that makes the rule affordable: "nudged" is permanent — a
+    // card pinned to an edge stays pinned — so reflowing on it alone would
+    // re-show on every move event for ever, ~24ms a time against 25k markers.
+    assert.equal(needsReflow(card(300, 300), view, placed(view, true)), false);
+    // Sub-pixel jitter in the measured rect is not the splitter moving —
+    // checked on every edge, because rounding one of the four and not the
+    // rest puts the reflow straight back onto every frame.
+    for (const edge of ['left', 'top', 'right', 'bottom']) {
+        const jitter = { ...view, [edge]: view[edge] + 0.3 };
+        assert.equal(needsReflow(card(300, 300), jitter, placed(view, true)), false,
+            `sub-pixel jitter on ${edge} must not count as the box moving`);
+    }
+    // A whole pixel is: that is the splitter, and the nudge is owed to the box
+    // it was measured in.
+    for (const edge of ['left', 'top', 'right', 'bottom']) {
+        const moved = { ...view, [edge]: view[edge] + (edge === 'right' || edge === 'bottom' ? -40 : 40) };
+        assert.equal(needsReflow(card(300, 300), moved, placed(view, true)), true,
+            `a real move of ${edge} must re-place a nudged card`);
+    }
+
+    // An un-nudged card in a changed box is fine where it is — it was never
+    // relying on the room that moved.
+    assert.equal(needsReflow(card(300, 300), view, placed(short, false)), false);
+
+    // An unmeasured map constrains nothing, so nothing about it is stale —
+    // otherwise a booting or hidden tab reflows on every frame.
+    const nowhere = { left: -Infinity, top: -Infinity, right: Infinity, bottom: Infinity };
+    assert.equal(needsReflow(card(300, 300), nowhere, placed(view, true)), false);
+    assert.equal(needsReflow(card(-9e9, -9e9), nowhere, placed(view, false)), false);
+
+    // A card with no box has not been laid out; there is nothing to measure.
+    assert.equal(needsReflow(card(300, 300, 0, 0), view, placed(short, true)), false);
+    assert.equal(needsReflow(null, view, placed(short, true)), false);
+    // And no placement record at all — the first move after a boot — is not a
+    // reason to re-show something that is sitting inside the map.
+    assert.equal(needsReflow(card(300, 300), view, null), false);
+
+    // The stacked axis specifically: the same card, the same position, but the
+    // bottom bar has taken the lower half. Stale in the short box, fine in the
+    // tall one — which is the whole point of measuring rather than caching.
+    assert.equal(needsReflow(card(300, 320), short, placed(short, false)), true); // 440 > 400
+    assert.equal(needsReflow(card(300, 320), view, placed(view, false)), false);
+});
+
+test('...and the reflow is wired to both map events, and remembers what to re-place', () => {
+    // A resize is not a move and a move is not a resize: the splitter fires
+    // one, a pan fires the other, and each leaves a card behind on its own.
+    assert.match(source, /map\.on\('resize',\s*\(\)\s*=>\s*this\._reflowHoverCard\(\)\)/);
+    assert.match(source, /map\.on\('move',\s*\(\)\s*=>\s*this\._reflowHoverCard\(\)\)/);
+
+    // Re-placing needs the arguments the card was shown with; nothing else
+    // holds them, since the popup knows its position but not its facility.
+    assert.match(source, /this\._hoverShown\s*=\s*\{\s*lngLat,\s*f,\s*below\s*\}/);
+    assert.match(source, /_hideHoverCard\(\)\s*\{[\s\S]{0,160}?this\._hoverShown\s*=\s*null/);
+    assert.match(source, /_hideHoverCard\(\)\s*\{[\s\S]{0,200}?this\._hoverPlaced\s*=\s*null/);
+    // The placement record is taken AFTER the nudge, or it would never see one.
+    const nudgeAt = source.indexOf('this._nudgeCardIntoView();');
+    const placedAt = source.indexOf('this._hoverPlaced = {');
+    assert.ok(nudgeAt > -1 && placedAt > nudgeAt,
+        'the placement box must be recorded after the nudge that may set the flag');
+    // ...and it must record the flag the nudge actually set. Pinning it to a
+    // constant compiles, passes, and quietly means a card never hands its
+    // offset back when the splitter returns the room.
+    assert.match(source,
+        /this\._hoverPlaced\s*=\s*\{\s*view:\s*this\._mapViewBox\(\),\s*nudged:\s*this\._hoverNudged\s*\}/);
+
+    // The nudge flag is cleared BEFORE the early returns, not after: a stale
+    // flag left by the previous card would re-place this one for no reason,
+    // every frame of every pan.
+    const nudge = source.slice(source.indexOf('_nudgeCardIntoView()'));
+    const cleared = nudge.indexOf('this._hoverNudged = false');
+    const firstReturn = nudge.indexOf('return;');
+    assert.ok(cleared > -1 && cleared < firstReturn,
+        'the nudge flag must be cleared before _nudgeCardIntoView can return early');
+
+    // Panel coverage must stay OUT of the gate. `is-yielded` is opacity, not
+    // layout, so a yielded panel keeps its box: a card resting over one stays
+    // "covering" it and would re-show on every frame for ever.
+    // Anchored on the DEFINITION, not the first mention: map.js's wiring calls
+    // `this._reflowHoverCard()` and appears earlier in the concatenated
+    // source, so slicing from the bare name reads the wrong module and the
+    // assertion passes no matter what the method does.
+    const gate = /_reflowHoverCard\(\) \{([\s\S]*?)\n    \},/.exec(source);
+    assert.ok(gate, 'the reflow method must be defined');
+    assert.doesNotMatch(gate[1], /_panelCoveredBy/);
 });
