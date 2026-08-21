@@ -565,8 +565,21 @@ test('an open card is placed AGAIN when the map moves out from under it', () => 
 test('...and the reflow is wired to both map events, and remembers what to re-place', () => {
     // A resize is not a move and a move is not a resize: the splitter fires
     // one, a pan fires the other, and each leaves a card behind on its own.
-    assert.match(source, /map\.on\('resize',\s*\(\)\s*=>\s*this\._reflowHoverCard\(\)\)/);
-    assert.match(source, /map\.on\('move',\s*\(\)\s*=>\s*this\._reflowHoverCard\(\)\)/);
+    assert.match(source, /map\.on\('resize',\s*\(\)\s*=>\s*this\._scheduleHoverReflow\(\)\)/);
+    assert.match(source, /map\.on\('move',\s*\(\)\s*=>\s*this\._scheduleHoverReflow\(\)\)/);
+    // SCHEDULED, never called straight from the listener. These are registered
+    // when the map is built, before any popup exists, so they run before
+    // MapLibre has moved the card — measured live, the listener read the
+    // card's top as 185 while it was really at 385, and a single jump pushed
+    // a card clean out of the map with the gate seeing nothing wrong.
+    assert.doesNotMatch(source, /map\.on\('(?:move|resize)',\s*\(\)\s*=>\s*this\._reflowHoverCard\(\)\)/);
+    // A microtask, so the correction lands before paint rather than a frame
+    // later, and coalesced, because one splitter drag fires move AND resize.
+    const sched = /_scheduleHoverReflow\(\) \{([\s\S]*?)\n    \},/.exec(source);
+    assert.ok(sched, 'the reflow must be schedulable');
+    assert.match(sched[1], /queueMicrotask/);
+    assert.match(sched[1], /if \(this\._hoverReflowQueued\) return;/);
+    assert.match(sched[1], /this\._hoverReflowQueued = false;[\s\S]*?this\._reflowHoverCard\(\)/);
 
     // Re-placing needs the arguments the card was shown with; nothing else
     // holds them, since the popup knows its position but not its facility.
