@@ -57,7 +57,7 @@
 import {
     LYR_CLUSTERS, RESTAURANTS_ONLY_KEY, SHOW_CLOSED_KEY, SHOW_MOBILE_KEY, SHOW_NEW_KEY,
 } from './constants.js';
-import { CLUSTER_MAX_ZOOM, stackMethods } from './stacks.js';
+import { stackMethods, webSurvivesZoom } from './stacks.js';
 import { esc } from './presentation.js';
 import { VIEWS, routerMethods, titleForView } from './router.js';
 import { mapMethods } from './map.js';
@@ -74,7 +74,8 @@ import { splitterMethods } from './splitter.js';
 
 export {
     baseAddress, memberSuite, sharedPlace, spiderOffsets, spiderReach, stackKey,
-    stackOpenDrop, stackRadius, stackRingIcon, STACK_PANEL_GAP, STACK_PANEL_PAGE,
+    stackOpenDrop, stackRadius, stackRingIcon, webSurvivesZoom, CLUSTER_MAX_ZOOM,
+    STACK_PANEL_GAP, STACK_PANEL_PAGE,
 } from './stacks.js';
 export {
     approximateLabel, buildScopeSeries, coordsOf, facilityPresentation,
@@ -149,23 +150,18 @@ export class FoodDashboard {
         // point, but the legs are DOM markers and would hang over the
         // clustered map until something else dismissed them.
         //
-        // FLOORED, because the two numbers being compared are different kinds
-        // of zoom: `clusterMaxZoom` is a TILE zoom, and a 512px source draws
-        // tile floor(cameraZoom) — so a camera at 12.4 is already reading
-        // clustered z12 tiles. Measured against the live map: tileZoom is 12
-        // for every camera zoom in [12, 13), and supercluster only emits
-        // individual points from z13. Comparing the fractional camera zoom
-        // straight across left a whole level where the bubble had already
-        // been swallowed and the legs were still fanned out around a point
-        // with no mark under it (Cannon, 2026-08-21).
-        //
-        // One-directional on purpose: this is a floor test, not a crossing
-        // test, so zooming IN can never satisfy it. A web only ever dies on
-        // the way back out.
+        // The decision itself is `webSurvivesZoom` (stacks.js), which needs
+        // the zoom the camera came FROM — hence the running value on the open
+        // web rather than a bare read of getZoom(). It is directional because
+        // the opening ease flies in from wherever the visitor clicked, which
+        // may be well inside the clustered band; a band test alone dismissed
+        // the web it had just opened (Cannon, 2026-08-21).
         this._onSpiderZoom = () => {
-            if (this._map && Math.floor(this._map.getZoom()) <= CLUSTER_MAX_ZOOM) {
-                this._dismissSpider();
-            }
+            if (!this._map || !this._spider) return;
+            const from = this._spider.zoom;
+            const to = this._map.getZoom();
+            this._spider.zoom = to;
+            if (!webSurvivesZoom(from, to)) this._dismissSpider();
         };
         this._facilities = [];
         this._byPermit = new Map();

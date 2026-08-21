@@ -50,8 +50,27 @@ const STACK_OPEN_ZOOM = 17;
 // A tile zoom, not a camera zoom — the distinction is load-bearing for the
 // second consumer. The source is 512px, so it draws tile floor(cameraZoom):
 // every camera zoom in [12, 13) is reading clustered z12 tiles, and the web
-// has to go at the TOP of that band, not the bottom (see _onSpiderZoom).
+// has to go at the TOP of that band, not the bottom (see webSurvivesZoom).
 export const CLUSTER_MAX_ZOOM = 12;
+
+/** Does an open web survive a zoom change from `from` to `to`?
+ *
+ *  DIRECTIONAL, and that is the whole point. The dismissal exists for one
+ *  event — the stack's bubble being swallowed by a proximity cluster on the
+ *  way out — but a bare "are we in the clustered band" test also fires on the
+ *  way IN, and the opening ease itself flies in from wherever the visitor
+ *  clicked. Supercluster leaves an isolated stack unclustered (`minPoints: 2`),
+ *  so a lone one out in the country is clickable at metro zoom: measured on
+ *  production 2026-08-21, clicking one at camera 10.5 opened the web, and the
+ *  ease's own frames dismissed it at 11.15 while the camera flew on to z17.
+ *  You landed zoomed in with no web, no panel, and nothing to say why.
+ *
+ *  Equal zooms survive: a `zoom` event that did not change the zoom is not a
+ *  camera pulling back. */
+export function webSurvivesZoom(from, to) {
+    if (!(to < from)) return true;                       // holding, or flying IN
+    return Math.floor(to) > CLUSTER_MAX_ZOOM;
+}
 
 // Dashed halos are pre-drawn images because MapLibre circle layers have no
 // dash property. The refinement editor gets `border: 2px dashed` free from
@@ -298,6 +317,10 @@ export const stackMethods = {
         this._spider = {
             key, markers, legEls, lngLat,
             reach: spiderReach(offsets, coarse ? 10.5 : 7.5),
+            // Where the camera is as the web opens. `_onSpiderZoom` compares
+            // each zoom against the last one to tell a pull-back from a fly-in
+            // — including the fly-in the easeTo below is about to start.
+            zoom: this._map.getZoom(),
         };
         this._setStackFilter(key);
         this._map.on('movestart', this._onSpiderMove);
