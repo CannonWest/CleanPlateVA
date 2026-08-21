@@ -64,10 +64,64 @@ export function fitAnchor(card, view, anchor = null) {
     return [vertical, horizontal].filter(Boolean).join('-') || null;
 }
 
+/** Is an open card's placement stale — does it need placing again?
+ *
+ *  Split out from the reflow so the rule is testable without a map. Two
+ *  reasons to re-place, and only two:
+ *
+ *  OUTSIDE. The map's box moved out from under the card. The splitter shrinks
+ *  the map horizontally against the sidebar and vertically against the bottom
+ *  bar, and a pan or a zoom slides the card's own point across it — measured
+ *  live, a card placed in an 814px map sat 147px behind the sidebar after a
+ *  drag to 341px, and a 160px pan carried another exactly 160px out.
+ *
+ *  OUTGROWN. The card is inside, but only because `_nudgeCardIntoView` bought
+ *  it room with an offset — AND the map's box has changed since. That offset
+ *  was owed to the box it was measured against; once the splitter hands the
+ *  room back, holding it strands the card away from its own marker.
+ *
+ *  The box comparison is what makes the second reason affordable. "Nudged"
+ *  alone is a permanent condition — a card pinned to an edge stays pinned —
+ *  so reflowing on it would re-show on every move event for ever, measured at
+ *  24ms a time against 25k markers — a re-show that has to re-anchor and
+ *  re-nudge is three times one that only re-lays the card. Nudged AND MOVED
+ *  is a one-shot.
+ *
+ *  Everything else is left alone on purpose. `move` fires on every frame of a
+ *  pan, so the quiet case has to cost nothing, and it does: measured at
+ *  0.01ms across 40 pans of a card sitting comfortably inside, with zero
+ *  re-shows. Panel coverage is NOT a reason either: `is-yielded` is opacity,
+ *  not layout, so a yielded panel keeps its box and a card resting over one
+ *  would re-show every frame for ever. Coverage is placement-time logic, and
+ *  the re-show re-runs it anyway.
+ */
+export function needsReflow(card, view, placed = null) {
+    if (!card || !card.width) return false;
+    // An unmeasured map constrains nothing, so nothing about it is stale.
+    if (!Number.isFinite(view.right)) return false;
+    if (card.left < view.left || card.right > view.right) return true;
+    if (card.top < view.top || card.bottom > view.bottom) return true;
+    if (!placed || !placed.nudged) return false;
+    return !sameBox(view, placed.view);
+}
+
+/** Two map boxes, same rectangle? Rounded, because a fractional device-pixel
+ *  difference is not the splitter moving — and treating it as one would put
+ *  the reflow back on every frame, which is the cost this avoids. */
+function sameBox(a, b) {
+    if (!a || !b) return false;
+    return Math.round(a.left) === Math.round(b.left)
+        && Math.round(a.top) === Math.round(b.top)
+        && Math.round(a.right) === Math.round(b.right)
+        && Math.round(a.bottom) === Math.round(b.bottom);
+}
+
 export const hoverMethods = {
     // ── marker-bound hover card ────────────────────────────────────────
     _hideHoverCard() {
         this._hoverPid = null;
+        this._hoverShown = null;
+        this._hoverPlaced = null;
         this._hoverPopup?.remove();
         this._yieldStackPanel(false);
     },
@@ -98,6 +152,9 @@ export const hoverMethods = {
     _showHoverCard(lngLat, f, { below = false } = {}) {
         if (!this._hoverPopupFor(below ? 'top' : null)) return;
         this._hoverPid = f.permit_id;
+        // Kept so the card can be placed AGAIN when the map moves under it.
+        // Placement is only true for the geometry it was measured in.
+        this._hoverShown = { lngLat, f, below };
         const lite = this._mode === 'lite';
         const html = this._hoverCardHTML(f);
         const view = this._mapViewBox();
@@ -171,6 +228,10 @@ export const hoverMethods = {
         this._nudgeCardIntoView();
         // Only if moving it did not help does the panel step aside.
         this._yieldStackPanel(this._panelCoveredBy() > PANEL_COVER_LIMIT);
+        // What this placement was measured against. A nudge is owed to a
+        // particular box, so the reflow can tell a card the map has outgrown
+        // from one that is simply pinned where it belongs.
+        this._hoverPlaced = { view: this._mapViewBox(), nudged: this._hoverNudged };
     },
 
     /** Slide the card the last few pixels so no edge hangs over the map.
@@ -181,6 +242,9 @@ export const hoverMethods = {
      *  price is the standoff from the marker, which is the right thing to
      *  spend when the alternative is a card sliced by the wrap. */
     _nudgeCardIntoView() {
+        // Cleared first, before any early return: a stale flag from the last
+        // card would make the reflow re-place this one for no reason.
+        this._hoverNudged = false;
         const popup = this._hoverPopup;
         if (!popup) return;
         const view = this._mapViewBox();
@@ -205,7 +269,34 @@ export const hoverMethods = {
             dx += ex;
             dy += ey;
             popup.setOffset([Math.round(dx), Math.round(dy)]);
+            this._hoverNudged = true;
         }
+    },
+
+    /** Place the open card again when the map has moved under it.
+     *
+     *  A placement is only true for the geometry it was measured in, and that
+     *  geometry moves in two ways nothing else was watching. The splitter
+     *  shrinks the map horizontally against the sidebar and vertically against
+     *  the bottom bar, and a pan or a zoom slides the card's own point across
+     *  it. Both were measured on production with a card left open: a card
+     *  placed in an 814px map ended up 147px behind the sidebar when the panel
+     *  went to 900px, and a 160px pan carried another one exactly 160px out.
+     *
+     *  Gated on MEASUREMENT rather than on the event, because `move` fires on
+     *  every frame of a pan and a re-show costs 8ms when it only has to re-lay
+     *  the card and 24 when it has to re-anchor and re-nudge it too.
+     *  `needsReflow` holds the rule and the reasons; here it is only asked. */
+    _reflowHoverCard() {
+        const shown = this._hoverShown;
+        if (!shown || !this._hoverPopup?.isOpen()) return;
+        const view = this._mapViewBox();
+        // `needsReflow` checks this too; asking here as well skips the card's
+        // own rect read, which forces layout, on every frame of a boot.
+        if (!Number.isFinite(view.right)) return;
+        const card = this._hoverPopup.getElement().getBoundingClientRect();
+        if (!needsReflow(card, view, this._hoverPlaced)) return;
+        this._showHoverCard(shown.lngLat, shown.f, { below: shown.below });
     },
 
     /** The box a card has to stay inside: the map itself, whose wrapper clips

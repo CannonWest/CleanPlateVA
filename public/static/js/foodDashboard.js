@@ -94,7 +94,7 @@ export {
     DETAIL_WIDTH_MIN,
 } from './constants.js';
 export { searchTerms } from './filters.js';
-export { fitAnchor } from './hover.js';
+export { fitAnchor, needsReflow } from './hover.js';
 export {
     clusterRadius, hitSlop, markRadius, pickMark, pointRadius, MARK_RANK,
 } from './markers.js';
