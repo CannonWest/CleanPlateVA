@@ -22,11 +22,19 @@ import {
 // readable is not worth making the card jump.
 const PANEL_COVER_LIMIT = 0.6;
 
-// Floors for the card's own box. Below these it is not a card any more, and a
-// map that small is not really being read — better a card that overhangs a
-// sliver than one squeezed to nothing.
+// The card's standoff from its point when nothing is in the way. Named because
+// a nudged card gives it up, and the nudge has to know what it is restoring.
+const TIP_OFFSET = 12;
+
+// The width floor is real: below ~220 the hero stops laying out and the
+// sparkline has nowhere to go, and a map that narrow is a sliver nobody is
+// reading.
 const TIP_MIN_WIDTH = 220;
-const TIP_MIN_HEIGHT = 96;
+// The height floor is deliberately near-nothing. Anything above the room
+// available means the card hangs over the very bar this is meant to keep it
+// off — measured at 18px of overhang on a 95px map when the floor was 96. An
+// abbreviated card inside the map beats a complete one spilling out of it.
+const TIP_MIN_HEIGHT = 40;
 
 /** Correct a popup anchor so the card lands INSIDE the map.
  *
@@ -102,7 +110,13 @@ export const hoverMethods = {
             // drag the panel to 70% and a 1280px window leaves a 349px map
             // against a 380px hero, which lost 217px off its right edge.
             const room = Math.round(view.right - view.left);
-            popup.setMaxWidth(`${Math.max(TIP_MIN_WIDTH, Math.min(lite ? 280 : 380, room))}px`);
+            const tier = lite ? 280 : 380;
+            // An unmeasured map caps nothing; the tier's own width stands.
+            popup.setMaxWidth(`${Number.isFinite(room)
+                ? Math.max(TIP_MIN_WIDTH, Math.min(tier, room)) : tier}px`);
+            // Start from the plain standoff every time: a nudge left over from
+            // the last card would bias the measurement taken after this one.
+            popup.setOffset(TIP_OFFSET);
             popup.setLngLat(lngLat).setHTML(html).addTo(this._map);
             // The same argument on the other axis, which the stacked splitter
             // reaches sooner: drag the bottom bar up and a 193px map faces the
@@ -110,8 +124,22 @@ export const hoverMethods = {
             // rather than in the stylesheet because only this knows the map's
             // current height. A card with no room left is abbreviated, which
             // is at least a clean edge inside the map instead of a slice.
-            popup.getElement().style.setProperty(
-                '--cp-tip-max-h', `${Math.max(TIP_MIN_HEIGHT, Math.round(view.bottom - view.top))}px`);
+            const headroom = view.bottom - view.top;
+            const el = popup.getElement();
+            const content = el.querySelector('.maplibregl-popup-content');
+            if (content) {
+                // Capped on the CONTENT, but the overflow is measured on the
+                // OUTER box, so the popup's own chrome — padding and tip — has
+                // to come off the allowance or the card lands exactly that much
+                // too tall. Measured live at 9px, which is what was left over
+                // the top of a 245px map. Measured rather than hardcoded: the
+                // padding differs between the slim tip and the hero card.
+                const chrome = el.getBoundingClientRect().height
+                    - content.getBoundingClientRect().height;
+                content.style.maxHeight = Number.isFinite(headroom)
+                    ? `${Math.max(TIP_MIN_HEIGHT, Math.round(headroom - chrome))}px`
+                    : '';
+            }
         };
         let anchor = below ? 'top' : null;
         place(anchor);
@@ -134,8 +162,50 @@ export const hoverMethods = {
             this._hoverPopup.getElement().getBoundingClientRect(),
             this._mapViewBox(), anchor);
         if (fixed) place(fixed);
+        // An anchor can only put the card to one SIDE of its point, which is no
+        // help once the card is nearly as wide as the map: both sides overflow,
+        // and flipping just trades which edge is lost. Measured on production
+        // with the panel at 900px — a 341px card in a 349px map, over the left
+        // edge, re-anchored, then 178px over the right. Only an offset can sit
+        // a card on the MAP's centre rather than its point's.
+        this._nudgeCardIntoView();
         // Only if moving it did not help does the panel step aside.
         this._yieldStackPanel(this._panelCoveredBy() > PANEL_COVER_LIMIT);
+    },
+
+    /** Slide the card the last few pixels so no edge hangs over the map.
+     *
+     *  Runs after the anchor pass, so it only ever has the remainder to fix,
+     *  and one pass is exact: the offset is applied in screen space, so moving
+     *  by precisely the overflow lands the card flush against the edge. The
+     *  price is the standoff from the marker, which is the right thing to
+     *  spend when the alternative is a card sliced by the wrap. */
+    _nudgeCardIntoView() {
+        const popup = this._hoverPopup;
+        if (!popup) return;
+        const view = this._mapViewBox();
+        if (!Number.isFinite(view.right)) return;   // unmeasured map constrains nothing
+        let dx = 0;
+        let dy = 0;
+        // TWO passes, and the second is not belt-and-braces. Swapping the plain
+        // standoff for an explicit offset moves the card BY that standoff, so a
+        // correction measured under the old regime lands one standoff short —
+        // measured live as exactly 12px of overhang left behind. The second
+        // pass measures in the regime the card will keep, and accumulates.
+        for (let pass = 0; pass < 2; pass += 1) {
+            const card = popup.getElement().getBoundingClientRect();
+            if (!card.width) return;
+            let ex = 0;
+            let ey = 0;
+            if (card.right > view.right) ex = view.right - card.right;
+            else if (card.left < view.left) ex = view.left - card.left;
+            if (card.bottom > view.bottom) ey = view.bottom - card.bottom;
+            else if (card.top < view.top) ey = view.top - card.top;
+            if (!ex && !ey) return;                 // already inside; nothing owed
+            dx += ex;
+            dy += ey;
+            popup.setOffset([Math.round(dx), Math.round(dy)]);
+        }
     },
 
     /** The box a card has to stay inside: the map itself, whose wrapper clips
@@ -143,8 +213,14 @@ export const hoverMethods = {
      *  it was just moved off. */
     _mapViewBox() {
         const el = document.getElementById('foodMap');
-        if (!el) return { left: 0, top: 0, right: Infinity, bottom: Infinity };
-        const r = el.getBoundingClientRect();
+        const r = el && el.getBoundingClientRect();
+        // A map with no box yet — booting, a hidden tab, a display:none
+        // ancestor — constrains nothing. Insetting a zero rect inverts it, and
+        // the nudge then "corrects" against an impossible box: seen live as a
+        // 220px card shoved to a [232, 118] offset because the map measured 0.
+        if (!r || r.width <= 0 || r.height <= 0) {
+            return { left: -Infinity, top: -Infinity, right: Infinity, bottom: Infinity };
+        }
         const inset = 4;
         return {
             left: r.left + inset, top: r.top + inset,

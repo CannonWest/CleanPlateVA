@@ -321,6 +321,36 @@ test('the card is kept inside the map, on whichever axis the map shrank', () => 
     assert.equal(fitAnchor(card(300, 360), view), null);
 });
 
+test('and the last few pixels are nudged, because an anchor cannot centre it', () => {
+    // An anchor only ever puts the card to one SIDE of its point. Once the card
+    // is nearly as wide as the map, BOTH sides overflow and flipping just
+    // trades which edge is lost — measured on production with the panel at
+    // 900px: a 341px card in a 349px map went over the left edge, was
+    // re-anchored, and then hung 178px over the right. Only an offset can sit
+    // a card on the MAP's centre rather than on its point's.
+    assert.match(source, /_nudgeCardIntoView\(\) \{/);
+    assert.match(source, /if \(card\.right > view\.right\) ex = view\.right - card\.right;/);
+    assert.match(source, /if \(card\.bottom > view\.bottom\) ey = view\.bottom - card\.bottom;/);
+    assert.match(source, /popup\.setOffset\(\[Math\.round\(dx\), Math\.round\(dy\)\]\)/);
+    // Two passes, and the second is not belt-and-braces: swapping the plain
+    // standoff for an explicit offset moves the card BY that standoff, so a
+    // correction measured under the old regime lands one standoff short —
+    // measured live as exactly 12px of overhang left behind.
+    assert.match(source, /for \(let pass = 0; pass < 2; pass \+= 1\)/);
+    // It runs AFTER the anchor pass, so it only has the remainder to fix.
+    assert.match(source, /if \(fixed\) place\(fixed\);[\s\S]{0,600}?this\._nudgeCardIntoView\(\);/);
+    // ...and every card starts from the plain standoff, or a nudge left over
+    // from the last one would bias the measurement taken after this one.
+    assert.match(source, /popup\.setOffset\(TIP_OFFSET\);/);
+    // A map with no box yet constrains nothing. Insetting a zero rect inverts
+    // it, and the nudge then "corrects" against an impossible box — seen live
+    // in a tab that had not laid out: a 220px card shoved to a [232, 118]
+    // offset because the map measured 0 wide.
+    assert.match(source, /if \(!r \|\| r\.width <= 0 \|\| r\.height <= 0\) \{/);
+    assert.match(source, /left: -Infinity, top: -Infinity, right: Infinity, bottom: Infinity/);
+    assert.match(source, /Number\.isFinite\(room\)/);
+});
+
 test('the card exists only while the pointer remains on its marker', () => {
     // One map-level mousemove now resolves every mark type at once — a padded
     // hit test has to see them together to judge which is nearest — so the
@@ -372,10 +402,19 @@ test('the popup sizes per tier and the hero card gets its width', () => {
     // 1280px window — a 349px map against a 380px hero, 217px lost off the
     // right edge — and the same on the other axis once the stacked bar is
     // dragged up: a 193px map against a 263px card, 179px lost into the panel.
-    assert.match(source, /Math\.max\(TIP_MIN_WIDTH, Math\.min\(lite \? 280 : 380, room\)\)/);
-    assert.match(source, /'--cp-tip-max-h'/);
+    assert.match(source, /Math\.max\(TIP_MIN_WIDTH, Math\.min\(tier, room\)\) : tier/);
+    assert.match(source, /const tier = lite \? 280 : 380;/);
+    assert.match(source, /content\.style\.maxHeight = Number\.isFinite\(headroom\)/);
+    // The cap lands on the CONTENT while the overflow is measured on the
+    // OUTER box, so the popup's own chrome comes off the allowance —
+    // measured, not hardcoded, because the slim tip and the hero card pad
+    // differently. Live it was 9px, left over the top of a 245px map.
+    assert.match(source, /const chrome = el\.getBoundingClientRect\(\)\.height/);
     assert.match(source, /const TIP_MIN_WIDTH = 220;/);
-    assert.match(source, /const TIP_MIN_HEIGHT = 96;/);
+    // The height floor is near-nothing on purpose: anything above the room
+    // available means the card hangs over the very bar this keeps it off —
+    // 18px of overhang on a 95px map when the floor was 96.
+    assert.match(source, /const TIP_MIN_HEIGHT = 40;/);
     assert.match(source, /dashboard\._sparkSvg\(series, 280\)/);   // one plot markup for both surfaces
     const css = readFileSync(
         new URL('../public/static/css/style.css', import.meta.url), 'utf8');
@@ -383,7 +422,7 @@ test('the popup sizes per tier and the hero card gets its width', () => {
     assert.match(css, /\.food-tip \.food-hover-card \{ width: 352px/);
     // The height cap is a variable because only the module knows the map's
     // current height — the splitter changes it on every drag frame.
-    assert.match(css, /max-height: var\(--cp-tip-max-h, none\);/);
+    assert.match(css, /\.food-tip \.maplibregl-popup-content \{ overflow: hidden; \}/);
     assert.match(css, /\.food-tip:has\(\.food-hover-card\) \.maplibregl-popup-content/);
 });
 
