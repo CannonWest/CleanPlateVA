@@ -21,7 +21,9 @@ import test from 'node:test';
 import { dashboard, dashboardSource as source } from './support/dashboard.mjs';
 
 const proto = dashboard.FoodDashboard.prototype;
-const { stackKey, stackRadius, stackRingIcon, spiderOffsets } = dashboard;
+const {
+    stackKey, stackRadius, stackRingIcon, spiderOffsets, webSurvivesZoom, CLUSTER_MAX_ZOOM,
+} = dashboard;
 
 /** A dashboard with just enough state for the paint + grouping methods; the
  *  constructor wants a DOM and localStorage, and none of this needs either. */
@@ -331,17 +333,49 @@ test('zooming back past stack view takes the web with it', () => {
     // still drawn.
     assert.match(source, /const CLUSTER_MAX_ZOOM = \d+;/);
     assert.match(source, /clusterMaxZoom: CLUSTER_MAX_ZOOM,/);
-    // FLOORED (2026-08-21). The constant is a TILE zoom and the 512px source
-    // draws tile floor(cameraZoom), so the camera is on clustered z12 tiles
-    // anywhere in [12, 13). Compared bare, the web outlived its own bubble
-    // for a full zoom level on the way out. Pinned as source text because the
-    // bug is invisible to a unit test: both forms dismiss eventually. Still a
-    // floor TEST rather than a crossing test, so zooming IN cannot satisfy it.
-    assert.match(source,
-        /Math\.floor\(this\._map\.getZoom\(\)\) <= CLUSTER_MAX_ZOOM[\s\S]{0,80}?this\._dismissSpider\(\)/);
+    assert.equal(CLUSTER_MAX_ZOOM, 12);
+
+    // Pulling back INTO the clustered band takes the web with it. Floored:
+    // the constant is a TILE zoom and the 512px source draws tile
+    // floor(cameraZoom), so the camera is already reading clustered z12 tiles
+    // anywhere in [12, 13) — the web has to go at the top of that band, not
+    // at 12.0 (measured on production 2026-08-21: a web opened at z17 was
+    // still fanned out at camera 12.4, over a point with no mark under it).
+    assert.equal(webSurvivesZoom(17, 12.9), false);
+    assert.equal(webSurvivesZoom(13.4, 12.99), false);
+    assert.equal(webSurvivesZoom(12.9, 11.2), false);
+    // Still open where its own bubble is still drawn.
+    assert.equal(webSurvivesZoom(17, 13.0), true);
+    assert.equal(webSurvivesZoom(15, 14.2), true);
+
     // `zoom`, not `zoomend`: it should go as the camera crosses the line.
     assert.match(source, /this\._map\.on\('zoom', this\._onSpiderZoom\)/);
     assert.match(source, /this\._map\?\.off\('zoom', this\._onSpiderZoom\)/);
+});
+
+test('the opening flight cannot dismiss the web it just opened', () => {
+    // The regression this replaced (Cannon, 2026-08-21). Supercluster leaves
+    // an isolated stack unclustered (`minPoints: 2`), so a lone one is
+    // clickable at metro zoom — and _expandStack arms this listener BEFORE
+    // easing to STACK_OPEN_ZOOM. A band test with no direction in it dismissed
+    // the web on the ease's own first frames: measured on production, a click
+    // at camera 10.5 died at 11.15 while the camera flew on to z17, landing
+    // the visitor zoomed in with no web, no panel, and no reason given.
+    assert.equal(webSurvivesZoom(10.5, 11.15), true);
+    assert.equal(webSurvivesZoom(9, 9.8), true);
+    assert.equal(webSurvivesZoom(12.4, 12.86), true);
+    assert.equal(webSurvivesZoom(10.5, 17), true);
+    // A zoom event that did not move the zoom is not a camera pulling back.
+    assert.equal(webSurvivesZoom(11.5, 11.5), true);
+    // Direction is not a licence to stay open: the same flight, run backwards.
+    assert.equal(webSurvivesZoom(11.15, 10.5), false);
+
+    // Wiring: the handler has to carry the zoom it came FROM, and the open
+    // web is where it lives — so it dies with the web and cannot leak into
+    // the next one.
+    assert.match(source, /zoom: this\._map\.getZoom\(\),[\s\S]{0,40}?\};/);
+    assert.match(source,
+        /_onSpiderZoom = \(\) => \{[\s\S]{0,320}?webSurvivesZoom\(from, to\)\) this\._dismissSpider\(\)/);
 });
 
 test('an open web survives a filter change by re-seating, not closing', () => {
