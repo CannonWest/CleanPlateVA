@@ -363,10 +363,7 @@ body {
    pointer-events:none, so scrolling it is not an option; clipping inside its
    own rounded box at least keeps a clean edge on the map instead of being
    sliced by the wrap's overflow. */
-.food-tip .maplibregl-popup-content {
-    max-height: var(--cp-tip-max-h, none);
-    overflow: hidden;
-}
+.food-tip .maplibregl-popup-content { overflow: hidden; }
 .food-tip:has(.food-hover-card) .maplibregl-popup-content { padding: 10px 12px 8px; }
 .food-hover-card-head { margin-bottom: 0.45rem; }
 .food-hover-card-head strong { font-size: 0.9rem; }
