@@ -287,6 +287,29 @@ export const hoverMethods = {
      *  every frame of a pan and a re-show costs 8ms when it only has to re-lay
      *  the card and 24 when it has to re-anchor and re-nudge it too.
      *  `needsReflow` holds the rule and the reasons; here it is only asked. */
+    /** Ask for a reflow once the current event has finished dispatching.
+     *
+     *  MapLibre repositions a popup from its OWN `move` listener, and this
+     *  app's listener is registered when the map is built — before any popup
+     *  exists — so it runs FIRST and would measure the card where it used to
+     *  be. Measured live: a 200px pan read the card's top as 185 inside the
+     *  listener and 385 in a microtask, which is where it actually was. On a
+     *  continuous pan that only lags a frame, but a single jump — a `panBy`,
+     *  a `flyTo`, a keyboard nudge — pushed the card clean out of the map
+     *  while the gate, reading the old rect, saw nothing wrong at all.
+     *
+     *  A microtask rather than a frame: it runs after the whole dispatch and
+     *  still before paint, so the card is never rendered out of place.
+     *  Coalesced, because one splitter drag fires `move` AND `resize`. */
+    _scheduleHoverReflow() {
+        if (this._hoverReflowQueued) return;
+        this._hoverReflowQueued = true;
+        queueMicrotask(() => {
+            this._hoverReflowQueued = false;
+            this._reflowHoverCard();
+        });
+    },
+
     _reflowHoverCard() {
         const shown = this._hoverShown;
         if (!shown || !this._hoverPopup?.isOpen()) return;
