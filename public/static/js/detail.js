@@ -105,7 +105,7 @@ export const detailMethods = {
             return '<span class="food-approx food-approx-venue" title="Address is a room or space number, not one a geocoder can place — pin sits at the venue this facility belongs to (airport, mall, campus), not at its own unit">≈ venue-level</span>';
         }
         if (cls === LOCATION_CLASS.street) {
-            return '<span class="food-approx food-approx-street" title="Street-level only (Census centerline) — pin may sit ~50 m off, on the road rather than the building">≈ street-level</span>';
+            return '<span class="food-approx food-approx-street" title="Street-level only (a road centreline, from Census or VGIN) — pin may sit ~50 m off, on the road rather than the building">≈ street-level</span>';
         }
         return '';
     },

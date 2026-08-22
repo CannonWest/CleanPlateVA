@@ -435,6 +435,16 @@ test('the loc vocabulary is append-only and venue is the appended class', () => 
         { rooftop: 0, street: 1, zip_centroid: 2, venue: 3 });
 });
 
+test('a VGIN road centreline is street-level, not rooftop', () => {
+    // The exporter left `vgin_street` out of V4_LOC_CLASS from CPD-M1 until
+    // 2026-08-22, so 83 live rows published a road centreline as an
+    // unqualified building pin. Both halves of the map now agree.
+    assert.equal(locationClass({ location: { source: 'vgin_street' } }),
+        LOCATION_CLASS.street);
+    assert.equal(approximateLabel({ location: { source: 'vgin_street' } }),
+        'street-level');
+});
+
 test('a venue-anchored site classifies and labels as venue-level', () => {
     assert.equal(locationClass({ loc: 3 }), LOCATION_CLASS.venue);
     // A detail-shaped facility derives the same class from its source.
