@@ -19,8 +19,11 @@ import { esc, facilityPresentation, gradeColor } from './presentation.js';
 // rules deliberately keep separate. Those markers sit exactly on top of each
 // other at EVERY zoom — proximity clustering never resolves them, because
 // they never separate — and only the topmost is hoverable or clickable.
-// Measured against the 2026-08 Lite roster, default public view: 1,421 stacks
-// holding 4,480 of 22,357 markers, of which 3,059 could not be reached at all.
+// Measured against the published finder shards, snapshot 2026-08-22T10:33:22Z,
+// default public view: 1,369 stacks holding 4,326 of 22,527 markers, of which
+// 2,957 could not be reached at all. Re-measure rather than re-derive — the
+// census is cannon-food `tools/studies/cf_map_stack_study.py`, which groups on
+// this file's exact key and reads the same bytes the map fetches.
 //
 // Grouping is exact at 6dp (~0.11m), the same key the CannonAI refinement
 // editor spiderfies on. A metre-scale tolerance was measured and rejected: it
