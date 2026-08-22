@@ -45,7 +45,11 @@ export function locationClass(f) {
     const source = f?.location?.source;
     if (source === 'zip_centroid') return LOCATION_CLASS.zip_centroid;
     if (source === 'venue_anchor') return LOCATION_CLASS.venue;
-    if (source === 'census_batch' || source === 'census_oneline') return LOCATION_CLASS.street;
+    // A VGIN road centreline is the same KIND of claim as a Census one —
+    // the road, not the building. The exporter classed it as rooftop until
+    // 2026-08-22 simply because it was missing from the map.
+    if (source === 'census_batch' || source === 'census_oneline'
+        || source === 'vgin_street') return LOCATION_CLASS.street;
     return LOCATION_CLASS.rooftop;
 }
 

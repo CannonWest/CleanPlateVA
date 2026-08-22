@@ -193,7 +193,8 @@ name, address, address2, city, zip, tenant, is_restaurant, mobile, pt, lat,
 lon, loc`. `lat`/`lon` are the effective point (an accepted permit-level
 refinement when one exists, else the physical-site fallback) rounded to 6
 decimal places at export; `loc` classifies it — `0` rooftop-quality, `1`
-street-level (Census centerline), `2` ZIP centroid, `3` venue-level (seated on
+street-level (a road centreline, Census or VGIN), `2` ZIP centroid, `3`
+venue-level (seated on
 the venue rather than the unit, for an address that is a room or space number)
 — and drives the "≈ approximate location" notes on BOTH the hover card and the
 detail panel. The vocabulary is append-only: a code is positional identity, so
