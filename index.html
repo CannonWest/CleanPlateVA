@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<!-- CR app entry (CRF-M0, design ref §3). This is Vite's root index.html —
+     the dev-server page and the template for dist/index.html. It is NOT the
+     served site: public/index.html (the no-build client) keeps serving until
+     CRC flips assets.directory to ./dist. Dark is the document default (C10);
+     .theme-light on <html> flips the theme (docs/mockups/tokens.css). -->
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>CleanPlateVA — archived VDH inspection finder</title>
+</head>
+<body>
+    <div id="root"></div>
+    <script type="module" src="/app/main.tsx"></script>
+</body>
+</html>

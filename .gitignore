@@ -17,3 +17,8 @@ public/data-full/
 
 # wrangler local state
 .wrangler/
+
+# CR scaffold (CRF-M0): npm install product + Vite build output. dist/ is
+# built by Workers Builds on deploy (design ref §3); it is never committed.
+node_modules/
+dist/
