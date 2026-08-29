@@ -1,0 +1,520 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CleanPlateVA — map view mockup (CRD-M1)</title>
+<link rel="stylesheet" href="tokens.css">
+<style>
+/* Map + hover + detail — the flagship surface (CRV-a's referee).
+   Full-bleed map; floating chrome; detail as a right sheet (desktop) /
+   bottom sheet (mobile). Grade letters ride markers at this "zoom". */
+html, body { height: 100%; overflow: hidden; }
+
+.map { position: fixed; inset: 0; background: var(--cp-basemap); }
+.map::after {
+  content: ""; position: absolute; inset: 0; opacity: .5;
+  background-image:
+    linear-gradient(var(--cp-hairline) 1px, transparent 1px),
+    linear-gradient(90deg, var(--cp-hairline) 1px, transparent 1px);
+  background-size: 256px 256px;
+}
+.roads { position: absolute; inset: 0; overflow: hidden; opacity: .6; }
+.roads i { position: absolute; background: var(--cp-surface-3); }
+
+/* --- floating chrome: ONE calm band --- */
+.topband {
+  position: fixed; top: 12px; left: 12px; z-index: 20;
+  /* reflow to the space left of the open panel (400px + margins);
+     the real build drops this when the panel is closed */
+  max-width: min(calc(100vw - 24px), calc(100vw - 448px));
+  display: flex; gap: 6px 14px; align-items: center; flex-wrap: wrap;
+  padding: 8px 12px;
+}
+.searchbar span { white-space: nowrap; }
+@media (max-width: 1180px) { .searchbar .ph { display: none; } }
+.brand { display: flex; align-items: center; gap: 8px;
+  font-weight: 700; font-size: 14.5px; flex: none; }
+.brand .plate { width: 18px; height: 18px; border-radius: 50%;
+  border: 2.5px solid var(--cp-accent); }
+.searchbar { flex: 1 1 200px; max-width: 360px; display: flex; align-items: center;
+  gap: 8px; padding: 8px 12px; font-size: 13px; color: var(--cp-ink);
+  background: var(--cp-surface-2); border: 1px solid var(--cp-hairline);
+  border-radius: var(--cp-r-pill); }
+.searchbar .ph { color: var(--cp-ink-3); }
+.viewswitch { display: flex; padding: 3px; gap: 2px;
+  background: var(--cp-surface-2); border: 1px solid var(--cp-hairline);
+  border-radius: var(--cp-r-control); }
+.viewswitch button { font: 600 12.5px/1 var(--cp-font); border: 0; cursor: pointer;
+  padding: 7px 14px; border-radius: 5px; background: transparent; color: var(--cp-ink-2); }
+.viewswitch button.active { background: var(--cp-accent-solid); color: #fff; }
+.chipset { display: flex; gap: 4px; align-items: center; }
+.chipset .gchip { min-width: 26px; height: 26px; font-size: 11.5px; cursor: pointer; opacity: .95; }
+.chipset .gchip.off { opacity: .3; }
+.pillbtn { display: inline-flex; gap: 7px; align-items: center;
+  font: 600 12px/1 var(--cp-font); padding: 8px 12px; cursor: pointer;
+  border-radius: var(--cp-r-pill); color: var(--cp-ink-2);
+  background: var(--cp-surface-2); border: 1px solid var(--cp-hairline); }
+.countpill { font: 600 11.5px/1 var(--cp-font); color: var(--cp-ink-3); flex: none; }
+.countpill b { color: var(--cp-ink); }
+
+/* --- markers --- */
+.mk { position: absolute; border-radius: 50%; width: 13px; height: 13px;
+  box-shadow: 0 0 0 2px var(--cp-marker-ring); }
+.mk.lg { width: 21px; height: 21px; display: flex; align-items: center;
+  justify-content: center; font: 700 10.5px/1 var(--cp-font); color: #fff; }
+.mk .tr { position: absolute; inset: -5px; border-radius: 50%;
+  border: 2px dashed currentColor; }
+.stack { position: absolute; width: 25px; height: 25px; border-radius: 50%;
+  background: var(--cp-surface-3); color: var(--cp-ink);
+  display: flex; align-items: center; justify-content: center;
+  font: 700 10.5px/1 var(--cp-font); box-shadow: 0 0 0 2px var(--cp-marker-ring); }
+
+/* --- hover card (from the ratified tile composite) --- */
+.hovercard { position: fixed; z-index: 18; width: 290px; padding: 12px 14px; }
+.hovercard .hd { display: flex; gap: 10px; align-items: center; }
+.gradecircle { width: 40px; height: 40px; border-radius: 50%; flex: none;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font: 700 18px/1 var(--cp-font); }
+.hovercard .nm { font-weight: 600; font-size: 13.5px; }
+.hovercard .ad { font-size: 11.5px; color: var(--cp-ink-3); }
+.kv2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 10px; }
+.bx { background: var(--cp-surface-2); border: 1px solid var(--cp-hairline);
+  border-radius: 6px; padding: 6px 8px; }
+.bx .k { font-size: 9.5px; color: var(--cp-ink-3); text-transform: uppercase; letter-spacing: .06em; }
+.bx .v { font-size: 12px; font-weight: 600; }
+.spark svg { display: block; width: 100%; height: 42px; margin-top: 8px; }
+
+/* --- detail panel: right sheet --- */
+.panel {
+  position: fixed; top: 12px; right: 12px; bottom: 12px; z-index: 25;
+  width: min(400px, calc(100vw - 24px));
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.panel-hd { padding: 16px 18px 12px; border-bottom: 1px solid var(--cp-hairline); }
+.panel-hd .row1 { display: flex; gap: 12px; align-items: flex-start; }
+.panel-hd .x { border: 0; background: transparent;
+  color: var(--cp-ink-3); font-size: 18px; cursor: pointer; line-height: 1; }
+.vdh-inline { margin-left: auto; align-self: center; }
+.panel-hd .nm { font-size: 16px; font-weight: 700; }
+.panel-hd .ad { font-size: 12px; color: var(--cp-ink-2); margin-top: 2px; }
+.panel-hd .meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.badge { font: 600 10.5px/1 var(--cp-font); padding: 5px 9px;
+  border-radius: var(--cp-r-pill); background: var(--cp-surface-2);
+  border: 1px solid var(--cp-hairline); color: var(--cp-ink-2); }
+.badge.approx { color: var(--cp-grade-c); }
+/* permanent facts: integrated line, not badges (badges are a sometimes thing) */
+.factline { display: flex; align-items: center; gap: 14px; margin-top: 9px; }
+.fact { display: inline-flex; align-items: center; gap: 6px;
+  font: 600 12px/1 var(--cp-font); color: var(--cp-ink-2); }
+.fact .icon { color: var(--cp-ink-3); }
+.statusdot { width: 7px; height: 7px; border-radius: 50%; }
+.actline { margin-top: 10px; }
+.btn-compact { padding: 7px 11px; font-size: 12px; gap: 6px; }
+.panel-scroll { overflow-y: auto; flex: 1;
+  scrollbar-width: thin; scrollbar-color: var(--cp-surface-3) transparent; }
+.panel-scroll::-webkit-scrollbar { width: 7px; }
+.panel-scroll::-webkit-scrollbar-track { background: transparent; }
+.panel-scroll::-webkit-scrollbar-thumb { background: var(--cp-surface-3);
+  border-radius: 4px; }
+.panel-scroll::-webkit-scrollbar-thumb:hover { background: var(--cp-ink-3); }
+/* the grade hero IS the button: one centered rounded box, tap = report card */
+.hero-wrap { padding: 14px 18px 4px; }
+.hero {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 18px 18px 10px; cursor: pointer; text-align: center;
+  background: var(--cp-surface-2); border: 1px solid var(--cp-hairline);
+  border-radius: var(--cp-r-card);
+}
+.hero:hover { border-color: var(--cp-accent); }
+.hero .gradecircle { width: 58px; height: 58px; font-size: 26px; }
+.hero .scorerow { display: flex; align-items: baseline; gap: 10px; margin-top: 10px; }
+.hero .score { font-size: 30px; font-weight: 700; line-height: 1; }
+.hero .score small { font-size: 15px; color: var(--cp-ink-3); font-weight: 600; }
+.hero .trend { display: inline-flex; align-items: center; gap: 5px;
+  font: 600 11px/1 var(--cp-font); color: var(--cp-grade-d); }
+.hero .sub { font-size: 11.5px; color: var(--cp-ink-3); margin-top: 5px; }
+.hero .hint { display: inline-flex; align-items: center; gap: 5px;
+  font: 600 11px/1 var(--cp-font); color: var(--cp-accent);
+  border-top: 1px solid var(--cp-hairline);
+  margin-top: 12px; padding: 10px 14px 2px; align-self: stretch;
+  justify-content: center; }
+/* per-visit source link-out: blue outline box-and-arrow = external */
+.visit .vh .out { display: inline-flex; color: var(--cp-accent); flex: none;
+  padding: 5px; border: 1px solid var(--cp-accent); border-radius: 6px; }
+.visit .vh .out:hover { background: var(--cp-surface-3); }
+/* trend: its own labeled section, boxed like the history rows */
+.trendsec { margin: 10px 18px 0; padding: 10px 12px 8px;
+  background: var(--cp-surface-2); border: 1px solid var(--cp-hairline);
+  border-radius: 8px; }
+.trendsec svg { display: block; width: 100%; height: auto; margin-top: 6px; }
+/* hover a mark: it enlarges, the rest of the graph dims */
+.trendsec svg .tp { transform-box: fill-box; transform-origin: center;
+  transition: transform .15s ease, opacity .15s ease; cursor: pointer; }
+.trendsec svg .grid, .trendsec svg .tline { transition: opacity .15s ease; }
+.trendsec svg .tp:hover { transform: scale(1.7); }
+.trendsec svg:has(.tp:hover) .tp:not(:hover),
+.trendsec svg:has(.tp:hover) .grid,
+.trendsec svg:has(.tp:hover) .tline { opacity: .3; }
+.trendhd { display: flex; align-items: baseline; justify-content: space-between; }
+.trendspan { font-size: 10.5px; color: var(--cp-ink-3); }
+.trendhd .caps-label { font-size: 12px; }
+.trendlegend { display: flex; gap: 18px; margin-top: 5px; }
+.trendlegend span { display: inline-flex; align-items: center; gap: 7px;
+  font-size: 12.5px; color: var(--cp-ink-3); }
+.trendlegend .ring { width: 11px; height: 11px; border-radius: 50%; display: inline-block;
+  border: 1.5px dashed var(--cp-ink-3); }
+.trendlegend .dia { width: 9px; height: 9px; display: inline-block;
+  border: 1.5px dashed var(--cp-ink-3); transform: rotate(45deg); }
+.trendlegend .tick { width: 3px; height: 12px; background: var(--cp-ink-3); display: inline-block; }
+.hist { padding: 10px 10px 14px; }
+.hist h4 { font-size: 10.5px; font-weight: 600; color: var(--cp-ink-3);
+  text-transform: uppercase; letter-spacing: .07em; padding: 6px 8px; }
+.visit { border: 1px solid var(--cp-hairline); border-radius: 8px;
+  background: var(--cp-surface-2); margin: 6px 0; overflow: hidden; }
+.visit .vh { display: flex; align-items: center; gap: 9px; padding: 10px 12px;
+  cursor: pointer; flex-wrap: wrap; list-style: none; }
+.visit .vh::-webkit-details-marker { display: none; }
+.visit .vh .d { font-weight: 600; font-size: 12.5px; }
+.visit .vh .t { font-size: 11.5px; color: var(--cp-ink-3); }
+.visit .vh .res { margin-left: auto; font-weight: 700; font-size: 12.5px; }
+.visit .vh .caret { color: var(--cp-ink-3); transition: transform .15s; }
+.visit[open] .vh .caret { transform: rotate(180deg); }
+.scopebadge { font: 600 9.5px/1 var(--cp-font); text-transform: uppercase;
+  letter-spacing: .05em; padding: 4px 7px; border-radius: 4px;
+  background: var(--cp-surface-3); color: var(--cp-ink-2); }
+/* count chips: filled box for the violation total, outline bubbles for the
+   risk-factor (items 1–29) / retail-practice (30+) split */
+.cnt { display: flex; gap: 5px; flex-basis: 100%; padding-left: 2px; }
+.cnt .cbox { font: 700 10.5px/1 var(--cp-font); color: #fff;
+  background: var(--cp-grade-f); padding: 4.5px 8px; border-radius: 4px; }
+.cnt .cbox.zero { background: var(--cp-grade-a); }
+.cnt .ccat { font: 600 10.5px/1 var(--cp-font); color: var(--cp-ink-2);
+  border: 1px solid var(--cp-hairline); padding: 3.5px 8px; border-radius: 4px; }
+.cnt .ccat.rf { color: var(--cp-grade-d); border-color: var(--cp-grade-d); }
+.adjchip { font: 600 10.5px/1 var(--cp-font); color: var(--cp-grade-a);
+  border: 1px solid var(--cp-grade-a); padding: 3.5px 8px; border-radius: 4px; }
+/* violation blocks: left-rail severity, per-violation corrective line */
+.vbody { border-top: 1px solid var(--cp-hairline); padding: 10px 12px 12px; }
+.viol { border-left: 3px solid var(--cp-grade-d); background: var(--cp-surface-1);
+  border-radius: 0 6px 6px 0; padding: 8px 10px; margin: 8px 0; }
+.viol.rf { border-left-color: var(--cp-grade-f); }
+.viol .vhd { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.viol .vitem { font: 700 11px/1 var(--cp-font); color: var(--cp-ink-3); }
+.viol .vtext { font-size: 12.5px; color: var(--cp-ink); }
+.viol .corr { font-size: 12px; color: var(--cp-ink-2); margin-top: 5px;
+  padding-left: 4px; }
+.viol .corr::before { content: "↳ "; color: var(--cp-ink-3); }
+/* the general comments — VDH's Additional Comments section */
+.cmnts { margin: 10px 0 2px; padding: 9px 11px; background: var(--cp-bg);
+  border: 1px solid var(--cp-hairline); border-radius: 6px;
+  font-size: 12px; color: var(--cp-ink-2); line-height: 1.5; }
+.cmnts b { color: var(--cp-ink); font-size: 11px; text-transform: uppercase;
+  letter-spacing: .05em; display: block; margin-bottom: 3px; }
+.subd summary { font-size: 11.5px; color: var(--cp-ink-3); cursor: pointer;
+  padding: 7px 2px 3px; list-style: none; display: flex; align-items: center; gap: 6px; }
+.subd summary::-webkit-details-marker { display: none; }
+.subd summary .caret { transition: transform .15s; }
+.subd[open] summary .caret { transform: rotate(180deg); }
+/* checklist categories: pass-rate bar per category */
+.clcat { border: 1px solid var(--cp-hairline); border-radius: 6px; margin: 6px 0;
+  background: var(--cp-surface-1); }
+.clcat > summary { padding: 7px 10px; font-size: 12px; color: var(--cp-ink-2);
+  display: flex; gap: 8px; align-items: center; cursor: pointer; list-style: none; }
+.clcat > summary::-webkit-details-marker { display: none; }
+.clcat .cnum { font: 600 11px/1 var(--cp-font); color: var(--cp-ink-3);
+  font-variant-numeric: tabular-nums; }
+.clcat .bar { flex: 1; height: 4px; border-radius: 2px; background: var(--cp-surface-3);
+  overflow: hidden; margin-left: 8px; min-width: 56px; }
+.clcat .bar i { display: block; height: 100%; background: var(--cp-grade-a); }
+.clcat.has-out .bar i { background: var(--cp-grade-c); }
+.clrows { border-top: 1px solid var(--cp-hairline); padding: 4px 10px 8px; }
+.scorepill { display: inline-flex; align-items: center; justify-content: center;
+  min-width: 34px; padding: 4px 7px; border-radius: 6px; color: #fff;
+  font: 700 12px/1 var(--cp-font); }
+.checklist { border-top: 1px solid var(--cp-hairline); padding: 8px 12px 10px; }
+.ck { display: flex; gap: 8px; align-items: baseline; padding: 5px 0;
+  font-size: 12px; color: var(--cp-ink-2); }
+.ck .n { font: 700 10.5px/1.6 var(--cp-font); color: var(--cp-ink-3); min-width: 22px; }
+.ck .flags { margin-left: auto; display: flex; gap: 4px; flex: none; }
+.flag { font: 700 9px/1 var(--cp-font); padding: 4px 6px; border-radius: 4px; color: #fff; }
+.flag.viol { background: var(--cp-grade-f); }
+.flag.cos { background: var(--cp-grade-a); }
+.flag.rep { background: var(--cp-grade-d); }
+.flag.ok { background: var(--cp-surface-3); color: var(--cp-ink-2); }
+
+/* footer attribution */
+.attrib { position: fixed; left: 12px; bottom: 10px; z-index: 15;
+  font-size: 10.5px; color: var(--cp-ink-3); background: var(--cp-scrim);
+  padding: 5px 10px; border-radius: 6px; backdrop-filter: blur(4px); }
+.attrib a { color: var(--cp-accent); text-decoration: none; }
+
+@media (max-width: 700px) {
+  .panel { top: auto; left: 0; right: 0; bottom: 0; width: 100%;
+    max-height: 62vh; border-radius: 14px 14px 0 0; }
+  .filterbar { top: 108px; }
+  .hovercard { display: none; }  /* touch = click (no hover on mobile) */
+}
+
+.mock-controls { position: fixed; right: 12px; bottom: 10px; z-index: 50; display: flex; gap: 8px; }
+.mock-controls button { font: 600 11px/1 var(--cp-font); padding: 6px 10px;
+  border-radius: 6px; border: 1px solid var(--cp-hairline);
+  background: var(--cp-surface-2); color: var(--cp-ink-2); cursor: pointer; }
+</style>
+</head>
+<body>
+  <div class="map">
+    <div class="roads">
+      <i style="left:0;right:0;top:34%;height:3px;transform:rotate(-4deg)"></i>
+      <i style="left:0;right:0;top:58%;height:2px;transform:rotate(7deg)"></i>
+      <i style="left:22%;top:0;bottom:0;width:2px;transform:rotate(9deg)"></i>
+      <i style="left:64%;top:0;bottom:0;width:3px;transform:rotate(-6deg)"></i>
+    </div>
+    <div id="markers"></div>
+  </div>
+
+  <!-- chrome: one band -->
+  <div class="topband card">
+    <div class="brand"><span class="plate"></span>CleanPlateVA</div>
+    <div class="viewswitch">
+      <button class="active">Map</button><button>List</button><button>About</button>
+    </div>
+    <div class="searchbar"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg><span>taco richmond</span><span class="ph">&nbsp;— name, address, city, or ZIP</span></div>
+    <div class="chipset">
+      <span class="gchip" style="background:var(--cp-grade-a)">A</span>
+      <span class="gchip" style="background:var(--cp-grade-b)">B</span>
+      <span class="gchip" style="background:var(--cp-grade-c)">C</span>
+      <span class="gchip off" style="background:var(--cp-grade-d)">D</span>
+      <span class="gchip off" style="background:var(--cp-grade-f)">F</span>
+    </div>
+    <span class="pillbtn"><svg class="icon sm" viewBox="0 0 24 24" aria-hidden="true"><line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/></svg>Filters · 2</span>
+    <span class="pillbtn">Show closed</span>
+    <span class="countpill"><b class="nums">412</b> of <span class="nums">25,164</span></span>
+  </div>
+
+  <!-- hover card -->
+  <div class="hovercard card" style="left: 190px; top: 300px;">
+    <div class="hd">
+      <div class="gradecircle" style="background:var(--cp-grade-a)">A</div>
+      <div>
+        <div class="nm">Sub Rosa Bakery</div>
+        <div class="ad">620 N 25th St · Richmond · 23223</div>
+      </div>
+    </div>
+    <div class="kv2">
+      <div class="bx"><div class="k">Last broad inspection</div><div class="v nums">2026-06-11 · 94</div></div>
+      <div class="bx"><div class="k">Last visit</div><div class="v nums">2026-08-02 · 0/3 OUT</div></div>
+    </div>
+    <div class="spark">
+      <svg viewBox="0 0 262 42">
+        <line x1="0" y1="33" x2="262" y2="33" stroke="var(--cp-hairline)"/>
+        <polyline points="10,21 58,25 106,17 202,11" fill="none" stroke="var(--cp-ink-3)" stroke-width="2"/>
+        <circle cx="10" cy="21" r="3.5" fill="var(--cp-grade-b)"/>
+        <circle cx="58" cy="25" r="3.5" fill="var(--cp-grade-c)"/>
+        <circle cx="106" cy="17" r="3.5" fill="var(--cp-grade-b)"/>
+        <line x1="154" y1="28" x2="154" y2="36" stroke="var(--cp-ink-3)" stroke-width="2"/>
+        <circle cx="202" cy="11" r="3.5" fill="var(--cp-grade-a)"/>
+        <rect x="246" y="5" width="8" height="8" transform="rotate(45 250 9)" fill="var(--cp-grade-a)"/>
+      </svg>
+    </div>
+  </div>
+
+  <!-- detail panel -->
+  <aside class="panel card">
+    <div class="panel-hd">
+      <div class="row1">
+        <div>
+          <div class="nm">Golden Dragon Express</div>
+          <div class="ad">4903 Nine Mile Rd · Henrico · 23223</div>
+        </div>
+        <a href="#" class="btn btn-outline btn-compact vdh-inline">Source<svg class="icon sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg></a>
+        <button class="x" aria-label="Close"><svg class="icon" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+      </div>
+      <div class="factline">
+        <span class="fact"><svg class="icon sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg>Restaurant</span>
+        <span class="fact"><span class="statusdot" style="background:var(--cp-grade-a)"></span>Permitted</span>
+        <span class="badge approx">≈ approximate location</span>
+      </div>
+    </div>
+    <div class="panel-scroll">
+      <div class="hero-wrap">
+        <div class="hero" role="button" tabindex="0">
+          <div class="gradecircle" style="background:var(--cp-grade-c)">C</div>
+          <div class="scorerow">
+            <span class="score nums">78<small>/100</small></span>
+            <span class="trend"><svg class="icon sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 17h6v-6"/><path d="m22 17-8.5-8.5-5 5L2 7"/></svg>Declining</span>
+          </div>
+          <div class="sub nums">Broad inspection · 2026-05-19</div>
+          <div class="hint"><svg class="icon sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>Tap to see Grade breakdown</div>
+        </div>
+      </div>
+      <div class="trendsec">
+        <div class="trendhd">
+          <span class="caps-label">Trend · 6 visits</span>
+        </div>
+        <!-- absolute scale over the grade domain (rest 100→55, extend on
+             demand): height reads as distance from the F threshold, never a
+             normalized min/max stretch. Bands labeled A · C · F only;
+             dates bounded inside the element. -->
+        <svg viewBox="0 0 364 110">
+          <line class="grid" x1="0" y1="24" x2="344" y2="24" stroke="var(--cp-hairline)"/>
+          <line class="grid" x1="0" y1="40" x2="344" y2="40" stroke="var(--cp-hairline)"/>
+          <line class="grid" x1="0" y1="56" x2="344" y2="56" stroke="var(--cp-hairline)"/>
+          <line class="grid" x1="0" y1="72" x2="344" y2="72" stroke="var(--cp-grade-f)" stroke-opacity=".45" stroke-dasharray="4 4"/>
+          <text class="grid" x="352" y="20"   font-size="13" fill="var(--cp-ink-3)">A</text>
+          <text class="grid" x="352" y="52.5" font-size="13" fill="var(--cp-ink-3)">C</text>
+          <text class="grid" x="352" y="80.5" font-size="13" fill="var(--cp-grade-f)" fill-opacity=".85">F</text>
+          <!-- the mark grammar (sparkline.js): line + dots = broad scores
+               only · diamonds = focused re-checks at their outcome height
+               (filled diamond = adjudicated verdict; all-corrected rides
+               the 100 line) · baseline tick below the band = scope-unknown -->
+          <polyline class="tline" points="10,27.2 75,32 271,43.2" fill="none" stroke="var(--cp-ink-3)" stroke-width="2"/>
+          <circle class="tp" cx="10"  cy="27.2" r="5.5" fill="var(--cp-grade-b)"/>
+          <circle class="tp" cx="75"  cy="32"   r="5.5" fill="var(--cp-grade-b)"/>
+          <line class="tp" x1="140" y1="78" x2="140" y2="90" stroke="var(--cp-ink-3)" stroke-width="3"/>
+          <g class="tp"><rect x="200.5" y="2.5" width="11" height="11" transform="rotate(45 206 8)" fill="var(--cp-grade-a)"/></g>
+          <circle class="tp" cx="271" cy="43.2" r="5.5" fill="var(--cp-grade-c)"/>
+          <g class="tp"><rect x="330.5" y="41.5" width="11" height="11" transform="rotate(45 336 47)" fill="var(--cp-grade-c)"/></g>
+          <text class="grid nums" x="0"   y="102" font-size="13" fill="var(--cp-ink-3)" text-anchor="start">2025-03</text>
+          <text class="grid nums" x="364" y="102" font-size="13" fill="var(--cp-ink-3)" text-anchor="end">2026-07</text>
+        </svg>
+        <div class="trendlegend">
+          <span><i class="ring"></i>broad score</span>
+          <span><i class="dia"></i>re-check</span>
+          <span><i class="tick"></i>scope unknown</span>
+        </div>
+      </div>
+      <div class="hist">
+        <h4>Inspection history · 6 visits</h4>
+
+        <details class="visit" open>
+          <summary class="vh">
+            <span class="res nums" style="color:var(--cp-grade-c)">2/9 OUT</span>
+            <span class="d nums">2026-07-30</span>
+            <span class="t">Follow-up</span>
+            <span class="scopebadge">Focused</span>
+            <span style="margin-left:auto; display:inline-flex; gap:8px; align-items:center"><a href="#" class="out" aria-label="VDH source for this inspection"><svg class="icon sm" viewBox="0 0 24 24"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg></a><svg class="icon sm caret" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span>
+            <span class="cnt">
+              <span class="cbox">2 violations</span>
+              <span class="ccat rf">1 risk factor</span>
+              <span class="ccat">1 retail practice</span>
+            </span>
+          </summary>
+          <div class="vbody">
+            <div class="viol rf">
+              <div class="vhd"><span class="flag viol">OUT</span><span class="vitem nums">#21</span><span class="flag cos">fixed</span><span class="vtext">Food-contact surfaces cleaned &amp; sanitized</span></div>
+              <div class="corr">Slicer blade guard cleaned and sanitized during the inspection.</div>
+            </div>
+            <div class="viol">
+              <div class="vhd"><span class="flag viol">OUT</span><span class="vitem nums">#47</span><span class="flag rep">repeat</span><span class="vtext">Non-food-contact surfaces clean</span></div>
+              <div class="corr">Buildup on walk-in shelving; to be addressed before the next routine inspection.</div>
+            </div>
+            <details class="subd" open>
+              <summary><svg class="icon sm caret" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>Inspection checklist — 9 distinct applicable code items · 9 published rows · 2 OUT</summary>
+              <details class="clcat has-out" open>
+                <summary><span>Food Protection</span><span class="cnum">2/3</span><span class="bar"><i style="width:67%"></i></span></summary>
+                <div class="clrows">
+                  <div class="ck"><span class="n nums">21</span><span>Food-contact surfaces cleaned &amp; sanitized</span><span class="flags"><span class="flag viol">OUT</span><span class="flag cos">fixed</span></span></div>
+                  <div class="ck"><span class="n nums">13</span><span>Food separated &amp; protected</span><span class="flags"><span class="flag ok">IN</span></span></div>
+                  <div class="ck"><span class="n nums">16</span><span>Food-contact surfaces: constructed &amp; used</span><span class="flags"><span class="flag ok">IN</span></span></div>
+                </div>
+              </details>
+              <details class="clcat has-out">
+                <summary><span>Facility Maintenance</span><span class="cnum">5/6</span><span class="bar"><i style="width:83%"></i></span></summary>
+              </details>
+            </details>
+            <div class="cmnts"><b>Inspector comments</b>Follow-up limited to the items cited 2026-05-19. Remaining OUT item to be corrected within 30 days. Additional: dish machine has been serviced since the last visit; sanitizer measured at 100 ppm chlorine.</div>
+            <details class="subd">
+              <summary><svg class="icon sm caret" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>Temperatures &amp; sanitizer — 6 readings</summary>
+            </details>
+          </div>
+        </details>
+
+        <details class="visit">
+          <summary class="vh">
+            <span class="res"><span class="scorepill" style="background:var(--cp-grade-c)">78</span></span>
+            <span class="d nums">2026-05-19</span>
+            <span class="t">Routine</span>
+            <span class="scopebadge">Broad</span>
+            <span style="margin-left:auto; display:inline-flex; gap:8px; align-items:center"><a href="#" class="out" aria-label="VDH source for this inspection"><svg class="icon sm" viewBox="0 0 24 24"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg></a><svg class="icon sm caret" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span>
+            <span class="cnt">
+              <span class="cbox">5 violations</span>
+              <span class="ccat rf">3 risk factor</span>
+              <span class="ccat">2 retail practice</span>
+            </span>
+          </summary>
+        </details>
+
+        <details class="visit">
+          <summary class="vh">
+            <span class="res" style="color:var(--cp-grade-a); font-size:11.5px; display:inline-flex; align-items:center; gap:4px"><svg class="icon sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></span>
+            <span class="d nums">2026-02-04</span>
+            <span class="t">Follow-up</span>
+            <span class="adjchip">All corrected</span>
+            <span style="margin-left:auto; display:inline-flex; gap:8px; align-items:center"><a href="#" class="out" aria-label="VDH source for this inspection"><svg class="icon sm" viewBox="0 0 24 24"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg></a><svg class="icon sm caret" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span>
+          </summary>
+          <div class="vbody">
+            <div class="cmnts" style="margin-top:0"><b>Inspector comments</b>No checklist published; verdict read from the inspector's written comments. All items cited on 2026-01-12 were observed corrected.</div>
+          </div>
+        </details>
+
+        <details class="visit">
+          <summary class="vh">
+            <span class="res"><span class="scorepill" style="background:var(--cp-grade-b)">85</span></span>
+            <span class="d nums">2025-11-12</span>
+            <span class="t">Routine</span>
+            <span class="scopebadge">Broad</span>
+            <span style="margin-left:auto; display:inline-flex; gap:8px; align-items:center"><a href="#" class="out" aria-label="VDH source for this inspection"><svg class="icon sm" viewBox="0 0 24 24"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg></a><svg class="icon sm caret" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span>
+            <span class="cnt">
+              <span class="cbox zero">0 violations</span>
+              <span class="ccat">31 items in compliance</span>
+            </span>
+          </summary>
+        </details>
+      </div>
+    </div>
+  </aside>
+
+  <div class="attrib">Inspection records: VDH via MyHealthDepartment · archived snapshot, not live · scores and grades calculated by CleanPlateVA · <a href="#">Terms &amp; attribution</a></div>
+
+  <div class="mock-controls">
+    <button onclick="document.documentElement.classList.toggle('theme-light')">theme</button>
+    <button onclick="document.querySelector('.panel').style.display = document.querySelector('.panel').style.display === 'none' ? '' : 'none'">panel</button>
+    <button onclick="document.querySelector('.hovercard').style.display = document.querySelector('.hovercard').style.display === 'none' ? '' : 'none'">hover</button>
+  </div>
+
+<script>
+// Scatter representative markers (static; grade-weighted like the real map).
+const wrap = document.getElementById('markers');
+const grades = [
+  ['a', .52], ['b', .17], ['c', .16], ['d', .06], ['f', .03], ['none', .06],
+];
+let seed = 42;
+const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+const pick = () => { let r = rnd(), acc = 0;
+  for (const [g, w] of grades) { acc += w; if (r <= acc) return g; }
+  return 'a'; };
+for (let i = 0; i < 90; i++) {
+  const g = pick();
+  const el = document.createElement('span');
+  const big = rnd() < .22;
+  el.className = 'mk' + (big ? ' lg' : '');
+  el.style.background = `var(--cp-grade-${g})`;
+  el.style.left = (2 + rnd() * 92) + '%';
+  el.style.top = (10 + rnd() * 82) + '%';
+  if (big && g !== 'none') el.textContent = g === 'f' ? 'F' : g.toUpperCase();
+  if (big && rnd() < .18) {
+    el.style.color = `var(--cp-grade-${g})`;
+    el.insertAdjacentHTML('beforeend', '<span class="tr"></span>');
+  }
+  wrap.appendChild(el);
+}
+for (const [x, y, n] of [[30, 44, 12], [71, 26, 5]]) {
+  const s = document.createElement('span');
+  s.className = 'stack'; s.textContent = n;
+  s.style.left = x + '%'; s.style.top = y + '%';
+  wrap.appendChild(s);
+}
+</script>
+</body>
+</html>
