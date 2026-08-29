@@ -308,7 +308,10 @@ adjustment ladder, provenance, and limitations.
 ## Hosting and local use
 
 Cloudflare Workers deploys [cleanplateva.com](https://cleanplateva.com) from
-`main`; there is no build step.
+`main`. Workers Builds runs `npm ci && npx vite build` on every push (the CR
+program's pipeline, design ref `docs/frontend-redesign.md` §3) — but what is
+*served* is still the no-build client under `public/` (`assets.directory:
+./public`), untouched until CRC's one-PR cutover flips it to `./dist`.
 
 ```text
 pip install -r requirements.txt
@@ -330,12 +333,20 @@ Routes above). A bare static server over `public/` still works for the map,
 but loading `/list` or `/about` directly will 404 on it — reach those through
 the in-page tabs, or use `app.py`.
 
+The CR rewrite (React + Vite + Tailwind, design ref
+`docs/frontend-redesign.md`) develops against the Vite dev server instead:
+`npm ci`, then `npm run dev` — it serves the new app from `app/` with the
+same `public/` passthrough (including a local `data-full/`, unwatched) and
+the same SPA fallback. `npm test` runs the Vitest suite, `npm run build` the
+production build into `dist/` (never committed, not served until CRC).
+
 `tools/` holds dev-only checks that are not part of the site:
 `tools/visits-crosscheck.mjs` runs the real sparkline pipeline over every
 detail under `public/data-full/facility/` and compares the marks with the
 overlay's `visits` column (`--view public/data-full`, or `--dump` a
 permit→visits map) — the exporter/renderer parity proof behind design ref
-D-DATA-13. `node --test tests/*.test.mjs` runs the suites.
+D-DATA-13. `node --test` runs the legacy suites (the served client's
+tripwires); `npx vitest run` the CR scaffold's — CI runs both.
 
 ## Data source
 

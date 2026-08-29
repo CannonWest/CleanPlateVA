@@ -1,0 +1,133 @@
+/* ============================================================
+   CleanPlateVA — Tailwind v4 theme (CRF-M0).
+
+   The token vocabulary is docs/mockups/tokens.css ("slate & signal",
+   ratified CRD-M1 2026-08-29; the style tile is its reviewed spec) —
+   translated here into the Tailwind @theme per D-CR-STYLE-1: v4 CSS-first
+   config, class-based variant, DARK AS THE DOCUMENT DEFAULT (C10).
+   :root carries the dark values; .theme-light on <html> flips the theme.
+   The raw --cp-* custom properties are the source of truth and the @theme
+   maps them 1:1 (inline, so utilities reference live var()s and flip with
+   the class) — a value change belongs in the --cp-* blocks, mirrored from
+   tokens.css, never in the @theme mapping.
+   ============================================================ */
+
+@import "tailwindcss";
+
+/* The class flip. Dark is the default document, so the variant is `light:`
+   (there is no `dark:` — un-prefixed styles ARE the dark design; use
+   `light:` only for structural differences the tokens cannot carry). */
+@custom-variant light (&:where(.theme-light, .theme-light *));
+
+:root {
+    /* dark (default) */
+    --cp-bg: #0f1214;
+    --cp-surface-1: #16191c;
+    --cp-surface-2: #1d2126;
+    --cp-surface-3: #242a31;
+    --cp-hairline: rgba(255, 255, 255, .09);
+    --cp-ink: #e9ecef;
+    --cp-ink-2: #adb5bd;
+    --cp-ink-3: #7d868f;
+    --cp-accent: #4dabf7;
+    --cp-accent-solid: #1c7ed6;
+    --cp-accent-ink: #ffffff;
+    --cp-danger: #ff8787;
+    --cp-danger-solid: #e03131;
+    --cp-focus: #4dabf7;
+    --cp-shadow: none;
+    --cp-scrim: rgba(4, 6, 8, .62);
+    --cp-basemap: #0e0e0e;
+    --cp-marker-ring: rgba(255, 255, 255, .85);
+
+    /* grade ramp — mode-invariant (validated 2026-08-29; the letter always
+       rides the color, §6.0). B is Cannon's call: yellow-green #94be1b
+       (blue is NEW's alone); F darkened to #a61e1e fixes the live site's
+       D↔F normal-vision failure (7.6 → ~15). */
+    --cp-grade-a: #2f9e44;
+    --cp-grade-b: #94be1b;
+    --cp-grade-c: #f59f00;
+    --cp-grade-d: #e8590c;
+    --cp-grade-f: #a61e1e;
+    --cp-grade-none: #868e96;
+    --cp-new: #1c7ed6;
+    --cp-closed: #9aa0a6;
+    --cp-lite: #8d939c;
+
+    --cp-r-control: 6px;
+    --cp-r-card: 10px;
+    --cp-r-pill: 999px;
+
+    --cp-font: system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+.theme-light {
+    --cp-bg: #f4f6f8;
+    --cp-surface-1: #ffffff;
+    --cp-surface-2: #f8f9fa;
+    --cp-surface-3: #eef1f4;
+    --cp-hairline: rgba(16, 24, 32, .12);
+    --cp-ink: #1d2129;
+    --cp-ink-2: #495057;
+    --cp-ink-3: #868e96;
+    --cp-accent: #1971c2;
+    --cp-accent-solid: #1c7ed6;
+    --cp-accent-ink: #ffffff;
+    --cp-danger: #c92a2a;
+    --cp-danger-solid: #e03131;
+    --cp-focus: #1c7ed6;
+    --cp-shadow: 0 1px 2px rgba(16, 24, 32, .06), 0 4px 16px rgba(16, 24, 32, .08);
+    --cp-scrim: rgba(24, 30, 36, .45);
+    --cp-basemap: #eae8e4;
+    --cp-marker-ring: rgba(255, 255, 255, .95);
+}
+
+/* Tailwind vocabulary, 1:1 with the --cp-* names so utilities are greppable
+   back to tokens.css / the style tile: bg-cp-surface-1, text-cp-ink-2,
+   border-cp-hairline, bg-cp-grade-a, rounded-cp-card, shadow-cp … */
+@theme inline {
+    --color-cp-bg: var(--cp-bg);
+    --color-cp-surface-1: var(--cp-surface-1);
+    --color-cp-surface-2: var(--cp-surface-2);
+    --color-cp-surface-3: var(--cp-surface-3);
+    --color-cp-hairline: var(--cp-hairline);
+    --color-cp-ink: var(--cp-ink);
+    --color-cp-ink-2: var(--cp-ink-2);
+    --color-cp-ink-3: var(--cp-ink-3);
+    --color-cp-accent: var(--cp-accent);
+    --color-cp-accent-solid: var(--cp-accent-solid);
+    --color-cp-accent-ink: var(--cp-accent-ink);
+    --color-cp-danger: var(--cp-danger);
+    --color-cp-danger-solid: var(--cp-danger-solid);
+    --color-cp-focus: var(--cp-focus);
+    --color-cp-scrim: var(--cp-scrim);
+    --color-cp-basemap: var(--cp-basemap);
+    --color-cp-marker-ring: var(--cp-marker-ring);
+    --color-cp-grade-a: var(--cp-grade-a);
+    --color-cp-grade-b: var(--cp-grade-b);
+    --color-cp-grade-c: var(--cp-grade-c);
+    --color-cp-grade-d: var(--cp-grade-d);
+    --color-cp-grade-f: var(--cp-grade-f);
+    --color-cp-grade-none: var(--cp-grade-none);
+    --color-cp-new: var(--cp-new);
+    --color-cp-closed: var(--cp-closed);
+    --color-cp-lite: var(--cp-lite);
+
+    --shadow-cp: var(--cp-shadow);
+
+    --radius-cp-control: var(--cp-r-control);
+    --radius-cp-card: var(--cp-r-card);
+    --radius-cp-pill: var(--cp-r-pill);
+
+    --font-sans: var(--cp-font);
+}
+
+@layer base {
+    body {
+        background: var(--cp-bg);
+        color: var(--cp-ink);
+        font-family: var(--cp-font);
+        font-size: 14px;
+        line-height: 1.45;
+    }
+}

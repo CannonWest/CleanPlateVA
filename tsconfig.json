@@ -1,0 +1,24 @@
+{
+    // CR scaffold (CRF-M0, design ref §3): TypeScript strict is D-CR-LANG-1.
+    // Covers the app tree, the Vite config, and the Vitest specs; the legacy
+    // no-build client under public/static/js and the node:test suites under
+    // tests/*.test.mjs are NOT in the program — they keep serving/running
+    // untouched until CRC.
+    "compilerOptions": {
+        "target": "ES2022",
+        "lib": ["ES2022", "DOM", "DOM.Iterable"],
+        "module": "ESNext",
+        "moduleResolution": "bundler",
+        "jsx": "react-jsx",
+        "types": ["vite/client"],
+        "strict": true,
+        "noUncheckedIndexedAccess": true,
+        "noFallthroughCasesInSwitch": true,
+        "isolatedModules": true,
+        "verbatimModuleSyntax": true,
+        "forceConsistentCasingInFileNames": true,
+        "skipLibCheck": true,
+        "noEmit": true
+    },
+    "include": ["app", "tests/vitest", "vite.config.ts"]
+}
