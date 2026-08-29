@@ -1,0 +1,612 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CleanPlateVA — about view mockup (CRD-M1)</title>
+<link rel="stylesheet" href="tokens.css">
+<style>
+/* About (/about) — the full methodology & provenance document, restyled.
+   Content mirrors the live page (hero + §01–§06); §06 is the ONE terms
+   document (the ack dialog clones its body) + the status panel that owns
+   the tier switch. */
+html, body { height: 100%; }
+body { background: var(--cp-bg); overflow-y: auto; }
+
+.topband { position: sticky; top: 0; z-index: 20; margin: 12px 12px 0;
+  display: flex; gap: 6px 14px; align-items: center; flex-wrap: wrap; padding: 8px 12px; }
+.brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 14.5px; }
+.brand .plate { width: 18px; height: 18px; border-radius: 50%; border: 2.5px solid var(--cp-accent); }
+.viewswitch { display: flex; padding: 3px; gap: 2px; background: var(--cp-surface-2);
+  border: 1px solid var(--cp-hairline); border-radius: var(--cp-r-control); }
+.viewswitch button { font: 600 12.5px/1 var(--cp-font); border: 0; cursor: pointer;
+  padding: 7px 14px; border-radius: 5px; background: transparent; color: var(--cp-ink-2); }
+.viewswitch button.active { background: var(--cp-accent-solid); color: #fff; }
+
+.about { max-width: 52rem; margin: 22px auto 30px; padding: 0 16px; }
+
+/* provenance badges — the three-color legend the whole page reuses */
+.pbadge { display: inline-flex; align-items: center; gap: 6px;
+  font: 600 10.5px/1 var(--cp-font); padding: 5px 9px; border-radius: var(--cp-r-pill);
+  border: 1px solid var(--cp-hairline); color: var(--cp-ink-2); }
+.pbadge .icon { width: 12px; height: 12px; }
+.pbadge.official { color: var(--cp-accent); border-color: var(--cp-accent); }
+.pbadge.archived { color: var(--cp-ink-2); }
+.pbadge.derived { color: var(--cp-grade-c); border-color: var(--cp-grade-c); }
+
+.hero-sec { padding: 18px; margin-bottom: 14px; }
+.hero-sec .badge-row { display: flex; gap: 7px; flex-wrap: wrap; margin-bottom: 12px; }
+.kicker { font: 600 10.5px/1 var(--cp-font); color: var(--cp-accent);
+  text-transform: uppercase; letter-spacing: .07em; margin-bottom: 4px; }
+.hero-sec h1 { font-size: 22px; font-weight: 700; margin-bottom: 7px; }
+.hero-sec .lede { font-size: 13.5px; color: var(--cp-ink-2); line-height: 1.55; max-width: 44rem; }
+.livecards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 14px; }
+@media (max-width: 720px) { .livecards { grid-template-columns: 1fr 1fr; } }
+.livecard { background: var(--cp-surface-2); border: 1px solid var(--cp-hairline);
+  border-radius: 8px; padding: 10px 12px; }
+.livecard .k { font-size: 9.5px; color: var(--cp-ink-3); text-transform: uppercase;
+  letter-spacing: .06em; margin-bottom: 3px; }
+.livecard .v { font-size: 14px; font-weight: 700; }
+.livecard .v small { color: var(--cp-ink-3); font-weight: 400; font-size: 11px; }
+
+/* section scaffolding */
+.sec { margin: 14px 0; padding: 18px; }
+.sechead { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 14px; }
+.secno { font: 700 20px/1 var(--cp-font); color: var(--cp-surface-3);
+  -webkit-text-stroke: 1px var(--cp-ink-3); letter-spacing: .02em; padding-top: 2px; }
+.sechead h2 { font-size: 17px; font-weight: 700; }
+.sechead .sub { font-size: 12.5px; color: var(--cp-ink-3); margin-top: 3px; }
+.sechead .pbadge { margin-left: auto; flex: none; }
+.sec p, .sec li { font-size: 12.5px; color: var(--cp-ink-2); line-height: 1.55; }
+
+/* §01 weight board */
+.wboard { border: 1px solid var(--cp-hairline); border-radius: 8px;
+  background: var(--cp-surface-2); padding: 12px 14px; margin: 10px 0; }
+.wtitle { font-size: 12px; font-weight: 700; margin-bottom: 8px; }
+.wtitle small { color: var(--cp-ink-3); font-weight: 400; }
+.wrow { display: flex; align-items: center; gap: 10px; padding: 5px 0; flex-wrap: wrap; }
+.wrow .when { flex: 0 0 170px; font-size: 12px; color: var(--cp-ink-2); }
+.wrow .when small { color: var(--cp-ink-3); }
+.blocks { display: inline-flex; gap: 3px; }
+.blocks i { width: 10px; height: 10px; border-radius: 2px; background: var(--cp-grade-d); }
+.blocks i.rep { background: transparent; border: 1.5px dashed var(--cp-grade-d); }
+.wfam-grp .blocks i { background: var(--cp-grade-c); }
+.wfam-grp .blocks i.rep { background: transparent; border-color: var(--cp-grade-c); }
+.wamt { margin-left: auto; font: 700 14px/1 var(--cp-font); font-variant-numeric: tabular-nums; }
+.wnote { font-size: 11.5px; color: var(--cp-ink-3); margin-top: 8px; line-height: 1.5; }
+.famlabel { font: 600 11px/1 var(--cp-font); color: var(--cp-ink-2); margin: 8px 0 2px; }
+
+/* receipts + result */
+.example { display: grid; grid-template-columns: 1.4fr 1fr; gap: 12px; margin: 12px 0; }
+@media (max-width: 680px) { .example { grid-template-columns: 1fr; } }
+.receipt { border: 1px solid var(--cp-hairline); border-radius: 8px;
+  background: var(--cp-bg); padding: 12px 14px; }
+.receipt .rtitle { font-size: 11.5px; font-weight: 700; margin-bottom: 8px; }
+.rline { display: flex; align-items: baseline; gap: 10px; padding: 5px 0;
+  border-bottom: 1px dashed var(--cp-hairline); font-size: 12px; color: var(--cp-ink-2); }
+.rline b { margin-left: auto; font-variant-numeric: tabular-nums; }
+.rline.pos b { color: var(--cp-grade-a); } .rline.neg b { color: var(--cp-grade-d); }
+.rtotal { display: flex; padding-top: 8px; font-weight: 700; font-size: 13px; }
+.rtotal b { margin-left: auto; font-variant-numeric: tabular-nums; }
+.rnote { font-size: 11px; color: var(--cp-ink-3); margin-top: 8px; line-height: 1.5; }
+.result { display: flex; flex-direction: column; align-items: center; gap: 8px;
+  border: 1px solid var(--cp-hairline); border-radius: 8px;
+  background: var(--cp-surface-2); padding: 16px; justify-content: center; }
+.ring { width: 84px; height: 84px; border-radius: 50%;
+  background: conic-gradient(var(--cp-grade-b) 295deg, var(--cp-surface-3) 0);
+  display: flex; align-items: center; justify-content: center; }
+.ring > div { width: 66px; height: 66px; border-radius: 50%; background: var(--cp-surface-2);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.ring strong { font-size: 22px; } .ring span { font-size: 10px; color: var(--cp-ink-3); }
+.gradepill { font: 600 11px/1 var(--cp-font); color: var(--cp-ink-2);
+  border: 1px solid var(--cp-hairline); border-radius: var(--cp-r-pill); padding: 5px 10px; }
+.equation { font: 600 13px/1 var(--cp-font); font-variant-numeric: tabular-nums;
+  display: flex; gap: 6px; color: var(--cp-ink-2); }
+.equation strong { color: var(--cp-ink); }
+
+/* scope + adjustment cards */
+.cardgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px; margin: 10px 0; }
+.scard { border: 1px solid var(--cp-hairline); border-left-width: 3px; border-radius: 6px;
+  background: var(--cp-surface-2); padding: 10px 12px; }
+.scard .big { font: 700 15px/1 var(--cp-font); margin-bottom: 4px; font-variant-numeric: tabular-nums; }
+.scard strong { font-size: 12px; display: block; }
+.scard small { font-size: 11px; color: var(--cp-ink-3); line-height: 1.4; display: block; margin-top: 2px; }
+.scard.broad { border-left-color: var(--cp-grade-a); }
+.scard.focused { border-left-color: var(--cp-grade-c); }
+.scard.unknown { border-left-color: var(--cp-ink-3); }
+.scard.up { border-left-color: var(--cp-grade-a); }
+.scard.down { border-left-color: var(--cp-grade-f); }
+.scard.cos { border-left-color: var(--cp-grade-c); }
+.scard.newf { border-left-color: var(--cp-grade-d); }
+
+/* grade scale bar */
+.gscale { margin: 12px 0 4px; }
+.gscale .marker { font: 700 11px/1 var(--cp-font); margin-left: calc(83% - 24px);
+  margin-bottom: 4px; color: var(--cp-ink); }
+.gscale .marker::after { content: ""; display: block; width: 2px; height: 8px;
+  background: var(--cp-ink); margin: 3px 0 0 18px; }
+.gsegs { display: flex; border-radius: 5px; overflow: hidden; height: 30px; }
+.gsegs span { display: flex; flex-direction: column; align-items: center; justify-content: center;
+  color: #fff; font: 700 11px/1.15 var(--cp-font); }
+.gsegs small { font-weight: 600; font-size: 8.5px; opacity: .9; }
+.gsegs .f { flex: 60; background: var(--cp-grade-f); }
+.gsegs .d { flex: 10; background: var(--cp-grade-d); }
+.gsegs .c { flex: 10; background: var(--cp-grade-c); }
+.gsegs .b { flex: 10; background: var(--cp-grade-b); }
+.gsegs .a { flex: 10; background: var(--cp-grade-a); }
+
+/* disclosures */
+.disclosure { border: 1px solid var(--cp-hairline); border-radius: 8px;
+  background: var(--cp-surface-2); margin-top: 10px; }
+.disclosure summary { font: 600 12px/1 var(--cp-font); color: var(--cp-ink-2);
+  padding: 10px 12px; cursor: pointer; list-style: none; display: flex; gap: 7px; align-items: center; }
+.disclosure summary::-webkit-details-marker { display: none; }
+.disclosure .dbody { border-top: 1px solid var(--cp-hairline); padding: 10px 12px; }
+.dgrid p { margin-bottom: 8px; font-size: 12px; }
+.dgrid strong { display: block; color: var(--cp-ink); font-size: 11.5px; }
+
+/* §02 signal cards */
+.siggrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 10px 0; }
+@media (max-width: 680px) { .siggrid { grid-template-columns: 1fr; } }
+.sigcard { border: 1px solid var(--cp-hairline); border-radius: 8px;
+  background: var(--cp-surface-2); padding: 12px 14px; position: relative; }
+.sigcard .pbadge { position: absolute; top: 10px; right: 10px; }
+.sigcard h3 { font-size: 13px; font-weight: 700; margin: 6px 0 6px; }
+.sigcard .demo { font: 600 12px/1 var(--cp-font); color: var(--cp-ink);
+  background: var(--cp-bg); border: 1px solid var(--cp-hairline); border-radius: 6px;
+  padding: 8px 10px; margin-bottom: 7px; display: flex; gap: 8px; align-items: center;
+  flex-wrap: wrap; font-variant-numeric: tabular-nums; }
+.sigcard .demo .dia { width: 9px; height: 9px; background: var(--cp-grade-d);
+  transform: rotate(45deg); display: inline-block; }
+.rulerow { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.rulerow span { font: 600 11px/1.4 var(--cp-font); color: var(--cp-ink-2);
+  background: var(--cp-bg); border: 1px solid var(--cp-hairline); border-radius: 5px;
+  padding: 5px 8px; }
+.rulerow b { color: var(--cp-ink); }
+
+/* §03 pipeline */
+.pipeline { list-style: none; counter-reset: step; margin: 10px 0; display: grid; gap: 8px; }
+.pipeline li { border: 1px solid var(--cp-hairline); border-radius: 8px;
+  background: var(--cp-surface-2); padding: 11px 13px; display: grid;
+  grid-template-columns: 30px 1fr; gap: 4px 12px; }
+.pstep { grid-row: span 3; width: 26px; height: 26px; border-radius: 50%;
+  background: var(--cp-accent-solid); color: #fff; font: 700 12px/1 var(--cp-font);
+  display: flex; align-items: center; justify-content: center; }
+.pipeline h3 { font-size: 12.5px; font-weight: 700; }
+.pipeline p { font-size: 12px; }
+.codes { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+.codes code { font: 600 10.5px/1 ui-monospace, Consolas, monospace; color: var(--cp-ink-2);
+  background: var(--cp-bg); border: 1px solid var(--cp-hairline); border-radius: 4px;
+  padding: 4px 6px; }
+.pipenote { display: flex; gap: 8px; align-items: center; font-size: 11.5px;
+  color: var(--cp-ink-3); margin-top: 8px; }
+
+/* §04 lineage + tiers */
+.lineagegrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 10px 0; }
+@media (max-width: 680px) { .lineagegrid { grid-template-columns: 1fr; } }
+.linecard { border: 1px solid var(--cp-hairline); border-radius: 8px; padding: 12px 14px;
+  background: var(--cp-surface-2); }
+.linecard.official { border-top: 3px solid var(--cp-accent); }
+.linecard.derived { border-top: 3px solid var(--cp-grade-c); }
+.linecard h3 { font-size: 13px; font-weight: 700; margin: 7px 0 6px; }
+.linecard ul { padding-left: 17px; }
+.linecard li { margin-bottom: 3px; font-size: 12px; }
+.tiergrid { display: grid; gap: 8px; margin-top: 12px; }
+.tiercard { border: 1px solid var(--cp-hairline); border-radius: 8px;
+  background: var(--cp-surface-2); padding: 12px 14px; display: flex; gap: 12px; }
+.tiericon { width: 34px; height: 34px; border-radius: 8px; background: var(--cp-bg);
+  border: 1px solid var(--cp-hairline); display: flex; align-items: center;
+  justify-content: center; color: var(--cp-ink-2); flex: none; }
+.tiercard.full .tiericon { color: var(--cp-accent); border-color: var(--cp-accent); }
+.tiercard h3 { font-size: 13px; font-weight: 700; margin: 2px 0 4px; }
+.tiercard p { font-size: 12px; }
+.tierroute { display: flex; align-items: center; gap: 8px; justify-content: center;
+  font: 600 11px/1 var(--cp-font); color: var(--cp-ink-3); }
+
+/* §05 limits */
+.limitgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 10px 0; }
+@media (max-width: 680px) { .limitgrid { grid-template-columns: 1fr; } }
+.limitgrid article { border: 1px solid var(--cp-hairline); border-radius: 8px;
+  background: var(--cp-surface-2); padding: 11px 13px; }
+.limitgrid h3 { font-size: 12px; font-weight: 700; margin-bottom: 4px;
+  display: flex; align-items: center; gap: 7px; color: var(--cp-ink); }
+.limitgrid h3 .icon { color: var(--cp-ink-3); }
+.limitgrid p { font-size: 11.5px; }
+.verifycard { display: flex; gap: 12px; align-items: center; border: 1px solid var(--cp-accent);
+  border-radius: 8px; padding: 12px 14px; margin-top: 10px; flex-wrap: wrap;
+  background: var(--cp-surface-2); }
+.verifycard h3 { font-size: 12.5px; font-weight: 700; }
+.verifycard p { font-size: 11.5px; }
+.verifycard .btn { margin-left: auto; }
+
+/* §06 terms */
+.terms-box { background: var(--cp-bg); border: 1px solid var(--cp-hairline);
+  border-radius: var(--cp-r-control); margin-top: 4px; }
+.terms-body { padding: 12px 16px; }
+.terms-body h3 { font-size: 12.5px; font-weight: 700; margin: 12px 0 5px; }
+.terms-body h3:first-child { margin-top: 0; }
+.terms-body p, .terms-body li { font-size: 12.5px; margin-bottom: 7px; }
+.terms-body ul { padding-left: 18px; margin-bottom: 7px; }
+.terms-body a { color: var(--cp-accent); }
+.status-panel { margin-top: 12px; padding: 12px 14px; border-radius: 8px;
+  background: var(--cp-surface-2); border: 1px solid var(--cp-hairline);
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.status-panel p { font-size: 12.5px; flex: 1 1 260px; margin: 0; }
+
+.footerline { max-width: 52rem; margin: 0 auto 24px; padding: 0 16px;
+  font-size: 10.5px; color: var(--cp-ink-3); }
+.footerline a { color: var(--cp-accent); text-decoration: none; }
+.mock-controls { position: fixed; right: 12px; bottom: 10px; z-index: 50; display: flex; gap: 8px; }
+.mock-controls button { font: 600 11px/1 var(--cp-font); padding: 6px 10px;
+  border-radius: 6px; border: 1px solid var(--cp-hairline);
+  background: var(--cp-surface-2); color: var(--cp-ink-2); cursor: pointer; }
+</style>
+</head>
+<body>
+  <div class="topband card">
+    <div class="brand"><span class="plate"></span>CleanPlateVA</div>
+    <div class="viewswitch">
+      <button>Map</button><button>List</button><button class="active">About</button>
+    </div>
+  </div>
+
+  <main class="about">
+
+    <section class="hero-sec card">
+      <div class="badge-row">
+        <span class="pbadge official"><svg class="icon" viewBox="0 0 24 24"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></svg>Official source</span>
+        <span class="pbadge archived"><svg class="icon" viewBox="0 0 24 24"><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></svg>Archived snapshot</span>
+        <span class="pbadge derived"><svg class="icon" viewBox="0 0 24 24"><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><line x1="16" x2="16" y1="14" y2="18"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 10h.01"/><path d="M12 14h.01"/><path d="M8 14h.01"/><path d="M12 18h.01"/><path d="M8 18h.01"/></svg>CleanPlateVA-derived</span>
+      </div>
+      <div class="kicker">Methodology &amp; provenance</div>
+      <h1>About CleanPlateVA</h1>
+      <p class="lede">CleanPlateVA is an independent presentation of archived Virginia Department of Health records from MyHealthDepartment. It is not affiliated with or endorsed by VDH or MyHealthDepartment. VDH remains the authority. We do not inspect facilities or issue official grades.</p>
+      <div class="livecards">
+        <div class="livecard"><div class="k">Archive snapshot</div><div class="v nums">2026-08-24</div></div>
+        <div class="livecard"><div class="k">Newest report held</div><div class="v nums">2026-08-21</div></div>
+        <div class="livecard"><div class="k">Places</div><div class="v nums">25,164 <small>active permits</small></div></div>
+        <div class="livecard"><div class="k">Coverage</div><div class="v nums">793 <small>Virginia ZIPs</small></div></div>
+      </div>
+    </section>
+
+    <!-- 01 -->
+    <section class="sec card">
+      <div class="sechead">
+        <span class="secno">01</span>
+        <div>
+          <div class="kicker">Score anatomy</div>
+          <h2>Start at 100. Every violation subtracts.</h2>
+          <div class="sub">An inspection has a score, never a letter; letters are a facility grade.</div>
+        </div>
+        <span class="pbadge derived">Computed here</span>
+      </div>
+
+      <div class="wboard">
+        <div class="wtitle">Deduction per violation <small>· each block is one point off the score</small></div>
+        <div class="famlabel">Risk factor · form items 1–29</div>
+        <div class="wrow">
+          <span class="when">First time flagged</span>
+          <span class="blocks"><i></i><i></i><i></i><i></i><i></i><i></i></span>
+          <span class="wamt">−6</span>
+        </div>
+        <div class="wrow">
+          <span class="when">Detected repeat <small>6 × 1.5</small></span>
+          <span class="blocks"><i></i><i></i><i></i><i></i><i></i><i></i><i class="rep"></i><i class="rep"></i><i class="rep"></i></span>
+          <span class="wamt">−9</span>
+        </div>
+        <div class="wfam-grp">
+          <div class="famlabel">Good retail practice · items 30+</div>
+          <div class="wrow">
+            <span class="when">First time flagged</span>
+            <span class="blocks"><i></i><i></i></span>
+            <span class="wamt">−2</span>
+          </div>
+          <div class="wrow">
+            <span class="when">Detected repeat <small>2 × 1.5</small></span>
+            <span class="blocks"><i></i><i></i><i class="rep"></i></span>
+            <span class="wamt">−3</span>
+          </div>
+        </div>
+        <div class="wnote">A risk-factor violation costs three times a good-retail-practice one; a detected repeat costs half again (hollow blocks); a violation corrected on site while the inspector watched earns 25% of its deduction back. The math runs exact and rounds once at the end — halves round up, toward the better score — then floors at 0.</div>
+      </div>
+
+      <div class="example">
+        <div class="receipt">
+          <div class="rtitle">Worked example — one routine inspection</div>
+          <div class="rline"><span>Start</span><b>100</b></div>
+          <div class="rline neg"><span>Risk-factor violation</span><b>−6</b></div>
+          <div class="rline neg"><span>Risk-factor violation · repeat</span><b>−9</b></div>
+          <div class="rline neg"><span>Retail-practice violation · repeat</span><b>−3</b></div>
+          <div class="rtotal"><span>Inspection score</span><b>82</b></div>
+          <div class="rnote">This inspection assessed 24 distinct code items — broad — so its 82 can anchor the facility grade below.</div>
+        </div>
+        <div class="result">
+          <div class="ring"><div><strong class="nums">82</strong><span>/ 100</span></div></div>
+          <div class="gradepill">as a facility grade → B</div>
+          <div class="equation nums"><span>100</span><b>−</b><span>15</span><b>−</b><span>3</span><b>=</b><strong>82</strong></div>
+        </div>
+      </div>
+
+      <div class="wboard">
+        <div class="wtitle">Which inspections anchor the grade? <small>· breadth decides — distinct numbered items on the report; duplicates count once</small></div>
+        <div class="cardgrid">
+          <div class="scard broad"><div class="big">20+</div><strong>Broad</strong><small>Anchors the facility grade + connected trend</small></div>
+          <div class="scard focused"><div class="big">1–19</div><strong>Focused</strong><small>Re-checks that adjust the grade; OUT/addressed ratio is compliance-colored</small></div>
+          <div class="scard unknown"><div class="big">0</div><strong>Unknown</strong><small>No checklist — no grade or trend claim</small></div>
+        </div>
+      </div>
+
+      <div class="wboard">
+        <div class="wtitle">From inspections to the facility grade <small>· latest broad score, adjusted by what re-checks verified, then banded</small></div>
+        <div class="gscale">
+          <div class="marker nums">83 · B</div>
+          <div class="gsegs">
+            <span class="f"><b>F</b><small>0–59</small></span>
+            <span class="d"><b>D</b><small>60–69</small></span>
+            <span class="c"><b>C</b><small>70–79</small></span>
+            <span class="b"><b>B</b><small>80–89</small></span>
+            <span class="a"><b>A</b><small>90–100</small></span>
+          </div>
+        </div>
+        <div class="cardgrid">
+          <div class="scard up"><div class="big">+65%</div><strong>Re-checked IN</strong><small>Returns 65% of that item's deduction</small></div>
+          <div class="scard down"><div class="big">×1.5</div><strong>Still OUT</strong><small>A verified repeat — the deduction grows half again</small></div>
+          <div class="scard cos"><div class="big">×1</div><strong>OUT, fixed on site</strong><small>The on-site credit is revoked — full deduction stands</small></div>
+          <div class="scard newf"><div class="big">−6/−2</div><strong>New finding</strong><small>Docks at normal category weight</small></div>
+        </div>
+        <div class="example">
+          <div class="receipt">
+            <div class="rtitle">Worked example — a broad inspection scoring 70, then one follow-up</div>
+            <div class="rline"><span>Broad inspection score</span><b>70</b></div>
+            <div class="rline pos"><span>2 risk-factor violations verified fixed</span><b>+7.8</b></div>
+            <div class="rline pos"><span>6 retail-practice violations verified fixed</span><b>+7.8</b></div>
+            <div class="rline neg"><span>1 risk-factor item still out · 6 → 9</span><b>−3</b></div>
+            <div class="rtotal"><span>Facility grade</span><b>83 · B</b></div>
+            <div class="rnote">Visibly better, but not laundered: the calibration keeps a fully-cleared F 0 inside D at best, and no follow-up alone reaches A from D or F. Re-earning the letter takes the next broad inspection.</div>
+          </div>
+        </div>
+      </div>
+
+      <details class="disclosure">
+        <summary><svg class="icon sm caret" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>Exact scoring edge cases</summary>
+        <div class="dbody dgrid">
+          <p><strong>Repeat source</strong>A structured VDH <em>Repeat</em> flag or the word "repeat" in the observation makes that violation 1.5×.</p>
+          <p><strong>Missing item number</strong>Defaults to the lower good-retail-practice deduction of 2 points.</p>
+          <p><strong>Corrected on site</strong>Deducts 75% of its weight — the checklist's COS marking earns 25% back. The credit is provisional: a later re-check that finds the item OUT again revokes it. It never erases the recorded violation.</p>
+          <p><strong>Follow-up reports</strong>Checklist breadth — not the word "follow-up" — decides their role. Broad publishes a score; focused and scope-unknown publish null but can still adjust the facility grade item by item.</p>
+          <p><strong>Grade without follow-ups</strong>Identical to the latest broad score, banded. Items never re-checked keep their full deduction; undated or same-day reports never adjust.</p>
+          <p><strong>Written-verdict follow-ups</strong>Some follow-ups publish no checklist — the verdict lives in the inspector's comments. Those are adjudicated into a machine verdict by a separate, audited step, then adjust the grade exactly like a re-check. A written verdict can restore or re-charge existing deductions, never add new ones; a structured re-check always outranks an earlier comment.</p>
+        </div>
+      </details>
+    </section>
+
+    <!-- 02 -->
+    <section class="sec card">
+      <div class="sechead">
+        <span class="secno">02</span>
+        <div>
+          <div class="kicker">Not the same measurement</div>
+          <h2>What the other signals mean</h2>
+          <div class="sub">Each answers a different question. None is an official VDH rating.</div>
+        </div>
+      </div>
+      <div class="siggrid">
+        <div class="sigcard">
+          <span class="pbadge derived">Derived</span>
+          <h3>Checklist compliance</h3>
+          <div class="demo"><b>IN</b> ÷ <b>(IN + OUT)</b></div>
+          <p>Only applicable checklist rows count. N/A, not observed, and the non-scoring item-99 sentinel are excluded.</p>
+        </div>
+        <div class="sigcard">
+          <span class="pbadge derived">Derived</span>
+          <h3>Trend</h3>
+          <div class="demo"><span>86</span>→<span class="dia"></span><span>3/3</span>→<span>72</span><b style="color:var(--cp-grade-d)">▼</b></div>
+          <p>Only broad assessments join the connected line. A focused re-check plots as an unconnected diamond at the share of its re-examined items in compliance. Its report score is null. Direction is not a forecast.</p>
+        </div>
+        <div class="sigcard">
+          <span class="pbadge derived">Heuristic</span>
+          <h3>Biggest red flags</h3>
+          <div class="demo">Risk factor · Repeat · Keyword weight</div>
+          <p>Up to five observations ranked by category, repeat status, and the documented keyword groups below. Empty means none crossed the heuristic, not "safe."</p>
+        </div>
+        <div class="sigcard">
+          <span class="pbadge derived">Derived</span>
+          <h3>Open repeats</h3>
+          <div class="demo"><b>OUT</b> + <b>Repeat</b> − <b>COS</b></div>
+          <p>Latest checklist rows simultaneously marked out and repeat, excluding rows marked corrected on site.</p>
+        </div>
+      </div>
+      <details class="disclosure">
+        <summary><svg class="icon sm caret" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>Exact red-flag ranking weights</summary>
+        <div class="dbody">
+          <div class="rulerow">
+            <span><b>+10</b> risk-factor item</span>
+            <span><b>+3</b> detected repeat</span>
+            <span><b>Top 5</b> ranks above 1</span>
+          </div>
+          <div class="rulerow">
+            <span><b>+8</b> sewage/wastewater · rodents/pests · vomit/diarrhea/ill employee</span>
+            <span><b>+6</b> no handwashing/bare hand · raw over cooked · no hot water</span>
+            <span><b>+5</b> cross-contamination · mold/slime</span>
+            <span><b>+4</b> holding temperature · cooling/cook temperature</span>
+            <span><b>+3</b> hand sink · date marking · sanitizer · expired food</span>
+            <span><b>+1</b> dirty/buildup/grease/debris/soiled</span>
+          </div>
+          <p style="font-size:11px; color:var(--cp-ink-3)">Matching groups accumulate. Ties retain source order; displayed text caps at 180 characters. This rank selects what to show — it does not change the 0–100 score.</p>
+        </div>
+      </details>
+    </section>
+
+    <!-- 03 -->
+    <section class="sec card">
+      <div class="sechead">
+        <span class="secno">03</span>
+        <div>
+          <div class="kicker">Source to screen</div>
+          <h2>How a VDH report becomes this website</h2>
+          <div class="sub">The browser reads a prepared snapshot. It never scrapes VDH while you wait.</div>
+        </div>
+        <span class="pbadge archived">Snapshot pipeline</span>
+      </div>
+      <ol class="pipeline">
+        <li><span class="pstep">1</span><h3>Official VDH surfaces</h3><p>MyHealthDepartment provides a search roster, permit-history pages, and individual inspection reports.</p><div class="codes"><code>permitID</code><code>inspectionID</code><code>12VAC5-421</code></div></li>
+        <li><span class="pstep">2</span><h3>Archive a snapshot</h3><p>A polite, resumable collector stores roster JSON and compressed permit/report pages by covered ZIP.</p><div class="codes"><code>raw HTML</code><code>roster JSON</code><code>collected time</code></div></li>
+        <li><span class="pstep">3</span><h3>Parse &amp; preserve IDs</h3><p>We extract identity, history, observations, citations, corrective actions, checklist rows, temperatures, and comments.</p><div class="codes"><code>fac:&lt;permitID&gt;</code><code>insp:&lt;inspectionID&gt;</code></div></li>
+        <li><span class="pstep">4</span><h3>Derive &amp; store</h3><p>Addresses are geocoded; rules compute metrics; idempotent projections retain each permit and inspection separately.</p><div class="codes"><code>geocode</code><code>computed fields</code><code>content hash</code></div></li>
+        <li><span class="pstep">5</span><h3>Merge &amp; whitelist</h3><p>At export, likely re-permits are presentation-merged. Explicit field lists shape the shared finder, the grade overlay, the closed supplement, and per-facility history records while retaining lineage.</p><div class="codes"><code>lineage</code><code>finder + overlay + closed shards</code><code>facility history</code></div></li>
+        <li><span class="pstep">6</span><h3>Publish two contracts</h3><p>Small manifests name each prepared snapshot. Data objects publish first and the manifest flips last; the full archive lives in R2, served once the terms have been acknowledged.</p><div class="codes"><code>static basic map</code><code>acknowledged full</code><code>full → basic fallback</code></div></li>
+      </ol>
+      <div class="pipenote"><svg class="icon sm" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>VDH GUIDs stay attached through the path. Views link back where the corresponding MyHealthDepartment tenant route is available.</div>
+    </section>
+
+    <!-- 04 -->
+    <section class="sec card">
+      <div class="sechead">
+        <span class="secno">04</span>
+        <div>
+          <div class="kicker">Field-level boundary</div>
+          <h2>What is official, and what is ours</h2>
+          <div class="sub">Color is not the contract. Every group is labeled in words.</div>
+        </div>
+      </div>
+      <div class="lineagegrid">
+        <article class="linecard official">
+          <span class="pbadge official">Official VDH record</span>
+          <h3>Archived and reorganized</h3>
+          <ul>
+            <li>Facility name, address, permit type, and status</li>
+            <li>Permit and inspection GUIDs</li>
+            <li>Inspection date, type, and purpose</li>
+            <li>Violation item, citation, observation, and corrective action</li>
+            <li>Checklist IN/OUT/N/A/N/O, COS, and Repeat markings</li>
+            <li>Temperatures and inspector comments when present</li>
+          </ul>
+        </article>
+        <article class="linecard derived">
+          <span class="pbadge derived">CleanPlateVA-derived</span>
+          <h3>Computed or enriched</h3>
+          <ul>
+            <li>Inspection score: raw 0–100 formula on each report (no letter)</li>
+            <li>Facility grade: score + A–F letter, latest broad ± re-checks</li>
+            <li>Checklist compliance percentage</li>
+            <li>Broad-only score trend, red flags, and open-repeat count</li>
+            <li>Map coordinates and approximate-location flag</li>
+            <li>"Restaurants only" classification</li>
+            <li>Presentation merge of likely predecessor permits</li>
+          </ul>
+        </article>
+      </div>
+      <div class="tiergrid">
+        <article class="tiercard">
+          <span class="tiericon"><svg class="icon" viewBox="0 0 24 24"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></svg></span>
+          <div>
+            <div class="kicker">Basic map</div>
+            <h3>Identity, location, source handoff</h3>
+            <p>Snapshot markers recorded as active at export time, names, addresses, coordinates, restaurant classification, approximation and mobile-unit flags, permit IDs, and the VDH district route. Status can age; presence is not proof a facility is currently open or permitted. No report dates, scores, grades, or inspection content.</p>
+          </div>
+        </article>
+        <div class="tierroute"><span>Terms acknowledged</span><svg class="icon sm" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg><span>inspection grades load; otherwise the basic map remains</span></div>
+        <article class="tiercard full">
+          <span class="tiericon"><svg class="icon" viewBox="0 0 24 24"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg></span>
+          <div>
+            <div class="kicker">Inspection grades</div>
+            <h3>Reports plus derived signals</h3>
+            <p>Inspection histories, citations, observations, checklists, temperatures, comments, status, lineage, and CleanPlateVA-calculated metrics, loaded after the visitor acknowledges the Terms of Use and Data Acknowledgment (§06). If that data cannot be loaded, the basic map remains.</p>
+          </div>
+        </article>
+      </div>
+      <div class="livecards" style="grid-template-columns: 1fr">
+        <div class="livecard"><div class="k">Current access</div><div class="v">Inspection grades <small>· terms acknowledged on this device</small></div></div>
+      </div>
+    </section>
+
+    <!-- 05 -->
+    <section class="sec card">
+      <div class="sechead">
+        <span class="secno">05</span>
+        <div>
+          <div class="kicker">Limits &amp; verification</div>
+          <h2>What this view cannot promise</h2>
+          <div class="sub">Transparency includes the edges, not just the happy path.</div>
+        </div>
+      </div>
+      <div class="limitgrid">
+        <article><h3>Selected coverage</h3><p>Coverage is the ZIP count shown above, not every Virginia jurisdiction. Absence from this map does not mean absence from VDH.</p></article>
+        <article><h3>Snapshot, not live</h3><p>Collection and publication can lag. "Newest report" is one maximum date, not proof every covered area is equally current.</p></article>
+        <article><h3>Permit status can age</h3><p>An incremental scan can retain the last known "active" state after inspections stop. A marker is not operating-status proof.</p></article>
+        <article><h3>Source retention</h3><p>The portal typically exposes about two years of history. Missing report pages remain missing or unscored — an archive of what was collected, not a lifetime record.</p></article>
+        <article><h3>Geocoded locations</h3><p>Pins come from address lookups (VGIN, Census, OSM/Nominatim, refined against Overture and Foursquare OS), with a ZIP-centroid fallback — not VDH coordinates. Venue-level and centroid pins are labeled approximate; some are manually placed after review.</p></article>
+        <article><h3>Presentation heuristics</h3><p>"Restaurants only" uses permit-type/name patterns. History merging uses location plus name similarity. Either can misclassify; retained permit IDs are the audit trail.</p></article>
+        <article><h3>Focused is not facility-wide</h3><p>A focused follow-up adjusts the grade item by item but never replaces the broad inspection that anchors it. Its own score is null; the OUT/addressed result describes that targeted visit.</p></article>
+        <article><h3>VDH wins conflicts</h3><p>Scores and summaries are comparison tools, not safety or illness predictions. If our presentation and the source disagree, the official VDH record is authoritative.</p></article>
+      </div>
+      <div class="verifycard">
+        <div>
+          <h3>Verify at the source</h3>
+          <p>Facility rows and report cards expose MyHealthDepartment links where available. Compare the observation, citation, corrective action, and checklist markings yourself.</p>
+        </div>
+        <a href="#" class="btn btn-outline btn-compact" style="padding:7px 11px; font-size:12px; gap:6px">Open VDH portal<svg class="icon sm" viewBox="0 0 24 24"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg></a>
+      </div>
+    </section>
+
+    <!-- 06 -->
+    <section class="sec card" id="aboutTerms">
+      <div class="sechead">
+        <span class="secno">06</span>
+        <div>
+          <div class="kicker">Terms &amp; attribution</div>
+          <h2>Terms of Use and Data Acknowledgment</h2>
+        </div>
+      </div>
+      <div class="terms-box">
+        <div class="terms-body">
+          <h3>Inspection Records and Source Data</h3>
+          <p>CleanPlateVA collects, organizes, and presents publicly available food establishment inspection records published by the Virginia Department of Health through <a href="#">MyHealthDepartment</a>.</p>
+          <p>CleanPlateVA is an independent service and is not affiliated with, operated by, or endorsed by the Virginia Department of Health or MyHealthDepartment.</p>
+          <p>Inspection information displayed on this site is an archived snapshot and may not reflect the most recent information available from VDH. The original VDH inspection record remains the authoritative source. Users should consult the source record when current or official information is required.</p>
+          <h3>CleanPlateVA Scores and Grades</h3>
+          <p>Scores, letter grades, compliance percentages, trends, flags, classifications, and other summaries displayed by CleanPlateVA are calculated by CleanPlateVA from the underlying inspection records.</p>
+          <p>These calculations are not issued or approved by VDH and should not be interpreted as official restaurant grades, food safety certifications, health-risk assessments, or predictions of whether a person will become ill.</p>
+          <p>CleanPlateVA provides these calculations as a tool for comparing and reviewing inspection histories. They are provided as is, without warranty as to accuracy, completeness, or suitability for any particular purpose.</p>
+          <h3>Location Data</h3>
+          <p>Restaurant locations and map coordinates are compiled from public and open geographic data sources, including:</p>
+          <ul>
+            <li>Virginia Geographic Information Network (VGIN), Virginia Department of Emergency Management</li>
+            <li>U.S. Census Bureau Geocoder and Gazetteer</li>
+            <li>OpenStreetMap and Nominatim</li>
+            <li>Overture Maps Foundation</li>
+            <li>Foursquare OS Places</li>
+          </ul>
+          <p>Some locations are approximate. Certain locations may also be manually placed or corrected by CleanPlateVA based on available source information.</p>
+          <h3>Data and Map Attribution</h3>
+          <ul>
+            <li><strong>Inspection records:</strong> Virginia Department of Health, via <a href="#">MyHealthDepartment</a>.</li>
+            <li><strong>Address data:</strong> <a href="#">Virginia Geographic Information Network (VGIN)</a>, Virginia Department of Emergency Management.</li>
+            <li><strong>Geocoding:</strong> <a href="#">U.S. Census Bureau Geocoder and Gazetteer</a>.</li>
+            <li><strong>Map data and geocoding:</strong> © <a href="#">OpenStreetMap</a> contributors. OpenStreetMap data is made available under the <a href="#">Open Database License (ODbL)</a>.</li>
+            <li><strong>Places data:</strong> <a href="#">Overture Maps Foundation</a>, including data made available under <a href="#">CDLA-Permissive 2.0</a> and other applicable open licenses.</li>
+            <li><strong>Places data:</strong> <a href="#">Foursquare OS Places</a>, © 2024 Foursquare Labs, Inc., made available under the <a href="#">Apache License 2.0</a>.</li>
+            <li><strong>Basemap:</strong> © <a href="#">CARTO</a> and © <a href="#">OpenStreetMap</a> contributors.</li>
+          </ul>
+          <p>CleanPlateVA’s independently calculated scores, grades, classifications, and presentation may be cited with credit to CleanPlateVA. No additional license to CleanPlateVA-created material is granted by these terms.</p>
+          <h3>Acknowledgment</h3>
+          <p>By selecting “Agree and View Grades”, you acknowledge that you have read and understood these terms and that CleanPlateVA’s scores and grades are independent calculations rather than official VDH ratings.</p>
+          <p>If you do not agree, you may continue using the basic map without CleanPlateVA inspection grades.</p>
+          <p>Your selection will be remembered on this device and can be changed later from the About page.</p>
+        </div>
+      </div>
+      <div class="status-panel">
+        <p>These terms are acknowledged on this device. Inspection grades are shown.</p>
+        <button class="btn btn-outline-danger">Switch to the basic map</button>
+      </div>
+    </section>
+  </main>
+
+  <div class="footerline">Inspection records: VDH via MyHealthDepartment · archived snapshot, not live · scores and grades calculated by CleanPlateVA · <a href="#">Terms &amp; attribution</a></div>
+
+  <div class="mock-controls">
+    <button onclick="document.documentElement.classList.toggle('theme-light')">theme</button>
+  </div>
+</body>
+</html>

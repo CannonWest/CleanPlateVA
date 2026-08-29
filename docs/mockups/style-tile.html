@@ -1,0 +1,449 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CleanPlateVA — CR style tile (CRD-M1)</title>
+<style>
+/* ============================================================
+   CleanPlateVA CR style tile — the token vocabulary, both themes.
+   Direction: "slate & signal" — deep neutral slate chrome; color is
+   reserved for judgment (the grade ramp) and action (blue = the way
+   to the grades, red = the way to the basic map). Dark is default.
+   These custom properties become Tailwind v4 @theme tokens at CRF.
+   ============================================================ */
+* { box-sizing: border-box; margin: 0; }
+html { font-size: 16px; }
+body {
+  font-family: system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background: #0b0d0f; color: #e9ecef; padding: 24px; line-height: 1.45;
+}
+.page-title { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+.page-sub { color: #7d868f; font-size: 13px; margin-bottom: 20px; }
+.page-sub code { color: #adb5bd; }
+
+/* --- the token sets, scoped per theme wrapper --- */
+.theme-dark {
+  --cp-bg: #0f1214;            /* app background            */
+  --cp-surface-1: #16191c;     /* panels, toolbar           */
+  --cp-surface-2: #1d2126;     /* cards on panels           */
+  --cp-surface-3: #242a31;     /* hover / raised            */
+  --cp-hairline: rgba(255,255,255,.09);
+  --cp-ink: #e9ecef;           /* primary text              */
+  --cp-ink-2: #adb5bd;         /* secondary                 */
+  --cp-ink-3: #7d868f;         /* muted / captions          */
+  --cp-accent: #4dabf7;        /* accent text/links on dark */
+  --cp-accent-solid: #1c7ed6;  /* filled action (grades)    */
+  --cp-accent-ink: #ffffff;
+  --cp-danger: #ff8787;        /* danger text on dark       */
+  --cp-danger-solid: #e03131;  /* filled decline            */
+  --cp-focus: #4dabf7;
+  --cp-shadow: none;           /* dark elevates by border+tint, not shadow */
+  --cp-basemap: #0e0e0e;       /* CARTO dark-matter ground  */
+  --cp-marker-ring: rgba(255,255,255,.85);
+}
+.theme-light {
+  --cp-bg: #f4f6f8;
+  --cp-surface-1: #ffffff;
+  --cp-surface-2: #f8f9fa;
+  --cp-surface-3: #eef1f4;
+  --cp-hairline: rgba(16,24,32,.12);
+  --cp-ink: #1d2129;
+  --cp-ink-2: #495057;
+  --cp-ink-3: #868e96;
+  --cp-accent: #1971c2;
+  --cp-accent-solid: #1c7ed6;
+  --cp-accent-ink: #ffffff;
+  --cp-danger: #c92a2a;
+  --cp-danger-solid: #e03131;
+  --cp-focus: #1c7ed6;
+  --cp-shadow: 0 1px 2px rgba(16,24,32,.06), 0 4px 16px rgba(16,24,32,.08);
+  --cp-basemap: #eae8e4;       /* positron-ish ground       */
+  --cp-marker-ring: rgba(255,255,255,.95);
+}
+/* grade ramp — MODE-INVARIANT (validated 2026-08-29, both surfaces).
+   B is Cannon's call: yellow-green #94be1b, blue stays NEW's alone.
+   Numbers: deutan worst ΔE 3.8 (B↔C) · normal worst 14.4 (A↔B) — the
+   F darkening fixes the live site's D↔F fail (7.6 → ~15). The letter
+   ALWAYS rides the color: chips and badges carry it, markers gain it
+   past a zoom threshold, and every marker wears a ring. */
+.theme-dark, .theme-light {
+  --cp-grade-a: #2f9e44;
+  --cp-grade-b: #94be1b;
+  --cp-grade-c: #f59f00;
+  --cp-grade-d: #e8590c;
+  --cp-grade-f: #a61e1e;
+  --cp-grade-none: #868e96;
+  --cp-new: #1c7ed6;
+  --cp-closed: #9aa0a6;
+  --cp-lite: #8d939c;
+  --cp-r-control: 6px;
+  --cp-r-card: 10px;
+  --cp-r-pill: 999px;
+}
+
+/* --- tile scaffolding --- */
+.columns { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+@media (max-width: 1100px) { .columns { grid-template-columns: 1fr; } }
+.panel {
+  background: var(--cp-bg); color: var(--cp-ink);
+  border: 1px solid var(--cp-hairline); border-radius: 12px; padding: 20px;
+}
+.panel h2 { font-size: 15px; font-weight: 700; letter-spacing: .01em; margin-bottom: 2px; }
+.panel .mode-tag { font-size: 11px; color: var(--cp-ink-3); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 16px; }
+.sect { margin-top: 20px; }
+.sect > h3 {
+  font-size: 11px; font-weight: 600; color: var(--cp-ink-3);
+  text-transform: uppercase; letter-spacing: .08em; margin-bottom: 10px;
+}
+.note { font-size: 12px; color: var(--cp-ink-3); margin-top: 8px; }
+
+/* swatches */
+.swrow { display: flex; flex-wrap: wrap; gap: 8px; }
+.sw { width: 118px; border: 1px solid var(--cp-hairline); border-radius: 8px; overflow: hidden; }
+.sw .chip { height: 44px; }
+.sw .lbl { padding: 5px 8px; font-size: 10.5px; color: var(--cp-ink-2); background: var(--cp-surface-1); }
+.sw .lbl b { display: block; color: var(--cp-ink); font-weight: 600; }
+
+/* type specimen */
+.spec { display: grid; gap: 6px; }
+.spec > div { display: flex; align-items: baseline; gap: 12px; }
+.spec .t { color: var(--cp-ink); }
+.spec .m { font-size: 10.5px; color: var(--cp-ink-3); white-space: nowrap; }
+.nums { font-variant-numeric: tabular-nums; }
+
+/* buttons + controls */
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  font: 600 13.5px/1 inherit; font-family: inherit;
+  padding: 9px 14px; border-radius: var(--cp-r-control);
+  border: 1px solid transparent; cursor: pointer;
+}
+.btn-primary { background: var(--cp-accent-solid); color: var(--cp-accent-ink); }
+.btn-danger  { background: var(--cp-danger-solid); color: #fff; }
+.btn-outline { background: transparent; color: var(--cp-accent); border-color: var(--cp-accent); }
+.btn-outline-danger { background: transparent; color: var(--cp-danger); border-color: var(--cp-danger); }
+.btn-ghost { background: var(--cp-surface-2); color: var(--cp-ink); border-color: var(--cp-hairline); }
+.btn:focus-visible { outline: 2px solid var(--cp-focus); outline-offset: 2px; }
+.controlrow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+.gchip {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 30px; height: 30px; padding: 0 8px;
+  border-radius: var(--cp-r-pill); font-weight: 700; font-size: 13px; color: #fff;
+}
+.gchip.dim { opacity: .45; }
+.tglrow { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--cp-ink-2);
+  background: var(--cp-surface-2); border: 1px solid var(--cp-hairline);
+  border-radius: var(--cp-r-pill); padding: 6px 12px; }
+.dot { width: 8px; height: 8px; border-radius: 50%; }
+
+/* markers on basemap */
+.basemap {
+  background: var(--cp-basemap); border-radius: 8px; border: 1px solid var(--cp-hairline);
+  padding: 18px 14px; display: flex; gap: 22px; align-items: center; flex-wrap: wrap;
+}
+.mk { position: relative; width: 16px; height: 16px; border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--cp-marker-ring); }
+.mk.lg { width: 22px; height: 22px; display: flex; align-items: center; justify-content: center;
+  font: 700 11px/1 inherit; color: #fff; }
+.mk .ring { position: absolute; inset: -5px; border-radius: 50%; border: 2px dashed currentColor; }
+.stack { display: flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; border-radius: 50%; background: var(--cp-surface-3);
+  color: var(--cp-ink); font: 700 11px/1 inherit;
+  box-shadow: 0 0 0 2px var(--cp-marker-ring); }
+
+/* radii + elevation + spacing */
+.rad { display: inline-flex; align-items: center; justify-content: center;
+  background: var(--cp-surface-2); border: 1px solid var(--cp-hairline);
+  color: var(--cp-ink-3); font-size: 10.5px; height: 52px; width: 96px; }
+.elev { display: inline-block; background: var(--cp-surface-2);
+  border: 1px solid var(--cp-hairline); border-radius: var(--cp-r-card);
+  padding: 12px 16px; font-size: 12px; color: var(--cp-ink-2); }
+.elev.raised { background: var(--cp-surface-3); box-shadow: var(--cp-shadow); }
+.gaps { display: flex; align-items: flex-end; gap: 6px; }
+.gaps i { display: block; background: var(--cp-accent-solid); opacity: .8; width: 14px; }
+
+/* composite: hover-card teaser */
+.hovercard {
+  width: 300px; background: var(--cp-surface-1); color: var(--cp-ink);
+  border: 1px solid var(--cp-hairline); border-radius: var(--cp-r-card);
+  box-shadow: var(--cp-shadow); padding: 12px 14px;
+}
+.hovercard .hd { display: flex; gap: 10px; align-items: center; }
+.hovercard .gradecircle {
+  width: 40px; height: 40px; border-radius: 50%; flex: none;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font: 700 18px/1 inherit;
+}
+.hovercard .nm { font-weight: 600; font-size: 13.5px; }
+.hovercard .ad { font-size: 11.5px; color: var(--cp-ink-3); }
+.hovercard .boxes { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 10px; }
+.hovercard .bx { background: var(--cp-surface-2); border: 1px solid var(--cp-hairline);
+  border-radius: 6px; padding: 6px 8px; }
+.hovercard .bx .k { font-size: 9.5px; color: var(--cp-ink-3); text-transform: uppercase; letter-spacing: .06em; }
+.hovercard .bx .v { font-size: 12px; font-weight: 600; }
+.spark { margin-top: 10px; }
+.spark svg { display: block; width: 100%; height: 44px; }
+
+/* receipts table */
+.receipts { border-collapse: collapse; font-size: 11.5px; margin-top: 8px; width: 100%; }
+.receipts th, .receipts td { text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--cp-hairline); }
+.receipts th { color: var(--cp-ink-3); font-weight: 600; }
+.receipts td { color: var(--cp-ink-2); }
+.ok { color: var(--cp-grade-a); font-weight: 600; }
+.warn { color: var(--cp-grade-c); font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="page-title">CleanPlateVA — CR style tile</div>
+<div class="page-sub">
+  CRD-M1 · direction: <b>slate &amp; signal</b> — neutral slate chrome, color reserved for judgment + action ·
+  dark default, light first-class (C10) · tokens are the future Tailwind v4 <code>@theme</code> vocabulary (D-CR-STYLE-1)
+</div>
+
+<div class="columns">
+<!-- ================= DARK ================= -->
+<section class="panel theme-dark">
+  <h2>Dark</h2>
+  <div class="mode-tag">default theme</div>
+
+  <div class="sect">
+    <h3>Surfaces &amp; ink</h3>
+    <div class="swrow">
+      <div class="sw"><div class="chip" style="background:var(--cp-bg)"></div><div class="lbl"><b>bg</b>#0f1214</div></div>
+      <div class="sw"><div class="chip" style="background:var(--cp-surface-1)"></div><div class="lbl"><b>surface-1</b>#16191c</div></div>
+      <div class="sw"><div class="chip" style="background:var(--cp-surface-2)"></div><div class="lbl"><b>surface-2</b>#1d2126</div></div>
+      <div class="sw"><div class="chip" style="background:var(--cp-surface-3)"></div><div class="lbl"><b>surface-3</b>#242a31</div></div>
+      <div class="sw"><div class="chip" style="background:linear-gradient(180deg,var(--cp-ink) 33%,var(--cp-ink-2) 33% 66%,var(--cp-ink-3) 66%)"></div><div class="lbl"><b>ink 1·2·3</b>#e9ecef ·#adb5bd ·#7d868f</div></div>
+    </div>
+  </div>
+
+  <div class="sect">
+    <h3>Action color language — blue is the way to the grades, red the way to the basic map</h3>
+    <div class="controlrow">
+      <button class="btn btn-primary">Agree and View Grades</button>
+      <button class="btn btn-danger">Decline and Use Basic Map</button>
+    </div>
+    <div class="controlrow" style="margin-top:8px">
+      <button class="btn btn-outline">Review the terms</button>
+      <button class="btn btn-outline-danger">Switch to the basic map</button>
+      <button class="btn btn-ghost">Show closed</button>
+    </div>
+  </div>
+
+  <div class="sect">
+    <h3>Grade ramp — chips (letter always rides the color)</h3>
+    <div class="controlrow">
+      <span class="gchip" style="background:var(--cp-grade-a)">A</span>
+      <span class="gchip" style="background:var(--cp-grade-b)">B</span>
+      <span class="gchip" style="background:var(--cp-grade-c)">C</span>
+      <span class="gchip" style="background:var(--cp-grade-d)">D</span>
+      <span class="gchip" style="background:var(--cp-grade-f)">F</span>
+      <span class="gchip" style="background:var(--cp-grade-none)">—</span>
+      <span class="tglrow"><span class="dot" style="background:var(--cp-new)"></span>NEW</span>
+      <span class="tglrow"><span class="dot" style="background:var(--cp-closed)"></span>closed</span>
+      <span class="tglrow"><span class="dot" style="background:var(--cp-lite)"></span>basic map</span>
+    </div>
+  </div>
+
+  <div class="sect">
+    <h3>Markers on the dark basemap — ringed; letters past a zoom threshold</h3>
+    <div class="basemap">
+      <span class="mk" style="background:var(--cp-grade-a)"></span>
+      <span class="mk" style="background:var(--cp-grade-b)"></span>
+      <span class="mk" style="background:var(--cp-grade-c)"></span>
+      <span class="mk" style="background:var(--cp-grade-d)"></span>
+      <span class="mk" style="background:var(--cp-grade-f)"></span>
+      <span class="mk lg" style="background:var(--cp-grade-a)">A</span>
+      <span class="mk lg" style="background:var(--cp-grade-d)">D</span>
+      <span class="mk lg" style="background:var(--cp-grade-c); color:var(--cp-grade-c)"><span class="ring"></span>C</span>
+      <span class="stack">12</span>
+      <span class="mk" style="background:var(--cp-lite)"></span>
+    </div>
+    <div class="note">dashed ring = declining trend · gray = basic map / unscored · bubble = same-point stack</div>
+  </div>
+
+  <div class="sect">
+    <h3>Type — system stack, tabular numerals for data</h3>
+    <div class="spec">
+      <div><span class="t" style="font-size:28px;font-weight:700">94<span style="font-size:16px;color:var(--cp-ink-3)">/100</span></span><span class="m">hero score · 28/700 + tabular</span></div>
+      <div><span class="t" style="font-size:20px;font-weight:700">Inspection grades</span><span class="m">view title · 20/700</span></div>
+      <div><span class="t" style="font-size:16px;font-weight:600">Sub Rosa Bakery</span><span class="m">emphasis · 16/600</span></div>
+      <div><span class="t" style="font-size:14px">The everyday reading size for panels and cards.</span><span class="m">body · 14/400</span></div>
+      <div><span class="t" style="font-size:12.5px;color:var(--cp-ink-2)">Secondary detail, addresses, meta lines.</span><span class="m">body-sm · 12.5/400</span></div>
+      <div><span class="t nums" style="font-size:12.5px;color:var(--cp-ink-2)">2026-08-24 · 3/17 OUT · 98.2%</span><span class="m">data · tabular-nums</span></div>
+      <div><span class="t" style="font-size:11px;color:var(--cp-ink-3);text-transform:uppercase;letter-spacing:.08em;font-weight:600">Last broad inspection</span><span class="m">caps label · 11/600</span></div>
+    </div>
+  </div>
+
+  <div class="sect">
+    <h3>Spacing · radii · elevation</h3>
+    <div class="controlrow" style="align-items:flex-end">
+      <span class="gaps"><i style="height:8px"></i><i style="height:12px"></i><i style="height:16px"></i><i style="height:24px"></i><i style="height:32px"></i></span>
+      <span class="rad" style="border-radius:var(--cp-r-control)">control 6</span>
+      <span class="rad" style="border-radius:var(--cp-r-card)">card 10</span>
+      <span class="rad" style="border-radius:var(--cp-r-pill)">pill</span>
+      <span class="elev">flat</span>
+      <span class="elev raised">raised (border + tint)</span>
+    </div>
+    <div class="note">4px grid: 2 · 4 · 8 · 12 · 16 · 24 · 32 · 48 — dark elevates by border + surface tint, never shadow</div>
+  </div>
+
+  <div class="sect">
+    <h3>Composite — hover card against the tokens</h3>
+    <div class="hovercard">
+      <div class="hd">
+        <div class="gradecircle" style="background:var(--cp-grade-a)">A</div>
+        <div>
+          <div class="nm">Sub Rosa Bakery</div>
+          <div class="ad">620 N 25th St · Richmond · 23223</div>
+        </div>
+      </div>
+      <div class="boxes">
+        <div class="bx"><div class="k">Last broad inspection</div><div class="v nums">2026-06-11 · 94</div></div>
+        <div class="bx"><div class="k">Last visit</div><div class="v nums">2026-08-02 · 0/3 OUT</div></div>
+      </div>
+      <div class="spark">
+        <svg viewBox="0 0 272 44">
+          <line x1="0" y1="34" x2="272" y2="34" stroke="var(--cp-hairline)" stroke-width="1"/>
+          <polyline points="10,22 62,26 114,18 166,20 218,12 262,10" fill="none" stroke="var(--cp-ink-3)" stroke-width="2"/>
+          <circle cx="10" cy="22" r="3.5" fill="var(--cp-grade-b)"/>
+          <circle cx="62" cy="26" r="3.5" fill="var(--cp-grade-c)"/>
+          <circle cx="114" cy="18" r="3.5" fill="var(--cp-grade-b)"/>
+          <line x1="166" y1="15" x2="166" y2="25" stroke="var(--cp-ink-3)" stroke-width="2"/>
+          <circle cx="218" cy="12" r="3.5" fill="var(--cp-grade-a)"/>
+          <circle cx="262" cy="10" r="3.5" fill="var(--cp-grade-a)"/>
+        </svg>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= LIGHT ================= -->
+<section class="panel theme-light">
+  <h2>Light</h2>
+  <div class="mode-tag">first-class alternate</div>
+
+  <div class="sect">
+    <h3>Surfaces &amp; ink</h3>
+    <div class="swrow">
+      <div class="sw"><div class="chip" style="background:var(--cp-bg)"></div><div class="lbl"><b>bg</b>#f4f6f8</div></div>
+      <div class="sw"><div class="chip" style="background:var(--cp-surface-1)"></div><div class="lbl"><b>surface-1</b>#ffffff</div></div>
+      <div class="sw"><div class="chip" style="background:var(--cp-surface-2)"></div><div class="lbl"><b>surface-2</b>#f8f9fa</div></div>
+      <div class="sw"><div class="chip" style="background:var(--cp-surface-3)"></div><div class="lbl"><b>surface-3</b>#eef1f4</div></div>
+      <div class="sw"><div class="chip" style="background:linear-gradient(180deg,var(--cp-ink) 33%,var(--cp-ink-2) 33% 66%,var(--cp-ink-3) 66%)"></div><div class="lbl"><b>ink 1·2·3</b>#1d2129 ·#495057 ·#868e96</div></div>
+    </div>
+  </div>
+
+  <div class="sect">
+    <h3>Action color language</h3>
+    <div class="controlrow">
+      <button class="btn btn-primary">Agree and View Grades</button>
+      <button class="btn btn-danger">Decline and Use Basic Map</button>
+    </div>
+    <div class="controlrow" style="margin-top:8px">
+      <button class="btn btn-outline">Review the terms</button>
+      <button class="btn btn-outline-danger">Switch to the basic map</button>
+      <button class="btn btn-ghost">Show closed</button>
+    </div>
+  </div>
+
+  <div class="sect">
+    <h3>Grade ramp</h3>
+    <div class="controlrow">
+      <span class="gchip" style="background:var(--cp-grade-a)">A</span>
+      <span class="gchip" style="background:var(--cp-grade-b)">B</span>
+      <span class="gchip" style="background:var(--cp-grade-c)">C</span>
+      <span class="gchip" style="background:var(--cp-grade-d)">D</span>
+      <span class="gchip" style="background:var(--cp-grade-f)">F</span>
+      <span class="gchip" style="background:var(--cp-grade-none)">—</span>
+      <span class="tglrow"><span class="dot" style="background:var(--cp-new)"></span>NEW</span>
+      <span class="tglrow"><span class="dot" style="background:var(--cp-closed)"></span>closed</span>
+      <span class="tglrow"><span class="dot" style="background:var(--cp-lite)"></span>basic map</span>
+    </div>
+  </div>
+
+  <div class="sect">
+    <h3>Markers on the light basemap</h3>
+    <div class="basemap">
+      <span class="mk" style="background:var(--cp-grade-a)"></span>
+      <span class="mk" style="background:var(--cp-grade-b)"></span>
+      <span class="mk" style="background:var(--cp-grade-c)"></span>
+      <span class="mk" style="background:var(--cp-grade-d)"></span>
+      <span class="mk" style="background:var(--cp-grade-f)"></span>
+      <span class="mk lg" style="background:var(--cp-grade-a)">A</span>
+      <span class="mk lg" style="background:var(--cp-grade-d)">D</span>
+      <span class="mk lg" style="background:var(--cp-grade-c); color:var(--cp-grade-c)"><span class="ring"></span>C</span>
+      <span class="stack">12</span>
+      <span class="mk" style="background:var(--cp-lite)"></span>
+    </div>
+  </div>
+
+  <div class="sect">
+    <h3>Type</h3>
+    <div class="spec">
+      <div><span class="t" style="font-size:28px;font-weight:700">94<span style="font-size:16px;color:var(--cp-ink-3)">/100</span></span><span class="m">hero score</span></div>
+      <div><span class="t" style="font-size:16px;font-weight:600">Sub Rosa Bakery</span><span class="m">emphasis</span></div>
+      <div><span class="t" style="font-size:14px">The everyday reading size for panels and cards.</span><span class="m">body</span></div>
+      <div><span class="t nums" style="font-size:12.5px;color:var(--cp-ink-2)">2026-08-24 · 3/17 OUT · 98.2%</span><span class="m">data · tabular-nums</span></div>
+    </div>
+  </div>
+
+  <div class="sect">
+    <h3>Elevation — light uses soft shadow</h3>
+    <div class="controlrow">
+      <span class="elev">flat</span>
+      <span class="elev raised">raised (shadow)</span>
+    </div>
+  </div>
+
+  <div class="sect">
+    <h3>Composite — hover card</h3>
+    <div class="hovercard">
+      <div class="hd">
+        <div class="gradecircle" style="background:var(--cp-grade-c)">C</div>
+        <div>
+          <div class="nm">Golden Dragon Express</div>
+          <div class="ad">4903 Nine Mile Rd · Henrico · 23223</div>
+        </div>
+      </div>
+      <div class="boxes">
+        <div class="bx"><div class="k">Last broad inspection</div><div class="v nums">2026-05-19 · 78</div></div>
+        <div class="bx"><div class="k">Last visit</div><div class="v nums">2026-07-30 · 2/9 OUT</div></div>
+      </div>
+      <div class="spark">
+        <svg viewBox="0 0 272 44">
+          <line x1="0" y1="34" x2="272" y2="34" stroke="var(--cp-hairline)" stroke-width="1"/>
+          <polyline points="10,14 62,16 114,24 166,26 218,22 262,24" fill="none" stroke="var(--cp-ink-3)" stroke-width="2"/>
+          <circle cx="10" cy="14" r="3.5" fill="var(--cp-grade-b)"/>
+          <circle cx="62" cy="16" r="3.5" fill="var(--cp-grade-b)"/>
+          <circle cx="114" cy="24" r="3.5" fill="var(--cp-grade-c)"/>
+          <line x1="166" y1="19" x2="166" y2="29" stroke="var(--cp-ink-3)" stroke-width="2"/>
+          <circle cx="218" cy="22" r="3.5" fill="var(--cp-grade-c)"/>
+          <circle cx="262" cy="24" r="3.5" fill="var(--cp-grade-c)"/>
+        </svg>
+      </div>
+    </div>
+  </div>
+</section>
+</div>
+
+<!-- receipts -->
+<section class="panel theme-dark" style="margin-top:20px">
+  <h2>Grade-ramp receipts — validated 2026-08-29 (dataviz six-checks, all-pairs, both surfaces)</h2>
+  <table class="receipts">
+    <tr><th>Check</th><th>Today's site ramp</th><th>CR ramp (this tile)</th></tr>
+    <tr><td>Normal-vision worst adjacent pair</td><td class="warn">ΔE 7.6 (D↔F) — FAIL</td><td class="ok">ΔE 14.4 (A↔B) — the D↔F fail is fixed; a hair under the 15 bar, accepted (Cannon) with letters riding</td></tr>
+    <tr><td>CVD worst pair (deutan)</td><td class="warn">ΔE 3.0 (A↔F) — FAIL</td><td class="warn">ΔE 3.8 (B↔C) — letter + ring mandated (Cannon’s yellow-green call; blue stays NEW’s)</td></tr>
+    <tr><td>Chroma floor</td><td class="ok">PASS</td><td class="ok">PASS</td></tr>
+    <tr><td>Contrast vs surface</td><td class="warn">B/C sub-3:1 on light</td><td class="warn">F 2.4:1 on dark, B/C on light — relief: marker ring + letter on every colored mark</td></tr>
+    <tr><td>Lightness band (categorical check)</td><td>—</td><td>waived — ordinal status ramp; the lightness zigzag IS the CVD mechanism</td></tr>
+  </table>
+  <div class="note">
+    Consequences the views inherit: the grade letter always accompanies the color (chips, badges, hover, panel);
+    markers wear a ring and gain their letter past a zoom threshold; F darkened is the load-bearing change (fixes D↔F); B stays the lime family by Cannon’s call, with NEW’s blue kept unique. Grays (unscored · closed · basic map) stay neutral by design.
+  </div>
+</section>
+</body>
+</html>
