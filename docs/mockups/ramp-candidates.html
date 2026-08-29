@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CleanPlateVA — grade-ramp B candidates (CRD-M1)</title>
+<link rel="stylesheet" href="tokens.css">
+<style>
+/* B-slot candidates for Cannon's eyes — each row overrides --cp-grade-b
+   (and F where noted) so every swatch renders through the real tokens.
+   Validator numbers (all-pairs, dark surface) printed per row. */
+body { padding: 24px; }
+.page-title { font-size: 17px; font-weight: 700; margin-bottom: 3px; }
+.page-sub { font-size: 12px; color: var(--cp-ink-3); margin-bottom: 18px; max-width: 56rem; }
+.cand { padding: 14px 16px; margin-bottom: 14px; max-width: 56rem; }
+.cand .hd { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.cand .nm { font-size: 13.5px; font-weight: 700; }
+.cand .hex { font: 600 11px/1 ui-monospace, Consolas, monospace; color: var(--cp-ink-3); }
+.cand .nums-line { margin-left: auto; font-size: 11px; color: var(--cp-ink-3); }
+.cand .nums-line b { color: var(--cp-ink-2); }
+.gsegs { display: flex; border-radius: 5px; overflow: hidden; height: 34px; margin-bottom: 10px; }
+.gsegs span { display: flex; flex-direction: column; align-items: center; justify-content: center;
+  color: #fff; font: 700 12px/1.15 var(--cp-font); }
+.gsegs small { font-weight: 600; font-size: 8.5px; opacity: .9; }
+.gsegs .f { flex: 60; background: var(--cp-grade-f); }
+.gsegs .d { flex: 10; background: var(--cp-grade-d); }
+.gsegs .c { flex: 10; background: var(--cp-grade-c); }
+.gsegs .b { flex: 10; background: var(--cp-grade-b); }
+.gsegs .a { flex: 10; background: var(--cp-grade-a); }
+.rowline { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.tag { font-size: 10.5px; color: var(--cp-ink-3); min-width: 88px; }
+.gchip.newchip { background: var(--cp-new); }
+.strip { display: inline-flex; gap: 14px; align-items: center; border-radius: 6px;
+  padding: 9px 14px; border: 1px solid var(--cp-hairline); }
+.strip.darkmap { background: #0e0e0e; }
+.strip.lightmap { background: #eae8e4; }
+.mk { width: 14px; height: 14px; border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--cp-marker-ring); display: inline-block; }
+.strip.lightmap .mk { box-shadow: 0 0 0 2px rgba(255,255,255,.95); }
+.note { font-size: 11px; color: var(--cp-ink-3); }
+</style>
+</head>
+<body>
+<div class="page-title">The B slot — candidates on the scale</div>
+<div class="page-sub">
+  Each row is the full ramp with a different B (A · C · D held; F is the darkened
+  <code>#a61e1e</code> except the last row). The NEW chip sits beside B in every chip row — that
+  adjacency is the reason teal is in question. Validator numbers are all-pairs on the dark surface;
+  the letter always rides the color regardless (ratified secondary encoding).
+</div>
+
+<!-- 1 · teal (ratified earlier today — the reference point) -->
+<section class="cand card" style="--cp-grade-b:#38d9a9">
+  <div class="hd"><span class="nm">1 · Teal</span><span class="hex">B #38d9a9</span>
+    <span class="nums-line">deutan worst <b>7.0</b> · normal worst <b>15.7 ✓</b></span></div>
+  <div class="gsegs"><span class="f"><b>F</b><small>0–59</small></span><span class="d"><b>D</b><small>60–69</small></span><span class="c"><b>C</b><small>70–79</small></span><span class="b"><b>B</b><small>80–89</small></span><span class="a"><b>A</b><small>90–100</small></span></div>
+  <div class="rowline"><span class="tag">chips + NEW</span>
+    <span class="gchip" style="background:var(--cp-grade-a)">A</span>
+    <span class="gchip" style="background:var(--cp-grade-b)">B</span>
+    <span class="gchip newchip">NEW</span>
+    <span class="gchip" style="background:var(--cp-grade-c)">C</span>
+    <span class="gchip" style="background:var(--cp-grade-d)">D</span>
+    <span class="gchip" style="background:var(--cp-grade-f)">F</span></div>
+  <div class="rowline"><span class="tag">markers</span>
+    <span class="strip darkmap"><i class="mk" style="background:var(--cp-grade-a)"></i><i class="mk" style="background:var(--cp-grade-b)"></i><i class="mk" style="background:var(--cp-new)"></i><i class="mk" style="background:var(--cp-grade-c)"></i><i class="mk" style="background:var(--cp-grade-d)"></i><i class="mk" style="background:var(--cp-grade-f)"></i></span>
+    <span class="strip lightmap"><i class="mk" style="background:var(--cp-grade-a)"></i><i class="mk" style="background:var(--cp-grade-b)"></i><i class="mk" style="background:var(--cp-new)"></i><i class="mk" style="background:var(--cp-grade-c)"></i><i class="mk" style="background:var(--cp-grade-d)"></i><i class="mk" style="background:var(--cp-grade-f)"></i></span></div>
+  <div class="note">The colorblind-strongest option; the trade is B sitting near NEW's blue family.</div>
+</section>
+
+<!-- 2 · lime (today's B, F darkened) -->
+<section class="cand card" style="--cp-grade-b:#94be1b">
+  <div class="hd"><span class="nm">2 · Lime (today's B)</span><span class="hex">B #94be1b</span>
+    <span class="nums-line">deutan worst <b>3.8</b> (B↔C) · normal worst <b>14.4</b> (A↔B)</span></div>
+  <div class="gsegs"><span class="f"><b>F</b><small>0–59</small></span><span class="d"><b>D</b><small>60–69</small></span><span class="c"><b>C</b><small>70–79</small></span><span class="b"><b>B</b><small>80–89</small></span><span class="a"><b>A</b><small>90–100</small></span></div>
+  <div class="rowline"><span class="tag">chips + NEW</span>
+    <span class="gchip" style="background:var(--cp-grade-a)">A</span>
+    <span class="gchip" style="background:var(--cp-grade-b)">B</span>
+    <span class="gchip newchip">NEW</span>
+    <span class="gchip" style="background:var(--cp-grade-c)">C</span>
+    <span class="gchip" style="background:var(--cp-grade-d)">D</span>
+    <span class="gchip" style="background:var(--cp-grade-f)">F</span></div>
+  <div class="rowline"><span class="tag">markers</span>
+    <span class="strip darkmap"><i class="mk" style="background:var(--cp-grade-a)"></i><i class="mk" style="background:var(--cp-grade-b)"></i><i class="mk" style="background:var(--cp-new)"></i><i class="mk" style="background:var(--cp-grade-c)"></i><i class="mk" style="background:var(--cp-grade-d)"></i><i class="mk" style="background:var(--cp-grade-f)"></i></span>
+    <span class="strip lightmap"><i class="mk" style="background:var(--cp-grade-a)"></i><i class="mk" style="background:var(--cp-grade-b)"></i><i class="mk" style="background:var(--cp-new)"></i><i class="mk" style="background:var(--cp-grade-c)"></i><i class="mk" style="background:var(--cp-grade-d)"></i><i class="mk" style="background:var(--cp-grade-f)"></i></span></div>
+  <div class="note">The strongest yellow-green by the numbers — continuity with the live site, and the F darkening still fixes today's worst normal-vision failure (D↔F 7.6 → ~15).</div>
+</section>
+
+<!-- 3 · brighter lime -->
+<section class="cand card" style="--cp-grade-b:#a3c51c">
+  <div class="hd"><span class="nm">3 · Brighter lime</span><span class="hex">B #a3c51c</span>
+    <span class="nums-line">deutan worst <b>1.5</b> (B↔C) · normal worst <b>14.8</b> (B↔C)</span></div>
+  <div class="gsegs"><span class="f"><b>F</b><small>0–59</small></span><span class="d"><b>D</b><small>60–69</small></span><span class="c"><b>C</b><small>70–79</small></span><span class="b"><b>B</b><small>80–89</small></span><span class="a"><b>A</b><small>90–100</small></span></div>
+  <div class="rowline"><span class="tag">chips + NEW</span>
+    <span class="gchip" style="background:var(--cp-grade-a)">A</span>
+    <span class="gchip" style="background:var(--cp-grade-b)">B</span>
+    <span class="gchip newchip">NEW</span>
+    <span class="gchip" style="background:var(--cp-grade-c)">C</span>
+    <span class="gchip" style="background:var(--cp-grade-d)">D</span>
+    <span class="gchip" style="background:var(--cp-grade-f)">F</span></div>
+  <div class="rowline"><span class="tag">markers</span>
+    <span class="strip darkmap"><i class="mk" style="background:var(--cp-grade-a)"></i><i class="mk" style="background:var(--cp-grade-b)"></i><i class="mk" style="background:var(--cp-new)"></i><i class="mk" style="background:var(--cp-grade-c)"></i><i class="mk" style="background:var(--cp-grade-d)"></i><i class="mk" style="background:var(--cp-grade-f)"></i></span>
+    <span class="strip lightmap"><i class="mk" style="background:var(--cp-grade-a)"></i><i class="mk" style="background:var(--cp-grade-b)"></i><i class="mk" style="background:var(--cp-new)"></i><i class="mk" style="background:var(--cp-grade-c)"></i><i class="mk" style="background:var(--cp-grade-d)"></i><i class="mk" style="background:var(--cp-grade-f)"></i></span></div>
+  <div class="note">More separation from A, but B↔C nearly merges for colorblind readers (1.5).</div>
+</section>
+
+<!-- 4 · moss -->
+<section class="cand card" style="--cp-grade-b:#8faf3c">
+  <div class="hd"><span class="nm">4 · Moss</span><span class="hex">B #8faf3c</span>
+    <span class="nums-line">deutan worst <b>1.5</b> · normal worst <b>11.0</b> (A↔B)</span></div>
+  <div class="gsegs"><span class="f"><b>F</b><small>0–59</small></span><span class="d"><b>D</b><small>60–69</small></span><span class="c"><b>C</b><small>70–79</small></span><span class="b"><b>B</b><small>80–89</small></span><span class="a"><b>A</b><small>90–100</small></span></div>
+  <div class="rowline"><span class="tag">chips + NEW</span>
+    <span class="gchip" style="background:var(--cp-grade-a)">A</span>
+    <span class="gchip" style="background:var(--cp-grade-b)">B</span>
+    <span class="gchip newchip">NEW</span>
+    <span class="gchip" style="background:var(--cp-grade-c)">C</span>
+    <span class="gchip" style="background:var(--cp-grade-d)">D</span>
+    <span class="gchip" style="background:var(--cp-grade-f)">F</span></div>
+  <div class="rowline"><span class="tag">markers</span>
+    <span class="strip darkmap"><i class="mk" style="background:var(--cp-grade-a)"></i><i class="mk" style="background:var(--cp-grade-b)"></i><i class="mk" style="background:var(--cp-new)"></i><i class="mk" style="background:var(--cp-grade-c)"></i><i class="mk" style="background:var(--cp-grade-d)"></i><i class="mk" style="background:var(--cp-grade-f)"></i></span>
+    <span class="strip lightmap"><i class="mk" style="background:var(--cp-grade-a)"></i><i class="mk" style="background:var(--cp-grade-b)"></i><i class="mk" style="background:var(--cp-new)"></i><i class="mk" style="background:var(--cp-grade-c)"></i><i class="mk" style="background:var(--cp-grade-d)"></i><i class="mk" style="background:var(--cp-grade-f)"></i></span></div>
+  <div class="note">Calmer, more muted B — but weakest on both axes (blurs toward A for everyone).</div>
+</section>
+
+<!-- 5 · the live site today (baseline) -->
+<section class="cand card" style="--cp-grade-b:#94be1b; --cp-grade-f:#e03131">
+  <div class="hd"><span class="nm">5 · Live site today (baseline)</span><span class="hex">B #94be1b · F #e03131</span>
+    <span class="nums-line">deutan worst <b>3.0</b> (A↔F) · normal worst <b>7.6</b> (D↔F)</span></div>
+  <div class="gsegs"><span class="f"><b>F</b><small>0–59</small></span><span class="d"><b>D</b><small>60–69</small></span><span class="c"><b>C</b><small>70–79</small></span><span class="b"><b>B</b><small>80–89</small></span><span class="a"><b>A</b><small>90–100</small></span></div>
+  <div class="rowline"><span class="tag">chips + NEW</span>
+    <span class="gchip" style="background:var(--cp-grade-a)">A</span>
+    <span class="gchip" style="background:var(--cp-grade-b)">B</span>
+    <span class="gchip newchip">NEW</span>
+    <span class="gchip" style="background:var(--cp-grade-c)">C</span>
+    <span class="gchip" style="background:var(--cp-grade-d)">D</span>
+    <span class="gchip" style="background:var(--cp-grade-f)">F</span></div>
+  <div class="rowline"><span class="tag">markers</span>
+    <span class="strip darkmap"><i class="mk" style="background:var(--cp-grade-a)"></i><i class="mk" style="background:var(--cp-grade-b)"></i><i class="mk" style="background:var(--cp-new)"></i><i class="mk" style="background:var(--cp-grade-c)"></i><i class="mk" style="background:var(--cp-grade-d)"></i><i class="mk" style="background:var(--cp-grade-f)"></i></span>
+    <span class="strip lightmap"><i class="mk" style="background:var(--cp-grade-a)"></i><i class="mk" style="background:var(--cp-grade-b)"></i><i class="mk" style="background:var(--cp-new)"></i><i class="mk" style="background:var(--cp-grade-c)"></i><i class="mk" style="background:var(--cp-grade-d)"></i><i class="mk" style="background:var(--cp-grade-f)"></i></span></div>
+  <div class="note">Unchanged from production — bright F pops on dark, but D↔F is a normal-vision fail (7.6) and A↔F collapses for colorblind readers.</div>
+</section>
+
+<div class="mock-controls" style="position:fixed;right:12px;bottom:10px">
+  <button style="font:600 11px/1 var(--cp-font);padding:6px 10px;border-radius:6px;border:1px solid var(--cp-hairline);background:var(--cp-surface-2);color:var(--cp-ink-2);cursor:pointer" onclick="document.documentElement.classList.toggle('theme-light')">theme</button>
+</div>
+</body>
+</html>

@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CleanPlateVA — trend scale comparison (CRD-M1)</title>
+<link rel="stylesheet" href="tokens.css">
+<style>
+/* The absolute-scale rule under stress: a series that never leaves the
+   C band vs one catastrophic 29 in an otherwise A history. The domain
+   rests at 100→55 (F threshold just in frame) and EXTENDS downward when
+   a real score falls below it — thresholds keep their absolute positions
+   and compress upward; a real value is never clipped. */
+body { padding: 24px; }
+.page-title { font-size: 17px; font-weight: 700; margin-bottom: 3px; }
+.page-sub { font-size: 12px; color: var(--cp-ink-3); margin-bottom: 20px; max-width: 60rem; }
+.compare { display: flex; gap: 20px; flex-wrap: wrap; }
+.case { width: 396px; }
+.case .caption { font-size: 12px; color: var(--cp-ink-2); margin: 10px 2px 0; line-height: 1.5; }
+.case .caption b { color: var(--cp-ink); }
+
+/* mini panel fragment: identity line + trend section (panel styling) */
+.frag { padding: 14px 0 4px; }
+.fraghd { display: flex; align-items: center; gap: 10px; padding: 0 18px 10px; }
+.fraghd .gchip { min-width: 30px; height: 30px; font-size: 13.5px; }
+.fraghd .nm { font-weight: 700; font-size: 14px; }
+.fraghd .ad { font-size: 11px; color: var(--cp-ink-3); }
+.trendsec { margin: 0 18px 14px; padding: 10px 12px 8px;
+  background: var(--cp-surface-2); border: 1px solid var(--cp-hairline);
+  border-radius: 8px; }
+.trendsec svg { display: block; width: 100%; height: auto; margin-top: 6px; }
+/* hover a mark: it enlarges, the rest of the graph dims */
+.trendsec svg .tp { transform-box: fill-box; transform-origin: center;
+  transition: transform .15s ease, opacity .15s ease; cursor: pointer; }
+.trendsec svg .grid, .trendsec svg .tline { transition: opacity .15s ease; }
+.trendsec svg .tp:hover { transform: scale(1.7); }
+.trendsec svg:has(.tp:hover) .tp:not(:hover),
+.trendsec svg:has(.tp:hover) .grid,
+.trendsec svg:has(.tp:hover) .tline { opacity: .3; }
+.trendhd { display: flex; align-items: baseline; justify-content: space-between; }
+.trendhd .caps-label { font-size: 12px; }
+.trendlegend { display: flex; gap: 18px; margin-top: 5px; }
+.trendlegend span { display: inline-flex; align-items: center; gap: 7px;
+  font-size: 12.5px; color: var(--cp-ink-3); }
+.trendlegend .ring { width: 11px; height: 11px; border-radius: 50%; display: inline-block;
+  border: 1.5px dashed var(--cp-ink-3); }
+.trendlegend .dia { width: 9px; height: 9px; display: inline-block;
+  border: 1.5px dashed var(--cp-ink-3); transform: rotate(45deg); }
+.trendlegend .tick { width: 3px; height: 12px; background: var(--cp-ink-3); display: inline-block; }
+
+.mock-controls { position: fixed; right: 12px; bottom: 10px; }
+.mock-controls button { font: 600 11px/1 var(--cp-font); padding: 6px 10px;
+  border-radius: 6px; border: 1px solid var(--cp-hairline);
+  background: var(--cp-surface-2); color: var(--cp-ink-2); cursor: pointer; }
+</style>
+</head>
+<body>
+<div class="page-title">Trend scale under stress — the two shapes</div>
+<div class="page-sub">
+  Rule: the y-domain is <b>absolute over the grade bands</b>, resting at 100→55 so the F threshold is always
+  in frame. When a real score falls below the resting floor, the domain <b>extends to include it</b> —
+  thresholds hold their absolute values and compress upward, and the dip reads as how far below F it truly went.
+  A real value is never clipped; the range is never normalized to the data.
+</div>
+
+<div class="compare">
+
+  <!-- Case 1: never below C — resting domain 100→55 -->
+  <div class="case">
+    <div class="frag card">
+      <div class="fraghd">
+        <span class="gchip" style="background:var(--cp-grade-c)">C</span>
+        <div>
+          <div class="nm">Golden Dragon Express</div>
+          <div class="ad">Only ever C or above — resting domain (100→55)</div>
+        </div>
+      </div>
+      <div class="trendsec">
+        <div class="trendhd"><span class="caps-label">Trend · 6 visits</span></div>
+        <svg viewBox="0 0 364 110">
+          <line class="grid" x1="0" y1="24" x2="344" y2="24" stroke="var(--cp-hairline)"/>
+          <line class="grid" x1="0" y1="40" x2="344" y2="40" stroke="var(--cp-hairline)"/>
+          <line class="grid" x1="0" y1="56" x2="344" y2="56" stroke="var(--cp-hairline)"/>
+          <line class="grid" x1="0" y1="72" x2="344" y2="72" stroke="var(--cp-grade-f)" stroke-opacity=".45" stroke-dasharray="4 4"/>
+          <text class="grid" x="352" y="20"   font-size="13" fill="var(--cp-ink-3)">A</text>
+          <text class="grid" x="352" y="52.5" font-size="13" fill="var(--cp-ink-3)">C</text>
+          <text class="grid" x="352" y="80.5" font-size="13" fill="var(--cp-grade-f)" fill-opacity=".85">F</text>
+          <polyline class="tline" points="10,32 75,33.6 140,40 271,43.2 336,46.4" fill="none" stroke="var(--cp-ink-3)" stroke-width="2"/>
+          <circle class="tp" cx="10"  cy="32"   r="5.5" fill="var(--cp-grade-b)"/>
+          <circle class="tp" cx="75"  cy="33.6" r="5.5" fill="var(--cp-grade-b)"/>
+          <circle class="tp" cx="140" cy="40"   r="5.5" fill="var(--cp-grade-b)"/>
+          <line class="tp" x1="206" y1="78" x2="206" y2="90" stroke="var(--cp-ink-3)" stroke-width="3"/>
+          <circle class="tp" cx="271" cy="43.2" r="5.5" fill="var(--cp-grade-c)"/>
+          <circle class="tp" cx="336" cy="46.4" r="5.5" fill="var(--cp-grade-c)"/>
+          <text class="grid nums" x="0"   y="102" font-size="13" fill="var(--cp-ink-3)" text-anchor="start">2025-03</text>
+          <text class="grid nums" x="364" y="102" font-size="13" fill="var(--cp-ink-3)" text-anchor="end">2026-07</text>
+        </svg>
+        <div class="trendlegend">
+          <span><i class="ring"></i>broad score</span>
+          <span><i class="dia"></i>re-check</span>
+          <span><i class="tick"></i>scope unknown</span>
+        </div>
+      </div>
+    </div>
+    <div class="caption"><b>85 · 84 · 80 · scope-unknown event · 78 · 76.</b> The line lives in the B/C bands and
+      the gap to the dashed F line stays visibly wide the whole way — "slipping, but never close to failing."</div>
+  </div>
+
+  <!-- Case 2: one 29 in an A history — domain extends 100→25 -->
+  <div class="case">
+    <div class="frag card">
+      <div class="fraghd">
+        <span class="gchip" style="background:var(--cp-grade-a)">A</span>
+        <div>
+          <div class="nm">Blue Heron Diner</div>
+          <div class="ad">Usually A — one visit scored 29 — extended domain (100→25)</div>
+        </div>
+      </div>
+      <div class="trendsec">
+        <div class="trendhd"><span class="caps-label">Trend · 6 visits</span></div>
+        <svg viewBox="0 0 364 110">
+          <line class="grid" x1="0" y1="17.6" x2="344" y2="17.6" stroke="var(--cp-hairline)"/>
+          <line class="grid" x1="0" y1="27.2" x2="344" y2="27.2" stroke="var(--cp-hairline)"/>
+          <line class="grid" x1="0" y1="36.8" x2="344" y2="36.8" stroke="var(--cp-hairline)"/>
+          <line class="grid" x1="0" y1="46.4" x2="344" y2="46.4" stroke="var(--cp-grade-f)" stroke-opacity=".45" stroke-dasharray="4 4"/>
+          <text class="grid" x="352" y="15"   font-size="13" fill="var(--cp-ink-3)">A</text>
+          <text class="grid" x="352" y="34.5" font-size="13" fill="var(--cp-ink-3)">C</text>
+          <text class="grid" x="352" y="66"   font-size="13" fill="var(--cp-grade-f)" fill-opacity=".85">F</text>
+          <polyline class="tline" points="10,15.7 75,13.8 140,76.2 271,19.5 336,16.6" fill="none" stroke="var(--cp-ink-3)" stroke-width="2"/>
+          <circle class="tp" cx="10"  cy="15.7" r="5.5" fill="var(--cp-grade-a)"/>
+          <circle class="tp" cx="75"  cy="13.8" r="5.5" fill="var(--cp-grade-a)"/>
+          <circle class="tp" cx="140" cy="76.2" r="5.5" fill="var(--cp-grade-f)"/>
+          <g class="tp"><rect x="200.5" y="8.5" width="11" height="11" transform="rotate(45 206 14)" fill="var(--cp-grade-a)"/></g>
+          <circle class="tp" cx="271" cy="19.5" r="5.5" fill="var(--cp-grade-b)"/>
+          <circle class="tp" cx="336" cy="16.6" r="5.5" fill="var(--cp-grade-a)"/>
+          <text class="grid nums" x="154" y="82" font-size="13" font-weight="700" fill="var(--cp-grade-f)">29</text>
+          <text class="grid nums" x="0"   y="102" font-size="13" fill="var(--cp-ink-3)" text-anchor="start">2025-03</text>
+          <text class="grid nums" x="364" y="102" font-size="13" fill="var(--cp-ink-3)" text-anchor="end">2026-07</text>
+        </svg>
+        <div class="trendlegend">
+          <span><i class="ring"></i>broad score</span>
+          <span><i class="dia"></i>re-check</span>
+          <span><i class="tick"></i>scope unknown</span>
+        </div>
+      </div>
+    </div>
+    <div class="caption"><b>92 · 94 · 29 · re-check diamond · 88 · 91.</b> The domain stretches to hold the 29:
+      the threshold lines squeeze into the upper half, the dip crashes through the dashed F line to
+      near the floor with its score labeled beside it, and the recovery climbs all the way back to A.</div>
+  </div>
+
+</div>
+
+<div class="mock-controls">
+  <button onclick="document.documentElement.classList.toggle('theme-light')">theme</button>
+</div>
+</body>
+</html>
