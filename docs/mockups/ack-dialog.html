@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CleanPlateVA — ack dialog mockup (CRD-M1)</title>
+<link rel="stylesheet" href="tokens.css">
+<style>
+/* First-load acknowledgement over the empty basemap (C2, D-ACK-1..3).
+   Anatomy is the Cannon-polished shipped one — title alone, inset
+   scrollable terms box with a persistent scrollbar, Decline left /
+   Agree right — restyled in the ratified tokens. */
+html, body { height: 100%; overflow: hidden; }
+
+/* --- the empty basemap + ghosted shell behind the dialog --- */
+.map-ground {
+  position: fixed; inset: 0; background: var(--cp-basemap);
+}
+.map-ground::after {   /* faint tile grid so "empty map" reads as a map */
+  content: ""; position: absolute; inset: 0; opacity: .5;
+  background-image:
+    linear-gradient(var(--cp-hairline) 1px, transparent 1px),
+    linear-gradient(90deg, var(--cp-hairline) 1px, transparent 1px);
+  background-size: 256px 256px;
+}
+.shell-top {
+  position: fixed; top: 12px; left: 12px; right: 12px; z-index: 2;
+  display: flex; gap: 10px; align-items: center; pointer-events: none;
+}
+.brand {
+  display: flex; align-items: center; gap: 8px; padding: 9px 14px;
+  font-weight: 700; font-size: 14.5px;
+}
+.brand .plate { width: 18px; height: 18px; border-radius: 50%;
+  border: 2.5px solid var(--cp-accent); position: relative; }
+.searchbar {
+  flex: 1; max-width: 420px; display: flex; align-items: center; gap: 8px;
+  padding: 9px 14px; color: var(--cp-ink-3); font-size: 13px;
+}
+.attrib {
+  position: fixed; right: 8px; bottom: 8px; z-index: 2;
+  font-size: 10px; color: var(--cp-ink-3); opacity: .8;
+}
+
+/* --- scrim + dialog --- */
+.scrim { position: fixed; inset: 0; background: var(--cp-scrim); z-index: 10;
+  backdrop-filter: blur(2px); }
+.dialog-wrap {
+  position: fixed; inset: 0; z-index: 11;
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+}
+.ack-dialog {
+  width: min(41rem, 100%);
+  max-height: min(86vh, 720px);
+  display: flex; flex-direction: column;
+  padding: 22px 22px 18px;
+}
+.ack-dialog h1 {
+  font-size: 17px; font-weight: 700; letter-spacing: .01em;
+  text-align: center; margin-bottom: 14px;
+}
+.terms-box {
+  align-self: center;
+  width: min(36rem, 100%);
+  background: var(--cp-bg);
+  border: 1px solid var(--cp-hairline);
+  border-radius: var(--cp-r-control);
+  padding: 4px 2px 4px 0;
+  min-height: 0; flex: 1;
+}
+.terms-scroll {
+  height: 100%; max-height: 46vh;
+  overflow-y: scroll;               /* persistent scrollbar, by design */
+  padding: 12px 16px;
+  scrollbar-width: thin; scrollbar-color: var(--cp-ink-3) transparent;
+}
+.terms-scroll::-webkit-scrollbar { width: 10px; }
+.terms-scroll::-webkit-scrollbar-thumb { background: var(--cp-surface-3); border-radius: 5px; }
+.terms-scroll h3 {
+  font-size: 12.5px; font-weight: 700; margin: 14px 0 6px;
+}
+.terms-scroll h3:first-child { margin-top: 0; }
+.terms-scroll p, .terms-scroll li {
+  font-size: 12.5px; color: var(--cp-ink-2); margin-bottom: 8px;
+}
+.terms-scroll ul { padding-left: 18px; margin-bottom: 8px; }
+.terms-scroll li { margin-bottom: 3px; }
+.terms-scroll a { color: var(--cp-accent); }
+.ack-actions {
+  display: flex; gap: 10px; justify-content: center; align-items: center;
+  padding-top: 16px;
+}
+@media (max-width: 560px) {
+  .dialog-wrap { padding: 0; align-items: flex-end; }
+  .ack-dialog { width: 100%; max-height: 92vh; border-radius: 14px 14px 0 0; }
+  .ack-actions { flex-direction: column-reverse; }
+  .ack-actions .btn { width: 100%; }
+}
+
+/* mockup-only controls */
+.mock-controls { position: fixed; left: 10px; bottom: 10px; z-index: 50;
+  display: flex; gap: 8px; }
+.mock-controls button { font: 600 11px/1 var(--cp-font); padding: 6px 10px;
+  border-radius: 6px; border: 1px solid var(--cp-hairline);
+  background: var(--cp-surface-2); color: var(--cp-ink-2); cursor: pointer; }
+</style>
+</head>
+<body>
+  <div class="map-ground"></div>
+
+  <!-- the shell behind the dialog: brand + search render but nothing is live
+       and nothing has fetched (C2: zero data requests until answered) -->
+  <div class="shell-top">
+    <div class="brand card"><span class="plate"></span>CleanPlateVA</div>
+    <div class="searchbar card">Search name, address, city, or ZIP</div>
+  </div>
+  <div class="attrib">© CARTO · © OpenStreetMap contributors</div>
+
+  <div class="scrim"></div>
+  <div class="dialog-wrap">
+    <div class="ack-dialog card" role="dialog" aria-modal="true" aria-labelledby="ackTitle">
+      <h1 id="ackTitle">Terms of Use and Data Acknowledgment</h1>
+
+      <div class="terms-box">
+        <div class="terms-scroll">
+          <h3>Inspection Records and Source Data</h3>
+          <p>CleanPlateVA collects, organizes, and presents publicly available food establishment inspection records published by the Virginia Department of Health through <a href="#">MyHealthDepartment</a>.</p>
+          <p>CleanPlateVA is an independent service and is not affiliated with, operated by, or endorsed by the Virginia Department of Health or MyHealthDepartment.</p>
+          <p>Inspection information displayed on this site is an archived snapshot and may not reflect the most recent information available from VDH. The original VDH inspection record remains the authoritative source. Users should consult the source record when current or official information is required.</p>
+
+          <h3>CleanPlateVA Scores and Grades</h3>
+          <p>Scores, letter grades, compliance percentages, trends, flags, classifications, and other summaries displayed by CleanPlateVA are calculated by CleanPlateVA from the underlying inspection records.</p>
+          <p>These calculations are not issued or approved by VDH and should not be interpreted as official restaurant grades, food safety certifications, health-risk assessments, or predictions of whether a person will become ill.</p>
+          <p>CleanPlateVA provides these calculations as a tool for comparing and reviewing inspection histories. They are provided as is, without warranty as to accuracy, completeness, or suitability for any particular purpose.</p>
+
+          <h3>Location Data</h3>
+          <p>Restaurant locations and map coordinates are compiled from public and open geographic data sources, including:</p>
+          <ul>
+            <li>Virginia Geographic Information Network (VGIN), Virginia Department of Emergency Management</li>
+            <li>U.S. Census Bureau Geocoder and Gazetteer</li>
+            <li>OpenStreetMap and Nominatim</li>
+            <li>Overture Maps Foundation</li>
+            <li>Foursquare OS Places</li>
+          </ul>
+          <p>Some locations are approximate. Certain locations may also be manually placed or corrected by CleanPlateVA based on available source information.</p>
+
+          <h3>Data and Map Attribution</h3>
+          <ul>
+            <li><strong>Inspection records:</strong> Virginia Department of Health, via <a href="#">MyHealthDepartment</a>.</li>
+            <li><strong>Address data:</strong> <a href="#">Virginia Geographic Information Network (VGIN)</a>, Virginia Department of Emergency Management.</li>
+            <li><strong>Geocoding:</strong> <a href="#">U.S. Census Bureau Geocoder and Gazetteer</a>.</li>
+            <li><strong>Map data and geocoding:</strong> © <a href="#">OpenStreetMap</a> contributors. OpenStreetMap data is made available under the <a href="#">Open Database License (ODbL)</a>.</li>
+            <li><strong>Places data:</strong> <a href="#">Overture Maps Foundation</a>, including data made available under <a href="#">CDLA-Permissive 2.0</a> and other applicable open licenses.</li>
+            <li><strong>Places data:</strong> <a href="#">Foursquare OS Places</a>, © 2024 Foursquare Labs, Inc., made available under the <a href="#">Apache License 2.0</a>.</li>
+            <li><strong>Basemap:</strong> © <a href="#">CARTO</a> and © <a href="#">OpenStreetMap</a> contributors.</li>
+          </ul>
+          <p>CleanPlateVA’s independently calculated scores, grades, classifications, and presentation may be cited with credit to CleanPlateVA. No additional license to CleanPlateVA-created material is granted by these terms.</p>
+
+          <h3>Acknowledgment</h3>
+          <p>By selecting “Agree and View Grades”, you acknowledge that you have read and understood these terms and that CleanPlateVA’s scores and grades are independent calculations rather than official VDH ratings.</p>
+          <p>If you do not agree, you may continue using the basic map without CleanPlateVA inspection grades.</p>
+          <p>Your selection will be remembered on this device and can be changed later from the About page.</p>
+        </div>
+      </div>
+
+      <div class="ack-actions">
+        <button class="btn btn-danger">Decline and Use Basic Map</button>
+        <button class="btn btn-primary">Agree and View Grades</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="mock-controls">
+    <button onclick="document.documentElement.classList.toggle('theme-light')">theme</button>
+  </div>
+</body>
+</html>

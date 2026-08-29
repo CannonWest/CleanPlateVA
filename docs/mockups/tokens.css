@@ -1,0 +1,119 @@
+/* ============================================================
+   CleanPlateVA CR tokens — "slate & signal" (ratified CRD-M1, 2026-08-29)
+   Dark is the document default; .theme-light on <html> flips the theme.
+   At CRF these become the Tailwind v4 @theme vocabulary; the style tile
+   (style-tile.html) is the reviewed spec of this file.
+   ============================================================ */
+:root {
+  /* dark (default) */
+  --cp-bg: #0f1214;
+  --cp-surface-1: #16191c;
+  --cp-surface-2: #1d2126;
+  --cp-surface-3: #242a31;
+  --cp-hairline: rgba(255, 255, 255, .09);
+  --cp-ink: #e9ecef;
+  --cp-ink-2: #adb5bd;
+  --cp-ink-3: #7d868f;
+  --cp-accent: #4dabf7;
+  --cp-accent-solid: #1c7ed6;
+  --cp-accent-ink: #ffffff;
+  --cp-danger: #ff8787;
+  --cp-danger-solid: #e03131;
+  --cp-focus: #4dabf7;
+  --cp-shadow: none;
+  --cp-scrim: rgba(4, 6, 8, .62);
+  --cp-basemap: #0e0e0e;
+  --cp-marker-ring: rgba(255, 255, 255, .85);
+
+  /* grade ramp — mode-invariant (validated 2026-08-29; letter always rides).
+     B is Cannon's call: yellow-green #94be1b (blue is NEW's alone) — the best
+     of that family by the numbers (deutan worst 3.8 B↔C, normal worst 14.4
+     A↔B, carried by the always-present letters); F darkened to #a61e1e fixes
+     the live site's D↔F normal-vision failure (7.6 → ~15). */
+  --cp-grade-a: #2f9e44;
+  --cp-grade-b: #94be1b;
+  --cp-grade-c: #f59f00;
+  --cp-grade-d: #e8590c;
+  --cp-grade-f: #a61e1e;
+  --cp-grade-none: #868e96;
+  --cp-new: #1c7ed6;
+  --cp-closed: #9aa0a6;
+  --cp-lite: #8d939c;
+
+  --cp-r-control: 6px;
+  --cp-r-card: 10px;
+  --cp-r-pill: 999px;
+
+  --cp-font: system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+.theme-light {
+  --cp-bg: #f4f6f8;
+  --cp-surface-1: #ffffff;
+  --cp-surface-2: #f8f9fa;
+  --cp-surface-3: #eef1f4;
+  --cp-hairline: rgba(16, 24, 32, .12);
+  --cp-ink: #1d2129;
+  --cp-ink-2: #495057;
+  --cp-ink-3: #868e96;
+  --cp-accent: #1971c2;
+  --cp-accent-solid: #1c7ed6;
+  --cp-accent-ink: #ffffff;
+  --cp-danger: #c92a2a;
+  --cp-danger-solid: #e03131;
+  --cp-focus: #1c7ed6;
+  --cp-shadow: 0 1px 2px rgba(16, 24, 32, .06), 0 4px 16px rgba(16, 24, 32, .08);
+  --cp-scrim: rgba(24, 30, 36, .45);
+  --cp-basemap: #eae8e4;
+  --cp-marker-ring: rgba(255, 255, 255, .95);
+}
+
+/* --- shared primitives the mockups build from --- */
+* { box-sizing: border-box; margin: 0; }
+body {
+  font-family: var(--cp-font);
+  background: var(--cp-bg);
+  color: var(--cp-ink);
+  line-height: 1.45;
+  font-size: 14px;
+}
+.nums { font-variant-numeric: tabular-nums; }
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  font: 600 13.5px/1 var(--cp-font);
+  padding: 10px 16px; border-radius: var(--cp-r-control);
+  border: 1px solid transparent; cursor: pointer; text-decoration: none;
+}
+.btn-primary { background: var(--cp-accent-solid); color: var(--cp-accent-ink); }
+.btn-danger { background: var(--cp-danger-solid); color: #fff; }
+.btn-outline { background: transparent; color: var(--cp-accent); border-color: var(--cp-accent); }
+.btn-outline-danger { background: transparent; color: var(--cp-danger); border-color: var(--cp-danger); }
+.btn-ghost { background: var(--cp-surface-2); color: var(--cp-ink); border-color: var(--cp-hairline); }
+.btn:focus-visible { outline: 2px solid var(--cp-focus); outline-offset: 2px; }
+
+.gchip {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 28px; height: 28px; padding: 0 7px;
+  border-radius: var(--cp-r-pill); font-weight: 700; font-size: 12.5px; color: #fff;
+}
+
+.card {
+  background: var(--cp-surface-1); color: var(--cp-ink);
+  border: 1px solid var(--cp-hairline); border-radius: var(--cp-r-card);
+  box-shadow: var(--cp-shadow);
+}
+
+.caps-label {
+  font-size: 10.5px; font-weight: 600; color: var(--cp-ink-3);
+  text-transform: uppercase; letter-spacing: .07em;
+}
+
+/* Icons are Lucide (ISC), inlined as 24x24 stroke SVGs in the mockups and
+   vendored tree-shaken (lucide npm) at CRF. Never an icon font, never emoji
+   (ratified CRD-M1). */
+.icon {
+  width: 16px; height: 16px; flex: none;
+  stroke: currentColor; stroke-width: 2; fill: none;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+.icon.sm { width: 13px; height: 13px; }
