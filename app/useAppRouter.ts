@@ -39,8 +39,11 @@ export interface RouterActions {
     setGrade(grade: string): void
     /** Persists to localStorage, then updates state + URL (D-URL-4). */
     setFlag(field: FlagField, value: boolean): void
-    /** Select a facility (`permit` in the URL, pushState) or clear it. */
+    /** Select a facility (`permit` in the URL, pushState — Back closes). */
     select(permit: string | null): void
+    /** Close the panel from its own control: replaceState, never a push —
+     *  Back still walks history the way the visitor built it (C6). */
+    closePanel(): void
     setSort(sort: Sort): void
     setPage(page: number): void
 }
@@ -188,6 +191,9 @@ export function useAppRouter(mode: string): [AppState, RouterActions] {
         },
         select(permit) {
             act({ type: 'permit-set', permit }, { push: true })
+        },
+        closePanel() {
+            act({ type: 'permit-set', permit: null })
         },
         setSort(sort) {
             act({ type: 'sort-set', sort })
