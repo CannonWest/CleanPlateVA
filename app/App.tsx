@@ -7,13 +7,14 @@
  * build the dialog here).
  */
 import { useEffect, useMemo, useState } from 'react'
-import { ACK_AGREED, ACK_DECLINED, createAckState, forceLiteFromSearch } from './ack'
+import { ACK_DECLINED, createAckState, forceLiteFromSearch } from './ack'
 import { createFoodApi } from './data/client'
 import { DataProvider, useRoster } from './data/provider'
 import { matchesFilters } from './search'
 import { applyThemeClass, persistTheme, storedDark } from './theme'
 import { useAppRouter } from './useAppRouter'
 import { AboutView } from './AboutView'
+import { AckDialog } from './AckDialog'
 import { DetailPanel } from './DetailPanel'
 import type { DetailState } from './DetailPanel'
 import { ListView } from './ListView'
@@ -60,6 +61,21 @@ function Shell({ forceLite, ack }: {
     const showTerms = () => {
         actions.setView('about')
         setTermsIntent(true)
+    }
+
+    // The acknowledgement (§6.1): BLOCKING on an undecided first load (the
+    // provider is already withholding every fetch, C2); re-openable from
+    // About §06's declined-side action any later time.
+    const blocking = !forceLite && roster.status === 'awaiting-ack'
+    const [termsOpen, setTermsOpen] = useState(false)
+    const decide = (value: string, persist = true) => {
+        const changed = ack.value !== value
+        ack.set(value, { persist })
+        setTermsOpen(false)
+        // The tier is about to flip; a selection from the old tier must
+        // not outlive it (the old _decideAck discipline).
+        if (changed && state.permit) actions.closePanel()
+        reload()
     }
 
     const [dark, setDark] = useState(storedDark)
@@ -115,7 +131,9 @@ function Shell({ forceLite, ack }: {
                 onSelect={(pid) => actions.select(pid)}
             />
 
-            {state.view !== 'map' ? (
+            {blocking ? (
+                <GhostShell />
+            ) : state.view !== 'map' ? (
                 // List and About are scrolling DOCUMENTS (§6.3/§6.4): the
                 // band rides in the flow at the top; content scrolls under it.
                 <div className="absolute inset-0 z-10 overflow-y-auto bg-cp-bg">
@@ -155,15 +173,7 @@ function Shell({ forceLite, ack }: {
                                 ack.set(ACK_DECLINED)
                                 reload()
                             }}
-                            onReviewTerms={() => {
-                                // INTERIM until CRVb-M2's dialog: the visitor is
-                                // directly under the full §06 document here, so
-                                // the action agrees outright — proof-strip
-                                // parity; the dialog replaces this next
-                                // milestone (production untouched, C4).
-                                ack.set(ACK_AGREED)
-                                reload()
-                            }}
+                            onReviewTerms={() => setTermsOpen(true)}
                             scrollToTerms={termsIntent}
                             onTermsShown={() => setTermsIntent(false)}
                         />
@@ -192,26 +202,43 @@ function Shell({ forceLite, ack }: {
                 />
             )}
 
-            <ThemeSwitch
-                dark={dark}
-                onTheme={(next) => {
-                    setDark(next)
-                    persistTheme(next)
-                }}
-            />
-
-            {state.view === 'map' && <Attribution onTerms={showTerms} />}
-
-            {!forceLite && roster.status !== 'loading' && (
-                <AckStrip
-                    undecided={roster.status === 'awaiting-ack'}
-                    agreed={ack.agreed}
-                    onAnswer={(value) => {
-                        ack.set(value)
-                        reload()
+            {!blocking && (
+                <ThemeSwitch
+                    dark={dark}
+                    onTheme={(next) => {
+                        setDark(next)
+                        persistTheme(next)
                     }}
                 />
             )}
+
+            {state.view === 'map' && !blocking && <Attribution onTerms={showTerms} />}
+
+            {(blocking || termsOpen) && (
+                <AckDialog
+                    blocking={blocking}
+                    onDecide={(value) => decide(value)}
+                    onEscapeDecline={() => decide(ACK_DECLINED, false)}
+                    onClose={() => setTermsOpen(false)}
+                />
+            )}
+        </div>
+    )
+}
+
+/** The first-load shell behind the blocking dialog (§6.1): brand + search
+ *  render but nothing is live and nothing has fetched (C2) — the empty
+ *  basemap shows through beneath the scrim. */
+function GhostShell() {
+    return (
+        <div className="pointer-events-none fixed top-3 right-3 left-3 z-10 flex items-center gap-2.5" aria-hidden="true">
+            <div className="flex items-center gap-2 rounded-cp-card border border-cp-hairline bg-cp-surface-1 px-3.5 py-2 text-[14.5px] font-bold shadow-cp">
+                <span className="h-[18px] w-[18px] rounded-full border-[2.5px] border-cp-accent" />
+                CleanPlateVA
+            </div>
+            <div className="max-w-[420px] flex-1 rounded-cp-pill border border-cp-hairline bg-cp-surface-1 px-3.5 py-2 text-[13px] text-cp-ink-3 shadow-cp">
+                Search name, address, city, or ZIP
+            </div>
         </div>
     )
 }
@@ -243,36 +270,3 @@ function Attribution({ inline = false, onTerms }: {
     )
 }
 
-/** PROOF SCAFFOLDING (CRF-M1, restyled): stands in for the §6.1 ack dialog
- *  until CRV-b. Speaks the ratified action colors — blue is the way to the
- *  grades, red is the way to the basic map (§6.0). */
-function AckStrip({ undecided, agreed, onAnswer }: {
-    undecided: boolean
-    agreed: boolean
-    onAnswer: (value: string) => void
-}) {
-    return (
-        <section className="fixed bottom-12 left-1/2 z-20 -translate-x-1/2 rounded-cp-card border border-cp-hairline bg-cp-surface-1/95 px-3 py-2 text-center shadow-cp">
-            <p className="text-[11px] text-cp-ink-3">
-                Proof scaffolding — the acknowledgment dialog arrives with CRV-b.
-                {' '}{undecided ? 'Nothing is fetched until you answer.' : agreed ? 'Grades are on.' : 'Basic map.'}
-            </p>
-            <div className="mt-1.5 flex items-center justify-center gap-2">
-                <button
-                    type="button"
-                    onClick={() => onAnswer(ACK_DECLINED)}
-                    className="rounded-cp-control bg-cp-danger-solid px-2.5 py-1 text-[12px] font-semibold text-white"
-                >
-                    Decline (proof)
-                </button>
-                <button
-                    type="button"
-                    onClick={() => onAnswer(ACK_AGREED)}
-                    className="rounded-cp-control bg-cp-accent-solid px-2.5 py-1 text-[12px] font-semibold text-cp-accent-ink"
-                >
-                    Agree (proof)
-                </button>
-            </div>
-        </section>
-    )
-}
