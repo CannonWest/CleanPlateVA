@@ -14,8 +14,18 @@
  *     the letter always rides the color, §6.0) — graded facilities only;
  *   · declining = a DASHED ring in the marker's own grade color (was the
  *     old client's F-red stroke), active graded facilities only;
- *   · stacks are NEUTRAL count bubbles — the old mean-grade tint retired
- *     with proximity clustering (the map judges places, not points).
+ *   · stacks are NEUTRAL count bubbles (their PAINT carries no judgment).
+ *
+ * Proximity clustering revived (Cannon's preview call, 2026-08-30): every
+ * feature also carries the cluster accumulator inputs — `stack` (1 for a
+ * lone place, so a cluster counts PLACES rather than the points it drew
+ * over) and `gradeSum`/`gradeCount` (raw sum + count over the LIVE, scored
+ * places standing on the point, so summing across a cluster yields the
+ * mean over its places; averaging per-point means would weight a lone
+ * diner equally against a 57-permit food court). Closed permits are
+ * excluded — a shuttered restaurant's last grade is not a fact about the
+ * address today — and lite publishes no grades, so both stay 0. The
+ * accumulators must never meet a null (old `markers.js` rule).
  */
 
 import type { Feature, FeatureCollection, Point } from 'geojson'
@@ -31,7 +41,15 @@ export function stackKey(lat: number, lon: number): string {
     return `${lat.toFixed(6)},${lon.toFixed(6)}`
 }
 
-export interface PointProps {
+/** Cluster accumulator inputs, present on EVERY feature (see header). */
+interface ClusterInputs {
+    /** Places standing on this point (1 for a lone facility). */
+    stack: number
+    gradeSum: number
+    gradeCount: number
+}
+
+export interface PointProps extends ClusterInputs {
     kind: 'point'
     pid: string
     fill: string
@@ -42,11 +60,9 @@ export interface PointProps {
     declining: 0 | 1
 }
 
-export interface StackProps {
+export interface StackProps extends ClusterInputs {
     kind: 'stack'
     skey: string
-    /** Member count — the bubble's label and radius step. */
-    stack: number
 }
 
 export type MarkerProps = PointProps | StackProps
@@ -60,16 +76,31 @@ export interface MapData {
     stacks: StackIndex
 }
 
+/** The mean-grade inputs for the places standing on one point. */
+function clusterInputs(members: RosterRow[], lite: boolean): ClusterInputs {
+    const inputs: ClusterInputs = { stack: members.length, gradeSum: 0, gradeCount: 0 }
+    if (lite) return inputs // lite publishes no grades — nothing to average
+    for (const m of members) {
+        if (!isActivePermit(m)) continue
+        const score = facilityPresentation(m).grade?.score
+        if (!Number.isFinite(score)) continue
+        inputs.gradeSum += score as number
+        inputs.gradeCount += 1
+    }
+    return inputs
+}
+
 function pointProps(f: RosterRow, lite: boolean): PointProps {
     const pid = String(f.permit_id)
+    const inputs = clusterInputs([f], lite)
     if (lite) {
         // The finder view: every marker a uniform neutral — the basic map
         // locates places, it doesn't judge them (P6).
-        return { kind: 'point', pid, fill: LITE_MARKER_COLOR, opacity: 0.88, letter: '', declining: 0 }
+        return { kind: 'point', pid, fill: LITE_MARKER_COLOR, opacity: 0.88, letter: '', declining: 0, ...inputs }
     }
     const active = isActivePermit(f)
     if (!active) {
-        return { kind: 'point', pid, fill: CLOSED_COLOR, opacity: 0.42, letter: '', declining: 0 }
+        return { kind: 'point', pid, fill: CLOSED_COLOR, opacity: 0.42, letter: '', declining: 0, ...inputs }
     }
     const view = facilityPresentation(f)
     const letter = view.grade?.letter || ''
@@ -81,6 +112,7 @@ function pointProps(f: RosterRow, lite: boolean): PointProps {
             opacity: 0.88,
             letter: '',
             declining: 0,
+            ...inputs,
         }
     }
     return {
@@ -90,6 +122,7 @@ function pointProps(f: RosterRow, lite: boolean): PointProps {
         opacity: 0.88,
         letter,
         declining: view.declining ? 1 : 0,
+        ...inputs,
     }
 }
 
@@ -119,7 +152,7 @@ export function buildMapData(filtered: RosterRow[], lite: boolean): MapData {
             geometry: { type: 'Point', coordinates },
             properties: members.length === 1
                 ? pointProps(first, lite)
-                : { kind: 'stack', skey: key, stack: members.length },
+                : { kind: 'stack', skey: key, ...clusterInputs(members, lite) },
         })
     }
     return { geojson: { type: 'FeatureCollection', features }, stacks: groups }
