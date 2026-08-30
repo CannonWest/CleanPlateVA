@@ -9,6 +9,17 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>CleanPlateVA — archived VDH inspection finder</title>
+    <script>
+    // Apply the stored theme before first paint to avoid a flash. Dark is
+    // the document default (C10); the key matches app/theme.ts.
+    (function () {
+        try {
+            if (localStorage.getItem('cleanplateva.theme') === 'light') {
+                document.documentElement.classList.add('theme-light');
+            }
+        } catch (e) { /* private mode: dark default stands */ }
+    })();
+    </script>
 </head>
 <body>
     <div id="root"></div>

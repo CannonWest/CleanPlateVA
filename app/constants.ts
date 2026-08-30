@@ -1,8 +1,9 @@
 /**
- * Shared vocabulary for the CR client (CRF-M1) — the subset of the old
- * `static/js/constants.js` the ported data layer and the proof boot actually
- * read. View-layer constants (splitter geometry, hit slop, cluster radii)
- * arrive with the surfaces that use them (CRV).
+ * Shared vocabulary for the CR client (CRF-M1; view-layer rows CRVa-M0) —
+ * the subset of the old `static/js/constants.js` the ported data layer and
+ * the map surface actually read. The redesigned map draws NO proximity
+ * clusters (ratified mockup: dots at every zoom; only same-point stacks
+ * bubble), so the old cluster radii/steps stay retired with `map.js`.
  */
 
 export const RESTAURANTS_ONLY_KEY = 'cleanplateva.food.restaurantsOnly'
@@ -51,9 +52,53 @@ export const VA_BOUNDS: [[number, number], [number, number]] =
     [[-83.7, 36.5], [-75.2, 39.5]]
 export const VA_FIT = { padding: 20 }
 
+// The visitor's persisted theme (dark is the document default, C10).
+export const THEME_KEY = 'cleanplateva.theme'
+
 // MapLibre source + layer ids (data layers re-added on every style swap).
 export const SRC = 'food-facilities'
 export const LYR_POINTS = 'food-points'
+export const LYR_POINT_LETTERS = 'food-point-letters'
+export const LYR_DECLINING = 'food-declining-rings'
+export const LYR_STACKS = 'food-stacks'
+export const LYR_STACK_COUNT = 'food-stack-count'
+
+// ── marker geometry (§6.2 grammar) ─────────────────────────────────────
+// Dots grow with zoom; past LETTER_ZOOM they are large enough to carry
+// their grade letter (the ratified mockup's 21px marker ≈ radius 10.5).
+// [zoom, radius] pairs feed one linear interpolate expression shared by
+// the circle layer and the declining-ring icon-size, so the dashed ring
+// tracks the dot it warns about at every zoom.
+export const POINT_RADIUS_FULL = 10.5 // the z14, letter-carrying dot
+export const POINT_RADIUS_STOPS: ReadonlyArray<readonly [number, number]> =
+    [[5, 3.5], [9, 4.5], [12, 6], [14, POINT_RADIUS_FULL]]
+export const LETTER_ZOOM = 13.5
+export const LETTER_TEXT_SIZE = 11
+
+// Declining ring: dashed, in the marker's own grade color (mockup), drawn
+// as a prerendered image GAP px outside the dot's reference radius.
+export const DECLINING_RING_GAP = 3
+export const DECLINING_RING_BASE_RADIUS = POINT_RADIUS_FULL // drawn at z14 size
+
+// Same-point stacks (count bubbles): core radius by member count, ported
+// from the old `stacks.js` steps (<10 / <50 / 50+) — at full size. The old
+// client only DREW stacks past clusterMaxZoom 12 (proximity clusters
+// absorbed them below); with clustering retired, the equivalent restraint
+// is zoom-scaling: bubbles ride the dots' growth curve and their counts
+// appear once the bubble can carry text.
+export const STACK_RADII = [11, 13, 15] as const
+export const STACK_STEPS = [10, 50] as const
+export const STACK_COUNT_ZOOM = 12
+
+// Neutral stack surfaces per basemap (MapLibre paint can't read CSS vars;
+// layers are re-added on theme swap with the right literals). Values are
+// tokens.css --cp-surface-3 / --cp-ink / --cp-marker-ring.
+export const STACK_SURFACE = { dark: '#242a31', light: '#eef1f4' } as const
+export const STACK_INK = { dark: '#e9ecef', light: '#1d2129' } as const
+export const MARKER_RING = {
+    dark: 'rgba(255, 255, 255, .85)',
+    light: 'rgba(255, 255, 255, .95)',
+} as const
 
 // Highest form item that counts as a foodborne-illness risk factor
 // (cf_lib.RISK_FACTOR_MAX_ITEM). Shared by count chips and receipt math.
