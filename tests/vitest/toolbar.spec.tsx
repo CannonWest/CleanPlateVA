@@ -66,8 +66,6 @@ async function mount(over: {
                     shown={over.shown ?? 25164}
                     total={over.total ?? 25164}
                     panelOpen={false}
-                    dark
-                    onTheme={() => {}}
                 />
             </StrictMode>,
         )

@@ -80,6 +80,11 @@ export const LETTER_TEXT_SIZE = 11
 export const DECLINING_RING_GAP = 3
 export const DECLINING_RING_BASE_RADIUS = POINT_RADIUS_FULL // drawn at z14 size
 
+// Pointer forgiveness (ported): events resolve against a slop-padded box —
+// nobody should have to land on a small dot exactly.
+export const HIT_SLOP_FINE = 10
+export const HIT_SLOP_COARSE = 16
+
 // Same-point stacks (count bubbles): core radius by member count, ported
 // from the old `stacks.js` steps (<10 / <50 / 50+) — at full size. The old
 // client only DREW stacks past clusterMaxZoom 12 (proximity clusters
