@@ -1,23 +1,22 @@
 /**
  * Map hit-testing (CRVa-M1) — ports the old `markers.js` pointer rules to
- * the layer set (proximity clusters + dots + same-point stacks):
+ * the layer set (dots + same-point stacks; no clusters):
  *
  *   · Pointer events resolve against a slop-padded box, so a small dot
  *     answers to a comfortably larger target.
  *   · If the pointer is genuinely INSIDE a mark, the painted z-order wins
- *     (stacks over lone dots over clusters) — slop only ever ADDS reach.
+ *     (stacks over lone dots) — slop only ever ADDS reach.
  *   · Outside every mark, nearest wins by the gap to the mark's EDGE, not
  *     its centre — the rim is what people point at.
  *
  * The radii mirror the LAYER EXPRESSIONS exactly (a hit target that
  *  disagrees with the paint is worse than no slop at all): dots ride the
  * zoom-interpolated curve, stacks ride the same curve scaled over their
- * member-count step, cluster bubbles step by the places they stand for.
+ * member-count step.
  */
 
 import {
-    CLUSTER_RADII, CLUSTER_STEPS, HIT_SLOP_COARSE, HIT_SLOP_FINE,
-    LYR_CLUSTERS, LYR_POINTS, LYR_STACKS,
+    HIT_SLOP_COARSE, HIT_SLOP_FINE, LYR_POINTS, LYR_STACKS,
     POINT_RADIUS_FULL, POINT_RADIUS_STOPS, STACK_RADII, STACK_STEPS,
 } from './constants'
 
@@ -54,30 +53,14 @@ export function stackRadiusAt(zoom: number, count: number): number {
     return full * (pointRadiusAt(zoom) / POINT_RADIUS_FULL)
 }
 
-/** A cluster bubble's radius for the places it stands for — the JS twin
- *  of the layer's `step` expression (fixed size, not zoom-scaled). */
-export function clusterRadiusOf(sum: unknown): number {
-    const n = Number(sum) || 0
-    if (n >= CLUSTER_STEPS[1]) return CLUSTER_RADII[2]
-    return n >= CLUSTER_STEPS[0] ? CLUSTER_RADII[1] : CLUSTER_RADII[0]
-}
-
 /** What a rendered feature's radius is, by the layer it came from. */
-export function markRadius(
-    layerId: string,
-    properties: { stack?: unknown; sum?: unknown } = {},
-    zoom = 14,
-): number {
-    if (layerId === LYR_CLUSTERS) return clusterRadiusOf(properties.sum)
+export function markRadius(layerId: string, properties: { stack?: unknown } = {}, zoom = 14): number {
     if (layerId === LYR_STACKS) return stackRadiusAt(zoom, Number(properties.stack) || 1)
     return pointRadiusAt(zoom)
 }
 
-// Stacks paint above lone dots, dots above cluster bubbles; the rank
-// mirrors that order (the old markers.js values).
-export const MARK_RANK: Record<string, number> = {
-    [LYR_STACKS]: 3, [LYR_POINTS]: 2, [LYR_CLUSTERS]: 1,
-}
+// Stacks paint above lone dots; the rank mirrors that order.
+export const MARK_RANK: Record<string, number> = { [LYR_STACKS]: 2, [LYR_POINTS]: 1 }
 
 export interface MarkCandidate {
     layerId: string
