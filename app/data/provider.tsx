@@ -1,0 +1,63 @@
+// The React binding over the Contract V4 client (design ref §5): ONE
+// provider owns the loaded roster + manifest and exposes it; no fetch
+// happens in any component body — every network read goes through the client
+// module, so the request budget (C3) stays auditable in one file. The
+// provider re-runs the load when the ack answer changes (C2's re-load
+// semantics), and while the first-load answer is still owed it fetches
+// NOTHING (C2: zero data requests until answered).
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import type { ReactNode } from 'react'
+import type { AckState } from '../ack'
+import type { FoodApi } from './client'
+import type { RosterResult } from './types'
+
+export type RosterStatus =
+    | { status: 'awaiting-ack' }
+    | { status: 'loading' }
+    | { status: 'ready'; result: RosterResult }
+
+interface DataContextValue {
+    roster: RosterStatus
+    /** Re-run the load (the ack answer is read through the client's gate). */
+    reload: () => void
+}
+
+const DataContext = createContext<DataContextValue | null>(null)
+
+export function DataProvider({ api, ack, forceLite, children }: {
+    api: FoodApi
+    ack: AckState
+    forceLite: boolean
+    children: ReactNode
+}) {
+    const [roster, setRoster] = useState<RosterStatus>({ status: 'awaiting-ack' })
+    // The ack VALUE is state the provider reacts to; the client reads the
+    // answer itself at call time through its gate.
+    const [ackValue, setAckValue] = useState(ack.value)
+
+    const reload = useCallback(() => setAckValue(ack.value), [ack])
+
+    useEffect(() => {
+        // C2: the deferred first load — an undecided visitor (outside
+        // ?tier=lite) fetches nothing at all.
+        if (!forceLite && !ack.decided) {
+            setRoster({ status: 'awaiting-ack' })
+            return
+        }
+        let alive = true
+        setRoster({ status: 'loading' })
+        void api.getFoodFacilities().then((result) => {
+            if (alive) setRoster({ status: 'ready', result })
+        })
+        return () => { alive = false }
+    }, [api, ack, forceLite, ackValue])
+
+    const value = useMemo(() => ({ roster, reload }), [roster, reload])
+    return <DataContext.Provider value={value}>{children}</DataContext.Provider>
+}
+
+export function useRoster(): DataContextValue {
+    const value = useContext(DataContext)
+    if (!value) throw new Error('useRoster outside DataProvider')
+    return value
+}

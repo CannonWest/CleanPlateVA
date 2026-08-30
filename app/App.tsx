@@ -1,68 +1,96 @@
-// CRF-M0 scaffold proof — deliberately NOT a view. Zero UI beyond proof
-// (briefing scope): this surface exists to prove the token vocabulary
-// (@theme from docs/mockups/tokens.css), the class-based theme flip (C10),
-// Lucide tree-shaken inline SVGs (§6.0), and tabular-nums — then CRF-M1
-// replaces it with the UI-less proof boot (gray basic map + acked merge).
-// The views are CRV's, built to the §6 acceptance specs.
-import { useState } from 'react'
-import { MapPin, SunMedium, MoonStar } from 'lucide-react'
-
-const RAMP = [
-    ['A', 'bg-cp-grade-a'],
-    ['B', 'bg-cp-grade-b'],
-    ['C', 'bg-cp-grade-c'],
-    ['D', 'bg-cp-grade-d'],
-    ['F', 'bg-cp-grade-f'],
-    ['—', 'bg-cp-grade-none'],
-] as const
+// CRF-M1 proof boot — deliberately NOT a view (briefing scope: zero view
+// UI). This surface proves the ported data layer end to end on the Vite dev
+// server: the ack-gated boot (C2: an undecided visitor fetches NOTHING), the
+// gray basic map, the acked overlay merge (dots take the ramp), counts, and
+// `?tier=lite`. The Agree/Decline strip is PROOF SCAFFOLDING standing in
+// for the §6.1 ack dialog; CRV-a builds the real chrome to the acceptance
+// specs and replaces this file's shell.
+import { useMemo, useState } from 'react'
+import { ACK_AGREED, ACK_DECLINED, createAckState, forceLiteFromSearch } from './ack'
+import { createFoodApi } from './data/client'
+import { fmtDate } from './data/presentation'
+import { DataProvider, useRoster } from './data/provider'
+import { ProofMap } from './ProofMap'
 
 export function App() {
-    const [light, setLight] = useState(false)
+    const forceLite = useMemo(() => forceLiteFromSearch(window.location.search), [])
+    const ack = useMemo(() => createAckState(window.localStorage), [])
+    const api = useMemo(
+        () => createFoodApi({ forceLite, isAcknowledged: () => ack.agreed }),
+        [forceLite, ack],
+    )
+    return (
+        <DataProvider api={api} ack={ack} forceLite={forceLite}>
+            <ProofShell
+                forceLite={forceLite}
+                agreed={() => ack.agreed}
+                decide={(value) => ack.set(value)}
+            />
+        </DataProvider>
+    )
+}
 
-    function flipTheme() {
-        const next = !light
-        document.documentElement.classList.toggle('theme-light', next)
-        setLight(next)
+function ProofShell({ forceLite, agreed, decide }: {
+    forceLite: boolean
+    agreed: () => boolean
+    decide: (value: string) => void
+}) {
+    const { roster, reload } = useRoster()
+    const [, bump] = useState(0)
+
+    function answer(value: string) {
+        decide(value)
+        bump((n) => n + 1)
+        reload()
     }
 
     return (
-        <main className="mx-auto max-w-xl p-6">
-            <section className="rounded-cp-card border border-cp-hairline bg-cp-surface-1 p-5 shadow-cp">
-                <div className="flex items-center justify-between gap-3">
-                    <h1 className="flex items-center gap-2 text-lg font-semibold">
-                        <MapPin className="size-5 text-cp-accent" aria-hidden />
-                        CleanPlateVA
-                    </h1>
-                    <button
-                        type="button"
-                        onClick={flipTheme}
-                        className="flex items-center gap-2 rounded-cp-control border border-cp-hairline bg-cp-surface-2 px-3 py-1.5 text-[13px] font-semibold"
-                    >
-                        {light ? <MoonStar className="size-4" aria-hidden /> : <SunMedium className="size-4" aria-hidden />}
-                        {light ? 'Dark' : 'Light'}
-                    </button>
-                </div>
-
-                <p className="mt-2 text-cp-ink-2">
-                    CRF scaffold proof — Vite · React · TypeScript strict · Tailwind v4 ·
-                    Vitest · Lucide. The served site is untouched until CRC.
-                </p>
-
-                <div className="mt-4 flex items-center gap-2" aria-label="grade ramp proof">
-                    {RAMP.map(([letter, color]) => (
-                        <span
-                            key={letter}
-                            className={`${color} flex h-7 min-w-7 items-center justify-center rounded-cp-pill px-2 text-[12.5px] font-bold text-white`}
+        <div className="relative h-dvh w-full">
+            {roster.status === 'ready' && 'facilities' in roster.result && (
+                <ProofMap
+                    facilities={roster.result.facilities}
+                    lite={roster.result.mode === 'lite'}
+                />
+            )}
+            <section className="absolute top-3 left-3 z-10 max-w-sm rounded-cp-card border border-cp-hairline bg-cp-surface-1/95 p-3 shadow-cp">
+                <h1 className="text-[13px] font-semibold">CRF-M1 proof boot</h1>
+                <p className="mt-1 text-[12.5px] text-cp-ink-2 tabular-nums">{statusLine(roster, forceLite)}</p>
+                {!forceLite && (
+                    <div className="mt-2 flex items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={() => answer(ACK_AGREED)}
+                            className="rounded-cp-control bg-cp-accent-solid px-2.5 py-1 text-[12px] font-semibold text-cp-accent-ink"
                         >
-                            {letter}
-                        </span>
-                    ))}
-                </div>
-
-                <p className="mt-4 text-[12.5px] text-cp-ink-3 tabular-nums">
-                    tokens ratified 2026-08-29 · scaffold 2026-08-29
+                            Agree (proof)
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => answer(ACK_DECLINED)}
+                            className="rounded-cp-control bg-cp-danger-solid px-2.5 py-1 text-[12px] font-semibold text-white"
+                        >
+                            Decline (proof)
+                        </button>
+                        <span className="text-[11px] text-cp-ink-3">{agreed() ? 'grades on' : 'basic map'}</span>
+                    </div>
+                )}
+                <p className="mt-2 text-[11px] text-cp-ink-3">
+                    Proof scaffolding — the §6.1 dialog and every view are CRV&apos;s.
                 </p>
             </section>
-        </main>
+        </div>
     )
+}
+
+function statusLine(roster: ReturnType<typeof useRoster>['roster'], forceLite: boolean): string {
+    if (roster.status === 'awaiting-ack') {
+        return 'Awaiting the acknowledgement — nothing fetched (C2).'
+    }
+    if (roster.status === 'loading') return 'Loading…'
+    const result = roster.result
+    if (!('facilities' in result)) return `Unavailable: ${result.reason}`
+    const tier = result.mode === 'full' ? 'grades on' : 'basic map'
+    const override = forceLite ? ' · ?tier=lite' : ''
+    return `${result.facilities.length.toLocaleString()} places · ${tier}${override}`
+        + ` · data ${fmtDate(result.freshness?.newest_report)}`
 }
