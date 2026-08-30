@@ -65,6 +65,15 @@ function detectEmbedded(): boolean {
     }
 }
 
+// The page's OWN title: whatever document.title holds, with any view
+// prefixes stripped. A naive capture re-reads an already prefixed title
+// on any remount (dev HMR, an error-boundary reset) and compounds it
+// ("List · List · …") — the strip heals a polluted capture. The prefixes
+// here mirror titleForView's exactly (same module family, router.ts).
+function baseTitleFrom(title: string): string {
+    return title.replace(/^(?:(?:List|About) · )+/, '')
+}
+
 export function useAppRouter(mode: string): [AppState, RouterActions] {
     const [state, dispatch] = useReducer(appReducer, undefined, initialAppState)
 
@@ -73,7 +82,7 @@ export function useAppRouter(mode: string): [AppState, RouterActions] {
     const env = useMemo(() => ({
         mount: mountFromBaseURI(document.baseURI),
         embedded: detectEmbedded(),
-        baseTitle: document.title,
+        baseTitle: baseTitleFrom(document.title),
     }), [])
 
     // Refs so popstate/boot closures never read stale values.

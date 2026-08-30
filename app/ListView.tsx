@@ -12,9 +12,12 @@
  * The basic map keeps identity columns only (P6): name over address —
  * no judgment column exists on that tier.
  *
- * Sort semantics port the old `list.js` verbatim: the seven C6 keys with
- * their null sentinels (score/compliance −1 · trend 0 · date ''), plain
- * lexicographic/numeric compare, stable within equal keys.
+ * Sort semantics port the old `list.js` — the seven C6 keys with their
+ * comparator forms — with ONE Cannon-directed change (CRVb-M1 boundary,
+ * 2026-08-30): on the VALUE sorts (score/compliance/trend/date), rows
+ * MISSING the sorted value go last in both directions, so "worst first"
+ * leads with the worst actual grades instead of the ungraded/NEW block
+ * the old −1 sentinel floated to the top.
  */
 
 import { useRef } from 'react'
@@ -26,29 +29,42 @@ import type { SortKey } from './router'
 import type { Sort } from './store'
 import type { RosterRow } from './data/types'
 
-/** One row's comparable value for a C6 sort key (old `list.js` `val`). */
-export function sortValue(f: RosterRow, key: SortKey): string | number {
+/** One row's comparable value + whether the row is MISSING that value
+ *  entirely (old `list.js` `val`, plus the missing flag the nulls-last
+ *  rule keys on). */
+export function sortEntry(f: RosterRow, key: SortKey): { v: string | number; missing: boolean } {
     const fp = facilityPresentation(f)
     const assessment = (fp.assessmentRecord ?? {}) as { compliance_rate?: number | null }
     switch (key) {
-        case 'address': return `${f.address || ''} ${f.address2 || ''}`.trim().toLowerCase()
-        case 'name': return (f.name || '').toLowerCase()
-        case 'zip': return f.zip || ''
-        case 'score': return fp.grade?.score ?? -1
-        case 'compliance': return assessment.compliance_rate ?? -1
-        case 'trend': return fp.trendDelta ?? 0
-        case 'date': return fp.latestDate || ''
-        default: return 0
+        case 'address': return { v: `${f.address || ''} ${f.address2 || ''}`.trim().toLowerCase(), missing: false }
+        case 'name': return { v: (f.name || '').toLowerCase(), missing: false }
+        case 'zip': return { v: f.zip || '', missing: false }
+        case 'score': return { v: fp.grade?.score ?? -1, missing: fp.grade?.score == null }
+        case 'compliance': {
+            const rate = assessment.compliance_rate
+            return { v: rate ?? -1, missing: rate == null }
+        }
+        case 'trend': return { v: fp.trendDelta ?? 0, missing: fp.trendDelta == null }
+        case 'date': return { v: fp.latestDate || '', missing: !fp.latestDate }
+        default: return { v: 0, missing: false }
     }
 }
 
-/** Sorted copy — stable within equal keys, direction-aware. Decorated
- *  first so the presentation derivation runs once per ROW, not once per
- *  comparison (the old client paid n·log n derivations per sort). */
+/** The comparable value alone (the old `val` shape, for callers/tests). */
+export function sortValue(f: RosterRow, key: SortKey): string | number {
+    return sortEntry(f, key).v
+}
+
+/** Sorted copy — stable within equal keys, direction-aware, rows missing
+ *  the sorted value LAST in both directions (Cannon's call: worst-first
+ *  means the worst actual grades lead). Decorated first so the
+ *  presentation derivation runs once per ROW, not once per comparison
+ *  (the old client paid n·log n derivations per sort). */
 export function sortRows(rows: RosterRow[], sort: Sort): RosterRow[] {
     return rows
-        .map((f) => ({ f, v: sortValue(f, sort.key) }))
+        .map((f) => ({ f, ...sortEntry(f, sort.key) }))
         .sort((a, b) => {
+            if (a.missing !== b.missing) return a.missing ? 1 : -1
             if (a.v < b.v) return sort.dir === 'asc' ? -1 : 1
             if (a.v > b.v) return sort.dir === 'asc' ? 1 : -1
             return 0
