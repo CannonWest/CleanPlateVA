@@ -9,13 +9,12 @@
  * chips, Show closed, Show newly permitted — and keeps search, Restaurants
  * only, Mobile food units, and the counts (P6).
  *
- * The theme toggle is PROVISIONAL — §6.2's band inventory doesn't name a
- * theme control; it rides at the band's tail pending Cannon's placement
- * call at the M0 review (C10 needs light reachable somehow).
+ * The theme control moved OFF the band at the M0 review (Cannon's call):
+ * it's a real switch in the bottom-left corner now — `ThemeSwitch`.
  */
 
 import { useEffect, useRef, useState } from 'react'
-import { Moon, Search, SlidersHorizontal, Sun, X } from 'lucide-react'
+import { Search, SlidersHorizontal, X } from 'lucide-react'
 import type { RouterActions } from './useAppRouter'
 import type { AppState } from './store'
 import { VIEWS } from './router'
@@ -34,15 +33,13 @@ function canonicalQuery(raw: string): string {
     return raw.trim().toLowerCase().replace(/\s+/g, ' ')
 }
 
-export function Toolbar({ state, actions, lite, shown, total, panelOpen, dark, onTheme }: {
+export function Toolbar({ state, actions, lite, shown, total, panelOpen }: {
     state: AppState
     actions: RouterActions
     lite: boolean
     shown: number
     total: number
     panelOpen: boolean
-    dark: boolean
-    onTheme: (dark: boolean) => void
 }) {
     const { filters } = state
 
@@ -239,16 +236,6 @@ export function Toolbar({ state, actions, lite, shown, total, panelOpen, dark, o
                     <b className="font-bold text-cp-ink">{total.toLocaleString()}</b>
                 )}
             </span>
-
-            <button
-                type="button"
-                aria-label={dark ? 'Switch to the light theme' : 'Switch to the dark theme'}
-                title={dark ? 'Switch to the light theme' : 'Switch to the dark theme'}
-                onClick={() => onTheme(!dark)}
-                className="flex-none text-cp-ink-3 hover:text-cp-ink"
-            >
-                {dark ? <Sun size={15} aria-hidden="true" /> : <Moon size={15} aria-hidden="true" />}
-            </button>
         </header>
     )
 }
