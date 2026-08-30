@@ -52,14 +52,22 @@ test('sort values keep the old list.js sentinels and forms', () => {
     expect(sortValue(graded, 'zip')).toBe('23225')
 })
 
-test('sortRows orders worst-first on score asc and flips on dir', () => {
+test('sortRows: worst actual grades lead; rows missing the value go LAST both directions', () => {
+    // Cannon's CRVb-M1-boundary call: the old −1 sentinel floated the
+    // ungraded/NEW block to the top of worst-first — now graded rows lead
+    // and value-less rows trail on every value sort, asc and desc alike.
     const a = row({ o: { grade_score: 95 } })
     const f = row({ o: { grade_score: 42 } })
     const none = row({})
-    const asc = sortRows([a, f, none], { key: 'score', dir: 'asc' })
-    expect(asc.map((r) => r.permit_id)).toEqual([none.permit_id, f.permit_id, a.permit_id])
-    const desc = sortRows([a, f, none], { key: 'score', dir: 'desc' })
+    const asc = sortRows([a, none, f], { key: 'score', dir: 'asc' })
+    expect(asc.map((r) => r.permit_id)).toEqual([f.permit_id, a.permit_id, none.permit_id])
+    const desc = sortRows([a, none, f], { key: 'score', dir: 'desc' })
     expect(desc.map((r) => r.permit_id)).toEqual([a.permit_id, f.permit_id, none.permit_id])
+    // Same rule on the other value sorts.
+    const dated = row({ o: { latest_yyyymmdd: 20260101 } })
+    const dateless = row({})
+    expect(sortRows([dateless, dated], { key: 'date', dir: 'desc' })[0]?.permit_id)
+        .toBe(dated.permit_id)
     // Stable within equal keys: the input order survives.
     const x = row({ o: { grade_score: 80 } })
     const y = row({ o: { grade_score: 80 } })
