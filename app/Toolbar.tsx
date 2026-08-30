@@ -33,13 +33,16 @@ function canonicalQuery(raw: string): string {
     return raw.trim().toLowerCase().replace(/\s+/g, ' ')
 }
 
-export function Toolbar({ state, actions, lite, shown, total, panelOpen }: {
+export function Toolbar({ state, actions, lite, shown, total, panelOpen, docked = false }: {
     state: AppState
     actions: RouterActions
     lite: boolean
     shown: number
     total: number
     panelOpen: boolean
+    /** Map: a floating fixed band over the canvas. List/About documents:
+     *  the band rides IN the page flow at the top of the scroll. */
+    docked?: boolean
 }) {
     const { filters } = state
 
@@ -90,8 +93,10 @@ export function Toolbar({ state, actions, lite, shown, total, panelOpen }: {
 
     return (
         <header
-            className="fixed top-3 left-3 z-20 flex flex-wrap items-center gap-x-3.5 gap-y-1.5 rounded-cp-card border border-cp-hairline bg-cp-surface-1 px-3 py-2 shadow-cp"
-            style={{
+            className={`z-20 flex flex-wrap items-center gap-x-3.5 gap-y-1.5 rounded-cp-card border border-cp-hairline bg-cp-surface-1 px-3 py-2 shadow-cp ${
+                docked ? 'relative mx-3 mt-3' : 'fixed top-3 left-3'
+            }`}
+            style={docked ? undefined : {
                 maxWidth: panelOpen
                     ? 'min(calc(100vw - 24px), calc(100vw - 448px))'
                     : 'calc(100vw - 24px)',
