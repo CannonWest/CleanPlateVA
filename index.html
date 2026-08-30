@@ -7,6 +7,12 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
+    <!-- The mount (C7, D-CR-EMBED-1): the host serves this file for any view
+         path, so the built asset URLs (./assets/*) and the app's relative
+         data paths resolve from here rather than from the current path. The
+         CannonAI Food tab serves this same file under /cleanplate/ and
+         rewrites this one href; the router reads document.baseURI. -->
+    <base href="/">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>CleanPlateVA — archived VDH inspection finder</title>
     <script>

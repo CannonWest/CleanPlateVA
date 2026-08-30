@@ -61,6 +61,19 @@ describe.skipIf(!built)('dist/ excludes what the build must ignore (§3)', () =>
     })
 })
 
+describe.skipIf(!built)('dist/ ships the app shell complete', () => {
+    // maplibre-gl resolves `maplibre-gl-worker.mjs` against its chunk's URL
+    // at runtime, and the worker imports `./maplibre-gl-shared.mjs` from
+    // beside itself (vite.config.ts maplibreWorkerCopy); either absent, the
+    // SPA fallback answers the request with HTML and the map never loads
+    // (measured on the preview host, 2026-08-30).
+    for (const name of ['maplibre-gl-worker.mjs', 'maplibre-gl-shared.mjs']) {
+        test(`${name} rides beside the main chunk`, () => {
+            expect(existsSync(resolve(DIST, 'assets', name))).toBe(true)
+        })
+    }
+})
+
 if (!built) {
     test('dist-contract needs a build', () => {
         console.warn('[dist-contract] dist/ absent — run `npm run build` first; CI always builds.')
