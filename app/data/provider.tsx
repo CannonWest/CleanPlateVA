@@ -9,7 +9,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import type { ReactNode } from 'react'
 import type { AckState } from '../ack'
 import type { FoodApi } from './client'
-import type { RosterResult } from './types'
+import type { RosterResult, RosterRow } from './types'
 
 export type RosterStatus =
     | { status: 'awaiting-ack' }
@@ -18,6 +18,12 @@ export type RosterStatus =
 
 interface DataContextValue {
     roster: RosterStatus
+    /** The lazy closed supplement (D-DATA-7): fetched once per Full load on
+     *  the first "Show closed" — the boot never pays for it. Failure is
+     *  silent and retryable (the client resets its promise); closed rows
+     *  simply stay absent. */
+    closed: RosterRow[]
+    ensureClosed: () => void
     /** Re-run the load (the ack answer is read through the client's gate). */
     reload: () => void
 }
@@ -31,6 +37,7 @@ export function DataProvider({ api, ack, forceLite, children }: {
     children: ReactNode
 }) {
     const [roster, setRoster] = useState<RosterStatus>({ status: 'awaiting-ack' })
+    const [closed, setClosed] = useState<RosterRow[]>([])
     // The ack VALUE is state the provider reacts to; the client reads the
     // answer itself at call time through its gate.
     const [ackValue, setAckValue] = useState(ack.value)
@@ -46,13 +53,23 @@ export function DataProvider({ api, ack, forceLite, children }: {
         }
         let alive = true
         setRoster({ status: 'loading' })
+        setClosed([]) // a re-load starts a fresh tier; closed re-arms lazy
         void api.getFoodFacilities().then((result) => {
             if (alive) setRoster({ status: 'ready', result })
         })
         return () => { alive = false }
     }, [api, ack, forceLite, ackValue])
 
-    const value = useMemo(() => ({ roster, reload }), [roster, reload])
+    const ensureClosed = useCallback(() => {
+        void api.loadClosed()
+            .then((rows) => setClosed((current) => (current.length ? current : rows)))
+            .catch(() => { /* degrade: the toggle can be flipped again */ })
+    }, [api])
+
+    const value = useMemo(
+        () => ({ roster, closed, ensureClosed, reload }),
+        [roster, closed, ensureClosed, reload],
+    )
     return <DataContext.Provider value={value}>{children}</DataContext.Provider>
 }
 
