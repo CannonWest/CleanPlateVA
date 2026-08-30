@@ -52,8 +52,42 @@ function cpPublicCopy() {
     }
 }
 
+// maplibre-gl v6 spawns its tile/style worker at runtime from
+// `new URL('maplibre-gl-worker.mjs', import.meta.url)` — a URL the bundler
+// never sees, so no worker chunk is emitted and the SPA fallback answers the
+// request with index.html (measured on the preview host 2026-08-30: module-
+// MIME console error, map 'load' never fires, canvas stays empty; dev never
+// hits this — optimizeDeps.exclude serves maplibre's native ESM, which finds
+// the files in node_modules). Ship the package's own worker entry and the
+// one sibling it imports (`./maplibre-gl-shared.mjs`, itself import-free)
+// beside the main chunk, where those runtime URLs resolve — at any mount
+// depth, since both resolve against the requesting module's URL, not the
+// page's. Pinned by tests/vitest/dist-contract.spec.ts.
+const MAPLIBRE_WORKER_FILES = ['maplibre-gl-worker.mjs', 'maplibre-gl-shared.mjs']
+
+function maplibreWorkerCopy() {
+    return {
+        name: 'maplibre-worker-copy',
+        apply: 'build' as const,
+        async closeBundle() {
+            for (const name of MAPLIBRE_WORKER_FILES) {
+                await cp(
+                    resolve(import.meta.dirname, 'node_modules/maplibre-gl/dist', name),
+                    resolve(import.meta.dirname, 'dist/assets', name),
+                )
+            }
+        },
+    }
+}
+
 export default defineConfig({
-    plugins: [react(), tailwindcss(), cpPublicCopy()],
+    plugins: [react(), tailwindcss(), cpPublicCopy(), maplibreWorkerCopy()],
+    // Base-relative asset URLs (D-CR-EMBED-1, C7): the CannonAI Food tab
+    // serves this build under /cleanplate/ behind a rewritten <base href>,
+    // so the built entry must reference ./assets/* and let index.html's
+    // <base> tag resolve them at the mount. Dev is unaffected (the dev
+    // server treats a relative base as '/').
+    base: './',
     // Dev passthrough only; the build copy is the filtered plugin above.
     publicDir: 'public',
     optimizeDeps: {
