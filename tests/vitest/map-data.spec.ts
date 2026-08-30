@@ -5,15 +5,13 @@
  *   · fill = grade color · NEW blue · closed gray+dim · unscored gray ·
  *     basic-map uniform gray (P6: the basic map carries no judgment);
  *   · the LETTER rides only graded, active facilities (§6.0);
- *   · declining = active + graded + negative trend, in the marker's own
- *     grade color (the ring layer keys off the letter);
  *   · same-point rows collapse into ONE stack feature carrying its member
- *     count and NO judgment paint (neutral count bubbles);
- *   · every feature carries the cluster accumulator inputs (stack +
- *     gradeSum/gradeCount over LIVE scored places — closed excluded, lite
- *     zeroed) so proximity clusters can count places and wear the mean
- *     grade (revived 2026-08-30);
+ *     count and NO judgment properties (neutral count bubbles);
  *   · rows without coordinates draw nothing.
+ *
+ * (The 2026-08-30 cluster accumulators and the declining-ring property
+ * were withdrawn on Cannon's live review the same day — CleanPlateVA
+ * #174/#175 hold the machinery if either returns.)
  */
 import { expect, test } from 'vitest'
 import { GRADE_COLORS, CLOSED_COLOR, LITE_MARKER_COLOR, NEW_COLOR } from '../../app/constants'
@@ -74,17 +72,6 @@ test('the full-tier fills: grade color, NEW blue, unscored gray, closed gray+dim
     expect(c.fill).toBe(CLOSED_COLOR)
     expect(c.opacity).toBe(0.42)                 // dimmed: not currently open
     expect(c.letter).toBe('')                    // a shuttered grade is not a fact today
-    expect(c.declining).toBe(0)
-})
-
-test('declining rides only active graded facilities, keyed by their own letter', () => {
-    const declining = row({ o: { grade_score: 78, trend_delta: -7 } })
-    const improving = row({ o: { grade_score: 78, trend_delta: 4 } })
-    const data = buildMapData([declining, improving], false)
-    const d = props(data, declining.permit_id)
-    expect(d.declining).toBe(1)
-    expect(d.letter).toBe('C')                   // the ring image is declining-ring-C
-    expect(props(data, improving.permit_id).declining).toBe(0)
 })
 
 test('the basic map is uniform and judgment-free (P6)', () => {
@@ -95,7 +82,6 @@ test('the basic map is uniform and judgment-free (P6)', () => {
         const p = props(data, pid)
         expect(p.fill).toBe(LITE_MARKER_COLOR)
         expect(p.letter).toBe('')
-        expect(p.declining).toBe(0)
         expect(p.opacity).toBe(0.88)
     }
 })
@@ -118,35 +104,6 @@ test('same-point rows collapse into one neutral stack feature', () => {
     expect('letter' in sp).toBe(false)
     // The members stay reachable for the M2 fan-out.
     expect(data.stacks.get(sp.skey)).toHaveLength(3)
-})
-
-test('every feature carries the cluster accumulator inputs', () => {
-    const graded = row({ o: { grade_score: 92 } })
-    const closed = row({ status: 'Business Closed', o: { grade_score: 88 } })
-    const a = row({ lat: 37.51, lon: -77.41, o: { grade_score: 90 } })
-    const b = row({ lat: 37.51, lon: -77.41, o: { grade_score: 70 } })
-    const c = row({ lat: 37.51, lon: -77.41, status: 'Business Closed', o: { grade_score: 50 } })
-    const data = buildMapData([graded, closed, a, b, c], false)
-
-    // A lone graded place: itself, so a cluster of one means the same.
-    const g = props(data, graded.permit_id)
-    expect([g.stack, g.gradeSum, g.gradeCount]).toEqual([1, 92, 1])
-
-    // Closed is excluded: a shuttered grade is not a fact about today.
-    const cl = props(data, closed.permit_id)
-    expect([cl.stack, cl.gradeSum, cl.gradeCount]).toEqual([1, 0, 0])
-
-    // A stack counts every member but averages only the live, scored ones.
-    const stack = data.geojson.features
-        .find((f) => f.properties.kind === 'stack')?.properties as StackProps
-    expect([stack.stack, stack.gradeSum, stack.gradeCount]).toEqual([3, 160, 2])
-})
-
-test('the basic map zeroes the grade accumulators (nothing to average)', () => {
-    const scored = row({ o: { grade_score: 90, trend_delta: -5 } })
-    const data = buildMapData([scored], true)
-    const p = props(data, scored.permit_id)
-    expect([p.stack, p.gradeSum, p.gradeCount]).toEqual([1, 0, 0])
 })
 
 test('rows without coordinates draw nothing', () => {
