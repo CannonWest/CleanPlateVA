@@ -13,6 +13,8 @@ import { DataProvider, useRoster } from './data/provider'
 import { matchesFilters } from './search'
 import { applyThemeClass, persistTheme, storedDark } from './theme'
 import { useAppRouter } from './useAppRouter'
+import { DetailPanel } from './DetailPanel'
+import type { DetailState } from './DetailPanel'
 import { MapView } from './MapView'
 import { ThemeSwitch } from './ThemeSwitch'
 import { Toolbar } from './Toolbar'
@@ -41,7 +43,7 @@ function Shell({ forceLite, agreed, decide }: {
     agreed: () => boolean
     decide: (value: string) => void
 }) {
-    const { roster, closed, ensureClosed, reload } = useRoster()
+    const { roster, closed, ensureClosed, getDetail, reload } = useRoster()
 
     const loaded = roster.status === 'ready' && 'facilities' in roster.result
         ? roster.result
@@ -75,9 +77,34 @@ function Shell({ forceLite, agreed, decide }: {
         if (!lite && loaded && state.filters.showClosed) ensureClosed()
     }, [lite, loaded, state.filters.showClosed, ensureClosed])
 
+    // The selection (`permit` in the URL, C6): the panel opens for a roster
+    // row we actually hold — a stale deep link stays harmlessly inert until
+    // the roster carries it (the old pending-permit semantics, declaratively).
+    const selected = useMemo(
+        () => (state.permit ? all.find((f) => String(f.permit_id) === state.permit) ?? null : null),
+        [all, state.permit],
+    )
+
+    // Detail on CLICK only (+standards once, inside the client) — P5/C3.
+    const [detailState, setDetailState] = useState<DetailState>({ status: 'loading' })
+    useEffect(() => {
+        if (!selected || lite) return
+        let alive = true
+        setDetailState({ status: 'loading' })
+        void getDetail(String(selected.permit_id)).then((detail) => {
+            if (alive) setDetailState({ status: 'ready', detail })
+        })
+        return () => { alive = false }
+    }, [selected, lite, getDetail])
+
     return (
         <div className="relative h-dvh w-full overflow-hidden bg-cp-bg">
-            <MapView facilities={filtered} lite={lite} dark={dark} />
+            <MapView
+                facilities={filtered}
+                lite={lite}
+                dark={dark}
+                onSelect={(pid) => actions.select(pid)}
+            />
 
             <Toolbar
                 state={state}
@@ -85,10 +112,21 @@ function Shell({ forceLite, agreed, decide }: {
                 lite={lite}
                 shown={filtered.length}
                 total={all.length}
-                panelOpen={false /* the detail panel lands at CRVa-M2 */}
+                panelOpen={!!selected}
             />
 
             {state.view !== 'map' && <ViewStub view={state.view} />}
+
+            {selected && (
+                <DetailPanel
+                    key={String(selected.permit_id)}
+                    row={selected}
+                    lite={lite}
+                    state={detailState}
+                    onClose={() => actions.closePanel()}
+                    onAbout={() => actions.setView('about')}
+                />
+            )}
 
             <ThemeSwitch
                 dark={dark}

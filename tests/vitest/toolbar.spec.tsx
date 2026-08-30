@@ -38,6 +38,7 @@ function recordingActions(): RouterActions {
         setGrade: record('setGrade'),
         setFlag: record('setFlag'),
         select: record('select'),
+        closePanel: record('closePanel'),
         setSort: record('setSort'),
         setPage: record('setPage'),
     }
