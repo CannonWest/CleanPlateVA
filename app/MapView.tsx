@@ -18,6 +18,9 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
+import { createRoot } from 'react-dom/client'
+import type { Root } from 'react-dom/client'
 import * as maplibregl from 'maplibre-gl'
 import { X } from 'lucide-react'
 import 'maplibre-gl/dist/maplibre-gl.css'
@@ -32,6 +35,8 @@ import {
 } from './constants'
 import { buildMapData } from './mapData'
 import type { MapData } from './mapData'
+import { hitSlop, markRadius, pickMark } from './mapHit'
+import { HoverCard } from './HoverCard'
 import { coordsOf } from './data/presentation'
 import type { RosterRow } from './data/types'
 
@@ -204,6 +209,7 @@ export function MapView({ facilities, lite, dark }: {
     const styleDarkRef = useRef(dark)
     const [note, setNote] = useState<{ text: string; back: boolean } | null>(null)
     const [failed, setFailed] = useState(false)
+    const hideHoverRef = useRef<() => void>(() => {})
 
     const data = useMemo(() => buildMapData(facilities, lite), [facilities, lite])
     const dataRef = useRef<MapData>(data)
@@ -212,6 +218,22 @@ export function MapView({ facilities, lite, dark }: {
     darkRef.current = dark
     const facilitiesRef = useRef(facilities)
     facilitiesRef.current = facilities
+    const byPid = useMemo(
+        () => new Map(facilities.map((f) => [String(f.permit_id), f])),
+        [facilities],
+    )
+    const byPidRef = useRef(byPid)
+    byPidRef.current = byPid
+    const liteRef = useRef(lite)
+    liteRef.current = lite
+
+    // The marker-bound hover card (M1): one popup + one persistent React
+    // root, display-only and mouse-transparent (theme.css .cp-tip). The
+    // key guard keeps the same facility from re-rendering per mousemove.
+    const popupRef = useRef<maplibregl.Popup | null>(null)
+    const popupHostRef = useRef<HTMLDivElement | null>(null)
+    const popupRootRef = useRef<Root | null>(null)
+    const hoverKeyRef = useRef<string | null>(null)
 
     // Padded bounding box of the loaded facilities — "the mapped area".
     function coverageContains(lat: number, lon: number): boolean {
@@ -311,6 +333,120 @@ export function MapView({ facilities, lite, dark }: {
             fixDarkRoadLabels(map, styleDarkRef.current)
         })
 
+        // ── the marker-bound hover (M1) ────────────────────────────────
+        // Fine pointers only — touch = click, and the tap's job is the
+        // detail panel (M2). Events hang off the MAP, not layer ids: a
+        // padded hit test must see every mark type at once, and map-level
+        // listeners survive style swaps on their own. (matchMedia is
+        // absent in headless runners; no matcher = treat as fine.)
+        const coarse = typeof window.matchMedia === 'function'
+            && window.matchMedia('(pointer: coarse)').matches
+
+        const hideHover = () => {
+            hoverKeyRef.current = null
+            popupRef.current?.remove()
+        }
+        hideHoverRef.current = hideHover
+
+        /** Which mark did the pointer mean? (markers.js rules, mapHit.ts) */
+        const pickMarkAt = (point: { x: number; y: number }) => {
+            if (!map.getLayer(LYR_POINTS)) return null // style swap mid-move
+            const slop = hitSlop(coarse)
+            const box: [maplibregl.PointLike, maplibregl.PointLike] = [
+                [point.x - slop, point.y - slop],
+                [point.x + slop, point.y + slop],
+            ]
+            let features: maplibregl.MapGeoJSONFeature[]
+            try {
+                features = map.queryRenderedFeatures(box, { layers: [LYR_STACKS, LYR_POINTS] })
+            } catch {
+                return null
+            }
+            if (!features.length) return null
+            const zoom = map.getZoom()
+            const candidates = features.map((feature) => {
+                const [lon, lat] = (feature.geometry as GeoJSON.Point).coordinates
+                const at = map.project([lon as number, lat as number])
+                return {
+                    feature,
+                    layerId: feature.layer.id,
+                    dx: at.x - point.x,
+                    dy: at.y - point.y,
+                    radius: markRadius(feature.layer.id, feature.properties, zoom),
+                }
+            })
+            return pickMark(candidates, slop)
+        }
+
+        const showCard = (lngLat: [number, number], content: React.ReactNode) => {
+            if (!popupHostRef.current) {
+                popupHostRef.current = document.createElement('div')
+                popupRootRef.current = createRoot(popupHostRef.current)
+            }
+            // Committed synchronously so the popup measures real content
+            // when it places itself (the dynamic anchor keeps the card
+            // inside the map container).
+            flushSync(() => {
+                popupRootRef.current?.render(content)
+            })
+            if (!popupRef.current) {
+                popupRef.current = new maplibregl.Popup({
+                    closeButton: false,
+                    closeOnClick: false,
+                    offset: 14,
+                    maxWidth: '300px',
+                    className: 'cp-tip',
+                })
+            }
+            popupRef.current
+                .setLngLat(lngLat)
+                .setDOMContent(popupHostRef.current)
+                .addTo(map)
+        }
+
+        if (!coarse) {
+            map.on('mousemove', (e) => {
+                const hit = pickMarkAt(e.point)
+                if (!hit) {
+                    map.getCanvas().style.cursor = ''
+                    hideHover()
+                    return
+                }
+                map.getCanvas().style.cursor = 'pointer'
+                const coords = (hit.candidate.feature.geometry as GeoJSON.Point)
+                    .coordinates as [number, number]
+                const props = hit.candidate.feature.properties as { pid?: string; skey?: string; stack?: number }
+                if (hit.layerId === LYR_STACKS) {
+                    // A stack is a container, not a place: a line saying
+                    // what it holds — never the facility card, which would
+                    // have to pick one of the permits to be about.
+                    const key = `stack:${props.skey}`
+                    if (hoverKeyRef.current === key) return
+                    hoverKeyRef.current = key
+                    showCard([...coords], (
+                        <div className="text-cp-ink">
+                            <div className="text-[13px] font-semibold tabular-nums">
+                                {props.stack} places at this point
+                            </div>
+                        </div>
+                    ))
+                    return
+                }
+                const f = byPidRef.current.get(String(props.pid))
+                if (!f) return
+                if (hoverKeyRef.current === String(props.pid)) return
+                hoverKeyRef.current = String(props.pid)
+                // Anchored to the MARKER, never the pointer: the card
+                // points at the thing it is about.
+                showCard([...coords], <HoverCard f={f} lite={liteRef.current} />)
+            })
+            // Leaving the canvas is not a mousemove, so the card would hang.
+            map.on('mouseout', () => {
+                map.getCanvas().style.cursor = ''
+                hideHover()
+            })
+        }
+
         // The container may have been zero-sized at construction (embed,
         // flex not yet resolved) — re-fit once unless a location fix has
         // already claimed the camera.
@@ -321,16 +457,26 @@ export function MapView({ facilities, lite, dark }: {
 
         return () => {
             clearTimeout(settle)
+            hideHover()
+            const root = popupRootRef.current
+            popupRootRef.current = null
+            popupHostRef.current = null
+            popupRef.current = null
+            // Unmount outside the commit React is running right now.
+            if (root) setTimeout(() => root.unmount(), 0)
             geolocateRef.current = null
             mapRef.current = null
             map.remove()
         }
     }, [])
 
-    // Roster / filter / tier changes → new source data.
+    // Roster / filter / tier changes → new source data. A filter flip can
+    // remove the very marker an open card anchors to — don't leave the
+    // card floating over nothing.
     useEffect(() => {
         const map = mapRef.current
         if (!map) return
+        hideHoverRef.current()
         const source = map.getSource(SRC) as maplibregl.GeoJSONSource | undefined
         source?.setData(data.geojson)
     }, [data])
@@ -339,6 +485,7 @@ export function MapView({ facilities, lite, dark }: {
     useEffect(() => {
         const map = mapRef.current
         if (!map || styleDarkRef.current === dark) return
+        hideHoverRef.current()
         styleDarkRef.current = dark
         map.setStyle(dark ? STYLE_DARK : STYLE_LIGHT)
     }, [dark])
