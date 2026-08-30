@@ -13,13 +13,15 @@ import { DataProvider, useRoster } from './data/provider'
 import { matchesFilters } from './search'
 import { applyThemeClass, persistTheme, storedDark } from './theme'
 import { useAppRouter } from './useAppRouter'
+import { AboutView } from './AboutView'
 import { DetailPanel } from './DetailPanel'
 import type { DetailState } from './DetailPanel'
 import { ListView } from './ListView'
 import { MapView } from './MapView'
 import { ThemeSwitch } from './ThemeSwitch'
 import { Toolbar } from './Toolbar'
-import type { RosterRow } from './data/types'
+import type { AckState } from './ack'
+import type { LoadedRoster, RosterRow } from './data/types'
 
 export function App() {
     const forceLite = useMemo(() => forceLiteFromSearch(window.location.search), [])
@@ -30,29 +32,35 @@ export function App() {
     )
     return (
         <DataProvider api={api} ack={ack} forceLite={forceLite}>
-            <Shell
-                forceLite={forceLite}
-                agreed={() => ack.agreed}
-                decide={(value) => ack.set(value)}
-            />
+            <Shell forceLite={forceLite} ack={ack} />
         </DataProvider>
     )
 }
 
-function Shell({ forceLite, agreed, decide }: {
+function Shell({ forceLite, ack }: {
     forceLite: boolean
-    agreed: () => boolean
-    decide: (value: string) => void
+    ack: AckState
 }) {
     const { roster, closed, ensureClosed, getDetail, reload } = useRoster()
 
     const loaded = roster.status === 'ready' && 'facilities' in roster.result
-        ? roster.result
+        ? (roster.result as LoadedRoster)
         : null
+    const unavailable = roster.status === 'ready' && !loaded
     const mode = loaded?.mode === 'lite' ? 'lite' : 'full'
     const lite = mode === 'lite'
 
     const [state, actions] = useAppRouter(mode)
+
+    // A cold-loaded /about#aboutTerms (the footer link's target): captured
+    // before the router's boot effect normalizes the hash away.
+    const [termsIntent, setTermsIntent] = useState(
+        () => window.location.hash.toLowerCase() === '#aboutterms',
+    )
+    const showTerms = () => {
+        actions.setView('about')
+        setTermsIntent(true)
+    }
 
     const [dark, setDark] = useState(storedDark)
     useEffect(() => {
@@ -107,9 +115,9 @@ function Shell({ forceLite, agreed, decide }: {
                 onSelect={(pid) => actions.select(pid)}
             />
 
-            {state.view === 'list' ? (
-                // The List is a scrolling DOCUMENT (§6.3): the band rides in
-                // the flow at the top; the table's own headers stick.
+            {state.view !== 'map' ? (
+                // List and About are scrolling DOCUMENTS (§6.3/§6.4): the
+                // band rides in the flow at the top; content scrolls under it.
                 <div className="absolute inset-0 z-10 overflow-y-auto bg-cp-bg">
                     <Toolbar
                         state={state}
@@ -120,21 +128,47 @@ function Shell({ forceLite, agreed, decide }: {
                         panelOpen={!!selected}
                         docked
                     />
-                    <ListView
-                        rows={filtered}
-                        lite={lite}
-                        sort={state.sort}
-                        page={state.page}
-                        selectedPermit={state.permit}
-                        onSort={(key) => actions.setSort(
-                            state.sort.key === key
-                                ? { key, dir: state.sort.dir === 'asc' ? 'desc' : 'asc' }
-                                : { key, dir: 'asc' },
-                        )}
-                        onMore={() => actions.setPage(state.page + 1)}
-                        onPick={(pid) => actions.select(pid)}
-                    />
-                    <Attribution inline onTerms={() => actions.setView('about')} />
+                    {state.view === 'list' ? (
+                        <ListView
+                            rows={filtered}
+                            lite={lite}
+                            sort={state.sort}
+                            page={state.page}
+                            selectedPermit={state.permit}
+                            onSort={(key) => actions.setSort(
+                                state.sort.key === key
+                                    ? { key, dir: state.sort.dir === 'asc' ? 'desc' : 'asc' }
+                                    : { key, dir: 'asc' },
+                            )}
+                            onMore={() => actions.setPage(state.page + 1)}
+                            onPick={(pid) => actions.select(pid)}
+                        />
+                    ) : (
+                        <AboutView
+                            loaded={loaded}
+                            unavailable={unavailable}
+                            lite={lite}
+                            forceLite={forceLite}
+                            ack={{ agreed: ack.agreed, decided: ack.decided, persisted: ack.persisted }}
+                            onSwitchToBasic={() => {
+                                // A downgrade needs no acknowledgement (ack.js).
+                                ack.set(ACK_DECLINED)
+                                reload()
+                            }}
+                            onReviewTerms={() => {
+                                // INTERIM until CRVb-M2's dialog: the visitor is
+                                // directly under the full §06 document here, so
+                                // the action agrees outright — proof-strip
+                                // parity; the dialog replaces this next
+                                // milestone (production untouched, C4).
+                                ack.set(ACK_AGREED)
+                                reload()
+                            }}
+                            scrollToTerms={termsIntent}
+                            onTermsShown={() => setTermsIntent(false)}
+                        />
+                    )}
+                    <Attribution inline onTerms={showTerms} />
                 </div>
             ) : (
                 <Toolbar
@@ -146,8 +180,6 @@ function Shell({ forceLite, agreed, decide }: {
                     panelOpen={!!selected}
                 />
             )}
-
-            {state.view === 'about' && <ViewStub view={state.view} />}
 
             {selected && (
                 <DetailPanel
@@ -168,14 +200,14 @@ function Shell({ forceLite, agreed, decide }: {
                 }}
             />
 
-            {state.view !== 'list' && <Attribution onTerms={() => actions.setView('about')} />}
+            {state.view === 'map' && <Attribution onTerms={showTerms} />}
 
             {!forceLite && roster.status !== 'loading' && (
                 <AckStrip
                     undecided={roster.status === 'awaiting-ack'}
-                    agreed={agreed()}
+                    agreed={ack.agreed}
                     onAnswer={(value) => {
-                        decide(value)
+                        ack.set(value)
                         reload()
                     }}
                 />
@@ -208,22 +240,6 @@ function Attribution({ inline = false, onTerms }: {
                 Terms &amp; attribution
             </button>
         </footer>
-    )
-}
-
-/** About lands at CRVb-M1; the switcher and router already speak it (C6),
- *  so the stub keeps the URL semantics honest meanwhile. */
-function ViewStub({ view }: { view: 'about' }) {
-    return (
-        <section className="absolute inset-0 z-10 flex items-center justify-center bg-cp-bg/85 backdrop-blur-[2px]">
-            <div className="max-w-sm rounded-cp-card border border-cp-hairline bg-cp-surface-1 p-5 text-center shadow-cp">
-                <h2 className="text-[15px] font-bold">{view === 'about' ? 'About' : ''}</h2>
-                <p className="mt-1.5 text-[12.5px] text-cp-ink-2">
-                    This view arrives later in this arc (CRVb-M1). The address already
-                    works; nothing else is here yet.
-                </p>
-            </div>
-        </section>
     )
 }
 
