@@ -131,3 +131,74 @@
         line-height: 1.45;
     }
 }
+
+@layer components {
+    /* ── the trend instrument's ratified hover (§6.0, CRVa-M1): the mark
+       enlarges 1.7× while everything else dims to 30%, 150ms both ways.
+       Interactive on the PANEL instance only (.cp-trend--interactive);
+       the hover card's instance is static and mouse-transparent. */
+    .cp-trend--interactive .tp .tm {
+        transform-box: fill-box;
+        transform-origin: center;
+        transition: transform .15s ease;
+    }
+    .cp-trend--interactive .tp {
+        cursor: pointer;
+    }
+    .cp-trend--interactive .tp,
+    .cp-trend--interactive .grid,
+    .cp-trend--interactive .tline {
+        transition: opacity .15s ease;
+    }
+    .cp-trend--interactive .tp:hover .tm {
+        transform: scale(1.7);
+    }
+    .cp-trend--interactive .tp .tr {
+        opacity: 0;
+        transition: opacity .15s ease;
+    }
+    .cp-trend--interactive .tp:hover .tr {
+        opacity: 1;
+    }
+    .cp-trend--interactive:has(.tp:hover) .tp:not(:hover),
+    .cp-trend--interactive:has(.tp:hover) .grid,
+    .cp-trend--interactive:has(.tp:hover) .tline {
+        opacity: .3;
+    }
+
+}
+
+/* ── the marker-bound hover card's popup chrome (CRVa-M1): themed surface
+   + tip, display-only and mouse-transparent — leaving the marker removes
+   it, and nothing inside it is a control. UNLAYERED on purpose: MapLibre's
+   own stylesheet is unlayered, and unlayered styles beat every @layer —
+   these must meet it on the same ground (specificity then wins). */
+.cp-tip {
+    pointer-events: none;
+    z-index: 18;
+}
+.cp-tip .maplibregl-popup-content {
+    background: var(--cp-surface-1);
+    color: var(--cp-ink);
+    border: 1px solid var(--cp-hairline);
+    border-radius: var(--cp-r-card);
+    box-shadow: var(--cp-shadow);
+    padding: 12px 14px;
+    font-family: var(--cp-font);
+}
+.cp-tip.maplibregl-popup-anchor-top .maplibregl-popup-tip,
+.cp-tip.maplibregl-popup-anchor-top-left .maplibregl-popup-tip,
+.cp-tip.maplibregl-popup-anchor-top-right .maplibregl-popup-tip {
+    border-bottom-color: var(--cp-surface-1);
+}
+.cp-tip.maplibregl-popup-anchor-bottom .maplibregl-popup-tip,
+.cp-tip.maplibregl-popup-anchor-bottom-left .maplibregl-popup-tip,
+.cp-tip.maplibregl-popup-anchor-bottom-right .maplibregl-popup-tip {
+    border-top-color: var(--cp-surface-1);
+}
+.cp-tip.maplibregl-popup-anchor-left .maplibregl-popup-tip {
+    border-right-color: var(--cp-surface-1);
+}
+.cp-tip.maplibregl-popup-anchor-right .maplibregl-popup-tip {
+    border-left-color: var(--cp-surface-1);
+}

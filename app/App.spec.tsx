@@ -38,6 +38,11 @@ test('the shell renders and awaits the acknowledgement without fetching', async 
         expect(host.querySelector('input[type="search"]')).toBeTruthy()
         // The C8 attribution footer.
         expect(host.textContent).toContain('archived snapshot, not live')
+        // The theme SWITCH (bottom-left, Cannon's M0 review call) — dark
+        // is the default document (C10).
+        const themeSwitch = host.querySelector('button[role="switch"]')
+        expect(themeSwitch).toBeTruthy()
+        expect(themeSwitch?.getAttribute('aria-checked')).toBe('true')
         // The proof strip awaits the answer; nothing was fetched (C2).
         expect(host.textContent).toContain('Nothing is fetched until you answer')
         expect(fetches).toEqual([])

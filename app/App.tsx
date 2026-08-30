@@ -14,6 +14,7 @@ import { matchesFilters } from './search'
 import { applyThemeClass, persistTheme, storedDark } from './theme'
 import { useAppRouter } from './useAppRouter'
 import { MapView } from './MapView'
+import { ThemeSwitch } from './ThemeSwitch'
 import { Toolbar } from './Toolbar'
 import type { RosterRow } from './data/types'
 
@@ -85,6 +86,11 @@ function Shell({ forceLite, agreed, decide }: {
                 shown={filtered.length}
                 total={all.length}
                 panelOpen={false /* the detail panel lands at CRVa-M2 */}
+            />
+
+            {state.view !== 'map' && <ViewStub view={state.view} />}
+
+            <ThemeSwitch
                 dark={dark}
                 onTheme={(next) => {
                     setDark(next)
@@ -92,14 +98,14 @@ function Shell({ forceLite, agreed, decide }: {
                 }}
             />
 
-            {state.view !== 'map' && <ViewStub view={state.view} />}
-
-            <footer className="fixed bottom-2.5 left-3 z-10 rounded-[6px] bg-cp-scrim px-2.5 py-1.5 text-[10.5px] text-cp-ink-3 backdrop-blur-[4px]">
+            {/* The scrim is dark in BOTH themes (it sits over the map), so
+                its ink is fixed light — theme tokens would flip it muddy. */}
+            <footer className="fixed bottom-2.5 left-3 z-10 rounded-[6px] bg-cp-scrim px-2.5 py-1.5 text-[10.5px] text-[#cfd4d9] backdrop-blur-[4px]">
                 Inspection records: VDH via MyHealthDepartment · archived snapshot, not live ·
                 scores and grades calculated by CleanPlateVA ·{' '}
                 <button
                     type="button"
-                    className="text-cp-accent hover:underline"
+                    className="text-[#4dabf7] hover:underline"
                     onClick={() => actions.setView('about')}
                 >
                     Terms &amp; attribution
