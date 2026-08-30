@@ -1,10 +1,13 @@
 // @vitest-environment jsdom
 /**
- * The §6.2 hover card (CRVa-M1): rendered WHOLLY from the roster row —
- * identity + grade circle, the two anchor boxes (last broad · last visit),
- * and the compact trend instrument — with ZERO fetches (C3). The basic map
- * keeps the slim name + address tip (P6); both tiers qualify an
- * approximate pin (C9); NEW is blue, letterless, and untrended.
+ * The §6.2 hover card (CRVa-M1; re-laid 2026-08-30 to the old client's
+ * zones at Cannon's preview call): rendered WHOLLY from the roster row —
+ * the bordered identity head, the grade hero (circle + score + anchor
+ * date), the two anchor boxes (last broad · last visit), and the panel's
+ * trend section borrowed WHOLESALE (shared TrendSection: furniture, dates,
+ * legend) — with ZERO fetches (C3). The basic map keeps the slim name +
+ * address tip (P6); both tiers qualify an approximate pin (C9); NEW is
+ * blue, letterless, and untrended.
  */
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
@@ -63,7 +66,7 @@ function row(over: Partial<RosterRow> = {}): RosterRow {
     }
 }
 
-test('the full-tier card: grade circle, anchor boxes, and the compact instrument', async () => {
+test('the full-tier card: head, grade hero, anchor boxes, and the borrowed panel trend', async () => {
     const el = await render(row({
         o: {
             grade_score: 94,
@@ -81,15 +84,25 @@ test('the full-tier card: grade circle, anchor boxes, and the compact instrument
     expect(el.textContent).toContain('620 N 25th St · Richmond · 23223')
     // The circle wears the letter (§6.0: the letter always rides the color).
     expect(el.textContent).toContain('A')
+    // The hero speaks the score and its anchoring broad inspection.
+    expect(el.textContent).toContain('94')
+    expect(el.textContent).toContain('/100')
+    expect(el.textContent).toContain('Broad inspection · Jun 11, 2026')
     // The two anchor boxes, ISO-dated, speaking the trend's own claims.
     expect(el.textContent).toContain('Last broad inspection')
     expect(el.textContent).toContain('2026-06-11 · 94')
     expect(el.textContent).toContain('Last visit')
     expect(el.textContent).toContain('2026-08-02 · 0/3 OUT')
-    // The compact instrument: static, bare, present.
+    // The expanded view's trend, borrowed wholesale: the panel variant
+    // (its hover interactivity is inert — the popup is mouse-transparent)
+    // with the section header and the mark-grammar legend.
     const svg = el.querySelector('svg.cp-trend')
     expect(svg).toBeTruthy()
-    expect(svg?.classList.contains('cp-trend--interactive')).toBe(false)
+    expect(svg?.classList.contains('cp-trend--interactive')).toBe(true)
+    expect(el.textContent).toContain('Trend · 3 visits')
+    expect(el.textContent).toContain('broad score')
+    expect(el.textContent).toContain('re-check')
+    expect(el.textContent).toContain('scope unknown')
 })
 
 test('the basic map keeps the slim name + address tip (P6)', async () => {
@@ -109,7 +122,9 @@ test('NEW is blue-lettered NEW, untrended, with its own line', async () => {
         o: { grade_score: null, new: 1, visits: [[0, 20260701]] },
     }))
     expect(el.textContent).toContain('NEW')
-    expect(el.textContent).toContain('Newly permitted')
+    // The old client's NEW hero: a positive state, not a missing grade.
+    expect(el.textContent).toContain('Permitted')
+    expect(el.textContent).toContain('Cleared to open')
     expect(el.querySelector('svg.cp-trend')).toBeNull()
 })
 

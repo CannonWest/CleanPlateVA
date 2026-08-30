@@ -25,9 +25,11 @@ import * as maplibregl from 'maplibre-gl'
 import { X } from 'lucide-react'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import {
+    CLUSTER_MAX_ZOOM, CLUSTER_PIXEL_RADIUS, CLUSTER_RADII, CLUSTER_STEPS,
     DARK_MAJOR_ROAD_LABEL_COLOR, DARK_MAJOR_ROAD_LABEL_LAYER,
     DECLINING_RING_BASE_RADIUS, DECLINING_RING_GAP, GRADE_COLORS,
-    LETTER_TEXT_SIZE, LETTER_ZOOM, LYR_DECLINING, LYR_POINT_LETTERS,
+    LETTER_TEXT_SIZE, LETTER_ZOOM, LITE_CLUSTER_RAMP, LYR_CLUSTER_COUNT,
+    LYR_CLUSTERS, LYR_DECLINING, LYR_POINT_LETTERS,
     LYR_POINTS, LYR_STACK_COUNT, LYR_STACKS, MARKER_RING,
     POINT_RADIUS_FULL, POINT_RADIUS_STOPS, SRC, STACK_COUNT_ZOOM,
     STACK_INK, STACK_RADII, STACK_STEPS, STACK_SURFACE, STYLE_DARK,
@@ -76,6 +78,32 @@ function stackRadiusExpr(): ExpressionSpec {
 
 const POINT_FILTER = ['==', ['get', 'kind'], 'point'] as unknown as ExpressionSpec
 const STACK_FILTER = ['==', ['get', 'kind'], 'stack'] as unknown as ExpressionSpec
+// Cluster features carry no `kind`, so the point/stack filters above never
+// match them; this one is MapLibre's own marker for a cluster feature.
+const CLUSTER_FILTER = ['has', 'point_count'] as unknown as ExpressionSpec
+
+/** Cluster tint (ported from the old `_clusterColors`). Full tier: the
+ *  mean grade of the live, scored places inside — the same bands
+ *  `gradeForScore` draws, so one hue means one thing on every mark. Lite:
+ *  a neutral density ramp — it publishes no grades, so there is nothing
+ *  to average and a green bubble would read as judgment (P6). */
+function clusterColorExpr(lite: boolean): ExpressionSpec {
+    if (lite) {
+        return ['step', ['get', 'sum'],
+            LITE_CLUSTER_RAMP[0], CLUSTER_STEPS[0], LITE_CLUSTER_RAMP[1],
+            CLUSTER_STEPS[1], LITE_CLUSTER_RAMP[2]] as unknown as ExpressionSpec
+    }
+    // Division guarded by the zero case above it — `case` only evaluates
+    // the branch it takes.
+    return ['case',
+        ['==', ['get', 'gradeCount'], 0], GRADE_COLORS.none,
+        ['step', ['/', ['get', 'gradeSum'], ['get', 'gradeCount']],
+            GRADE_COLORS.F,
+            60, GRADE_COLORS.D,
+            70, GRADE_COLORS.C,
+            80, GRADE_COLORS.B,
+            90, GRADE_COLORS.A]] as unknown as ExpressionSpec
+}
 
 /** Dashed declining halos, one per grade color — MapLibre circles can't
  *  dash, so they're prerendered (the old stack-halo technique). Re-run
@@ -106,13 +134,79 @@ function installRingImages(map: maplibregl.Map): void {
     }
 }
 
-/** Add source + the five marker layers to the CURRENT style. Idempotent
- *  per style — style.load hands a bare basemap each time. */
-function installDataLayers(map: maplibregl.Map, data: MapData, dark: boolean): void {
+/** Add source + the marker layers to the CURRENT style. Idempotent per
+ *  style — style.load hands a bare basemap each time. */
+function installDataLayers(map: maplibregl.Map, data: MapData, dark: boolean, lite: boolean): void {
     if (map.getSource(SRC)) return
     installRingImages(map)
     const theme = dark ? 'dark' : 'light'
-    map.addSource(SRC, { type: 'geojson', data: data.geojson })
+    map.addSource(SRC, {
+        type: 'geojson',
+        data: data.geojson,
+        // Bubbles dissolve as you zoom in: grouped at metro view, plain
+        // dots from neighborhood zoom up (the old client's clustering,
+        // revived 2026-08-30).
+        cluster: true,
+        clusterMaxZoom: CLUSTER_MAX_ZOOM,
+        clusterRadius: CLUSTER_PIXEL_RADIUS,
+        // Every feature carries `stack` (1 for a lone place), so a cluster
+        // reports the PLACES inside it rather than the points it drew
+        // over; gradeSum/gradeCount add the same way so a bubble can wear
+        // the mean grade over its places (see mapData.ts).
+        clusterProperties: {
+            sum: ['+', ['get', 'stack']],
+            gradeSum: ['+', ['get', 'gradeSum']],
+            gradeCount: ['+', ['get', 'gradeCount']],
+        },
+    })
+    // Cluster bubbles sit UNDER everything: a lone dot or a stack that
+    // escaped grouping must never be occluded by a neighbouring bubble.
+    map.addLayer({
+        id: LYR_CLUSTERS,
+        type: 'circle',
+        source: SRC,
+        filter: CLUSTER_FILTER,
+        paint: {
+            'circle-color': clusterColorExpr(lite),
+            // Sized by places, like the label counts them — a bubble over
+            // one food court should not read smaller than its neighbours.
+            // Same constants the hit test measures (mapHit clusterRadiusOf).
+            'circle-radius': ['step', ['get', 'sum'],
+                CLUSTER_RADII[0], CLUSTER_STEPS[0], CLUSTER_RADII[1],
+                CLUSTER_STEPS[1], CLUSTER_RADII[2]],
+            'circle-opacity': 0.85,
+            'circle-stroke-width': 4,
+            'circle-stroke-color': 'rgba(255, 255, 255, 0.35)',
+        },
+    })
+    map.addLayer({
+        id: LYR_CLUSTER_COUNT,
+        type: 'symbol',
+        source: SRC,
+        filter: CLUSTER_FILTER,
+        layout: {
+            // `sum` (see clusterProperties), not point_count: a cluster
+            // must count places, and one feature can stand for 57 of
+            // them. point_count_abbreviated came free; abbreviate sum by
+            // hand.
+            'text-field': ['case',
+                ['>=', ['get', 'sum'], 1000],
+                ['concat',
+                    ['to-string', ['/', ['round', ['/', ['get', 'sum'], 100]], 10]],
+                    'k'],
+                ['to-string', ['get', 'sum']]],
+            'text-font': ['Montserrat Regular'],
+            'text-size': 12,
+            'text-allow-overlap': true,
+        },
+        // White on a dark halo: the tint is a grade, and no flat label
+        // colour clears AA across that palette (old client's numbers).
+        paint: {
+            'text-color': '#ffffff',
+            'text-halo-color': 'rgba(20, 20, 20, 0.85)',
+            'text-halo-width': 1.6,
+        },
+    })
     map.addLayer({
         id: LYR_POINTS,
         type: 'circle',
@@ -341,7 +435,7 @@ export function MapView({ facilities, lite, dark, onSelect }: {
         // Fires on the initial style AND after every setStyle (theme swap) —
         // custom sources/layers/images don't survive a swap.
         map.on('style.load', () => {
-            installDataLayers(map, dataRef.current, styleDarkRef.current)
+            installDataLayers(map, dataRef.current, styleDarkRef.current, liteRef.current)
             fixDarkRoadLabels(map, styleDarkRef.current)
         })
 
@@ -370,7 +464,9 @@ export function MapView({ facilities, lite, dark, onSelect }: {
             ]
             let features: maplibregl.MapGeoJSONFeature[]
             try {
-                features = map.queryRenderedFeatures(box, { layers: [LYR_STACKS, LYR_POINTS] })
+                features = map.queryRenderedFeatures(box, {
+                    layers: [LYR_STACKS, LYR_POINTS, LYR_CLUSTERS],
+                })
             } catch {
                 return null
             }
@@ -406,7 +502,10 @@ export function MapView({ facilities, lite, dark, onSelect }: {
                     closeButton: false,
                     closeOnClick: false,
                     offset: 14,
-                    maxWidth: '300px',
+                    // The full-tier card carries the panel's trend
+                    // instrument (the old client's 380 hero width); the
+                    // content divs stay narrower where they want to.
+                    maxWidth: '380px',
                     className: 'cp-tip',
                 })
             }
@@ -459,9 +558,23 @@ export function MapView({ facilities, lite, dark, onSelect }: {
                 .addTo(map)
         }
 
-        /** Click: open a stack's member list, or select a place. Anything
-         *  that is not the open stack closes its popover — empty ground
-         *  included (the old web's dismissal rule). */
+        /** Cluster click → zoom to the level where it breaks apart
+         *  (getClusterExpansionZoom is Promise-based in MapLibre). */
+        const zoomToCluster = async (feature: maplibregl.MapGeoJSONFeature) => {
+            const source = map.getSource(SRC) as maplibregl.GeoJSONSource | undefined
+            if (!source) return
+            try {
+                const clusterId = Number(
+                    (feature.properties as { cluster_id?: unknown }).cluster_id)
+                const zoom = await source.getClusterExpansionZoom(clusterId)
+                const [lon, lat] = (feature.geometry as GeoJSON.Point).coordinates
+                map.easeTo({ center: [lon as number, lat as number], zoom: zoom + 0.5 })
+            } catch { /* cluster dissolved mid-click */ }
+        }
+
+        /** Click: open a stack's member list, select a place, or break a
+         *  cluster apart. Anything that is not the open stack closes its
+         *  popover — empty ground included (the old web's dismissal rule). */
         map.on('click', (e) => {
             const hit = pickMarkAt(e.point)
             if (!hit) {
@@ -471,6 +584,13 @@ export function MapView({ facilities, lite, dark, onSelect }: {
             const coords = (hit.candidate.feature.geometry as GeoJSON.Point)
                 .coordinates as [number, number]
             const props = hit.candidate.feature.properties as { pid?: string; skey?: string }
+            if (hit.layerId === LYR_CLUSTERS) {
+                // A cluster is a camera control, not a place.
+                closeStack()
+                hideHover()
+                void zoomToCluster(hit.candidate.feature)
+                return
+            }
             if (hit.layerId === LYR_STACKS) {
                 const skey = String(props.skey)
                 if (stackKeyRef.current === skey) {
@@ -506,6 +626,11 @@ export function MapView({ facilities, lite, dark, onSelect }: {
                     return
                 }
                 map.getCanvas().style.cursor = 'pointer'
+                if (hit.layerId === LYR_CLUSTERS) {
+                    // A cluster is a camera control, not a place: cursor only.
+                    hideHover()
+                    return
+                }
                 const coords = (hit.candidate.feature.geometry as GeoJSON.Point)
                     .coordinates as [number, number]
                 const props = hit.candidate.feature.properties as { pid?: string; skey?: string; stack?: number }
@@ -579,6 +704,14 @@ export function MapView({ facilities, lite, dark, onSelect }: {
         const source = map.getSource(SRC) as maplibregl.GeoJSONSource | undefined
         source?.setData(data.geojson)
     }, [data])
+
+    // Tier flip: the cluster tint is mode-dependent (mean grade vs the
+    // neutral density ramp) and was baked at install time.
+    useEffect(() => {
+        const map = mapRef.current
+        if (!map || !map.getLayer(LYR_CLUSTERS)) return
+        map.setPaintProperty(LYR_CLUSTERS, 'circle-color', clusterColorExpr(lite))
+    }, [lite])
 
     // Theme swap: setStyle tears everything down; style.load reinstalls.
     useEffect(() => {
