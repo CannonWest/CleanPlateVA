@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
-// Shell wiring smoke (CRVa-M0): the real chrome renders under Vitest/jsdom
-// and, with no stored acknowledgement, sits in the awaiting-ack state —
-// C2's zero-fetch first load — behind the proof strip. The real referees
-// are the ported contract suites and the M0 suites (router hook, map data,
-// toolbar); this only pins that the shell stays assembled.
+// Shell wiring smoke (CRVb-M2): an undecided first load renders the §6.1
+// BLOCKING acknowledgement dialog over the ghosted shell — zero data
+// fetches (C2), the title alone, the two shipped decision labels
+// Decline-left / Agree-right, and no dismiss affordance that reads as a
+// third choice. The real referees are the contract + view suites; this
+// pins that the shell stays assembled.
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { expect, test } from 'vitest'
@@ -14,7 +15,7 @@ declare global {
     var IS_REACT_ACT_ENVIRONMENT: boolean | undefined
 }
 
-test('the shell renders and awaits the acknowledgement without fetching', async () => {
+test('an undecided first load blocks on the dialog and fetches nothing', async () => {
     globalThis.IS_REACT_ACT_ENVIRONMENT = true
     const fetches: string[] = []
     const realFetch = globalThis.fetch
@@ -30,21 +31,23 @@ test('the shell renders and awaits the acknowledgement without fetching', async 
         await act(async () => {
             createRoot(host).render(<App />)
         })
-        // The band: brand, the view switcher, search, counts.
+        // The blocking dialog: title alone, the verbatim terms, both labels.
+        const dialog = host.querySelector('[role="dialog"]')
+        expect(dialog).toBeTruthy()
+        expect(dialog?.textContent).toContain('Terms of Use and Data Acknowledgment')
+        expect(dialog?.textContent).toContain('CleanPlateVA is an independent service')
+        const buttons = Array.from(dialog?.querySelectorAll('button') ?? []).map((b) => b.textContent)
+        // Decline left / Agree right — the shipped labels, in that order.
+        expect(buttons).toEqual(['Decline and Use Basic Map', 'Agree and View Grades'])
+        // Blocking: no close affordance that reads as a third choice.
+        expect(dialog?.querySelector('button[aria-label="Close"]')).toBeNull()
+        // The ghosted shell behind it — brand + search, inert; the full
+        // band's controls are NOT rendered.
         expect(host.textContent).toContain('CleanPlateVA')
-        expect(host.textContent).toContain('Map')
-        expect(host.textContent).toContain('List')
-        expect(host.textContent).toContain('About')
-        expect(host.querySelector('input[type="search"]')).toBeTruthy()
-        // The C8 attribution footer.
-        expect(host.textContent).toContain('archived snapshot, not live')
-        // The theme SWITCH (bottom-left, Cannon's M0 review call) — dark
-        // is the default document (C10).
-        const themeSwitch = host.querySelector('button[role="switch"]')
-        expect(themeSwitch).toBeTruthy()
-        expect(themeSwitch?.getAttribute('aria-checked')).toBe('true')
-        // The proof strip awaits the answer; nothing was fetched (C2).
-        expect(host.textContent).toContain('Nothing is fetched until you answer')
+        expect(host.textContent).toContain('Search name, address, city, or ZIP')
+        expect(host.querySelector('input[type="search"]')).toBeNull()
+        expect(host.querySelector('button[role="switch"]')).toBeNull()
+        // C2: an undecided first load fetches NOTHING.
         expect(fetches).toEqual([])
     } finally {
         globalThis.fetch = realFetch
