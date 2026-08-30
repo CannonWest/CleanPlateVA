@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
-// CRF wiring smoke: the proof boot renders under Vitest/jsdom and, with no
-// stored acknowledgement, sits in the awaiting-ack state — C2's zero-fetch
-// first load — showing the proof controls. The real referees are the ported
-// contract suites; this only pins that the scaffold stays assembled.
+// Shell wiring smoke (CRVa-M0): the real chrome renders under Vitest/jsdom
+// and, with no stored acknowledgement, sits in the awaiting-ack state —
+// C2's zero-fetch first load — behind the proof strip. The real referees
+// are the ported contract suites and the M0 suites (router hook, map data,
+// toolbar); this only pins that the shell stays assembled.
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { expect, test } from 'vitest'
@@ -13,7 +14,7 @@ declare global {
     var IS_REACT_ACT_ENVIRONMENT: boolean | undefined
 }
 
-test('the proof boot renders and awaits the acknowledgement without fetching', async () => {
+test('the shell renders and awaits the acknowledgement without fetching', async () => {
     globalThis.IS_REACT_ACT_ENVIRONMENT = true
     const fetches: string[] = []
     const realFetch = globalThis.fetch
@@ -23,16 +24,22 @@ test('the proof boot renders and awaits the acknowledgement without fetching', a
     }) as typeof fetch
     try {
         window.localStorage.clear()
+        window.history.replaceState(null, '', '/')
         const host = document.createElement('div')
         document.body.appendChild(host)
         await act(async () => {
             createRoot(host).render(<App />)
         })
-        expect(host.textContent).toContain('CRF-M1 proof boot')
-        expect(host.textContent).toContain('Awaiting the acknowledgement')
-        expect(host.textContent).toContain('Agree (proof)')
-        expect(host.textContent).toContain('Decline (proof)')
-        // C2: an undecided first load fetches NOTHING.
+        // The band: brand, the view switcher, search, counts.
+        expect(host.textContent).toContain('CleanPlateVA')
+        expect(host.textContent).toContain('Map')
+        expect(host.textContent).toContain('List')
+        expect(host.textContent).toContain('About')
+        expect(host.querySelector('input[type="search"]')).toBeTruthy()
+        // The C8 attribution footer.
+        expect(host.textContent).toContain('archived snapshot, not live')
+        // The proof strip awaits the answer; nothing was fetched (C2).
+        expect(host.textContent).toContain('Nothing is fetched until you answer')
         expect(fetches).toEqual([])
     } finally {
         globalThis.fetch = realFetch
