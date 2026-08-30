@@ -56,6 +56,14 @@ export default defineConfig({
     plugins: [react(), tailwindcss(), cpPublicCopy()],
     // Dev passthrough only; the build copy is the filtered plugin above.
     publicDir: 'public',
+    optimizeDeps: {
+        // maplibre-gl spawns its tile/style worker from its own bundled
+        // code; the dev-time dep optimizer's re-bundle breaks that worker
+        // SILENTLY (map 'load' never fires, zero console errors — measured
+        // CRF-M1, Vite 8.2/Rolldown). Serve its native ESM untransformed.
+        // Production builds are unaffected (different pipeline).
+        exclude: ['maplibre-gl'],
+    },
     server: {
         watch: {
             // The local full archive is ~28k JSON files; watching it costs a
