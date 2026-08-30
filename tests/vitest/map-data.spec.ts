@@ -8,7 +8,11 @@
  *   · declining = active + graded + negative trend, in the marker's own
  *     grade color (the ring layer keys off the letter);
  *   · same-point rows collapse into ONE stack feature carrying its member
- *     count and NO judgment properties (neutral count bubbles);
+ *     count and NO judgment paint (neutral count bubbles);
+ *   · every feature carries the cluster accumulator inputs (stack +
+ *     gradeSum/gradeCount over LIVE scored places — closed excluded, lite
+ *     zeroed) so proximity clusters can count places and wear the mean
+ *     grade (revived 2026-08-30);
  *   · rows without coordinates draw nothing.
  */
 import { expect, test } from 'vitest'
@@ -114,6 +118,35 @@ test('same-point rows collapse into one neutral stack feature', () => {
     expect('letter' in sp).toBe(false)
     // The members stay reachable for the M2 fan-out.
     expect(data.stacks.get(sp.skey)).toHaveLength(3)
+})
+
+test('every feature carries the cluster accumulator inputs', () => {
+    const graded = row({ o: { grade_score: 92 } })
+    const closed = row({ status: 'Business Closed', o: { grade_score: 88 } })
+    const a = row({ lat: 37.51, lon: -77.41, o: { grade_score: 90 } })
+    const b = row({ lat: 37.51, lon: -77.41, o: { grade_score: 70 } })
+    const c = row({ lat: 37.51, lon: -77.41, status: 'Business Closed', o: { grade_score: 50 } })
+    const data = buildMapData([graded, closed, a, b, c], false)
+
+    // A lone graded place: itself, so a cluster of one means the same.
+    const g = props(data, graded.permit_id)
+    expect([g.stack, g.gradeSum, g.gradeCount]).toEqual([1, 92, 1])
+
+    // Closed is excluded: a shuttered grade is not a fact about today.
+    const cl = props(data, closed.permit_id)
+    expect([cl.stack, cl.gradeSum, cl.gradeCount]).toEqual([1, 0, 0])
+
+    // A stack counts every member but averages only the live, scored ones.
+    const stack = data.geojson.features
+        .find((f) => f.properties.kind === 'stack')?.properties as StackProps
+    expect([stack.stack, stack.gradeSum, stack.gradeCount]).toEqual([3, 160, 2])
+})
+
+test('the basic map zeroes the grade accumulators (nothing to average)', () => {
+    const scored = row({ o: { grade_score: 90, trend_delta: -5 } })
+    const data = buildMapData([scored], true)
+    const p = props(data, scored.permit_id)
+    expect([p.stack, p.gradeSum, p.gradeCount]).toEqual([1, 0, 0])
 })
 
 test('rows without coordinates draw nothing', () => {
