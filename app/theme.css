@@ -202,3 +202,34 @@
 .cp-tip.maplibregl-popup-anchor-right .maplibregl-popup-tip {
     border-left-color: var(--cp-surface-1);
 }
+
+/* The stack member popover: the hover chrome's INTERACTIVE twin (a real
+   control — it must take the pointer). */
+.cp-pop {
+    z-index: 19;
+}
+.cp-pop .maplibregl-popup-content {
+    background: var(--cp-surface-1);
+    color: var(--cp-ink);
+    border: 1px solid var(--cp-hairline);
+    border-radius: var(--cp-r-card);
+    box-shadow: var(--cp-shadow);
+    padding: 10px 10px 8px;
+    font-family: var(--cp-font);
+}
+.cp-pop.maplibregl-popup-anchor-top .maplibregl-popup-tip,
+.cp-pop.maplibregl-popup-anchor-top-left .maplibregl-popup-tip,
+.cp-pop.maplibregl-popup-anchor-top-right .maplibregl-popup-tip {
+    border-bottom-color: var(--cp-surface-1);
+}
+.cp-pop.maplibregl-popup-anchor-bottom .maplibregl-popup-tip,
+.cp-pop.maplibregl-popup-anchor-bottom-left .maplibregl-popup-tip,
+.cp-pop.maplibregl-popup-anchor-bottom-right .maplibregl-popup-tip {
+    border-top-color: var(--cp-surface-1);
+}
+.cp-pop.maplibregl-popup-anchor-left .maplibregl-popup-tip {
+    border-right-color: var(--cp-surface-1);
+}
+.cp-pop.maplibregl-popup-anchor-right .maplibregl-popup-tip {
+    border-left-color: var(--cp-surface-1);
+}
