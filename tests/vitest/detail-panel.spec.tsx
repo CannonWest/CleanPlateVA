@@ -1,0 +1,212 @@
+// @vitest-environment jsdom
+/**
+ * The §6.2 detail panel (CRVa-M2): header with the Source button (external
+ * grammar) + close; the structural fact line with `≈ approximate` as the
+ * ONE badge; the grade hero as a single TAPPABLE box that opens the
+ * report-card modal; the shared panel instrument in a labeled trend
+ * section; history rows carrying scores only (grade letters are the
+ * facility's, never an inspection's — C1/C9); the basic map keeps the
+ * identity + official-VDH hand-off. Plus the stack member popover
+ * (Cannon's M1-boundary call).
+ */
+import { act } from 'react'
+import { createRoot } from 'react-dom/client'
+import type { Root } from 'react-dom/client'
+import { afterEach, expect, test } from 'vitest'
+import { DetailPanel } from '../../app/DetailPanel'
+import { StackPopover } from '../../app/StackPopover'
+import type { FacilityDetail, Inspection, RosterRow } from '../../app/data/types'
+
+declare global {
+    // eslint-disable-next-line no-var
+    var IS_REACT_ACT_ENVIRONMENT: boolean | undefined
+}
+
+globalThis.IS_REACT_ACT_ENVIRONMENT = true
+
+let host: HTMLDivElement | null = null
+let root: Root | null = null
+
+afterEach(async () => {
+    await act(async () => {
+        root?.unmount()
+    })
+    root = null
+    host?.remove()
+    host = null
+})
+
+async function render(el: React.ReactElement) {
+    host = document.createElement('div')
+    document.body.appendChild(host)
+    root = createRoot(host)
+    await act(async () => {
+        root?.render(el)
+    })
+    return host
+}
+
+function row(over: Partial<RosterRow> = {}): RosterRow {
+    return {
+        permit_id: 'D-1', name: 'Golden Dragon Express', address: '4903 Nine Mile Rd',
+        address2: null, city: 'Henrico', zip: '23223', tenant: 'henrico',
+        is_restaurant: true, mobile: false, pt: 1,
+        lat: 37.53, lon: -77.36, loc: 2,
+        o: { grade_score: 78, trend_delta: -7, base_yyyymmdd: 20260519 },
+        ...over,
+    }
+}
+
+const inspections: Inspection[] = [
+    {
+        inspection_id: 'I2', date: '2026-07-30', scope: 'focused', purpose: 'Follow-Up',
+        score: 96, report_url: 'https://inspections.example/2',
+        checklist: [
+            { item: 21, disposition: 'OUT', category: 'Food Protection', standard_text: 'Food-contact surfaces cleaned & sanitized', compliant: false, violation: true, cos: true, repeat: false, is_sentinel: false },
+            { item: 47, disposition: 'OUT', category: 'Facility Maintenance', standard_text: 'Non-food-contact surfaces clean', compliant: false, violation: true, cos: false, repeat: true, is_sentinel: false },
+        ] as Inspection['checklist'],
+        violations: [
+            { item: 21, text: 'Slicer blade guard soiled', corrective: 'Cleaned and sanitized during the inspection.' },
+            { item: 47, text: 'Buildup on walk-in shelving', corrective: 'To be addressed before the next routine inspection.' },
+        ],
+        comments: 'Follow-up limited to the items cited 2026-05-19.',
+    },
+    {
+        inspection_id: 'I1', date: '2026-05-19', scope: 'broad', purpose: 'Routine',
+        score: 78, applicable_item_count: 31,
+        checklist: [
+            { item: 21, disposition: 'OUT', category: 'Food Protection', standard_text: 'Food-contact surfaces cleaned & sanitized', compliant: false, violation: true, cos: false, repeat: false, is_sentinel: false },
+        ] as Inspection['checklist'],
+        violations: [{ item: 21, text: 'Slicer blade guard soiled' }],
+        temps_v2: {
+            food_present: true,
+            food: [{ description: 'Walk-in ambient', temperature: '38F', temperature_f: 38, state_of_food: 'Cold Holding' }],
+        },
+    },
+]
+
+function detail(over: Partial<FacilityDetail> = {}): FacilityDetail {
+    return {
+        contract: 'cleanplateva.facility-detail.v4',
+        schema_version: 4,
+        available: true,
+        facility: {
+            ...row(),
+            permit_type: 'Full Service Restaurant',
+            status: 'Permitted',
+            grade: {
+                score: 78, letter: 'C', adjusted: false, base_score: 78, base_letter: 'C',
+                base_date: '2026-05-19', base_inspection_id: 'I1', followups: 0,
+                narrative_followups: 0, narrative_items: [], restored_items: [],
+                failed_items: [], cos_items: [], new_items: [], unchecked_items: [],
+                restored_points: 0, extra_points: 0,
+            },
+        },
+        inspections,
+        ...over,
+    }
+}
+
+test('the full panel: header, fact line, tappable hero → report-card modal, trend section, history', async () => {
+    const el = await render(
+        <DetailPanel
+            row={row()}
+            lite={false}
+            state={{ status: 'ready', detail: detail() }}
+            onClose={() => {}}
+            onAbout={() => {}}
+        />,
+    )
+    // Header: identity + the Source button in the external grammar + close.
+    expect(el.textContent).toContain('Golden Dragon Express')
+    const source = Array.from(el.querySelectorAll('a')).find((a) => a.textContent?.includes('Source'))
+    expect(source?.getAttribute('href')).toMatch(/inspections\.myhealthdepartment\.com/)
+    expect(el.querySelector('button[aria-label="Close"]')).toBeTruthy()
+    // The fact line: kind + status structurally, ≈ as the one badge (C9 —
+    // this row is a zip-centroid, qualified on the full tier too).
+    expect(el.textContent).toContain('Full Service Restaurant')
+    expect(el.textContent).toContain('Permitted')
+    expect(el.textContent).toContain('≈ approximate location')
+    // The hero is ONE tappable box that opens the breakdown.
+    const hero = el.querySelector('button[aria-haspopup="dialog"]')
+    expect(hero?.textContent).toContain('78')
+    expect(hero?.textContent).toContain('Declining')
+    expect(hero?.textContent).toContain('Tap to see Grade breakdown')
+    expect(el.querySelector('[role="dialog"]')).toBeNull()
+    await act(async () => {
+        ;(hero as HTMLButtonElement).click()
+    })
+    const modal = el.querySelector('[role="dialog"]')
+    expect(modal).toBeTruthy()
+    expect(modal?.textContent).toContain('How this grade was computed')
+    expect(modal?.textContent).toContain('Broad inspection — May 19, 2026')
+    // The trend section is the labeled §6.0 instrument (panel variant).
+    expect(el.textContent).toContain('Trend · 2 visits')
+    expect(el.querySelector('svg.cp-trend--interactive')).toBeTruthy()
+    expect(el.textContent).toContain('broad score')
+    // History: the full inventory — corrective lines, checklist, comments, temps.
+    expect(el.textContent).toContain('Inspection history · 2 visits')
+    expect(el.textContent).toContain('↳ ')
+    expect(el.textContent).toContain('Cleaned and sanitized during the inspection.')
+    expect(el.textContent).toContain('Inspection checklist — 2 distinct applicable code items · 2 published rows · 2 OUT')
+    expect(el.textContent).toContain('Inspector comments')
+    expect(el.textContent).toContain('Temperatures & sanitizer — 1 readings')
+    // Scores only on inspections: the broad row wears 78 as a PILL, and no
+    // history row ever carries a grade letter of its own.
+    expect(el.textContent).toContain('2/2 OUT')      // the focused row's ratio badge
+    expect(el.textContent).not.toContain('Grade C · ')
+})
+
+test('the basic map keeps the identity + official hand-off (P6/C8)', async () => {
+    const el = await render(
+        <DetailPanel
+            row={row()}
+            lite
+            state={{ status: 'loading' }}
+            onClose={() => {}}
+            onAbout={() => {}}
+        />,
+    )
+    expect(el.textContent).toContain('View inspections on VDH')
+    expect(el.textContent).toContain('this map is a finder')
+    expect(el.textContent).not.toContain('Tap to see Grade breakdown')
+    expect(el.querySelector('svg.cp-trend')).toBeNull()
+})
+
+test('an unavailable detail reads as exactly that', async () => {
+    const el = await render(
+        <DetailPanel
+            row={row()}
+            lite={false}
+            state={{ status: 'ready', detail: { available: false, reason: 'no data published yet' } }}
+            onClose={() => {}}
+            onAbout={() => {}}
+        />,
+    )
+    expect(el.textContent).toContain('Failed to load: no data published yet')
+})
+
+test('the stack popover lists members name-sorted with ramp chips and picks by permit', async () => {
+    const picks: string[] = []
+    const members = [
+        row({ permit_id: 'S-2', name: 'Zesty Tacos', o: { grade_score: 93 } }),
+        row({ permit_id: 'S-1', name: 'Aroma Cafe', address2: 'Suite 210', o: { grade_score: null, new: 1 } }),
+        row({ permit_id: 'S-3', name: 'Mid Diner', status: 'Business Closed', o: {} }),
+    ]
+    const el = await render(
+        <StackPopover members={members} lite={false} onPick={(pid) => picks.push(pid)} />,
+    )
+    expect(el.textContent).toContain('3 places at this point')
+    const names = Array.from(el.querySelectorAll('button')).map((b) => b.textContent)
+    expect(names[0]).toContain('Aroma Cafe')      // name-sorted
+    expect(names[0]).toContain('Suite 210')
+    expect(names[0]).toContain('NEW')
+    expect(names[1]).toContain('Mid Diner')
+    expect(names[1]).toContain('closed')
+    expect(names[2]).toContain('Zesty Tacos')
+    expect(names[2]).toContain('A')
+    await act(async () => {
+        ;(el.querySelectorAll('button')[2] as HTMLButtonElement).click()
+    })
+    expect(picks).toEqual(['S-2'])
+})

@@ -37,6 +37,7 @@ import { buildMapData } from './mapData'
 import type { MapData } from './mapData'
 import { hitSlop, markRadius, pickMark } from './mapHit'
 import { HoverCard } from './HoverCard'
+import { StackPopover } from './StackPopover'
 import { coordsOf } from './data/presentation'
 import type { RosterRow } from './data/types'
 
@@ -197,10 +198,12 @@ function fixDarkRoadLabels(map: maplibregl.Map, dark: boolean): void {
     }
 }
 
-export function MapView({ facilities, lite, dark }: {
+export function MapView({ facilities, lite, dark, onSelect }: {
     facilities: RosterRow[]
     lite: boolean
     dark: boolean
+    /** A facility was clicked (a lone dot, or a stack member picked). */
+    onSelect: (permitId: string) => void
 }) {
     const container = useRef<HTMLDivElement>(null)
     const mapRef = useRef<maplibregl.Map | null>(null)
@@ -234,6 +237,15 @@ export function MapView({ facilities, lite, dark }: {
     const popupHostRef = useRef<HTMLDivElement | null>(null)
     const popupRootRef = useRef<Root | null>(null)
     const hoverKeyRef = useRef<string | null>(null)
+
+    // The stack member popover (M2): its own INTERACTIVE popup + root.
+    const stackPopupRef = useRef<maplibregl.Popup | null>(null)
+    const stackHostRef = useRef<HTMLDivElement | null>(null)
+    const stackRootRef = useRef<Root | null>(null)
+    const stackKeyRef = useRef<string | null>(null)
+    const closeStackRef = useRef<() => void>(() => {})
+    const onSelectRef = useRef(onSelect)
+    onSelectRef.current = onSelect
 
     // Padded bounding box of the loaded facilities — "the mapped area".
     function coverageContains(lat: number, lon: number): boolean {
@@ -404,8 +416,89 @@ export function MapView({ facilities, lite, dark }: {
                 .addTo(map)
         }
 
+        // ── the stack member popover (M2) ──────────────────────────────
+        const closeStack = () => {
+            stackKeyRef.current = null
+            stackPopupRef.current?.remove()
+        }
+        closeStackRef.current = closeStack
+
+        const openStack = (skey: string, lngLat: [number, number]) => {
+            const members = dataRef.current.stacks.get(skey)
+            if (!members || members.length < 2) return
+            if (!stackHostRef.current) {
+                stackHostRef.current = document.createElement('div')
+                stackRootRef.current = createRoot(stackHostRef.current)
+            }
+            stackKeyRef.current = skey
+            hideHover()
+            flushSync(() => {
+                stackRootRef.current?.render(
+                    <StackPopover
+                        members={members}
+                        lite={liteRef.current}
+                        onPick={(pid) => {
+                            closeStack()
+                            onSelectRef.current(pid)
+                        }}
+                    />,
+                )
+            })
+            if (!stackPopupRef.current) {
+                stackPopupRef.current = new maplibregl.Popup({
+                    closeButton: false,
+                    closeOnClick: false,
+                    offset: 16,
+                    maxWidth: '288px',
+                    className: 'cp-pop',
+                })
+            }
+            stackPopupRef.current
+                .setLngLat(lngLat)
+                .setDOMContent(stackHostRef.current)
+                .addTo(map)
+        }
+
+        /** Click: open a stack's member list, or select a place. Anything
+         *  that is not the open stack closes its popover — empty ground
+         *  included (the old web's dismissal rule). */
+        map.on('click', (e) => {
+            const hit = pickMarkAt(e.point)
+            if (!hit) {
+                closeStack()
+                return
+            }
+            const coords = (hit.candidate.feature.geometry as GeoJSON.Point)
+                .coordinates as [number, number]
+            const props = hit.candidate.feature.properties as { pid?: string; skey?: string }
+            if (hit.layerId === LYR_STACKS) {
+                const skey = String(props.skey)
+                if (stackKeyRef.current === skey) {
+                    closeStack() // clicking the open stack again dismisses it
+                    return
+                }
+                openStack(skey, [...coords])
+                return
+            }
+            closeStack()
+            if (props.pid && byPidRef.current.has(String(props.pid))) {
+                hideHover() // the panel takes over
+                onSelectRef.current(String(props.pid))
+            }
+        })
+
+        const onStackKey = (e: KeyboardEvent) => {
+            if (e.key === 'Escape' && stackKeyRef.current) closeStack()
+        }
+        document.addEventListener('keydown', onStackKey)
+
         if (!coarse) {
             map.on('mousemove', (e) => {
+                // A pointer over the interactive popover still bubbles a
+                // map-level mousemove; that moment belongs to the popover,
+                // not to "empty ground" (the old spider-leg guard).
+                const target = e.originalEvent?.target as Element | null
+                if (target?.closest?.('.maplibregl-popup:not(.cp-tip)')) return
                 const hit = pickMarkAt(e.point)
                 if (!hit) {
                     map.getCanvas().style.cursor = ''
@@ -457,13 +550,18 @@ export function MapView({ facilities, lite, dark }: {
 
         return () => {
             clearTimeout(settle)
+            document.removeEventListener('keydown', onStackKey)
             hideHover()
-            const root = popupRootRef.current
+            closeStack()
+            const roots = [popupRootRef.current, stackRootRef.current]
             popupRootRef.current = null
             popupHostRef.current = null
             popupRef.current = null
+            stackRootRef.current = null
+            stackHostRef.current = null
+            stackPopupRef.current = null
             // Unmount outside the commit React is running right now.
-            if (root) setTimeout(() => root.unmount(), 0)
+            setTimeout(() => roots.forEach((root) => root?.unmount()), 0)
             geolocateRef.current = null
             mapRef.current = null
             map.remove()
@@ -471,12 +569,13 @@ export function MapView({ facilities, lite, dark }: {
     }, [])
 
     // Roster / filter / tier changes → new source data. A filter flip can
-    // remove the very marker an open card anchors to — don't leave the
-    // card floating over nothing.
+    // remove the very marker an open card or popover anchors to — don't
+    // leave either floating over nothing (membership may have changed).
     useEffect(() => {
         const map = mapRef.current
         if (!map) return
         hideHoverRef.current()
+        closeStackRef.current()
         const source = map.getSource(SRC) as maplibregl.GeoJSONSource | undefined
         source?.setData(data.geojson)
     }, [data])
@@ -486,6 +585,7 @@ export function MapView({ facilities, lite, dark }: {
         const map = mapRef.current
         if (!map || styleDarkRef.current === dark) return
         hideHoverRef.current()
+        closeStackRef.current()
         styleDarkRef.current = dark
         map.setStyle(dark ? STYLE_DARK : STYLE_LIGHT)
     }, [dark])

@@ -9,7 +9,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import type { ReactNode } from 'react'
 import type { AckState } from '../ack'
 import type { FoodApi } from './client'
-import type { RosterResult, RosterRow } from './types'
+import type { FacilityDetail, RosterResult, RosterRow } from './types'
 
 export type RosterStatus =
     | { status: 'awaiting-ack' }
@@ -24,6 +24,9 @@ interface DataContextValue {
      *  simply stay absent. */
     closed: RosterRow[]
     ensureClosed: () => void
+    /** The per-facility detail, on CLICK only (P5) — the client owns the
+     *  LRU, the standards memo, and the contract validation. */
+    getDetail: (permitId: string) => Promise<FacilityDetail>
     /** Re-run the load (the ack answer is read through the client's gate). */
     reload: () => void
 }
@@ -66,9 +69,14 @@ export function DataProvider({ api, ack, forceLite, children }: {
             .catch(() => { /* degrade: the toggle can be flipped again */ })
     }, [api])
 
+    const getDetail = useCallback(
+        (permitId: string) => api.getFoodFacilityDetail(permitId),
+        [api],
+    )
+
     const value = useMemo(
-        () => ({ roster, closed, ensureClosed, reload }),
-        [roster, closed, ensureClosed, reload],
+        () => ({ roster, closed, ensureClosed, getDetail, reload }),
+        [roster, closed, ensureClosed, getDetail, reload],
     )
     return <DataContext.Provider value={value}>{children}</DataContext.Provider>
 }
