@@ -57,11 +57,8 @@ export const THEME_KEY = 'cleanplateva.theme'
 
 // MapLibre source + layer ids (data layers re-added on every style swap).
 export const SRC = 'food-facilities'
-export const LYR_CLUSTERS = 'food-clusters'
-export const LYR_CLUSTER_COUNT = 'food-cluster-count'
 export const LYR_POINTS = 'food-points'
 export const LYR_POINT_LETTERS = 'food-point-letters'
-export const LYR_DECLINING = 'food-declining-rings'
 export const LYR_STACKS = 'food-stacks'
 export const LYR_STACK_COUNT = 'food-stack-count'
 
@@ -77,39 +74,21 @@ export const POINT_RADIUS_STOPS: ReadonlyArray<readonly [number, number]> =
 export const LETTER_ZOOM = 13.5
 export const LETTER_TEXT_SIZE = 11
 
-// Declining ring: dashed, in the marker's own grade color (mockup), drawn
-// as a prerendered image GAP px outside the dot's reference radius.
-export const DECLINING_RING_GAP = 3
-export const DECLINING_RING_BASE_RADIUS = POINT_RADIUS_FULL // drawn at z14 size
-
 // Pointer forgiveness (ported): events resolve against a slop-padded box —
 // nobody should have to land on a small dot exactly.
 export const HIT_SLOP_FINE = 10
 export const HIT_SLOP_COARSE = 16
 
 // Same-point stacks (count bubbles): core radius by member count, ported
-// from the old `stacks.js` steps (<10 / <50 / 50+) — at full size. Stacks
-// ride the dots' growth curve and their counts appear once the bubble can
-// carry text; below CLUSTER_MAX_ZOOM most are absorbed into proximity
-// clusters anyway (isolated ones still draw, zoom-scaled).
+// from the old `stacks.js` steps (<10 / <50 / 50+) — at full size. The old
+// client only DREW stacks past clusterMaxZoom 12 (proximity clusters
+// absorbed them below); with clustering retired — tried live 2026-08-30
+// and withdrawn on Cannon's review, see #174/#175 — the equivalent
+// restraint is zoom-scaling: bubbles ride the dots' growth curve and
+// their counts appear once the bubble can carry text.
 export const STACK_RADII = [11, 13, 15] as const
 export const STACK_STEPS = [10, 50] as const
 export const STACK_COUNT_ZOOM = 12
-
-// Proximity clusters — the old client's bubble clustering, revived at
-// Cannon's preview-review call (2026-08-30; supersedes the CRD-M1 "no
-// proximity clusters" mockup rule). Grouped at metro view, dissolved from
-// neighborhood zoom up; bubbles are SIZED by the places they stand for
-// (sum of member stacks, same steps the hit test measures against) and
-// TINTED by the mean grade of the live, scored places inside — size says
-// how many, color says how good (the basic map keeps a neutral density
-// ramp: it publishes no grades). Values ported verbatim from the old
-// `constants.js` / `stacks.js`.
-export const CLUSTER_RADII = [12, 16, 22] as const // <10 · <50 · 50+
-export const CLUSTER_STEPS = [10, 50] as const
-export const CLUSTER_MAX_ZOOM = 12
-export const CLUSTER_PIXEL_RADIUS = 40 // grouping reach, source config
-export const LITE_CLUSTER_RAMP = ['#9aa1a9', '#8b929b', '#7d848d'] as const
 
 // Neutral stack surfaces per basemap (MapLibre paint can't read CSS vars;
 // layers are re-added on theme swap with the right literals). Values are
