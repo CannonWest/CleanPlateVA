@@ -498,8 +498,14 @@ export function MapView({ facilities, lite, dark, onSelect }: {
         // flex not yet resolved) — re-fit once unless a location fix has
         // already claimed the camera.
         const settle = setTimeout(() => {
-            map.resize()
-            if (!followingRef.current) map.fitBounds(VA_BOUNDS, { ...VA_FIT, duration: 0 })
+            try {
+                map.resize()
+                if (!followingRef.current) map.fitBounds(VA_BOUNDS, { ...VA_FIT, duration: 0 })
+            } catch {
+                // A map that survived construction but never finished
+                // starting (jsdom under Vitest: no WebGL, so no painter)
+                // throws from resize(). Nothing to settle on it.
+            }
         }, 50)
 
         return () => {
