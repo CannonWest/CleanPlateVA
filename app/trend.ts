@@ -10,8 +10,8 @@
  *   · when a real claimed height falls below the floor the domain EXTENDS
  *     to include it — thresholds keep their absolute values and compress
  *     upward; a real value is never clipped, and the range is never
- *     normalized to the data's own min/max;
- *   · a below-floor outlier gets its score printed beside the mark.
+ *     normalized to the data's own min/max (the outlier's score shows in
+ *     its always-on label like every other mark).
  *
  * The mark grammar (ports the old `sparkline.js` semantics):
  *   · line + dots = BROAD scores only, dot filled with the score's grade
@@ -21,7 +21,13 @@
  *     never joined to the line; no trustworthy ratio ⇒ a baseline tick;
  *   · FILLED diamond = adjudicated written verdict at its verdict height
  *     (all-corrected rides the 100 line);
- *   · baseline tick below the band = an event with nothing claimable.
+ *   · baseline tick below the band = an event with nothing claimable;
+ *   · every claiming mark carries its LABEL — score, bare X/Y ratio, or
+ *     verdict glyph — printed ABOVE the mark always (Cannon's 2026-08-30
+ *     preview call, the old sparkline's grammar in the new style); the
+ *     panel geometry reserves headroom so a 100-height mark's label and
+ *     its 1.7× hover enlargement both stay in frame. This retires the
+ *     hover-only readout and the below-floor beside-the-mark side label.
  */
 
 import { GRADE_COLORS } from './constants'
@@ -63,10 +69,14 @@ export interface TrendGeometry {
     datesY: number
 }
 
+// bandTop carries 18px more headroom than the CRVa-M1 original (8→26,
+// span preserved): the always-on labels sit ~12px above their marks, and
+// a 100-height mark — label included, hover-enlarged included — must
+// stay inside the frame.
 const PANEL_GEO: TrendGeometry = {
-    width: 364, height: 110, plotRight: 344, padLeft: 10, padRight: 8,
-    bandTop: 8, bandBottom: 80, tickTop: 78, tickBottom: 90,
-    dotRadius: 5.5, diamondHalf: 5.5, furniture: true, datesY: 102,
+    width: 364, height: 128, plotRight: 344, padLeft: 10, padRight: 8,
+    bandTop: 26, bandBottom: 98, tickTop: 96, tickBottom: 108,
+    dotRadius: 5.5, diamondHalf: 5.5, furniture: true, datesY: 120,
 }
 
 const CARD_GEO: TrendGeometry = {
@@ -101,10 +111,9 @@ export interface TrendMark {
     y: number
     /** Fill for broad/narrative; stroke for the hollow focused diamond. */
     color: string
-    /** The hover readout — score, X/Y OUT, or the verdict glyph(+count). */
-    readout: string
-    /** Printed BESIDE the mark always (below-floor outliers only). */
-    sideLabel: string | null
+    /** Printed ABOVE the mark always — score, bare X/Y, or ✓-glyph
+     *  (the claim's readout with the ' OUT' suffix dropped); '' = tick. */
+    label: string
     historyIndex: number
 }
 
@@ -213,8 +222,7 @@ export function trendLayout(series: ScopeSeries, variant: TrendVariant, width?: 
                     x: px,
                     y: (geometry.tickTop + geometry.tickBottom) / 2,
                     color: '',
-                    readout: '',
-                    sideLabel: null,
+                    label: '',
                     historyIndex: event.historyIndex,
                 })
             }
@@ -227,11 +235,10 @@ export function trendLayout(series: ScopeSeries, variant: TrendVariant, width?: 
             x: px,
             y: py,
             color: claim.color,
-            readout: claim.readout,
-            // The below-floor outlier keeps its number on-canvas (§6.0) —
-            // only meaningful when the domain had to stretch for a score.
-            sideLabel: claim.kind === 'broad' && claim.height < TREND_REST_FLOOR
-                ? String(claim.height) : null,
+            // The compact above-mark form: the old sparkline printed bare
+            // ratios ("3/5"); the claim's fuller "3/5 OUT" stays the anchor
+            // vocabulary elsewhere.
+            label: claim.readout.replace(/ OUT$/, ''),
             historyIndex: event.historyIndex,
         })
     })
