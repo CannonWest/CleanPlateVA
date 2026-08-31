@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 /**
  * The §6.2 hover card (CRVa-M1; re-laid 2026-08-30 to the old client's
- * zones at Cannon's preview call): rendered WHOLLY from the roster row —
- * the bordered identity head, the grade hero (circle + score + anchor
- * date), the two anchor boxes (last broad · last visit), and the panel's
+ * zones at Cannon's preview call, anchor boxes cut on the same day's
+ * pass 3): rendered WHOLLY from the roster row — the bordered identity
+ * head, the grade hero (circle + score + anchor date), and the panel's
  * trend section borrowed WHOLESALE (shared TrendSection: furniture, dates,
  * legend) — with ZERO fetches (C3). The basic map keeps the slim name +
  * address tip (P6); both tiers qualify an approximate pin (C9); NEW is
@@ -66,7 +66,7 @@ function row(over: Partial<RosterRow> = {}): RosterRow {
     }
 }
 
-test('the full-tier card: head, grade hero, anchor boxes, and the borrowed panel trend', async () => {
+test('the full-tier card: head, grade hero, and the borrowed panel trend', async () => {
     const el = await render(row({
         o: {
             grade_score: 94,
@@ -88,11 +88,10 @@ test('the full-tier card: head, grade hero, anchor boxes, and the borrowed panel
     expect(el.textContent).toContain('94')
     expect(el.textContent).toContain('/100')
     expect(el.textContent).toContain('Broad inspection · Jun 11, 2026')
-    // The two anchor boxes, ISO-dated, speaking the trend's own claims.
-    expect(el.textContent).toContain('Last broad inspection')
-    expect(el.textContent).toContain('2026-06-11 · 94')
-    expect(el.textContent).toContain('Last visit')
-    expect(el.textContent).toContain('2026-08-02 · 0/3 OUT')
+    // The anchor boxes were cut (pass 3): the hero carries the broad
+    // date, the trend's endpoint dates carry the span.
+    expect(el.textContent).not.toContain('Last broad inspection')
+    expect(el.textContent).not.toContain('Last visit')
     // The expanded view's trend, borrowed wholesale: the panel variant
     // (its hover interactivity is inert — the popup is mouse-transparent)
     // with the section header and the mark-grammar legend.

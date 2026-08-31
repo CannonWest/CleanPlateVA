@@ -7,11 +7,13 @@
  * Re-laid to the OLD client's defined zones at Cannon's preview-review
  * call (2026-08-30; supersedes the CRVa-M1 compact card): a bordered head
  * (identity), a grade hero (the circle beside its score and anchor date),
- * the two dated anchor boxes, then the panel's trend section borrowed
- * WHOLESALE — hairlines, band labels, endpoint dates, legend — via the
- * shared TrendSection (one module, two mounts; it cannot drift from the
- * expanded view). The popup is mouse-transparent, so the panel variant's
- * hover interactivity simply never triggers here: static furniture only.
+ * then the panel's trend section borrowed WHOLESALE — hairlines, band
+ * labels, endpoint dates, legend — via the shared TrendSection (one
+ * module, two mounts; it cannot drift from the expanded view). The
+ * anchor boxes (last broad · last visit) were cut on the same day's
+ * pass 3: the hero and the trend's endpoint dates already say it. The
+ * popup is mouse-transparent, so the panel variant's hover interactivity
+ * simply never triggers here: static furniture only.
  *
  * The basic map keeps the slim name + address tip (P6: no judgment). Both
  * tiers qualify an approximate pin (C9). Nothing here is a control —
@@ -22,36 +24,11 @@ import {
     approximateLabel, facilityPresentation, fmtDate, gradeColor, isActivePermit,
     isNewlyPermitted, visitsOf,
 } from './data/presentation'
-import type { ScopeEvent } from './data/presentation'
-import { trendClaim } from './trend'
 import { TrendSection } from './TrendSection'
 import type { RosterRow } from './data/types'
 
 /** The card is w-[340px]; the trend frame's px-3 leaves this much plot. */
 const HOVER_TREND_WIDTH = 316
-
-function AnchorBox({ label, date, value }: {
-    label: string
-    date: string | null
-    value: string | null
-}) {
-    return (
-        <div className="rounded-[6px] border border-cp-hairline bg-cp-surface-2 px-2 py-1.5">
-            <div className="text-[9.5px] tracking-[.06em] text-cp-ink-3 uppercase">{label}</div>
-            <div className="text-[12px] font-semibold tabular-nums">
-                {date ?? '—'}
-                {value ? ` · ${value}` : ''}
-            </div>
-        </div>
-    )
-}
-
-/** The "last visit" box speaks the same claim its trend mark makes. */
-function visitValue(event: ScopeEvent | undefined): string | null {
-    if (!event) return null
-    const claim = trendClaim(event)
-    return claim.readout || null
-}
 
 export function HoverCard({ f, lite }: { f: RosterRow; lite: boolean }) {
     const approx = approximateLabel(f)
@@ -74,8 +51,6 @@ export function HoverCard({ f, lite }: { f: RosterRow; lite: boolean }) {
     const isNew = isNewlyPermitted(f)
     const active = isActivePermit(f)
     const series = visitsOf(f)
-    const lastBroad = series.broad[series.broad.length - 1]
-    const lastVisit = series.events[series.events.length - 1]
     const hasRecord = Boolean(grade || isNew || series.events.length)
 
     return (
@@ -136,23 +111,6 @@ export function HoverCard({ f, lite }: { f: RosterRow; lite: boolean }) {
                     )}
                 </div>
             </div>
-
-            {/* The dated anchors, their own row (the old .food-grade-dates). */}
-            {hasRecord && (
-                <div className="mt-2.5 grid grid-cols-2 gap-1.5">
-                    <AnchorBox
-                        label="Last broad inspection"
-                        date={lastBroad?.inspection.date ?? null}
-                        value={lastBroad?.presentation.score != null
-                            ? String(lastBroad.presentation.score) : null}
-                    />
-                    <AnchorBox
-                        label="Last visit"
-                        date={lastVisit?.inspection.date ?? null}
-                        value={visitValue(lastVisit)}
-                    />
-                </div>
-            )}
 
             {/* The expanded view's trend, borrowed wholesale. */}
             {!isNew && <TrendSection series={series} width={HOVER_TREND_WIDTH} />}
