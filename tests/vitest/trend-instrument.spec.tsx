@@ -4,14 +4,18 @@
  * pinned against the decision record's own numbers
  * (docs/mockups/trend-compare.html):
  *
- *   · resting domain 100→55 (the F threshold always in frame);
+ *   · resting domain 100→55 (the F threshold always in frame), with 18px
+ *     of top headroom (bandTop 26) so a 100-mark's always-on label and
+ *     its hover enlargement stay inside the frame (2026-08-30);
  *   · extend-on-demand when a real claimed height falls below the floor —
- *     thresholds keep their absolute values and compress upward, the
- *     below-floor outlier prints its score beside the mark;
+ *     thresholds keep their absolute values and compress upward;
  *   · NEVER normalized to the data's own min/max;
  *   · broad dots on the line at score height · hollow focused diamonds at
  *     COMPLIANCE height (raw focused scores never plot) · filled verdict
  *     diamonds (all-corrected rides the 100 line) · baseline ticks;
+ *   · every claiming mark prints its LABEL above itself, always — score,
+ *     bare X/Y ratio (no ' OUT'), or ✓-glyph (the below-floor outlier's
+ *     number rides its label like every other mark's);
  *   · a scoreless broad visit holds its x-slot with no mark;
  *   · panel variant carries furniture + hover; card variant is bare/static.
  */
@@ -52,10 +56,11 @@ test('the resting domain is 100→55 and maps the decision record\'s own pixels'
     ]), 'panel')
     expect(layout.floor).toBe(55)
     const ys = layout.marks.filter((m) => m.kind === 'broad').map((m) => +m.y.toFixed(1))
-    expect(ys).toEqual([32, 33.6, 40, 43.2, 46.4])
+    // The decision record's pixels + the 18px label headroom (bandTop 26).
+    expect(ys).toEqual([50, 51.6, 58, 61.2, 64.4])
     // Threshold furniture: 90/80/70/60 hairlines, the 60 dashed.
     expect(layout.hairlines.map((h) => [h.score, +h.y.toFixed(1), h.dashed])).toEqual([
-        [90, 24, false], [80, 40, false], [70, 56, false], [60, 72, true],
+        [90, 42, false], [80, 58, false], [70, 74, false], [60, 90, true],
     ])
     // Band labels A · C · F only; endpoint dates start/end anchored.
     expect(layout.bandLabels.map((b) => b.text)).toEqual(['A', 'C', 'F'])
@@ -63,7 +68,7 @@ test('the resting domain is 100→55 and maps the decision record\'s own pixels'
     // The tick holds the below-band zone.
     const tick = layout.marks.find((m) => m.kind === 'tick')
     expect(tick).toBeTruthy()
-    expect(tick && tick.y > 72).toBe(true)
+    expect(tick && tick.y > 90).toBe(true)
 })
 
 test('a 29 extends the domain to 25; thresholds compress upward; the outlier keeps its number', () => {
@@ -73,21 +78,21 @@ test('a 29 extends the domain to 25; thresholds compress upward; the outlier kee
         [3, 20251201, 1], [1, 20260310, 88], [1, 20260715, 91],
     ]), 'panel')
     expect(layout.floor).toBe(25)
-    const dip = layout.marks.find((m) => m.sideLabel)
-    expect(dip?.sideLabel).toBe('29')
-    expect(+((dip?.y ?? 0).toFixed(1))).toBe(76.2)
-    expect(layout.hairlines.map((h) => +h.y.toFixed(1))).toEqual([17.6, 27.2, 36.8, 46.4])
+    const dip = layout.marks.find((m) => m.label === '29')
+    expect(dip?.kind).toBe('broad')
+    expect(+((dip?.y ?? 0).toFixed(1))).toBe(94.2)
+    expect(layout.hairlines.map((h) => +h.y.toFixed(1))).toEqual([35.6, 45.2, 54.8, 64.4])
     // The verdict diamond is FILLED at the 100 line (all corrected).
     const verdict = layout.marks.find((m) => m.kind === 'narrative')
-    expect(verdict?.y).toBe(8)
-    expect(verdict?.readout).toBe('✓')
+    expect(verdict?.y).toBe(26)
+    expect(verdict?.label).toBe('✓')
 })
 
 test('the range is never normalized to the data\'s own min/max', () => {
     const layout = trendLayout(series([[1, 20250101, 95], [1, 20260101, 98]]), 'panel')
     expect(layout.floor).toBe(55)
     // Two high-90s dots sit near the top, not stretched over the band.
-    for (const mark of layout.marks) expect(mark.y).toBeLessThan(20)
+    for (const mark of layout.marks) expect(mark.y).toBeLessThan(38)
 })
 
 test('a flush minimum steps the floor one notch further down', () => {
@@ -105,9 +110,9 @@ test('focused re-checks plot at their COMPLIANCE height, outcome-toned; unknown 
         [2, 20250901],          // ratio unknown → tick
     ]), 'panel')
     const dia = layout.marks.find((m) => m.kind === 'focused')
-    expect(dia?.readout).toBe('1/3 OUT')
-    // 66.67 on the resting scale: 8 + (33.33/45)*72 ≈ 61.3.
-    expect(+((dia?.y ?? 0).toFixed(1))).toBe(61.3)
+    expect(dia?.label).toBe('1/3') // the claim says '1/3 OUT'; the label drops the suffix
+    // 66.67 on the resting scale: 26 + (33.33/45)*72 ≈ 79.3.
+    expect(+((dia?.y ?? 0).toFixed(1))).toBe(79.3)
     expect(dia?.color).toBe(GRADE_COLORS.C) // watch tone speaks the ramp
     expect(layout.marks.filter((m) => m.kind === 'tick')).toHaveLength(1)
 })
@@ -116,9 +121,9 @@ test('an enumerated items verdict claims its counted height and label', () => {
     const layout = trendLayout(series([[3, 20250601, 4, 2, 1]]), 'panel')
     const mark = layout.marks[0]
     expect(mark?.kind).toBe('narrative')
-    expect(mark?.readout).toBe('✓2')
+    expect(mark?.label).toBe('✓2')
     // 2 of 3 corrected → height 67.
-    expect(+((mark?.y ?? 0).toFixed(1))).toBe(+(8 + ((100 - 67) / 45) * 72).toFixed(1))
+    expect(+((mark?.y ?? 0).toFixed(1))).toBe(+(26 + ((100 - 67) / 45) * 72).toFixed(1))
 })
 
 test('a scoreless broad visit holds its x-slot with no mark', () => {
@@ -154,7 +159,7 @@ async function render(el: React.ReactElement) {
     return host
 }
 
-test('the panel variant is interactive with per-mark readouts; the card is bare and static', async () => {
+test('the panel variant carries always-on labels above the marks; the card is bare and static', async () => {
     const s = series([
         [1, 20250315, 85], [2, 20250601, 1, 3], [0, 20250901], [1, 20260101, 78],
     ])
@@ -167,8 +172,10 @@ test('the panel variant is interactive with per-mark readouts; the card is bare 
     const [panel, card] = Array.from(el.querySelectorAll('svg'))
     expect(panel?.classList.contains('cp-trend--interactive')).toBe(true)
     expect(panel?.querySelectorAll('g.tp')).toHaveLength(4)
-    const readouts = Array.from(panel?.querySelectorAll('text.tr') ?? []).map((t) => t.textContent)
-    expect(readouts).toEqual(['85', '1/3 OUT', '78'])   // ticks carry no readout
+    // The labels are ordinary visible text (no hover-gated .tr remains).
+    const labels = Array.from(panel?.querySelectorAll('text.tl') ?? []).map((t) => t.textContent)
+    expect(labels).toEqual(['85', '1/3', '78'])   // ticks carry no label; ' OUT' dropped
+    expect(panel?.querySelector('text.tr')).toBeNull()
     // The hollow re-check vs the filled dot.
     expect(panel?.querySelector('rect[fill="none"]')).toBeTruthy()
     expect(card?.classList.contains('cp-trend--interactive')).toBe(false)

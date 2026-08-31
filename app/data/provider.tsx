@@ -39,7 +39,14 @@ export function DataProvider({ api, ack, forceLite, children }: {
     forceLite: boolean
     children: ReactNode
 }) {
-    const [roster, setRoster] = useState<RosterStatus>({ status: 'awaiting-ack' })
+    // Initialized from the DECISION, not hardcoded: a returning agreed (or
+    // declined, or ?tier=lite) visitor must never paint a frame of
+    // 'awaiting-ack' — the App renders the blocking terms dialog on that
+    // status, and seeding it unconditionally flashed the terms at every
+    // decided visitor until the post-paint effect below caught up
+    // (Cannon's report, 2026-08-30 preview review).
+    const [roster, setRoster] = useState<RosterStatus>(() =>
+        !forceLite && !ack.decided ? { status: 'awaiting-ack' } : { status: 'loading' })
     const [closed, setClosed] = useState<RosterRow[]>([])
     // The ack VALUE is state the provider reacts to; the client reads the
     // answer itself at call time through its gate.

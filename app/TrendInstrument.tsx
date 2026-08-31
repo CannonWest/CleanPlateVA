@@ -1,20 +1,21 @@
 /**
- * The trend instrument (§6.0, CRVa-M1) — ONE component for both consumers:
- * the hover card's compact static instance (`variant="card"`) and the
- * detail panel's full framed section (`variant="panel"`, CRVa-M2). All
- * geometry comes from `trend.ts`; this file only draws it.
+ * The trend instrument (§6.0, CRVa-M1) — ONE component for both consumers
+ * of the panel form (the detail panel and, via TrendSection, the hover
+ * card); the compact `card` variant stays available for future compact
+ * surfaces. All geometry comes from `trend.ts`; this file only draws it.
  *
- * The ratified split the mockups encode: the PANEL instance carries the
- * furniture (threshold hairlines w/ dashed 60, A·C·F band labels, endpoint
- * dates) and the hover interactivity (enlarge 1.7× / dim the rest to 30%,
- * per-mark readout — CSS in theme.css, `.cp-trend--interactive`); the CARD
- * instance is bare marks over a baseline divider and mouse-transparent —
- * interactive trend behavior belongs to the clicked panel, never the
- * hover preview.
+ * The panel instance carries the furniture (threshold hairlines w/ dashed
+ * 60, A·C·F band labels, endpoint dates), the ALWAYS-ON per-mark labels
+ * above the marks (Cannon's 2026-08-30 call — the old sparkline's grammar
+ * in the new style; the geometry reserves top headroom for a 100's label
+ * under hover enlargement), and the hover interactivity (enlarge 1.7× /
+ * dim the rest to 30% — CSS in theme.css, `.cp-trend--interactive`; the
+ * labels ride their mark's group, so they dim in the same sweep). The
+ * CARD instance is bare marks over a baseline divider and static.
  */
 
 import { trendLayout } from './trend'
-import type { TrendMark, TrendVariant } from './trend'
+import type { TrendGeometry, TrendMark, TrendVariant } from './trend'
 import type { ScopeSeries } from './data/presentation'
 import { fmtDate } from './data/presentation'
 
@@ -47,6 +48,26 @@ function markShape(mark: TrendMark, dot: number, half: number) {
             transform={`rotate(45 ${mark.x} ${mark.y})`}
             fill={mark.color}
         />
+    )
+}
+
+/** The always-on label above a claiming mark (panel furniture only).
+ *  Edge labels clamp inward so a first/last mark's number isn't sliced
+ *  by the viewBox. */
+function markLabel(mark: TrendMark, g: TrendGeometry) {
+    if (!mark.label || mark.kind === 'tick') return null
+    return (
+        <text
+            className="tl nums"
+            x={Math.min(Math.max(mark.x, 16), g.width - 16)}
+            y={mark.y - 12}
+            fontSize={11}
+            fontWeight={600}
+            textAnchor="middle"
+            fill="var(--cp-ink)"
+        >
+            {mark.label}
+        </text>
     )
 }
 
@@ -144,18 +165,7 @@ export function TrendInstrument({ series, variant, width }: {
                     return (
                         <g key={i}>
                             {shape}
-                            {mark.sideLabel && (
-                                <text
-                                    className="nums"
-                                    x={mark.x + 10}
-                                    y={mark.y + 4}
-                                    fontSize={10.5}
-                                    fontWeight={700}
-                                    fill="var(--cp-grade-f)"
-                                >
-                                    {mark.sideLabel}
-                                </text>
-                            )}
+                            {g.furniture && markLabel(mark, g)}
                         </g>
                     )
                 }
@@ -164,31 +174,7 @@ export function TrendInstrument({ series, variant, width }: {
                         {/* Forgiving hover target — the visible mark is small. */}
                         <circle cx={mark.x} cy={mark.y} r={12} fill="transparent" />
                         <g className="tm">{shape}</g>
-                        {mark.readout && (
-                            <text
-                                className="tr nums"
-                                x={mark.x}
-                                y={mark.y - 14}
-                                fontSize={12}
-                                fontWeight={600}
-                                textAnchor="middle"
-                                fill="var(--cp-ink)"
-                            >
-                                {mark.readout}
-                            </text>
-                        )}
-                        {mark.sideLabel && (
-                            <text
-                                className="nums"
-                                x={mark.x + 14}
-                                y={mark.y + 6}
-                                fontSize={13}
-                                fontWeight={700}
-                                fill="var(--cp-grade-f)"
-                            >
-                                {mark.sideLabel}
-                            </text>
-                        )}
+                        {markLabel(mark, g)}
                     </g>
                 )
             })}
