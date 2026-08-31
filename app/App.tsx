@@ -10,6 +10,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { ACK_DECLINED, createAckState, forceLiteFromSearch } from './ack'
 import { createFoodApi } from './data/client'
 import { DataProvider, useRoster } from './data/provider'
+import { fmtDate } from './data/presentation'
 import { matchesFilters } from './search'
 import { applyThemeClass, persistTheme, storedDark } from './theme'
 import { useAppRouter } from './useAppRouter'
@@ -50,6 +51,10 @@ function Shell({ forceLite, ack }: {
     const unavailable = roster.status === 'ready' && !loaded
     const mode = loaded?.mode === 'lite' ? 'lite' : 'full'
     const lite = mode === 'lite'
+    // The attribution line's ambient date (CRP-M0) — the archive's
+    // publication day, both tiers ship it in their manifest.
+    const snapshot = typeof loaded?.fetched_at === 'string'
+        ? loaded.fetched_at.slice(0, 10) : null
 
     const [state, actions] = useAppRouter(mode)
 
@@ -178,7 +183,7 @@ function Shell({ forceLite, ack }: {
                             onTermsShown={() => setTermsIntent(false)}
                         />
                     )}
-                    <Attribution inline onTerms={showTerms} />
+                    <Attribution inline snapshot={snapshot} onTerms={showTerms} />
                 </div>
             ) : (
                 <Toolbar
@@ -212,7 +217,9 @@ function Shell({ forceLite, ack }: {
                 />
             )}
 
-            {state.view === 'map' && !blocking && <Attribution onTerms={showTerms} />}
+            {state.view === 'map' && !blocking && (
+                <Attribution snapshot={snapshot} onTerms={showTerms} />
+            )}
 
             {(blocking || termsOpen) && (
                 <AckDialog
@@ -246,9 +253,12 @@ function GhostShell() {
 /** The C8 attribution line: a scrim chip floating over the map, or an
  *  in-flow line at the end of a scrolling document view. The scrim is
  *  dark in BOTH themes, so the floating variant's ink is fixed light —
- *  theme tokens would flip it muddy. */
-function Attribution({ inline = false, onTerms }: {
+ *  theme tokens would flip it muddy. The snapshot date rides the line
+ *  (CRP-M0): staleness stays ambient on every view — About's live cards
+ *  carry the fuller snapshot / newest-report pair. */
+function Attribution({ inline = false, snapshot = null, onTerms }: {
     inline?: boolean
+    snapshot?: string | null
     onTerms: () => void
 }) {
     return (
@@ -257,7 +267,8 @@ function Attribution({ inline = false, onTerms }: {
                 ? 'mx-4 mb-4 text-[10.5px] text-cp-ink-3'
                 : 'fixed bottom-2.5 left-3 z-10 rounded-[6px] bg-cp-scrim px-2.5 py-1.5 text-[10.5px] text-[#cfd4d9] backdrop-blur-[4px]'}
         >
-            Inspection records: VDH via MyHealthDepartment · archived snapshot, not live ·
+            Inspection records: VDH via MyHealthDepartment · archived snapshot
+            {snapshot ? ` · ${fmtDate(snapshot)}` : ''} ·
             scores and grades calculated by CleanPlateVA ·{' '}
             <button
                 type="button"
