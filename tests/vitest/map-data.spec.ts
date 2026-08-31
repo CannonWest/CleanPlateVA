@@ -11,7 +11,9 @@
  *
  * (The 2026-08-30 cluster accumulators and the declining-ring property
  * were withdrawn on Cannon's live review the same day — CleanPlateVA
- * #174/#175 hold the machinery if either returns.)
+ * #174/#175 hold the machinery if either returns. The declining form
+ * returned as the CRP-M1 ↓ suffix: `declining` bakes true only where a
+ * letter rides.)
  */
 import { expect, test } from 'vitest'
 import { GRADE_COLORS, CLOSED_COLOR, LITE_MARKER_COLOR, NEW_COLOR } from '../../app/constants'
@@ -83,6 +85,24 @@ test('the basic map is uniform and judgment-free (P6)', () => {
         expect(p.fill).toBe(LITE_MARKER_COLOR)
         expect(p.letter).toBe('')
         expect(p.opacity).toBe(0.88)
+        expect(p.declining).toBe(false)          // the fixture's -9 delta stays mute here
+    }
+})
+
+test('the ↓ suffix bakes only where a letter rides (CRP-M1)', () => {
+    const declining = row({ o: { grade_score: 78, trend_delta: -9 } })
+    const steady = row({ o: { grade_score: 78, trend_delta: 0 } })
+    const improving = row({ o: { grade_score: 78, trend_delta: 6 } })
+    const noTrend = row({ o: { grade_score: 78 } })
+    const unscored = row({ o: { grade_score: null, trend_delta: -9 } })
+    const closed = row({ status: 'Business Closed', o: { grade_score: 70, trend_delta: -5 } })
+    const data = buildMapData([declining, steady, improving, noTrend, unscored, closed], false)
+
+    const d = props(data, declining.permit_id)
+    expect(d.declining).toBe(true)
+    expect(d.letter).toBe('C')                   // the suffix never rides alone
+    for (const r of [steady, improving, noTrend, unscored, closed]) {
+        expect(props(data, r.permit_id).declining).toBe(false)
     }
 })
 
@@ -102,6 +122,7 @@ test('same-point rows collapse into one neutral stack feature', () => {
     // Neutral: a count bubble carries no fill/letter/judgment channels.
     expect('fill' in sp).toBe(false)
     expect('letter' in sp).toBe(false)
+    expect('declining' in sp).toBe(false)
     // The members stay reachable for the M2 fan-out.
     expect(data.stacks.get(sp.skey)).toHaveLength(3)
 })
