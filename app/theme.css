@@ -153,13 +153,6 @@
     .cp-trend--interactive .tp:hover .tm {
         transform: scale(1.7);
     }
-    .cp-trend--interactive .tp .tr {
-        opacity: 0;
-        transition: opacity .15s ease;
-    }
-    .cp-trend--interactive .tp:hover .tr {
-        opacity: 1;
-    }
     .cp-trend--interactive:has(.tp:hover) .tp:not(:hover),
     .cp-trend--interactive:has(.tp:hover) .grid,
     .cp-trend--interactive:has(.tp:hover) .tline {

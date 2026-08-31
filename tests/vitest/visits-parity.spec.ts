@@ -113,10 +113,11 @@ test('the same history through the detail and through visits lays out ONE plot �
         const fromVisits = trendLayout(visitsOf(row(visits)), variant)
         expect(fromVisits).toEqual(fromDetail)
     }
-    // The counted items verdict and the focused ratio both survive as readouts.
+    // The counted items verdict and the focused ratio both survive as
+    // the marks' always-on labels (the ' OUT' suffix drops there).
     const layout = trendLayout(visitsOf(row(visits)), 'panel')
-    expect(layout.marks.map((m) => m.readout)).toContain('✓2')
-    expect(layout.marks.map((m) => m.readout)).toContain('1/4 OUT')
+    expect(layout.marks.map((m) => m.label)).toContain('✓2')
+    expect(layout.marks.map((m) => m.label)).toContain('1/4')
 })
 
 test('a Contract V4 roster row keeps its last-visit date and grade off the overlay', () => {
