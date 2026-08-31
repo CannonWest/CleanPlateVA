@@ -59,15 +59,28 @@ export const THEME_KEY = 'cleanplateva.theme'
 export const SRC = 'food-facilities'
 export const LYR_POINTS = 'food-points'
 export const LYR_POINT_LETTERS = 'food-point-letters'
+export const LYR_POINT_DECLINE = 'food-point-decline'
 export const LYR_STACKS = 'food-stacks'
 export const LYR_STACK_COUNT = 'food-stack-count'
+
+// The declining suffix (CRP-M1, Cannon's pick): a small ↓ beside the grade
+// letter past LETTER_ZOOM. An IMAGE, not text, because CARTO's glyph
+// endpoint serves no arrow codepoint in any fontstack it hosts (probed
+// 2026-08-31: U+2193 and the geometric-shape triangles are absent from
+// Montserrat/Open Sans/Noto ranges — the text form renders tofu). White
+// like the letter (both sit on the grade fill); offset right so the letter
+// keeps its center. Offset is tuned to stay inside the dot down to
+// LETTER_ZOOM (radius 9.4px there): the arrow's right edge must not poke
+// past the fill onto the basemap, where white vanishes on positron.
+export const DECLINE_ICON = 'cp-decline-arrow'
+export const DECLINE_ICON_SIZE: readonly [number, number] = [5, 7]
+export const DECLINE_ICON_OFFSET: readonly [number, number] = [7, 0]
 
 // ── marker geometry (§6.2 grammar) ─────────────────────────────────────
 // Dots grow with zoom; past LETTER_ZOOM they are large enough to carry
 // their grade letter (the ratified mockup's 21px marker ≈ radius 10.5).
-// [zoom, radius] pairs feed one linear interpolate expression shared by
-// the circle layer and the declining-ring icon-size, so the dashed ring
-// tracks the dot it warns about at every zoom.
+// [zoom, radius] pairs feed the circle layer's one linear interpolate
+// expression (the stack bubbles ride the same curve, scaled).
 export const POINT_RADIUS_FULL = 10.5 // the z14, letter-carrying dot
 export const POINT_RADIUS_STOPS: ReadonlyArray<readonly [number, number]> =
     [[5, 3.5], [9, 4.5], [12, 6], [14, POINT_RADIUS_FULL]]

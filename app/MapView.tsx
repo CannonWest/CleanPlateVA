@@ -12,9 +12,10 @@
  *     on the preview: revived in #174 at Cannon's ask, withdrawn on his
  *     review in the next pass; the CRF proof already drew all ~25k dots).
  *
- * No declining indicator for now: the CRD-M1 dashed own-color ring was
- * scrapped on the same review — the replacement form (if any) is Cannon's
- * open call.
+ * Declining (CRP-M1, Cannon's pick after the CRD-M1 ring was scrapped):
+ * the ↓ suffix beside the grade letter, letter-zoom gated — an image
+ * layer, because no CARTO fontstack serves an arrow glyph (see
+ * installDeclineImage).
  *
  * Ported from the old `map.js`: the dark-matter road-label contrast fix,
  * fadeDuration 0 (symbol counts must move with their bubbles), geolocate +
@@ -30,7 +31,8 @@ import { X } from 'lucide-react'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import {
     DARK_MAJOR_ROAD_LABEL_COLOR, DARK_MAJOR_ROAD_LABEL_LAYER,
-    LETTER_TEXT_SIZE, LETTER_ZOOM, LYR_POINT_LETTERS,
+    DECLINE_ICON, DECLINE_ICON_OFFSET, DECLINE_ICON_SIZE,
+    LETTER_TEXT_SIZE, LETTER_ZOOM, LYR_POINT_DECLINE, LYR_POINT_LETTERS,
     LYR_POINTS, LYR_STACK_COUNT, LYR_STACKS, MARKER_RING,
     POINT_RADIUS_FULL, POINT_RADIUS_STOPS, SRC, STACK_COUNT_ZOOM,
     STACK_INK, STACK_RADII, STACK_STEPS, STACK_SURFACE, STYLE_DARK,
@@ -70,11 +72,44 @@ function stackRadiusExpr(): ExpressionSpec {
 const POINT_FILTER = ['==', ['get', 'kind'], 'point'] as unknown as ExpressionSpec
 const STACK_FILTER = ['==', ['get', 'kind'], 'stack'] as unknown as ExpressionSpec
 
+/** The declining ↓ as a registered image — CARTO's glyph endpoint serves
+ *  no arrow codepoint in any fontstack (constants.ts DECLINE_ICON), so the
+ *  suffix Cannon picked is drawn, not typed: one small white mark, the
+ *  letter's own ink, re-registered after every style swap (setStyle drops
+ *  images with the layers). */
+function installDeclineImage(map: maplibregl.Map): void {
+    if (map.hasImage(DECLINE_ICON)) return
+    const ratio = 2
+    const [w, h] = DECLINE_ICON_SIZE
+    const canvas = document.createElement('canvas')
+    canvas.width = w * ratio
+    canvas.height = h * ratio
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return // headless runner: the layer then references a missing image, harmlessly
+    ctx.scale(ratio, ratio)
+    ctx.strokeStyle = '#ffffff'
+    ctx.lineWidth = 1.3
+    ctx.lineCap = 'round'
+    ctx.lineJoin = 'round'
+    const mid = w / 2
+    ctx.beginPath() // shaft
+    ctx.moveTo(mid, 0.9)
+    ctx.lineTo(mid, h - 1.1)
+    ctx.stroke()
+    ctx.beginPath() // head chevron
+    ctx.moveTo(0.8, h - 3)
+    ctx.lineTo(mid, h - 0.9)
+    ctx.lineTo(w - 0.8, h - 3)
+    ctx.stroke()
+    map.addImage(DECLINE_ICON, ctx.getImageData(0, 0, w * ratio, h * ratio), { pixelRatio: ratio })
+}
+
 /** Add source + the marker layers to the CURRENT style. Idempotent per
  *  style — style.load hands a bare basemap each time. */
 function installDataLayers(map: maplibregl.Map, data: MapData, dark: boolean): void {
     if (map.getSource(SRC)) return
     const theme = dark ? 'dark' : 'light'
+    installDeclineImage(map)
     map.addSource(SRC, { type: 'geojson', data: data.geojson })
     map.addLayer({
         id: LYR_POINTS,
@@ -103,6 +138,22 @@ function installDataLayers(map: maplibregl.Map, data: MapData, dark: boolean): v
             'text-ignore-placement': true,
         },
         paint: { 'text-color': '#ffffff' },
+    })
+    // The ↓ suffix (CRP-M1): rides only dots whose bake says declining —
+    // mapData guarantees that implies a letter — at the letters' own
+    // zoom gate, offset right so the letter keeps its center.
+    map.addLayer({
+        id: LYR_POINT_DECLINE,
+        type: 'symbol',
+        source: SRC,
+        minzoom: LETTER_ZOOM,
+        filter: ['all', POINT_FILTER, ['==', ['get', 'declining'], true]] as unknown as ExpressionSpec,
+        layout: {
+            'icon-image': DECLINE_ICON,
+            'icon-offset': [...DECLINE_ICON_OFFSET],
+            'icon-allow-overlap': true,
+            'icon-ignore-placement': true,
+        },
     })
     // Stacks sit above the lone dots: a point standing for N places
     // outranks its neighbours. Bubbles ride the dots' zoom curve (the old

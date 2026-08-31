@@ -17,8 +17,10 @@
  * Proximity clustering was revived and withdrawn the same day
  * (2026-08-30, Cannon's live preview review — the cluster accumulator
  * machinery lives in git at CleanPlateVA #174 if it ever returns), and
- * the CRD-M1 dashed declining ring was scrapped on the same review — no
- * declining indicator ships until Cannon picks a replacement form.
+ * the CRD-M1 dashed declining ring was scrapped on the same review. The
+ * replacement landed CRP-M1 (2026-08-31, Cannon's pick): the ↓ SUFFIX
+ * beside the grade letter — baked here as `declining` (letter-carrying
+ * dots only), drawn by MapView's decline layer past LETTER_ZOOM.
  */
 
 import type { Feature, FeatureCollection, Point } from 'geojson'
@@ -41,6 +43,10 @@ export interface PointProps {
     opacity: number
     /** The grade letter for the symbol layer; '' when nothing rides. */
     letter: string
+    /** The ↓ suffix (CRP-M1): true only when a LETTER rides and the
+     *  overlay's trend is negative — judgment speaks where letters are
+     *  legible, so closed/NEW/unscored/basic-map dots never carry it. */
+    declining: boolean
 }
 
 export interface StackProps {
@@ -66,13 +72,14 @@ function pointProps(f: RosterRow, lite: boolean): PointProps {
     if (lite) {
         // The finder view: every marker a uniform neutral — the basic map
         // locates places, it doesn't judge them (P6).
-        return { kind: 'point', pid, fill: LITE_MARKER_COLOR, opacity: 0.88, letter: '' }
+        return { kind: 'point', pid, fill: LITE_MARKER_COLOR, opacity: 0.88, letter: '', declining: false }
     }
     const active = isActivePermit(f)
     if (!active) {
-        return { kind: 'point', pid, fill: CLOSED_COLOR, opacity: 0.42, letter: '' }
+        return { kind: 'point', pid, fill: CLOSED_COLOR, opacity: 0.42, letter: '', declining: false }
     }
-    const letter = facilityPresentation(f).grade?.letter || ''
+    const view = facilityPresentation(f)
+    const letter = view.grade?.letter || ''
     if (!letter) {
         return {
             kind: 'point',
@@ -80,9 +87,10 @@ function pointProps(f: RosterRow, lite: boolean): PointProps {
             fill: isNewlyPermitted(f) ? NEW_COLOR : gradeColor(null),
             opacity: 0.88,
             letter: '',
+            declining: false,
         }
     }
-    return { kind: 'point', pid, fill: gradeColor(letter), opacity: 0.88, letter }
+    return { kind: 'point', pid, fill: gradeColor(letter), opacity: 0.88, letter, declining: view.declining }
 }
 
 /** Build the source data for the current filtered roster + tier. */
