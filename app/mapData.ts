@@ -43,9 +43,10 @@ export interface PointProps {
     opacity: number
     /** The grade letter for the symbol layer; '' when nothing rides. */
     letter: string
-    /** The ↓ suffix (CRP-M1): true only when a LETTER rides and the
-     *  overlay's trend is negative — judgment speaks where letters are
-     *  legible, so closed/NEW/unscored/basic-map dots never carry it. */
+    /** The ↓ suffix (CRP-M1, banded M1b): true only when a LETTER rides
+     *  and the grade-to-grade drop exceeds TREND_DECLINE_BAND (>5 points)
+     *  — judgment speaks where letters are legible, so
+     *  closed/NEW/unscored/basic-map dots never carry it. */
     declining: boolean
 }
 

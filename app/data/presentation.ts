@@ -48,6 +48,12 @@ export interface FacilityLike {
 // ── Contract V4 roster row adapters ─────────────────────────────────────
 
 export const OVERLAY_SCOPES = ['unknown', 'broad', 'focused'] as const
+
+/** "Declining" is banded (CRP-M1b, Cannon 2026-08-31): strictly MORE than
+ *  this many points of grade-to-grade drop. Mirrors the exporter's
+ *  cf_export_site.TREND_DECLINE_BAND and the old client's
+ *  static/js/presentation.js — change all three together. */
+export const TREND_DECLINE_BAND = 5
 // Codes are identity, not a quality ordering. `venue` is a better pin than
 // `street` but is APPENDED at 3, because the exporter may only ever append.
 export const LOCATION_CLASS = { rooftop: 0, street: 1, zip_centroid: 2, venue: 3 } as const
@@ -476,6 +482,11 @@ export function facilityPresentation(facility: FacilityLike = {}): FacilityView 
         const baseDate = isoFromYmd(o.base_yyyymmdd)
         const assessmentRecord = baseDate != null || compliance != null
             ? { date: baseDate, compliance_rate: compliance } : null
+        // trend_delta is GRADE-to-grade since CRP-M1b (Cannon 2026-08-31):
+        // the exporter ships current adjusted grade minus the previous
+        // era's (second-newest scored broad + ITS follow-ups). Payloads
+        // published before the republish carry the retired raw
+        // broad-to-broad difference until they age out.
         const trendDelta = Number.isFinite(Number(o.trend_delta)) && o.trend_delta != null
             ? Number(o.trend_delta) : null
         return {
@@ -486,7 +497,11 @@ export function facilityPresentation(facility: FacilityLike = {}): FacilityView 
             grade: gradePresentation(facility),
             trend: [],
             trendDelta,
-            declining: trendDelta != null && trendDelta < 0,
+            // BANDED (CRP-M1b): the flag — and the map's ↓ that reads it —
+            // fires only past TREND_DECLINE_BAND points of drop. A −5
+            // exactly is not declining. Mirrors the exporter's one
+            // definition (cannon-food cf_export_site.TREND_DECLINE_BAND).
+            declining: trendDelta != null && trendDelta < -TREND_DECLINE_BAND,
         }
     }
     const latest = inspectionPresentation(facility.latest || null)
