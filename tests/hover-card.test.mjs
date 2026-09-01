@@ -88,7 +88,9 @@ test('overlay dates decode from yyyymmdd and the last-visit date reads from the 
     assert.equal(fp.grade.letter, 'F');
     assert.equal(fp.grade.baseDate, '2026-02-04');
     assert.equal(fp.trendDelta, -5);
-    assert.equal(fp.declining, true);
+    // The band edge (CRP-M1b): a −5 exactly ships in the delta but does not
+    // flag — declining means strictly MORE than TREND_DECLINE_BAND points.
+    assert.equal(fp.declining, false);
     assert.deepEqual(fp.trend, [], 'no series rides the roster under V4');
 });
 

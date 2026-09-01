@@ -135,6 +135,8 @@ test('a Contract V4 roster row keeps its last-visit date and grade off the overl
     expect(fp.grade?.letter).toBe('F')
     expect(fp.grade?.baseDate).toBe('2026-02-04')
     expect(fp.trendDelta).toBe(-5)
-    expect(fp.declining).toBe(true)
+    // The band edge (CRP-M1b): a -5 exactly ships in the delta but does not
+    // flag - declining means strictly MORE than TREND_DECLINE_BAND points.
+    expect(fp.declining).toBe(false)
     expect(fp.trend).toEqual([])          // no series rides the roster under V4
 })

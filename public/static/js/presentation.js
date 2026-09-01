@@ -17,6 +17,11 @@ import { AGGREGATE_TENANT, GRADE_COLORS, PORTAL_BASE, RF_MAX_ITEM } from './cons
 // `grade`, …) is untouched, so one presentation serves both.
 
 export const OVERLAY_SCOPES = ['unknown', 'broad', 'focused'];
+// "Declining" is banded (CRP-M1b, Cannon 2026-08-31): strictly MORE than
+// this many points of grade-to-grade drop lights the dashed ring. Mirrors
+// the exporter's cf_export_site.TREND_DECLINE_BAND and the React client's
+// app/data/presentation.ts — change all three together.
+export const TREND_DECLINE_BAND = 5;
 // Codes are identity, not a quality ordering. `venue` is a better pin than
 // `street` but is APPENDED at 3, because the exporter may only ever append:
 // a shard already on disk has to keep meaning what it meant.
@@ -459,7 +464,10 @@ export function facilityPresentation(facility = {}) {
             grade: gradePresentation(facility),
             trend: [],
             trendDelta,
-            declining: trendDelta != null && trendDelta < 0,
+            // Banded + grade-to-grade since CRP-M1b: the exporter ships
+            // current adjusted grade minus the previous era's; the ring
+            // fires only past TREND_DECLINE_BAND points of drop.
+            declining: trendDelta != null && trendDelta < -TREND_DECLINE_BAND,
         };
     }
     const latest = inspectionPresentation(facility.latest || null);
