@@ -89,19 +89,25 @@ test('the basic map is uniform and judgment-free (P6)', () => {
     }
 })
 
-test('the ↓ suffix bakes only where a letter rides (CRP-M1)', () => {
+test('the ↓ suffix bakes only where a letter rides, banded past 5 (CRP-M1/M1b)', () => {
     const declining = row({ o: { grade_score: 78, trend_delta: -9 } })
+    const edgeSix = row({ o: { grade_score: 78, trend_delta: -6 } })
+    // The band is STRICT: a −5 grade-to-grade drop ships in the delta but
+    // does not mark (exporter TREND_DECLINE_BAND, mirrored here).
+    const edgeFive = row({ o: { grade_score: 78, trend_delta: -5 } })
     const steady = row({ o: { grade_score: 78, trend_delta: 0 } })
     const improving = row({ o: { grade_score: 78, trend_delta: 6 } })
     const noTrend = row({ o: { grade_score: 78 } })
     const unscored = row({ o: { grade_score: null, trend_delta: -9 } })
-    const closed = row({ status: 'Business Closed', o: { grade_score: 70, trend_delta: -5 } })
-    const data = buildMapData([declining, steady, improving, noTrend, unscored, closed], false)
+    const closed = row({ status: 'Business Closed', o: { grade_score: 70, trend_delta: -12 } })
+    const data = buildMapData(
+        [declining, edgeSix, edgeFive, steady, improving, noTrend, unscored, closed], false)
 
     const d = props(data, declining.permit_id)
     expect(d.declining).toBe(true)
     expect(d.letter).toBe('C')                   // the suffix never rides alone
-    for (const r of [steady, improving, noTrend, unscored, closed]) {
+    expect(props(data, edgeSix.permit_id).declining).toBe(true)
+    for (const r of [edgeFive, steady, improving, noTrend, unscored, closed]) {
         expect(props(data, r.permit_id).declining).toBe(false)
     }
 })
