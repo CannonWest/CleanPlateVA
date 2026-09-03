@@ -56,7 +56,13 @@ body {
     border-color: var(--cp-border) !important;
 }
 .cp-brand { font-weight: 700; font-size: 1.05rem; }
-.cp-brand-icon { font-size: 1.2rem; color: #e8590c; }
+.cp-brand-icon {
+    width: 28px;
+    height: 28px;
+    object-fit: contain;
+    vertical-align: middle;
+    flex-shrink: 0;
+}
 
 /* View tabs (Map | List) — underline style, flush with the header's bottom
    border (negative margins swallow the header's py-2 padding). */

@@ -103,7 +103,12 @@ export function Toolbar({ state, actions, lite, shown, total, panelOpen, docked 
             }}
         >
             <div className="flex flex-none items-center gap-2 text-[14.5px] font-bold">
-                <span aria-hidden="true" className="h-[18px] w-[18px] rounded-full border-[2.5px] border-cp-accent" />
+                <img
+                    src="/static/img/clean-plate-va-logo.png"
+                    alt=""
+                    aria-hidden="true"
+                    className="h-[22px] w-[22px] shrink-0 object-contain"
+                />
                 CleanPlateVA
             </div>
 
