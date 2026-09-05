@@ -72,6 +72,41 @@ describe.skipIf(!built)('dist/ ships the app shell complete', () => {
             expect(existsSync(resolve(DIST, 'assets', name))).toBe(true)
         })
     }
+
+    // The brand mark is IMPORTED by Toolbar.tsx rather than referenced at
+    // public/static/img/... — that tree is the retired client and never
+    // reaches dist/ (above), so a path reference renders a broken image
+    // against the SPA fallback (measured on next.cleanplateva.com: the
+    // logo request answered 200 text/html).
+    test('the brand mark ships as a built asset', () => {
+        const assets = readdirSync(resolve(DIST, 'assets'))
+        const logo = assets.filter((name) => /^clean-plate-va-logo-.*\.png$/.test(name))
+        expect(logo.length, `expected a hashed logo in dist/assets, saw: ${assets.join(', ')}`)
+            .toBe(1)
+    })
+})
+
+describe('the app never reaches into the retired client (§3)', () => {
+    // Source-level companion to the dist checks above: catches a
+    // reintroduced /static/... reference at edit time, with no build. An
+    // absolute path would also break the CannonAI Food tab, which mounts
+    // this build under /cleanplate/ behind a rewritten <base href>.
+    // Anchored to a quote so it matches the defect's shape -- a string or
+    // JSX attribute beginning "/static/" -- and not prose in a comment that
+    // merely names the path (this file and Toolbar.tsx both do).
+    const STATIC_REF = /['"`]\/static\//
+
+    test('no app/ source references /static/ in a string', () => {
+        const appDir = resolve(ROOT, 'app')
+        const sources = readdirSync(appDir, { recursive: true, encoding: 'utf8' })
+            .filter((name) => /\.tsx?$/.test(name))
+        expect(sources.length).toBeGreaterThan(0)
+
+        const offenders = sources.filter((name) =>
+            STATIC_REF.test(readFileSync(resolve(appDir, name), 'utf8')),
+        )
+        expect(offenders, `import the asset instead: ${offenders.join(', ')}`).toEqual([])
+    })
 })
 
 if (!built) {

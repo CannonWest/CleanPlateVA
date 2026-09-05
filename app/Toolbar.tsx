@@ -18,6 +18,14 @@ import { Search, SlidersHorizontal, X } from 'lucide-react'
 import type { RouterActions } from './useAppRouter'
 import type { AppState } from './store'
 import { VIEWS } from './router'
+// Imported, not referenced by path: public/static/** is the retired no-build
+// client and vite.config.ts excludes it from the build copy (pinned by
+// dist-contract.spec.ts, "the old client (static/**) is not copied"), so a
+// /static/img/... src never reaches dist/ and the SPA fallback answers it
+// with index.html. An import rides into dist/assets/ content-addressed, and
+// Vite resolves it against `base: './'` — which the absolute path also broke,
+// since the CannonAI Food tab mounts this build under /cleanplate/.
+import logoUrl from './clean-plate-va-logo.png'
 import type { View } from './router'
 import { FLAG_DEFAULTS } from './router'
 
@@ -104,7 +112,7 @@ export function Toolbar({ state, actions, lite, shown, total, panelOpen, docked 
         >
             <div className="flex flex-none items-center gap-2 text-[14.5px] font-bold">
                 <img
-                    src="/static/img/clean-plate-va-logo.png"
+                    src={logoUrl}
                     alt=""
                     aria-hidden="true"
                     className="h-[22px] w-[22px] shrink-0 object-contain"
