@@ -147,9 +147,10 @@ function overlayLatestPresentation(o) {
  *  Pre-tenant payloads degrade to the aggregate — the old behaviour, never a
  *  broken link. A Fairfax facility (FFX-M4) has no portal page at all: its
  *  link is the county's ArcGIS Experience map, selecting the facility by the
- *  row's `ffx_oid` (the county's OBJECTID); without one — a merged-in
- *  predecessor, or a row published before the key — it is the county's
- *  inspection-reports search. Each report links itself either way.
+ *  row's `ffx_oid` (the county's OBJECTID); without one — a county facility
+ *  known only from its reports (no roster feature, so no OBJECTID), a
+ *  merged-in predecessor, or a row published before the key — it is the
+ *  county's inspection-reports search. Each report links itself either way.
  */
 export function permitUrl(f, tenant) {
     const t = tenant || f?.tenant || AGGREGATE_TENANT;

@@ -29,8 +29,9 @@ export const FAIRFAX_RECORDS_URL = 'https://www.fairfaxcounty.gov/health/food/in
 // The county's own per-facility page: its ArcGIS Experience map selects a
 // permitted establishment by the layer's OBJECTID (`#data_s=id:<source>:<oid>`),
 // which the exporter publishes as the finder row's `ffx_oid` (an integer on
-// county rows, null on every VDH row). The source handle is the Experience
-// app's own — verified 2026-09-05 against two of the county's links.
+// roster-joined county rows; null for a county facility known only from its
+// reports and on every VDH row). The source handle is the Experience app's
+// own — verified 2026-09-05 against two of the county's links.
 export const FAIRFAX_EXPERIENCE_URL = 'https://experience.arcgis.com/experience/0e687ef56da44ef287d20ced8cc85a3f/page/Main-Page';
 export const FAIRFAX_EXPERIENCE_SOURCE = 'dataSource_5-17e77d67cec-layer-3';
 
