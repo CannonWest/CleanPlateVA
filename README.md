@@ -1,9 +1,9 @@
 # CleanPlateVA
 
 A finder map for Virginia food establishments, built from Virginia Department
-of Health inspection records and, for Fairfax County, the City of Fairfax and
-the City of Falls Church, the Fairfax County Health Department's. Every marker
-links to the establishment's official record at the publishing department.
+of Health inspection records and, for the Fairfax localities it serves, the
+Fairfax County Health Department's. Every marker links to the establishment's
+official record at the publishing department.
 
 ## Two tiers, one site
 
