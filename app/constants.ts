@@ -76,22 +76,8 @@ export const THEME_KEY = 'cleanplateva.theme'
 export const SRC = 'food-facilities'
 export const LYR_POINTS = 'food-points'
 export const LYR_POINT_LETTERS = 'food-point-letters'
-export const LYR_POINT_DECLINE = 'food-point-decline'
 export const LYR_STACKS = 'food-stacks'
 export const LYR_STACK_COUNT = 'food-stack-count'
-
-// The declining suffix (CRP-M1, Cannon's pick): a small ↓ beside the grade
-// letter past LETTER_ZOOM. An IMAGE, not text, because CARTO's glyph
-// endpoint serves no arrow codepoint in any fontstack it hosts (probed
-// 2026-08-31: U+2193 and the geometric-shape triangles are absent from
-// Montserrat/Open Sans/Noto ranges — the text form renders tofu). White
-// like the letter (both sit on the grade fill); offset right so the letter
-// keeps its center. Offset is tuned to stay inside the dot down to
-// LETTER_ZOOM (radius 9.4px there): the arrow's right edge must not poke
-// past the fill onto the basemap, where white vanishes on positron.
-export const DECLINE_ICON = 'cp-decline-arrow'
-export const DECLINE_ICON_SIZE: readonly [number, number] = [5, 7]
-export const DECLINE_ICON_OFFSET: readonly [number, number] = [7, 0]
 
 // ── marker geometry (§6.2 grammar) ─────────────────────────────────────
 // Dots grow with zoom; past LETTER_ZOOM they are large enough to carry
@@ -129,6 +115,24 @@ export const MARKER_RING = {
     dark: 'rgba(255, 255, 255, .85)',
     light: 'rgba(255, 255, 255, .95)',
 } as const
+export const MARKER_RING_WIDTH = 1.5
+
+// The declining ring (CRP-M2, Cannon's pick 2026-09-05; retires the CRP-M1
+// ↓ suffix and its image machinery): a dot whose bake says declining wears
+// this ring in place of the theme's white one, at every zoom the dot is
+// drawn — no letter gate. Production's form (markers.js has worn a heavier
+// red ring on declining dots since the old client) with the color moved
+// off the ramp: production rings in GRADE_COLORS.F, which is invisible on
+// an F fill (1.00:1 — the one pair that matters most). #e03131 is
+// tokens.css --cp-danger-solid, the pre-CRD-M1 F freed when F darkened,
+// and the only red in the vocabulary that collides with no grade fill
+// (worst case 1.26:1 on D; grade-f and grade-d both bottom out at 1.00).
+// Width is production's 2.5: color alone at 1.5 reads as anti-aliasing on
+// the warm fills, and 3 outgrows a z5 dot (radius 3.5). The hit test never
+// measured stroke (mapHit.ts sizes the fill), so the extra pixel rides
+// inside the slop.
+export const DECLINE_RING = '#e03131'
+export const DECLINE_RING_WIDTH = 2.5
 
 // Highest form item that counts as a foodborne-illness risk factor
 // (cf_lib.RISK_FACTOR_MAX_ITEM). Shared by count chips and receipt math.

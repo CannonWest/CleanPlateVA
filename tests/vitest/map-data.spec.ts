@@ -12,8 +12,9 @@
  * (The 2026-08-30 cluster accumulators and the declining-ring property
  * were withdrawn on Cannon's live review the same day — CleanPlateVA
  * #174/#175 hold the machinery if either returns. The declining form
- * returned as the CRP-M1 ↓ suffix: `declining` bakes true only where a
- * letter rides.)
+ * returned as the CRP-M1 ↓ suffix, then became the CRP-M2 red ring — the
+ * bake is the same for both: `declining` is true only where a letter
+ * rides; the ring itself has no zoom gate.)
  */
 import { expect, test } from 'vitest'
 import { GRADE_COLORS, CLOSED_COLOR, LITE_MARKER_COLOR, NEW_COLOR } from '../../app/constants'
@@ -89,7 +90,7 @@ test('the basic map is uniform and judgment-free (P6)', () => {
     }
 })
 
-test('the ↓ suffix bakes only where a letter rides, banded past 5 (CRP-M1/M1b)', () => {
+test('the declining ring bakes only where a letter rides, banded past 5 (CRP-M2; band M1b)', () => {
     const declining = row({ o: { grade_score: 78, trend_delta: -9 } })
     const edgeSix = row({ o: { grade_score: 78, trend_delta: -6 } })
     // The band is STRICT: a −5 grade-to-grade drop ships in the delta but
@@ -105,7 +106,7 @@ test('the ↓ suffix bakes only where a letter rides, banded past 5 (CRP-M1/M1b)
 
     const d = props(data, declining.permit_id)
     expect(d.declining).toBe(true)
-    expect(d.letter).toBe('C')                   // the suffix never rides alone
+    expect(d.letter).toBe('C')                   // the ring never rides alone
     expect(props(data, edgeSix.permit_id).declining).toBe(true)
     for (const r of [edgeFive, steady, improving, noTrend, unscored, closed]) {
         expect(props(data, r.permit_id).declining).toBe(false)

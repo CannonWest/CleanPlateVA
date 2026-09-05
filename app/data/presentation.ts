@@ -540,7 +540,7 @@ export function facilityPresentation(facility: FacilityLike = {}): FacilityView 
             grade: gradePresentation(facility),
             trend: [],
             trendDelta,
-            // BANDED (CRP-M1b): the flag — and the map's ↓ that reads it —
+            // BANDED (CRP-M1b): the flag — and the map's ring that reads it —
             // fires only past TREND_DECLINE_BAND points of drop. A −5
             // exactly is not declining. Mirrors the exporter's one
             // definition (cannon-food cf_export_site.TREND_DECLINE_BAND).
