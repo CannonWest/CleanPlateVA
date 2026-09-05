@@ -31,9 +31,11 @@ export interface FinderRow {
     /** Location class: 0 rooftop · 1 street · 2 zip_centroid · 3 venue · … (append-only). */
     loc: number
     /** The Fairfax Health District's OBJECTID for the facility — the id its
-     *  ArcGIS Experience map deep-links by. An integer on `tenant: "fairfax"`
-     *  rows, null on every VDH row (the row stays fixed-shape); optional here
-     *  only because payloads published before 2026-09-05 lack it. */
+     *  ArcGIS Experience map deep-links by. An integer on roster-joined
+     *  `tenant: "fairfax"` rows; null for a county facility known only from
+     *  its reports, and on every VDH row (the row stays fixed-shape). On every
+     *  published row since the 2026-09-05 `ffx-oid` refresh; optional here
+     *  only for fixtures and pre-refresh payloads. */
     ffx_oid?: number | null
 }
 

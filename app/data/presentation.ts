@@ -186,9 +186,10 @@ export function sourceDepartment(f: FacilityLike | null | undefined): SourceDepa
  *  Pre-tenant payloads degrade to the aggregate — never a broken link.
  *  A Fairfax facility has no portal page at all: its link is the county's
  *  ArcGIS Experience map, selecting the facility by the row's `ffx_oid`
- *  (the county's OBJECTID); without one — a merged-in predecessor, or a row
- *  published before the key — it is the county's inspection-reports search.
- *  Each report links itself either way. */
+ *  (the county's OBJECTID); without one — a county facility known only from
+ *  its reports (no roster feature, so no OBJECTID), a merged-in predecessor,
+ *  or a row published before the key — it is the county's inspection-reports
+ *  search. Each report links itself either way. */
 export function permitUrl(f: FacilityLike | null | undefined, tenant?: string): string {
     const t = tenant || f?.tenant || AGGREGATE_TENANT
     if (t === FAIRFAX_TENANT) {
