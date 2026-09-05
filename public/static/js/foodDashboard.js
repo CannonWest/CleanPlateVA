@@ -80,9 +80,9 @@ export {
 export {
     approximateLabel, buildScopeSeries, coordsOf, facilityPresentation,
     focusedOutcomePresentation, gradePresentation, inspectionCountsPresentation,
-    inspectionPresentation, isActivePermit, isNewlyPermitted, isoFromYmd,
+    inspectionPresentation, isActivePermit, isFairfax, isNewlyPermitted, isoFromYmd,
     latestDateOf, locationClass, LOCATION_CLASS, narrativeVerdictPresentation,
-    permitUrl, visitsOf,
+    permitUrl, sourceDepartment, visitsOf,
 } from './presentation.js';
 export { gradeReceiptPresentation } from './receipt.js';
 export {

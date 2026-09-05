@@ -15,12 +15,12 @@
 
 import { useState } from 'react'
 import {
-    ExternalLink, FileText, MoveRight, Store, TrendingDown, TrendingUp,
+    ExternalLink, FileText, Landmark, MoveRight, Store, TrendingDown, TrendingUp,
     Truck, Utensils, X,
 } from 'lucide-react'
 import {
     approximateLabel, facilityPresentation, fmtDate, gradeColor,
-    isActivePermit, isNewlyPermitted, permitUrl, visitsOf,
+    isActivePermit, isFairfax, isNewlyPermitted, permitUrl, sourceDepartment, visitsOf,
 } from './data/presentation'
 import type { ScopeSeries } from './data/presentation'
 import { buildScopeSeries } from './data/presentation'
@@ -88,6 +88,13 @@ function GradeHero({ fac, delta, onOpen }: {
                 <span className="mt-1.5 text-[11.5px] text-cp-ink-3 tabular-nums">
                     Broad inspection · {fmtDate(grade.baseDate)}
                 </span>
+                {isFairfax(fac) && (
+                    // OQ-G disclosure (FFX-M4): the county records every visit
+                    // as a complete inspection, so no re-check channel exists.
+                    <span className="mt-1 text-[11px] leading-snug text-cp-ink-3">
+                        Fairfax County grades are anchored on the most recent full inspection.
+                    </span>
+                )}
                 <span className="mt-3 flex w-full items-center justify-center gap-1.5 border-t border-cp-hairline pt-2.5 text-[11px] font-semibold text-cp-accent">
                     <FileText size={13} aria-hidden="true" />
                     Tap to see Grade breakdown
@@ -142,6 +149,10 @@ export function DetailPanel({ row, lite, state, onClose, onAbout }: {
     const active = isActivePermit(fac)
     const delta = facilityPresentation(row).trendDelta
     const receipt = detail && !lite ? gradeReceiptPresentation(fac, inspections) : null
+    // Whose record the links open (FFX-M4): VDH, or the Fairfax Health
+    // District — named in the fact line, the Source button and the hand-off.
+    const fairfax = isFairfax(fac)
+    const dept = sourceDepartment(fac)
 
     return (
         <aside
@@ -160,7 +171,9 @@ export function DetailPanel({ row, lite, state, onClose, onAbout }: {
                         href={permitUrl(row)}
                         target="_blank"
                         rel="noopener"
-                        title="Open this facility's official VDH record"
+                        title={fairfax
+                            ? "Find this facility's official record at the Fairfax County Health Department"
+                            : "Open this facility's official VDH record"}
                         className="inline-flex flex-none items-center gap-1.5 self-center rounded-cp-control border border-cp-accent px-2.5 py-1.5 text-[12px] font-semibold text-cp-accent hover:bg-cp-surface-3"
                     >
                         Source
@@ -183,6 +196,13 @@ export function DetailPanel({ row, lite, state, onClose, onAbout }: {
                         />
                         {(fac.status as string) || (active ? 'Permitted' : 'Closed')}
                     </span>
+                    <span
+                        className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-cp-ink-2"
+                        title={`Inspection records published by the ${dept.name}`}
+                    >
+                        <Landmark size={13} aria-hidden="true" className="text-cp-ink-3" />
+                        {dept.name}
+                    </span>
                     {approx && (
                         <span className="rounded-cp-pill border border-cp-hairline bg-cp-surface-2 px-2 py-1 text-[10.5px] font-semibold" style={{ color: 'var(--cp-grade-c)' }}>
                             ≈ {approx}
@@ -200,11 +220,11 @@ export function DetailPanel({ row, lite, state, onClose, onAbout }: {
                             rel="noopener"
                             className="inline-flex items-center gap-1.5 rounded-cp-control bg-cp-accent-solid px-3 py-2 text-[12.5px] font-semibold text-cp-accent-ink"
                         >
-                            View inspections on VDH
+                            View inspections {dept.handoff}
                             <ExternalLink size={13} aria-hidden="true" />
                         </a>
                         <p className="mt-2.5 text-[12px] text-cp-ink-3">
-                            Inspection reports live on the official VDH portal — this map is a finder.
+                            Inspection reports live on the official {fairfax ? 'Fairfax County Health Department site' : 'VDH portal'} — this map is a finder.
                         </p>
                     </div>
                 ) : state.status === 'loading' ? (
@@ -257,7 +277,7 @@ export function DetailPanel({ row, lite, state, onClose, onAbout }: {
                                     Inspection history · {inspections.length} visit{inspections.length === 1 ? '' : 's'}
                                 </h3>
                                 {inspections.map((insp, i) => (
-                                    <InspectionRow key={i} insp={insp} openByDefault={i === 0} />
+                                    <InspectionRow key={i} insp={insp} openByDefault={i === 0} fairfax={fairfax} />
                                 ))}
                             </div>
                         )}
@@ -269,6 +289,7 @@ export function DetailPanel({ row, lite, state, onClose, onAbout }: {
                 <ReceiptModal
                     receipt={receipt}
                     name={(fac.name as string) ?? row.name}
+                    fairfax={fairfax}
                     onClose={() => setReceiptOpen(false)}
                     onAbout={() => {
                         setReceiptOpen(false)

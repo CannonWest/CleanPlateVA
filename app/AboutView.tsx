@@ -23,7 +23,7 @@ import {
     Archive, ArrowRight, Building2, Calculator, ClipboardCheck, ExternalLink,
     Link2, MapPin,
 } from 'lucide-react'
-import { AGGREGATE_TENANT, PORTAL_BASE } from './constants'
+import { AGGREGATE_TENANT, FAIRFAX_RECORDS_URL, PORTAL_BASE } from './constants'
 import { fmtDate } from './data/presentation'
 import { TermsBody } from './TermsBody'
 import type { LoadedRoster } from './data/types'
@@ -280,10 +280,12 @@ export function AboutView({ loaded, unavailable, lite, forceLite, ack, onSwitchT
                     Every marker has a source ID. Every score has math.
                 </h1>
                 <p className="max-w-[44rem] text-[13.5px] leading-normal text-cp-ink-2">
-                    CleanPlateVA is an independent presentation of archived Virginia Department of
-                    Health records from MyHealthDepartment. It is not affiliated with or endorsed by
-                    VDH or MyHealthDepartment. VDH remains the authority. We do not inspect
-                    facilities or issue official grades.
+                    CleanPlateVA is an independent presentation of archived food establishment
+                    inspection records published by the Virginia Department of Health through
+                    MyHealthDepartment and by the Fairfax County Health Department. It is not
+                    affiliated with or endorsed by VDH, MyHealthDepartment, or the Fairfax County
+                    Health Department. The publishing health department remains the authority. We
+                    do not inspect facilities or issue official grades.
                 </p>
                 <div className="mt-3.5 grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label="Current dataset status">
                     {unavailable ? (
@@ -295,10 +297,10 @@ export function AboutView({ loaded, unavailable, lite, forceLite, ack, onSwitchT
                         </>
                     ) : (
                         <>
-                            <LiveCard k="Archive snapshot" v={fetchedAt ? fmtDate(fetchedAt) : 'Loading…'} small="export time, not a live VDH query" />
+                            <LiveCard k="Archive snapshot" v={fetchedAt ? fmtDate(fetchedAt) : 'Loading…'} small="export time, not a live query" />
                             <LiveCard k="Newest report held" v={loaded?.freshness?.newest_report ? fmtDate(loaded.freshness.newest_report) : 'Loading…'} small="not equal freshness everywhere" />
                             <LiveCard k="Places" v={places != null ? places.toLocaleString() : 'Loading…'} small="active permits" />
-                            <LiveCard k="Coverage" v={loaded ? String(zips) : 'Loading…'} small={zips === 1 ? 'covered ZIP, not all Virginia' : 'covered ZIPs, not all Virginia'} />
+                            <LiveCard k="Coverage" v={loaded ? String(zips) : 'Loading…'} small={zips === 1 ? 'covered ZIP' : 'covered ZIPs'} />
                         </>
                     )}
                 </div>
@@ -437,7 +439,7 @@ export function AboutView({ loaded, unavailable, lite, forceLite, ack, onSwitchT
 
                 <Disclosure summary="Exact scoring edge cases">
                     <div className="space-y-2 text-[12px] text-cp-ink-2">
-                        <p><strong className="block text-[11.5px] text-cp-ink">Repeat source</strong>A structured VDH <em>Repeat</em> flag or the word “repeat” in the observation makes that violation 1.5×.</p>
+                        <p><strong className="block text-[11.5px] text-cp-ink">Repeat source</strong>A structured <em>Repeat</em> flag from the inspecting department or the word “repeat” in the observation makes that violation 1.5×.</p>
                         <p><strong className="block text-[11.5px] text-cp-ink">Missing item number</strong>Defaults to the lower good-retail-practice deduction of 2 points.</p>
                         <p><strong className="block text-[11.5px] text-cp-ink">Corrected on site</strong>Deducts 75% of its weight — the structured checklist’s COS marking (every OUT row for the item) earns 25% back. The credit is provisional: a later re-check that finds the item OUT again revokes it to the full deduction. It never erases the recorded violation or softens red-flag ranking.</p>
                         <p><strong className="block text-[11.5px] text-cp-ink">Follow-up reports</strong>Checklist breadth—not the word “follow-up”—decides their role. A broad report publishes a score; focused and scope-unknown reports publish null. Their per-item IN/OUT verdicts can still adjust the facility grade above, joined on the form item number.</p>
@@ -453,7 +455,7 @@ export function AboutView({ loaded, unavailable, lite, forceLite, ack, onSwitchT
                     no="02"
                     kicker="Not the same measurement"
                     title="What the other signals mean"
-                    sub="Each answers a different question. None is an official VDH rating."
+                    sub="Each answers a different question. None is an official health department rating."
                 />
                 <div className="grid gap-2.5 sm:grid-cols-2">
                     <article className="relative rounded-[8px] border border-cp-hairline bg-cp-surface-2 px-3.5 py-3">
@@ -510,13 +512,13 @@ export function AboutView({ loaded, unavailable, lite, forceLite, ack, onSwitchT
                 <SecHead
                     no="03"
                     kicker="Source to screen"
-                    title="How a VDH report becomes this website"
-                    sub="The browser reads a prepared snapshot. It never scrapes VDH while you wait."
+                    title="How an inspection report becomes this website"
+                    sub="The browser reads a prepared snapshot. It never scrapes a source while you wait."
                     badge={<Pbadge kind="archived">Snapshot pipeline</Pbadge>}
                 />
                 <ol className="grid gap-2">
                     {[
-                        { t: 'Official VDH surfaces', p: 'MyHealthDepartment provides a search roster, permit-history pages, and individual inspection reports.', codes: ['permitID', 'inspectionID', '12VAC5-421'] },
+                        { t: 'Official sources', p: 'MyHealthDepartment provides VDH’s search roster, permit-history pages, and individual inspection reports. Fairfax County’s public GIS service provides the county’s roster with locations and an inspection index; each of its reports is a PDF in the county’s PLUS system.', codes: ['permitID', 'inspectionID', '12VAC5-421', 'RECORDID', 'INSPECTIONID', 'FDA Food Code'] },
                         { t: 'Archive a snapshot', p: 'A polite, resumable collector stores roster JSON and compressed permit/report pages by covered ZIP.', codes: ['raw HTML', 'roster JSON', 'collected time'] },
                         { t: 'Parse & preserve IDs', p: 'We extract identity, history, observations, citations, corrective actions, checklist rows, temperatures, and comments.', codes: ['fac:<permitID>', 'insp:<inspectionID>'] },
                         { t: 'Derive & store', p: 'Addresses are geocoded; rules compute metrics; idempotent CouchDB projections retain each permit and inspection separately.', codes: ['geocode', 'computed fields', 'content hash'] },
@@ -537,8 +539,8 @@ export function AboutView({ loaded, unavailable, lite, forceLite, ack, onSwitchT
                 </ol>
                 <div className="mt-2 flex items-center gap-2 text-[11.5px] text-cp-ink-3">
                     <Link2 size={13} aria-hidden="true" />
-                    VDH GUIDs stay attached through the path. Views link back where the
-                    corresponding MyHealthDepartment tenant route is available.
+                    Source identifiers stay attached through the path. Views link back to the
+                    publishing department’s record where one is available.
                 </div>
             </Card>
 
@@ -552,7 +554,7 @@ export function AboutView({ loaded, unavailable, lite, forceLite, ack, onSwitchT
                 />
                 <div className="grid gap-2.5 sm:grid-cols-2">
                     <article className="rounded-[8px] border border-cp-hairline bg-cp-surface-2 px-3.5 py-3" style={{ borderTop: '3px solid var(--cp-accent)' }}>
-                        <Pbadge kind="official">Official VDH record</Pbadge>
+                        <Pbadge kind="official">Official health department record</Pbadge>
                         <h3 className="mt-2 mb-1.5 text-[13px] font-bold">Archived and reorganized</h3>
                         <ul className="list-disc pl-4 text-[12px] leading-normal text-cp-ink-2">
                             <li>Facility name, address, permit type, and status</li>
@@ -583,7 +585,7 @@ export function AboutView({ loaded, unavailable, lite, forceLite, ack, onSwitchT
                         <div>
                             <div className="text-[10.5px] font-semibold tracking-[.07em] text-cp-accent uppercase">Basic map</div>
                             <h3 className="mt-0.5 mb-1 text-[13px] font-bold">Identity, location, source handoff</h3>
-                            <p className="text-[12px] leading-normal text-cp-ink-2">Snapshot markers recorded as active at export time, names, addresses, geocoded coordinates, restaurant classification, approximation and mobile-unit flags, permit IDs, and the VDH district route needed for the source handoff. Status can age; presence is not proof a facility is currently open or permitted. No report dates, scores, grades, or inspection content.</p>
+                            <p className="text-[12px] leading-normal text-cp-ink-2">Snapshot markers recorded as active at export time, names, addresses, geocoded coordinates, restaurant classification, approximation and mobile-unit flags, permit IDs, and the source route needed for the handoff. Status can age; presence is not proof a facility is currently open or permitted. No report dates, scores, grades, or inspection content.</p>
                         </div>
                     </article>
                     <div className="flex items-center justify-center gap-2 text-[11px] font-semibold text-cp-ink-3">
@@ -615,14 +617,14 @@ export function AboutView({ loaded, unavailable, lite, forceLite, ack, onSwitchT
                 />
                 <div className="grid gap-2 sm:grid-cols-2">
                     {[
-                        ['Selected coverage', 'Coverage is the ZIP count shown above, not every Virginia jurisdiction. Absence from this map does not mean absence from VDH; some places are outside the selected ZIPs or use other systems.'],
+                        ['Selected coverage', 'Coverage is the ZIP count shown above. Absence from this map does not mean absence from the source records; a place may sit outside the covered ZIPs.'],
                         ['Snapshot, not live', 'Collection and publication can lag. “Newest report” is one maximum date, not proof that every covered area is equally current.'],
                         ['Permit status can age', 'An incremental scan can retain the last known “active” state after a facility stops receiving inspections. A full resweep reconciles closures; a marker is not operating-status proof.'],
-                        ['Source retention', 'The portal typically exposes about two years of history. Missing report pages remain missing or unscored; this is an archive of what was collected, not a complete lifetime record.'],
-                        ['Geocoded locations', 'Pins come from address lookups through VGIN, the U.S. Census Bureau, and OpenStreetMap/Nominatim, refined against Overture Maps and Foursquare OS Places, with a ZIP-centroid fallback—not VDH coordinates. Some pins are manually placed after review. Where an address is a room or space number rather than a street address, as at an airport or on a campus, the pin is placed at the venue the establishment belongs to, derived from other permits at that venue whose addresses resolved. Some unbadged pins are street-level or interpolated, not rooftop; venue-level and centroid pins are labeled approximate.'],
+                        ['Source retention', 'Both source systems typically expose about two years of history. Missing report pages remain missing or unscored; this is an archive of what was collected, not a complete lifetime record.'],
+                        ['Geocoded locations', 'Pins come from address lookups through VGIN, the U.S. Census Bureau, and OpenStreetMap/Nominatim, refined against Overture Maps and Foursquare OS Places, with a ZIP-centroid fallback—not VDH coordinates. Fairfax County establishments are placed at the point locations the county publishes with its records. Some pins are manually placed after review. Where an address is a room or space number rather than a street address, as at an airport or on a campus, the pin is placed at the venue the establishment belongs to, derived from other permits at that venue whose addresses resolved. Some unbadged pins are street-level or interpolated, not rooftop; venue-level and centroid pins are labeled approximate.'],
                         ['Presentation heuristics', '“Restaurants only” uses permit-type/name patterns. History merging uses shared location/address plus name similarity. Either can misclassify, combine, or miss a match; retained permit IDs are the audit trail.'],
                         ['Focused is not facility-wide', 'A focused follow-up stays visible as the latest event and adjusts the facility grade item by item, but it never replaces the broad inspection that anchors it. Its own score is null; the OUT/addressed result describes that targeted visit. When comments enumerate corrected items omitted from the structured rows, both channels count once and the structured row governs any conflict.'],
-                        ['VDH wins conflicts', 'Scores and summaries are comparison tools, not safety or illness predictions. If our presentation and the source disagree, the official VDH record is authoritative.'],
+                        ['The source record wins conflicts', 'Scores and summaries are comparison tools, not safety or illness predictions. If our presentation and the source disagree, the official record of the publishing health department is authoritative.'],
                     ].map(([h, p]) => (
                         <article key={h} className="rounded-[8px] border border-cp-hairline bg-cp-surface-2 px-3 py-2.5">
                             <h3 className="mb-1 text-[12px] font-bold">{h}</h3>
@@ -633,7 +635,7 @@ export function AboutView({ loaded, unavailable, lite, forceLite, ack, onSwitchT
                 <div className="mt-2.5 flex flex-wrap items-center gap-3 rounded-[8px] border border-cp-accent bg-cp-surface-2 px-3.5 py-3">
                     <div className="min-w-0 flex-1">
                         <h3 className="text-[12.5px] font-bold">Verify at the source</h3>
-                        <p className="text-[11.5px] leading-normal text-cp-ink-2">Facility rows and report cards expose MyHealthDepartment links where available. Compare the observation, citation, corrective action, and checklist markings yourself.</p>
+                        <p className="text-[11.5px] leading-normal text-cp-ink-2">Facility rows and report cards expose links to the publishing health department’s record where available. Compare the observation, citation, corrective action, and checklist markings yourself.</p>
                     </div>
                     <a
                         href={PORTAL_URL}
@@ -642,6 +644,15 @@ export function AboutView({ loaded, unavailable, lite, forceLite, ack, onSwitchT
                         className="inline-flex flex-none items-center gap-1.5 rounded-cp-control border border-cp-accent px-2.5 py-1.5 text-[12px] font-semibold text-cp-accent hover:bg-cp-surface-3"
                     >
                         Open VDH portal
+                        <ExternalLink size={13} aria-hidden="true" />
+                    </a>
+                    <a
+                        href={FAIRFAX_RECORDS_URL}
+                        target="_blank"
+                        rel="noopener"
+                        className="inline-flex flex-none items-center gap-1.5 rounded-cp-control border border-cp-accent px-2.5 py-1.5 text-[12px] font-semibold text-cp-accent hover:bg-cp-surface-3"
+                    >
+                        Open Fairfax County reports
                         <ExternalLink size={13} aria-hidden="true" />
                     </a>
                 </div>

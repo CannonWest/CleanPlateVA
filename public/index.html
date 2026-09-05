@@ -9,8 +9,8 @@
      rewrites this one href; the router reads the mount from document.baseURI. -->
 <base href="/">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CleanPlateVA — archived VDH inspection finder</title>
-<meta name="description" content="Find archived VDH food-facility records across covered Virginia ZIPs and see how CleanPlateVA sources, transforms, and computes inspection metrics.">
+<title>CleanPlateVA — archived Virginia health inspection finder</title>
+<meta name="description" content="Find archived Virginia health inspection records for food facilities across covered ZIPs and see how CleanPlateVA sources, transforms, and computes inspection metrics.">
 <!-- The site ships its own dark mode; this tells Dark Reader to stand down
      (otherwise it re-tints the dark theme and force-darkens the light one). -->
 <meta name="darkreader-lock">
@@ -151,7 +151,7 @@
                         <th class="food-list-full-only food-list-col-compliance" data-sort="compliance" title="Latest broad checklist compliance">Compl.</th>
                         <th class="food-list-full-only food-list-col-trend" data-sort="trend" title="Newest vs prior broad assessment">Trend</th>
                         <th class="food-list-full-only food-list-col-date" data-sort="date" title="Actual newest inspection event">Latest</th>
-                        <th class="food-list-col-vdh">VDH</th>
+                        <th class="food-list-col-vdh">Source</th>
                     </tr></thead>
                     <tbody id="foodListBody"></tbody>
                 </table>
@@ -188,7 +188,7 @@
                         </div>
                         <p class="about-kicker">Methodology &amp; provenance</p>
                         <h1 id="foodAboutTitle" tabindex="-1">Every marker has a source ID. Every score has math.</h1>
-                        <p class="about-lede">CleanPlateVA is an independent presentation of archived Virginia Department of Health records from MyHealthDepartment. It is not affiliated with or endorsed by VDH or MyHealthDepartment. VDH remains the authority. We do not inspect facilities or issue official grades.</p>
+                        <p class="about-lede">CleanPlateVA is an independent presentation of archived food establishment inspection records published by the Virginia Department of Health through MyHealthDepartment and by the Fairfax County Health Department. It is not affiliated with or endorsed by VDH, MyHealthDepartment, or the Fairfax County Health Department. The publishing health department remains the authority. We do not inspect facilities or issue official grades.</p>
                     </div>
                     <div class="about-live-grid" aria-label="Current dataset status">
                         <div class="about-live-card">
@@ -199,12 +199,12 @@
                         <div class="about-live-card">
                             <span>Snapshot generated</span>
                             <strong id="aboutSnapshotDate">Loading…</strong>
-                            <small>Export time, not a live VDH query</small>
+                            <small>Export time, not a live query</small>
                         </div>
                         <div class="about-live-card">
                             <span>Coverage in this snapshot</span>
                             <strong id="aboutCoverageCount">Loading…</strong>
-                            <small>Covered ZIPs, not all Virginia</small>
+                            <small>Covered ZIPs</small>
                         </div>
                         <div class="about-live-card">
                             <span>Newest held report</span>
@@ -394,7 +394,7 @@
                     <details class="about-disclosure">
                         <summary>Exact scoring edge cases</summary>
                         <div class="about-disclosure-grid">
-                            <p><strong>Repeat source</strong><span>A structured VDH <em>Repeat</em> flag or the word “repeat” in the observation makes that violation 1.5×.</span></p>
+                            <p><strong>Repeat source</strong><span>A structured <em>Repeat</em> flag from the inspecting department or the word “repeat” in the observation makes that violation 1.5×.</span></p>
                             <p><strong>Missing item number</strong><span>Defaults to the lower good-retail-practice deduction of 2 points.</span></p>
                             <p><strong>Corrected on site</strong><span>Deducts 75% of its weight — the structured checklist’s COS marking (every OUT row for the item) earns 25% back. The credit is provisional: a later re-check that finds the item OUT again revokes it to the full deduction. It never erases the recorded violation or softens red-flag ranking.</span></p>
                             <p><strong>Follow-up reports</strong><span>Checklist breadth—not the word “follow-up”—decides their role. A broad report publishes a score; focused and scope-unknown reports publish null. Their per-item IN/OUT verdicts can still adjust the facility grade above, joined on the form item number.</span></p>
@@ -410,7 +410,7 @@
                         <div>
                             <p class="about-kicker">Not the same measurement</p>
                             <h2 id="aboutSignalsTitle">What the other signals mean</h2>
-                            <p>Each answers a different question. None is an official VDH rating.</p>
+                            <p>Each answers a different question. None is an official health department rating.</p>
                         </div>
                     </div>
                     <div class="about-signal-grid">
@@ -471,8 +471,8 @@
                         <span class="about-section-number">03</span>
                         <div>
                             <p class="about-kicker">Source to screen</p>
-                            <h2 id="aboutPipelineTitle">How a VDH report becomes this website</h2>
-                            <p>The browser reads a prepared snapshot. It never scrapes VDH while you wait.</p>
+                            <h2 id="aboutPipelineTitle">How an inspection report becomes this website</h2>
+                            <p>The browser reads a prepared snapshot. It never scrapes a source while you wait.</p>
                         </div>
                         <span class="about-badge about-badge-archived">Snapshot pipeline</span>
                     </div>
@@ -481,9 +481,9 @@
                         <li>
                             <span class="about-pipeline-step">1</span>
                             <i class="bi bi-building"></i>
-                            <h3>Official VDH surfaces</h3>
-                            <p>MyHealthDepartment provides a search roster, permit-history pages, and individual inspection reports.</p>
-                            <div><code>permitID</code><code>inspectionID</code><code>12VAC5-421</code></div>
+                            <h3>Official sources</h3>
+                            <p>MyHealthDepartment provides VDH’s search roster, permit-history pages, and individual inspection reports. Fairfax County’s public GIS service provides the county’s roster with locations and an inspection index; each of its reports is a PDF in the county’s PLUS system.</p>
+                            <div><code>permitID</code><code>inspectionID</code><code>12VAC5-421</code><code>RECORDID</code><code>INSPECTIONID</code><code>FDA Food Code</code></div>
                         </li>
                         <li>
                             <span class="about-pipeline-step">2</span>
@@ -521,7 +521,7 @@
                             <div><code>static lite</code><code>acknowledged full</code><code>full → lite fallback</code></div>
                         </li>
                     </ol>
-                    <div class="about-pipeline-note"><i class="bi bi-link-45deg"></i><span>VDH GUIDs stay attached through the path. Views link back where the corresponding MyHealthDepartment tenant route is available.</span></div>
+                    <div class="about-pipeline-note"><i class="bi bi-link-45deg"></i><span>Source identifiers stay attached through the path. Views link back to the publishing department’s record where one is available.</span></div>
                 </section>
 
                 <section class="about-section" aria-labelledby="aboutLineageTitle">
@@ -535,7 +535,7 @@
                     </div>
                     <div class="about-lineage-grid">
                         <article class="about-lineage-card about-lineage-official">
-                            <div><span class="about-badge about-badge-official">Official VDH record</span><i class="bi bi-building-check"></i></div>
+                            <div><span class="about-badge about-badge-official">Official health department record</span><i class="bi bi-building-check"></i></div>
                             <h3>Archived and reorganized</h3>
                             <ul>
                                 <li>Facility name, address, permit type, and status</li>
@@ -567,7 +567,7 @@
                             <div>
                                 <p class="about-kicker">Basic map</p>
                                 <h3>Identity, location, source handoff</h3>
-                                <p>Snapshot markers recorded as active at export time, names, addresses, geocoded coordinates, restaurant classification, approximation and mobile-unit flags, permit IDs, and the VDH district route needed for the source handoff. Status can age; presence is not proof a facility is currently open or permitted. No report dates, scores, grades, or inspection content.</p>
+                                <p>Snapshot markers recorded as active at export time, names, addresses, geocoded coordinates, restaurant classification, approximation and mobile-unit flags, permit IDs, and the source route needed for the handoff. Status can age; presence is not proof a facility is currently open or permitted. No report dates, scores, grades, or inspection content.</p>
                             </div>
                         </article>
                         <div class="about-tier-route"><span>Terms acknowledged</span><i class="bi bi-arrow-right"></i><span>inspection grades load; otherwise the basic map remains</span></div>
@@ -592,22 +592,23 @@
                         </div>
                     </div>
                     <div class="about-limit-grid">
-                        <article><i class="bi bi-map"></i><h3>Selected coverage</h3><p>Coverage is the ZIP count shown above, not every Virginia jurisdiction. Absence from this map does not mean absence from VDH; some places are outside the selected ZIPs or use other systems.</p></article>
+                        <article><i class="bi bi-map"></i><h3>Selected coverage</h3><p>Coverage is the ZIP count shown above. Absence from this map does not mean absence from the source records; a place may sit outside the covered ZIPs.</p></article>
                         <article><i class="bi bi-clock-history"></i><h3>Snapshot, not live</h3><p>Collection and publication can lag. “Newest report” is one maximum date, not proof that every covered area is equally current.</p></article>
                         <article><i class="bi bi-shop-window"></i><h3>Permit status can age</h3><p>An incremental scan can retain the last known “active” state after a facility stops receiving inspections. A full resweep reconciles closures; a marker is not operating-status proof.</p></article>
-                        <article><i class="bi bi-journal-text"></i><h3>Source retention</h3><p>The portal typically exposes about two years of history. Missing report pages remain missing or unscored; this is an archive of what was collected, not a complete lifetime record.</p></article>
-                        <article><i class="bi bi-pin-map"></i><h3>Geocoded locations</h3><p>Pins come from address lookups through VGIN, the U.S. Census Bureau, and OpenStreetMap/Nominatim, refined against Overture Maps and Foursquare OS Places, with a ZIP-centroid fallback—not VDH coordinates. Some pins are manually placed after review. Where an address is a room or space number rather than a street address, as at an airport or on a campus, the pin is placed at the venue the establishment belongs to, derived from other permits at that venue whose addresses resolved. Some unbadged pins are street-level or interpolated, not rooftop; venue-level and centroid pins are labeled approximate.</p></article>
+                        <article><i class="bi bi-journal-text"></i><h3>Source retention</h3><p>Both source systems typically expose about two years of history. Missing report pages remain missing or unscored; this is an archive of what was collected, not a complete lifetime record.</p></article>
+                        <article><i class="bi bi-pin-map"></i><h3>Geocoded locations</h3><p>Pins come from address lookups through VGIN, the U.S. Census Bureau, and OpenStreetMap/Nominatim, refined against Overture Maps and Foursquare OS Places, with a ZIP-centroid fallback—not VDH coordinates. Fairfax County establishments are placed at the point locations the county publishes with its records. Some pins are manually placed after review. Where an address is a room or space number rather than a street address, as at an airport or on a campus, the pin is placed at the venue the establishment belongs to, derived from other permits at that venue whose addresses resolved. Some unbadged pins are street-level or interpolated, not rooftop; venue-level and centroid pins are labeled approximate.</p></article>
                         <article><i class="bi bi-intersect"></i><h3>Presentation heuristics</h3><p>“Restaurants only” uses permit-type/name patterns. History merging uses shared location/address plus name similarity. Either can misclassify, combine, or miss a match; retained permit IDs are the audit trail.</p></article>
                         <article><i class="bi bi-sliders"></i><h3>Focused is not facility-wide</h3><p>A focused follow-up stays visible as the latest event and adjusts the facility grade item by item, but it never replaces the broad inspection that anchors it. Its own score is null; the OUT/addressed result describes that targeted visit. When comments enumerate corrected items omitted from the structured rows, both channels count once and the structured row governs any conflict.</p></article>
-                        <article><i class="bi bi-shield-check"></i><h3>VDH wins conflicts</h3><p>Scores and summaries are comparison tools, not safety or illness predictions. If our presentation and the source disagree, the official VDH record is authoritative.</p></article>
+                        <article><i class="bi bi-shield-check"></i><h3>The source record wins conflicts</h3><p>Scores and summaries are comparison tools, not safety or illness predictions. If our presentation and the source disagree, the official record of the publishing health department is authoritative.</p></article>
                     </div>
                     <div class="about-verify-card">
                         <i class="bi bi-box-arrow-up-right"></i>
                         <div>
                             <h3>Verify at the source</h3>
-                            <p>Facility rows and report cards expose MyHealthDepartment links where available. Compare the observation, citation, corrective action, and checklist markings yourself.</p>
+                            <p>Facility rows and report cards expose links to the publishing health department’s record where available. Compare the observation, citation, corrective action, and checklist markings yourself.</p>
                         </div>
                         <a href="https://inspections.myhealthdepartment.com/virginia" target="_blank" rel="noopener">Open VDH portal <i class="bi bi-box-arrow-up-right"></i></a>
+                        <a href="https://www.fairfaxcounty.gov/health/food/inspection-reports" target="_blank" rel="noopener">Open Fairfax County reports <i class="bi bi-box-arrow-up-right"></i></a>
                     </div>
                 </section>
 
@@ -630,13 +631,14 @@
                     </div>
                     <div class="about-terms-body" id="aboutTermsBody">
                         <h3>Inspection Records and Source Data</h3>
-                        <p>CleanPlateVA collects, organizes, and presents publicly available food establishment inspection records published by the Virginia Department of Health through <a href="https://inspections.myhealthdepartment.com/virginia" target="_blank" rel="noopener">MyHealthDepartment</a>.</p>
-                        <p>CleanPlateVA is an independent service and is not affiliated with, operated by, or endorsed by the Virginia Department of Health or MyHealthDepartment.</p>
-                        <p>Inspection information displayed on this site is an archived snapshot and may not reflect the most recent information available from VDH. The original VDH inspection record remains the authoritative source. Users should consult the source record when current or official information is required.</p>
+                        <p>CleanPlateVA collects, organizes, and presents publicly available food establishment inspection records published by two agencies: the Virginia Department of Health, through <a href="https://inspections.myhealthdepartment.com/virginia" target="_blank" rel="noopener">MyHealthDepartment</a>, for localities served by VDH health districts; and the Fairfax County Health Department, through its <a href="https://www.fairfaxcounty.gov/health/food/inspection-reports" target="_blank" rel="noopener">Food Establishment Inspection Reports</a> system, for Fairfax County, the City of Fairfax, and the City of Falls Church.</p>
+                        <p>CleanPlateVA is an independent service and is not affiliated with, operated by, or endorsed by the Virginia Department of Health, MyHealthDepartment, or the Fairfax County Health Department.</p>
+                        <p>Inspection information displayed on this site is an archived snapshot and may not reflect the most recent information available from the responsible health department. The original inspection record published by that department remains the authoritative source. Users should consult the source record when current or official information is required.</p>
 
                         <h3>CleanPlateVA Scores and Grades</h3>
                         <p>Scores, letter grades, compliance percentages, trends, flags, classifications, and other summaries displayed by CleanPlateVA are calculated by CleanPlateVA from the underlying inspection records.</p>
-                        <p>These calculations are not issued or approved by VDH and should not be interpreted as official restaurant grades, food safety certifications, health-risk assessments, or predictions of whether a person will become ill.</p>
+                        <p>These calculations are not issued or approved by the Virginia Department of Health or the Fairfax County Health Department and should not be interpreted as official restaurant grades, food safety certifications, health-risk assessments, or predictions of whether a person will become ill.</p>
+                        <p>The Fairfax County Health Department records an inspection outcome, such as Passed or Partial Pass, with each of its reports. Where CleanPlateVA displays that outcome, it is the county’s determination. It is neither derived from nor used to derive CleanPlateVA’s score or grade, and the two may differ.</p>
                         <p>CleanPlateVA provides these calculations as a tool for comparing and reviewing inspection histories. They are provided as is, without warranty as to accuracy, completeness, or suitability for any particular purpose.</p>
 
                         <h3>Location Data</h3>
@@ -647,12 +649,15 @@
                             <li>OpenStreetMap and Nominatim</li>
                             <li>Overture Maps Foundation</li>
                             <li>Foursquare OS Places</li>
+                            <li>Fairfax County GIS establishment locations, published by the Fairfax County Health Department with its inspection records</li>
                         </ul>
                         <p>Some locations are approximate. Certain locations may also be manually placed or corrected by CleanPlateVA based on available source information.</p>
 
                         <h3>Data and Map Attribution</h3>
                         <ul class="about-terms-attribution">
                             <li><strong>Inspection records:</strong> Virginia Department of Health, via <a href="https://inspections.myhealthdepartment.com/virginia" target="_blank" rel="noopener">MyHealthDepartment</a>.</li>
+                            <li><strong>Inspection records (Fairfax County, City of Fairfax, City of Falls Church):</strong> Fairfax County Health Department, via its <a href="https://www.fairfaxcounty.gov/health/food/inspection-reports" target="_blank" rel="noopener">Food Establishment Inspection Reports</a> system.</li>
+                            <li><strong>Establishment locations (Fairfax County):</strong> Fairfax County GIS, published by the Fairfax County Health Department.</li>
                             <li><strong>Address data:</strong> <a href="https://vgin.vdem.virginia.gov/" target="_blank" rel="noopener">Virginia Geographic Information Network (VGIN)</a>, Virginia Department of Emergency Management.</li>
                             <li><strong>Geocoding:</strong> <a href="https://geocoding.geo.census.gov/" target="_blank" rel="noopener">U.S. Census Bureau Geocoder and Gazetteer</a>.</li>
                             <li><strong>Map data and geocoding:</strong> © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors. OpenStreetMap data is made available under the <a href="https://opendatacommons.org/licenses/odbl/" target="_blank" rel="noopener">Open Database License (ODbL)</a>.</li>
@@ -663,7 +668,7 @@
                         <p>CleanPlateVA’s independently calculated scores, grades, classifications, and presentation may be cited with credit to CleanPlateVA. No additional license to CleanPlateVA-created material is granted by these terms.</p>
 
                         <h3>Acknowledgment</h3>
-                        <p>By selecting “Agree and View Grades”, you acknowledge that you have read and understood these terms and that CleanPlateVA’s scores and grades are independent calculations rather than official VDH ratings.</p>
+                        <p>By selecting “Agree and View Grades”, you acknowledge that you have read and understood these terms and that CleanPlateVA’s scores and grades are independent calculations rather than official ratings issued by any health department.</p>
                         <p>If you do not agree, you may continue using the basic map without CleanPlateVA inspection grades.</p>
                         <p>Your selection will be remembered on this device and can be changed later from the About page.</p>
                     </div>
@@ -690,7 +695,8 @@
         <div class="food-source-footer small px-3 py-1" id="foodSourceFooter">
             <span>
                 Inspection records: <a href="https://inspections.myhealthdepartment.com/virginia"
-                   target="_blank" rel="noopener">VDH via MyHealthDepartment</a> · archived snapshot ·
+                   target="_blank" rel="noopener">VDH</a> and <a href="https://www.fairfaxcounty.gov/health/food/inspection-reports"
+                   target="_blank" rel="noopener">Fairfax County Health Department</a> · archived snapshot ·
                 scores and grades calculated by CleanPlateVA ·
                 <a href="about#aboutTerms" data-terms-link>Terms &amp; attribution</a><span id="foodCoverage"></span>
             </span>

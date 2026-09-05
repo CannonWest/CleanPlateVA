@@ -1,8 +1,9 @@
 # CleanPlateVA
 
 A finder map for Virginia food establishments, built from Virginia Department
-of Health inspection records. Every marker links to the establishment's
-official VDH inspection record.
+of Health inspection records and, for Fairfax County, the City of Fairfax and
+the City of Falls Church, the Fairfax County Health Department's. Every marker
+links to the establishment's official record at the publishing department.
 
 ## Two tiers, one site
 
@@ -351,5 +352,10 @@ tripwires); `npx vitest run` the CR scaffold's — CI runs both.
 ## Data source
 
 Inspection records originate from the
-[VDH MyHealthDepartment portal](https://inspections.myhealthdepartment.com/virginia).
-The map is a prepared snapshot, not a live feed; VDH remains authoritative.
+[VDH MyHealthDepartment portal](https://inspections.myhealthdepartment.com/virginia)
+and, for the Fairfax Health District, from the
+[Fairfax County Health Department's inspection reports](https://www.fairfaxcounty.gov/health/food/inspection-reports)
+(the exporter publishes those facilities with `tenant: "fairfax"`, which both
+clients route to the county instead of a portal path). The map is a prepared
+snapshot, not a live feed; the publishing health department remains
+authoritative.

@@ -129,11 +129,13 @@ test('mobile is a real boolean and actually flags trucks; pt agrees with it', ()
         `${trucks} of ${facilities.length} flagged mobile — over-matching?`)
 })
 
-test('tenant routes the VDH permit link to the right district', () => {
+test('tenant routes the permit link to the right district — or to Fairfax County', () => {
     let districted = 0
     for (const facility of facilities) {
         assert.equal(typeof facility.tenant, 'string', facility.permit_id)
-        assert.match(facility.tenant, /^(virginia|va-[a-z-]+)$/, facility.permit_id)
+        // A VDH district path, the aggregate, or the Fairfax Health District's
+        // sentinel (FFX-M4) — the county has no MyHealthDepartment path at all.
+        assert.match(facility.tenant, /^(virginia|va-[a-z-]+|fairfax)$/, facility.permit_id)
         if (facility.tenant !== 'virginia') districted++
     }
     assert.ok(districted > facilities.length * 0.5,

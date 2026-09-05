@@ -139,11 +139,14 @@ test('content parity: hero, both receipts, weights, pipeline, lineage, all eight
     // §05: all eight limit headings + the verify card's real portal href.
     for (const h of ['Selected coverage', 'Snapshot, not live', 'Permit status can age',
         'Source retention', 'Geocoded locations', 'Presentation heuristics',
-        'Focused is not facility-wide', 'VDH wins conflicts']) {
+        'Focused is not facility-wide', 'The source record wins conflicts']) {
         expect(el.textContent).toContain(h)
     }
     const portal = Array.from(el.querySelectorAll('a')).find((a) => a.textContent?.includes('Open VDH portal'))
     expect(portal?.getAttribute('href')).toBe('https://inspections.myhealthdepartment.com/virginia')
+    // FFX-M4: the verify card offers both departments' public search pages.
+    const county = Array.from(el.querySelectorAll('a')).find((a) => a.textContent?.includes('Open Fairfax County reports'))
+    expect(county?.getAttribute('href')).toBe('https://www.fairfaxcounty.gov/health/food/inspection-reports')
 })
 
 test('§06 carries the verbatim single-source terms with the real attribution hrefs', async () => {
@@ -151,7 +154,12 @@ test('§06 carries the verbatim single-source terms with the real attribution hr
     const body = el.querySelector('#aboutTermsBody')
     expect(body).toBeTruthy()
     // Verbatim sentences (typographic quotes preserved — Cannon's words).
-    expect(body?.textContent).toContain('CleanPlateVA is an independent service and is not affiliated with, operated by, or endorsed by the Virginia Department of Health or MyHealthDepartment.')
+    expect(body?.textContent).toContain('CleanPlateVA is an independent service and is not affiliated with, operated by, or endorsed by the Virginia Department of Health, MyHealthDepartment, or the Fairfax County Health Department.')
+    // FFX-M4 (OQ-B, Cannon 2026-09-05): both agencies named once, the county's
+    // outcome paragraph kept, the acknowledgment generalized.
+    expect(body?.textContent).toContain('published by two agencies')
+    expect(body?.textContent).toContain('The Fairfax County Health Department records an inspection outcome')
+    expect(body?.textContent).toContain('rather than official ratings issued by any health department')
     expect(body?.textContent).toContain('By selecting “Agree and View Grades”, you acknowledge that you have read and understood these terms')
     expect(body?.textContent).toContain('Your selection will be remembered on this device and can be changed later from the About page.')
     // The attribution inventory's real destinations (D-ACK-2 rides here).

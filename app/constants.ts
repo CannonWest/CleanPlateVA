@@ -17,6 +17,14 @@ export const LIST_PAGE_SIZE = 50
 export const PORTAL_BASE = 'https://inspections.myhealthdepartment.com'
 // The `virginia` aggregate: correct only for facilities no district claimed.
 export const AGGREGATE_TENANT = 'virginia'
+// The Fairfax Health District (FFX-M4, 2026-09-05). Fairfax County runs its
+// own inspection program, so its facilities have no MyHealthDepartment path
+// at all; the exporter publishes this sentinel as their `tenant`
+// (cf_export_site.FAIRFAX_TENANT) and every link routes to the county's own
+// records instead. The URL is the county's public inspection-reports page —
+// its analog of the portal; per-report links come baked on each inspection.
+export const FAIRFAX_TENANT = 'fairfax'
+export const FAIRFAX_RECORDS_URL = 'https://www.fairfaxcounty.gov/health/food/inspection-reports'
 
 // Grade palette — data color, not chrome (chrome themes via the Tailwind
 // tokens). The RATIFIED ramp (design ref §6.0, CRD-M1 2026-08-29): only F

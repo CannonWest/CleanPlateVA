@@ -173,6 +173,99 @@ test('the basic map keeps the identity + official hand-off (P6/C8)', async () =>
     expect(el.querySelector('svg.cp-trend')).toBeNull()
 })
 
+// FFX-M4: a Fairfax Health District facility. The exporter's `tenant`
+// sentinel routes every link to the county; the fact line names the
+// department; each report is a county PDF; the county's own outcome rides
+// with its explanation (OQ-D, never a badge); a visit the county lists with
+// no report held is a row on its date (OQ-I); the hero carries the OQ-G line.
+const fairfaxInspections: Inspection[] = [
+    {
+        inspection_id: '4999999', date: '2026-08-30', scope: 'unknown', purpose: '',
+        score: null, checklist_present: false, checklist: [], violations: [],
+        report_url: 'https://plus.fairfaxcounty.gov/CitizenAccess/urlrouting.ashx?type=1001&SeqNo=9999999',
+        source_outcome: 'Partial Pass', report_available: false,
+    },
+    {
+        inspection_id: '4177997', date: '2026-08-13', scope: 'broad', purpose: 'Routine',
+        score: 100, applicable_item_count: 52,
+        report_url: 'https://plus.fairfaxcounty.gov/CitizenAccess/urlrouting.ashx?type=1001&SeqNo=6821183',
+        source_outcome: 'Passed', checklist: [], violations: [],
+    },
+]
+
+function fairfaxDetail(): FacilityDetail {
+    return {
+        contract: 'cleanplateva.facility-detail.v4',
+        schema_version: 4,
+        available: true,
+        facility: {
+            ...row({ permit_id: 'HFOOD-000011010', name: 'Bull Run Regional Park', tenant: 'fairfax', loc: 0 }),
+            jurisdiction_source: 'fairfax',
+            permit_type: 'Full Service Restaurant',
+            status: 'Active',
+            grade: {
+                score: 100, letter: 'A', adjusted: false, base_score: 100, base_letter: 'A',
+                base_date: '2026-08-13', base_inspection_id: '4177997', followups: 0,
+                narrative_followups: 0, narrative_items: [], restored_items: [],
+                failed_items: [], cos_items: [], new_items: [], unchecked_items: [],
+                restored_points: 0, extra_points: 0,
+            },
+        },
+        inspections: fairfaxInspections,
+    }
+}
+
+test('a Fairfax Health District facility links to the county and names it (FFX-M4)', async () => {
+    const el = await render(
+        <DetailPanel
+            row={row({ permit_id: 'HFOOD-000011010', name: 'Bull Run Regional Park', tenant: 'fairfax' })}
+            lite={false}
+            state={{ status: 'ready', detail: fairfaxDetail() }}
+            onClose={() => {}}
+            onAbout={() => {}}
+        />,
+    )
+    const source = Array.from(el.querySelectorAll('a')).find((a) => a.textContent?.includes('Source'))
+    expect(source?.getAttribute('href')).toBe('https://www.fairfaxcounty.gov/health/food/inspection-reports')
+    expect(source?.getAttribute('title')).toContain('Fairfax County Health Department')
+    // the fact line: the county's word for status, verbatim, and the department
+    expect(el.textContent).toContain('Active')
+    expect(el.textContent).toContain('Fairfax County Health Department')
+    expect(el.textContent).not.toContain('Virginia Department of Health')
+    // OQ-G on the hero
+    const hero = el.querySelector('button[aria-haspopup="dialog"]')
+    expect(hero?.textContent).toContain('Fairfax County grades are anchored on the most recent full inspection.')
+    // the unavailable visit leads the history on its date, at scope unknown
+    expect(el.textContent).toContain('Inspection history · 2 visits')
+    expect(el.textContent).toContain('No report is held for this visit; the county’s copy may be available.')
+    const links = Array.from(el.querySelectorAll('a[href*="plus.fairfaxcounty.gov"]'))
+    expect(links.map((a) => a.getAttribute('aria-label'))).toEqual([
+        'Download the county’s copy of this report (PDF)',
+        'Download the official Fairfax County Health Department report for this inspection (PDF)',
+    ])
+    // OQ-D: the county's outcome with its explanation, never a badge
+    expect(el.textContent).toContain('County outcome: Partial Pass')
+    expect(el.textContent).toContain('Outcome recorded by the Fairfax County Health Department for this visit.')
+    expect(el.textContent).toContain('about 3 percent of visits recorded as Passed')
+    expect(el.textContent).not.toContain('Open the official VDH report')
+})
+
+test('the basic map hands a Fairfax facility off to the county (FFX-M4)', async () => {
+    const el = await render(
+        <DetailPanel
+            row={row({ tenant: 'fairfax' })}
+            lite
+            state={{ status: 'loading' }}
+            onClose={() => {}}
+            onAbout={() => {}}
+        />,
+    )
+    expect(el.textContent).toContain('View inspections at Fairfax County')
+    expect(el.textContent).toContain('official Fairfax County Health Department site — this map is a finder')
+    const cta = Array.from(el.querySelectorAll('a')).find((a) => a.textContent?.includes('View inspections'))
+    expect(cta?.getAttribute('href')).toBe('https://www.fairfaxcounty.gov/health/food/inspection-reports')
+})
+
 test('an unavailable detail reads as exactly that', async () => {
     const el = await render(
         <DetailPanel
