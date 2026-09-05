@@ -18,9 +18,11 @@
  * (2026-08-30, Cannon's live preview review — the cluster accumulator
  * machinery lives in git at CleanPlateVA #174 if it ever returns), and
  * the CRD-M1 dashed declining ring was scrapped on the same review. The
- * replacement landed CRP-M1 (2026-08-31, Cannon's pick): the ↓ SUFFIX
- * beside the grade letter — baked here as `declining` (letter-carrying
- * dots only), drawn by MapView's decline layer past LETTER_ZOOM.
+ * replacement landed CRP-M1 (2026-08-31): the ↓ suffix beside the letter;
+ * CRP-M2 (2026-09-05, Cannon's pick) retired the suffix for a RED RING on
+ * the dot at every zoom — production's form, off-ramp color. The bake is
+ * the same either way: `declining` is true for letter-carrying dots only,
+ * and MapView's ring expression reads it.
  */
 
 import type { Feature, FeatureCollection, Point } from 'geojson'
@@ -43,10 +45,12 @@ export interface PointProps {
     opacity: number
     /** The grade letter for the symbol layer; '' when nothing rides. */
     letter: string
-    /** The ↓ suffix (CRP-M1, banded M1b): true only when a LETTER rides
-     *  and the grade-to-grade drop exceeds TREND_DECLINE_BAND (>5 points)
-     *  — judgment speaks where letters are legible, so
-     *  closed/NEW/unscored/basic-map dots never carry it. */
+    /** The declining ring (CRP-M2; band from M1b): true only for a dot
+     *  that CARRIES a letter — graded, active, full tier — whose
+     *  grade-to-grade drop exceeds TREND_DECLINE_BAND (>5 points), so
+     *  closed/NEW/unscored/basic-map dots never carry it. Unlike the
+     *  letter, the ring has no zoom gate: it rides the dot wherever the
+     *  dot is drawn. */
     declining: boolean
 }
 
