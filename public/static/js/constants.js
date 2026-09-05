@@ -21,10 +21,18 @@ export const AGGREGATE_TENANT = 'virginia';
 // own inspection program, so its facilities have no MyHealthDepartment path
 // at all; the exporter publishes this sentinel as their `tenant`
 // (cf_export_site.FAIRFAX_TENANT) and every link routes to the county's own
-// records instead. The URL is the county's public inspection-reports page —
-// its analog of the portal; per-report links come baked on each inspection.
+// records instead. FAIRFAX_RECORDS_URL is the county's public
+// inspection-reports page — the fallback when a row carries no `ffx_oid`
+// (below); per-report links come baked on each inspection.
 export const FAIRFAX_TENANT = 'fairfax';
 export const FAIRFAX_RECORDS_URL = 'https://www.fairfaxcounty.gov/health/food/inspection-reports';
+// The county's own per-facility page: its ArcGIS Experience map selects a
+// permitted establishment by the layer's OBJECTID (`#data_s=id:<source>:<oid>`),
+// which the exporter publishes as the finder row's `ffx_oid` (an integer on
+// county rows, null on every VDH row). The source handle is the Experience
+// app's own — verified 2026-09-05 against two of the county's links.
+export const FAIRFAX_EXPERIENCE_URL = 'https://experience.arcgis.com/experience/0e687ef56da44ef287d20ced8cc85a3f/page/Main-Page';
+export const FAIRFAX_EXPERIENCE_SOURCE = 'dataSource_5-17e77d67cec-layer-3';
 
 // Grade palette — fixed hues that read on light + dark (data color, not
 // chrome; chrome themes via CSS).

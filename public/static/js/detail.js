@@ -173,7 +173,7 @@ export const detailMethods = {
                     <h5>${esc(fac.name)}</h5>
                     <div class="food-detail-title-right">
                         <a class="food-insp-report food-detail-source" href="${permitUrl(fac)}"
-                            target="_blank" rel="noopener" title="${this._fairfax ? "Find this facility's official record at the Fairfax County Health Department" : "Open this facility's VDH record"}"><i class="bi bi-file-earmark-text"></i><span>Source</span><i class="bi bi-box-arrow-up-right"></i></a>
+                            target="_blank" rel="noopener" title="${this._fairfax ? (Number.isInteger(fac.ffx_oid) ? "Open this facility's official Fairfax County Health Department record" : "Find this facility's official record at the Fairfax County Health Department") : "Open this facility's VDH record"}"><i class="bi bi-file-earmark-text"></i><span>Source</span><i class="bi bi-box-arrow-up-right"></i></a>
                         <button type="button" class="btn-close food-detail-close" aria-label="Close"></button>
                     </div>
                 </div>
