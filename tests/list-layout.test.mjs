@@ -13,13 +13,15 @@ test('the list yields flex space to the selected-facility panel', () => {
     assert.match(rule, /overflow:\s*auto\s*;/);
 });
 
-test('VDH table links are icon-only and retain accessible names', () => {
+test('source table links are icon-only and retain accessible names', () => {
     const link = dashboard.match(
         /<a class="food-list-vdh-link"[\s\S]*?<\/a>/,
     )?.[0] || '';
 
-    assert.match(link, /aria-label="View \$\{esc\(f\.name\)\} on VDH"/);
-    assert.match(link, /title="View \$\{esc\(f\.name\)\} on VDH"/);
+    // FFX-M4: the hand-off phrase follows the department ("on VDH" /
+    // "at Fairfax County") through sourceDepartment(f).handoff.
+    assert.match(link, /aria-label="View \$\{esc\(f\.name\)\} \$\{esc\(sourceDepartment\(f\)\.handoff\)\}"/);
+    assert.match(link, /title="View \$\{esc\(f\.name\)\} \$\{esc\(sourceDepartment\(f\)\.handoff\)\}"/);
     assert.match(link, /<i class="bi bi-box-arrow-up-right"/);
     assert.doesNotMatch(link, />View on VDH\s*</);
 });

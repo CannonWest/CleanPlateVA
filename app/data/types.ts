@@ -185,6 +185,16 @@ export interface Inspection {
     insp_type?: string
     inspection_id?: string
     report_url?: string
+    /** The inspecting department's own recorded outcome (the Fairfax Health
+     *  District: Passed / Partial Pass / Failed …) — provenance shown with its
+     *  explanation, never an input to the score (FFX-M4, OQ-D). VDH rows
+     *  carry none. */
+    source_outcome?: string | null
+    /** `false` on a visit the department lists but whose report the archive
+     *  does not hold (FFX-M4, OQ-I): scope unknown, on its date, linking to
+     *  the department's copy. Absent on every loaded report. */
+    report_available?: boolean
+    comments?: string
     checklist?: DecodedChecklistRow[] | ChecklistCell[]
     checklist_present?: boolean
     checklist_summary?: {
@@ -246,6 +256,9 @@ export interface FacilityDetail {
  *  roster row (the client spreads the roster row underneath it). */
 export interface DetailFacility extends Partial<RosterRow> {
     permit_id?: string
+    /** Named only on the Fairfax Health District's details (FFX-M4); the
+     *  `tenant` sentinel is what the presentation branches on. */
+    jurisdiction_source?: string
     grade?: GradeBlock
     latest?: Inspection | null
     latest_assessment?: Inspection | null

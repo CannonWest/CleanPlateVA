@@ -8,7 +8,9 @@
  * receipt.js.
  */
 
-import { AGGREGATE_TENANT, GRADE_COLORS, PORTAL_BASE, RF_MAX_ITEM } from './constants.js';
+import {
+    AGGREGATE_TENANT, FAIRFAX_RECORDS_URL, FAIRFAX_TENANT, GRADE_COLORS, PORTAL_BASE, RF_MAX_ITEM,
+} from './constants.js';
 
 // ── Contract V4 roster row adapters ─────────────────────────────────────
 // A V4 roster row is a finder row (identity + lat/lon/loc) plus, on the Full
@@ -86,7 +88,26 @@ export function isNewlyPermitted(f) {
  *  no status (active by construction); closed rows and detail facilities do. */
 export function isActivePermit(f) {
     if (f?.status == null) return true;
-    return String(f.status).toLowerCase().includes('permitted');
+    // VDH's roster word is `Permitted` (substring); the Fairfax Health
+    // District's is `Active`, matched exactly so `Inactive` can never pass —
+    // the same predicate as the exporter's cannon_food.merge.is_active.
+    const status = String(f.status).trim().toLowerCase();
+    return status.includes('permitted') || status === 'active';
+}
+
+/** A Fairfax Health District facility (FFX-M4): the exporter's tenant
+ *  sentinel, carried by finder, closed and detail records alike. */
+export function isFairfax(f) {
+    return f?.tenant === FAIRFAX_TENANT;
+}
+
+/** The health department whose record a facility's links open: its full
+ *  name (the panel line, the attribution), the hand-off phrase the link
+ *  controls use ("on VDH" / "at Fairfax County"), and its public search page. */
+export function sourceDepartment(f) {
+    return isFairfax(f)
+        ? { name: 'Fairfax County Health Department', handoff: 'at Fairfax County', url: FAIRFAX_RECORDS_URL }
+        : { name: 'Virginia Department of Health', handoff: 'on VDH', url: `${PORTAL_BASE}/${AGGREGATE_TENANT}` };
 }
 
 function overlayGrade(o) {
@@ -123,10 +144,14 @@ function overlayLatestPresentation(o) {
  *
  *  `f` may be a full/lite marker, a detail facility, or a merged_from entry.
  *  Pre-tenant payloads degrade to the aggregate — the old behaviour, never a
- *  broken link.
+ *  broken link. A Fairfax facility (FFX-M4) has no portal page at all: its
+ *  link is the county's own inspection-reports search (the finder carries no
+ *  county record id, so there is no per-facility deep link; each report
+ *  links itself).
  */
 export function permitUrl(f, tenant) {
     const t = tenant || f?.tenant || AGGREGATE_TENANT;
+    if (t === FAIRFAX_TENANT) return FAIRFAX_RECORDS_URL;
     return `${PORTAL_BASE}/${encodeURIComponent(t)}/permit/?permitID=`
         + encodeURIComponent(f?.permit_id ?? '');
 }

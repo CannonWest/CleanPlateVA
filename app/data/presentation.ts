@@ -12,7 +12,9 @@
  * report-card modal at CRV-a, alongside its suite.
  */
 
-import { AGGREGATE_TENANT, GRADE_COLORS, PORTAL_BASE, RF_MAX_ITEM } from '../constants'
+import {
+    AGGREGATE_TENANT, FAIRFAX_RECORDS_URL, FAIRFAX_TENANT, GRADE_COLORS, PORTAL_BASE, RF_MAX_ITEM,
+} from '../constants'
 import type {
     Adjudication, DecodedChecklistRow, GradeBlock, Inspection, OverlayRow,
     VisitEntry, Violation,
@@ -109,8 +111,12 @@ export function isNewlyPermitted(f: FacilityLike | null | undefined): boolean {
 /** Whether a roster row / facility is an active permit. V4 finder rows carry
  *  no status (active by construction); closed rows and details do. */
 export function isActivePermit(f: FacilityLike | null | undefined): boolean {
+    // VDH's roster word is `Permitted` (substring); the Fairfax Health
+    // District's is `Active`, matched exactly so `Inactive` can never pass —
+    // the same predicate as the exporter's cannon_food.merge.is_active.
     if (f?.status == null) return true
-    return String(f.status).toLowerCase().includes('permitted')
+    const status = String(f.status).trim().toLowerCase()
+    return status.includes('permitted') || status === 'active'
 }
 
 function overlayGrade(o: FacilityLike['o']): { score: number; base_date: string | null } | null {
@@ -150,11 +156,37 @@ function overlayLatestPresentation(o: NonNullable<FacilityLike['o']>): Inspectio
     }
 }
 
+/** A Fairfax Health District facility (FFX-M4): the exporter's tenant
+ *  sentinel, carried by finder, closed and detail records alike. */
+export function isFairfax(f: FacilityLike | null | undefined): boolean {
+    return f?.tenant === FAIRFAX_TENANT
+}
+
+export interface SourceDepartment {
+    /** The department's full name — the panel chip, the attribution line. */
+    name: string
+    /** The hand-off phrase the link controls use ("on VDH" / "at Fairfax County"). */
+    handoff: string
+    /** Its public inspection-records search page. */
+    url: string
+}
+
+/** The health department whose record a facility's links open. */
+export function sourceDepartment(f: FacilityLike | null | undefined): SourceDepartment {
+    return isFairfax(f)
+        ? { name: 'Fairfax County Health Department', handoff: 'at Fairfax County', url: FAIRFAX_RECORDS_URL }
+        : { name: 'Virginia Department of Health', handoff: 'on VDH', url: `${PORTAL_BASE}/${AGGREGATE_TENANT}` }
+}
+
 /** Deep link to a facility's official VDH permit page — tenant-SCOPED (P8):
  *  a facility a district claimed is ABSENT from the `virginia` aggregate.
- *  Pre-tenant payloads degrade to the aggregate — never a broken link. */
+ *  Pre-tenant payloads degrade to the aggregate — never a broken link.
+ *  A Fairfax facility has no portal page at all: its link is the county's
+ *  own inspection-reports search (the finder carries no county record id,
+ *  so there is no per-facility deep link; each report links itself). */
 export function permitUrl(f: FacilityLike | null | undefined, tenant?: string): string {
     const t = tenant || f?.tenant || AGGREGATE_TENANT
+    if (t === FAIRFAX_TENANT) return FAIRFAX_RECORDS_URL
     return `${PORTAL_BASE}/${encodeURIComponent(t)}/permit/?permitID=`
         + encodeURIComponent(f?.permit_id ?? '')
 }

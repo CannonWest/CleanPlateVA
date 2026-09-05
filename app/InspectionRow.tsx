@@ -319,9 +319,13 @@ function Temps({ insp }: { insp: Inspection }) {
     )
 }
 
-export function InspectionRow({ insp, openByDefault }: {
+export function InspectionRow({ insp, openByDefault, fairfax = false }: {
     insp: Inspection
     openByDefault: boolean
+    /** The facility's record is the Fairfax Health District's (FFX-M4): the
+     *  report link is a county PDF download, and the row may carry the
+     *  county's own outcome or stand for a report the archive does not hold. */
+    fairfax?: boolean
 }) {
     const view = inspectionPresentation(insp)
     const violations = insp.violations || []
@@ -329,6 +333,17 @@ export function InspectionRow({ insp, openByDefault }: {
     const sets = disposSets(rows)
     const adj = narrativeVerdictPresentation(insp)
     const counts = inspectionCountsPresentation(insp)
+    // OQ-I: the department lists the visit; the archive holds no report.
+    const unavailable = insp.report_available === false
+    // OQ-D: the county's recorded outcome — shown with its explanation, never
+    // a badge, never an input to the score.
+    const outcome = typeof insp.source_outcome === 'string' && insp.source_outcome
+        ? insp.source_outcome : null
+    const linkLabel = unavailable
+        ? 'Download the county’s copy of this report (PDF)'
+        : fairfax
+            ? 'Download the official Fairfax County Health Department report for this inspection (PDF)'
+            : 'Open the official VDH report for this inspection'
 
     const noViolations = view.scope === 'broad'
         ? `No violations recorded across ${view.count} distinct applicable code items.`
@@ -356,8 +371,8 @@ export function InspectionRow({ insp, openByDefault }: {
                             href={insp.report_url}
                             target="_blank"
                             rel="noopener"
-                            aria-label="Open the official VDH report for this inspection"
-                            title="Open the official VDH report for this inspection"
+                            aria-label={linkLabel}
+                            title={linkLabel}
                             onClick={(e) => e.stopPropagation()}
                             className="inline-flex rounded-[6px] border border-cp-accent p-1.5 text-cp-accent hover:bg-cp-surface-3"
                         >
@@ -410,12 +425,23 @@ export function InspectionRow({ insp, openByDefault }: {
                 ) : null}
             </summary>
             <div className="border-t border-cp-hairline px-3 py-2.5">
+                {unavailable && (
+                    <p className="mb-2 text-[12px] text-cp-ink-2">
+                        No report is held for this visit; the county’s copy may be available.
+                    </p>
+                )}
+                {outcome && (
+                    <div className="mb-2 rounded-[6px] border border-cp-hairline bg-cp-bg px-2.5 py-2 text-[12px] leading-normal text-cp-ink-2">
+                        <b className="mb-0.5 block text-[11px] tracking-[.05em] text-cp-ink uppercase">County outcome: {outcome}</b>
+                        Outcome recorded by the Fairfax County Health Department for this visit. It is not derived from, and does not determine, CleanPlateVA’s computed score. Across the archived county reports, about 3 percent of visits recorded as Passed score in the D or F range under CleanPlateVA’s formula; the basis for the county’s outcome is not stated in the report.
+                    </div>
+                )}
                 {adj && (
                     <p className="mb-2 text-[12px] text-cp-ink-2">
                         No checklist published; verdict read from the inspector's written comments.
                     </p>
                 )}
-                {violations.length ? violations.map((v, i) => {
+                {unavailable ? null : violations.length ? violations.map((v, i) => {
                     const rf = v.item != null && v.item <= 29
                     return (
                         <div
@@ -446,7 +472,7 @@ export function InspectionRow({ insp, openByDefault }: {
                 }) : adj ? null : (
                     <p className="text-[12px] text-cp-ink-3">{noViolations}</p>
                 )}
-                <Checklist rows={rows} count={view.count} />
+                {!unavailable && <Checklist rows={rows} count={view.count} />}
                 {typeof insp.comments === 'string' && insp.comments && (
                     <div className="mt-2 rounded-[6px] border border-cp-hairline bg-cp-bg px-2.5 py-2 text-[12px] leading-normal text-cp-ink-2">
                         <b className="mb-0.5 block text-[11px] tracking-[.05em] text-cp-ink uppercase">Inspector comments</b>

@@ -10,7 +10,7 @@ import assert from 'node:assert/strict'
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { test } from 'vitest'
-import { permitUrl } from '../../app/data/presentation'
+import { isActivePermit, isFairfax, permitUrl, sourceDepartment } from '../../app/data/presentation'
 
 test('routes to the district that claimed the permit', () => {
     assert.equal(
@@ -41,6 +41,31 @@ test('both components are URL-encoded', () => {
 
 test('a missing permit_id yields an empty id, not the string "undefined"', () => {
     assert.match(permitUrl({ tenant: 'va-henrico' }), /permitID=$/)
+})
+
+test('a Fairfax Health District facility links to the county, never a portal path (FFX-M4)', () => {
+    // The county runs its own program: no MyHealthDepartment page exists for
+    // it, and the finder carries no county record id, so the facility link
+    // is the county's inspection-reports search (each report links itself).
+    assert.equal(permitUrl({ permit_id: 'HFOOD-000010912', tenant: 'fairfax' }),
+        'https://www.fairfaxcounty.gov/health/food/inspection-reports')
+    assert.doesNotMatch(permitUrl({ permit_id: 'HFOOD-000010912', tenant: 'fairfax' }),
+        /myhealthdepartment/)
+    // the explicit-tenant form (merged_from) routes the same way
+    assert.match(permitUrl({ permit_id: 'HFOOD-000000001' }, 'fairfax'), /fairfaxcounty\.gov/)
+    assert.equal(isFairfax({ permit_id: 'X', tenant: 'fairfax' }), true)
+    assert.equal(isFairfax({ permit_id: 'X', tenant: 'va-henrico' }), false)
+    assert.equal(sourceDepartment({ tenant: 'fairfax' }).name, 'Fairfax County Health Department')
+    assert.equal(sourceDepartment({ tenant: 'va-henrico' }).name, 'Virginia Department of Health')
+})
+
+test('Active is a live permit; Inactive is not (FFX-M4)', () => {
+    for (const status of ['Permitted', 'Active', ' active ']) {
+        assert.equal(isActivePermit({ permit_id: 'X', status }), true, status)
+    }
+    for (const status of ['Expired', 'Inactive', 'Business Closed', 'Pending']) {
+        assert.equal(isActivePermit({ permit_id: 'X', status }), false, status)
+    }
 })
 
 test('no permit link in the CR source hardcodes a tenant path', () => {
