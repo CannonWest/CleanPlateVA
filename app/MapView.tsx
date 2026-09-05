@@ -7,16 +7,28 @@
  *   · grade letters on the dots past LETTER_ZOOM (§6.0: the letter always
  *     rides the color);
  *   · gray uniform = basic map, gray = unscored, dimmed gray = closed;
- *   · same-point stacks as NEUTRAL count bubbles (no proximity clusters —
- *     the CRD-M1 mockup rule, re-ratified 2026-08-30 after a live trial
- *     on the preview: revived in #174 at Cannon's ask, withdrawn on his
- *     review in the next pass; the CRF proof already drew all ~25k dots).
+ *   · same-point stacks as NEUTRAL count bubbles; no proximity clusters BY
+ *     DEFAULT — the CRD-M1 mockup rule, re-ratified 2026-08-30 after a live
+ *     trial on the preview (revived in #174 at Cannon's ask, withdrawn on
+ *     his review in the next pass; the CRF proof already drew all ~25k
+ *     dots).
  *
  * Declining (CRP-M2, Cannon's pick 2026-09-05, replacing the CRP-M1 ↓
  * suffix): the dot's ring turns red (constants.ts DECLINE_RING) at every
  * zoom the dot is drawn — a paint expression on the one circle layer, no
  * extra layer, no images. Production's form, with the color moved off the
  * ramp so a declining F still reads.
+ *
+ * Proximity clusters as a VISITOR SWITCH (CRP-M6, 2026-09-05; the cutover
+ * deletes the old client, so production's look survives as a choice):
+ * production's source clustering is ALWAYS configured (#174's port) and
+ * flipped in place by `setClusterOptions` — no teardown, no GeoJSON rebuild
+ * (the cluster inputs ride every feature, mapData.ts). The bubble is
+ * Cannon's DONUT: a symbol layer whose icon id encodes the per-grade sums a
+ * cluster accumulated, painted on demand by the missing-image resolver
+ * (donut.ts). Production's grammar otherwise: places-sized, under dots and
+ * stacks, hover = cursor only, click = expansion zoom, dissolving at camera
+ * zoom 13; an absorbed stack's popover closes on the way out.
  *
  * Ported from the old `map.js`: the dark-matter road-label contrast fix,
  * fadeDuration 0 (symbol counts must move with their bubbles), geolocate +
@@ -31,17 +43,19 @@ import * as maplibregl from 'maplibre-gl'
 import { X } from 'lucide-react'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import {
+    CLUSTER_COUNT_TEXT_SIZE, CLUSTER_MAX_ZOOM, CLUSTER_PIXEL_RADIUS,
     DARK_MAJOR_ROAD_LABEL_COLOR, DARK_MAJOR_ROAD_LABEL_LAYER,
-    DECLINE_RING, DECLINE_RING_WIDTH,
-    LETTER_TEXT_SIZE, LETTER_ZOOM, LYR_POINT_LETTERS,
+    DECLINE_RING, DECLINE_RING_WIDTH, DONUT_PIXEL_RATIO,
+    LETTER_TEXT_SIZE, LETTER_ZOOM, LYR_CLUSTERS, LYR_POINT_LETTERS,
     LYR_POINTS, LYR_STACK_COUNT, LYR_STACKS, MARKER_RING, MARKER_RING_WIDTH,
     POINT_RADIUS_FULL, POINT_RADIUS_STOPS, SRC, STACK_COUNT_ZOOM,
     STACK_INK, STACK_RADII, STACK_STEPS, STACK_SURFACE, STYLE_DARK,
     STYLE_LIGHT, VA_BOUNDS, VA_FIT,
 } from './constants'
-import { buildMapData } from './mapData'
+import { donutIconExpr, paintDonut, parseDonutId, staleDonutIds } from './donut'
+import { buildMapData, clusterProperties } from './mapData'
 import type { MapData } from './mapData'
-import { hitSlop, markRadius, pickMark } from './mapHit'
+import { hitSlop, markRadius, pickMark, popoverSurvivesZoom } from './mapHit'
 import { HoverCard } from './HoverCard'
 import { StackPopover } from './StackPopover'
 import { coordsOf } from './data/presentation'
@@ -72,6 +86,20 @@ function stackRadiusExpr(): ExpressionSpec {
 
 const POINT_FILTER = ['==', ['get', 'kind'], 'point'] as unknown as ExpressionSpec
 const STACK_FILTER = ['==', ['get', 'kind'], 'stack'] as unknown as ExpressionSpec
+// Cluster features carry no `kind`, so the point/stack filters above never
+// match them; this one is MapLibre's own marker for a cluster feature. With
+// clustering off it matches nothing.
+const CLUSTER_FILTER = ['has', 'point_count'] as unknown as ExpressionSpec
+
+// The bubble's count: `sum` (see clusterProperties), not point_count — a
+// cluster must count PLACES, and one feature can stand for 57 of them.
+// point_count_abbreviated came free; abbreviate sum by hand (≥1000 → "1.2k").
+const CLUSTER_COUNT_TEXT = ['case',
+    ['>=', ['get', 'sum'], 1000],
+    ['concat',
+        ['to-string', ['/', ['round', ['/', ['get', 'sum'], 100]], 10]],
+        'k'],
+    ['to-string', ['get', 'sum']]] as unknown as ExpressionSpec
 
 const DECLINING = ['==', ['get', 'declining'], true]
 
@@ -90,10 +118,62 @@ function ringWidthExpr(): ExpressionSpec {
 
 /** Add source + the marker layers to the CURRENT style. Idempotent per
  *  style — style.load hands a bare basemap each time. */
-function installDataLayers(map: maplibregl.Map, data: MapData, dark: boolean): void {
+function installDataLayers(map: maplibregl.Map, data: MapData, dark: boolean, clusters: boolean): void {
     if (map.getSource(SRC)) return
     const theme = dark ? 'dark' : 'light'
-    map.addSource(SRC, { type: 'geojson', data: data.geojson })
+    // A theme swap diffs the style in place and keeps the image manager
+    // (measured: both themes' donuts listed after a swap) — drop the
+    // outgoing theme's; this theme's are repainted on demand.
+    for (const id of staleDonutIds(map.listImages(), theme)) map.removeImage(id)
+    map.addSource(SRC, {
+        type: 'geojson',
+        data: data.geojson,
+        // Proximity clustering is ALWAYS configured and flipped in place by
+        // the visitor's switch (setClusterOptions below — no teardown, no
+        // GeoJSON rebuild); `cluster` is the switch's state at (re)install.
+        // clusterMaxZoom is a TILE zoom: bubbles dissolve at camera zoom 13
+        // on CARTO's 512px tiles. clusterProperties are addSource-time
+        // config and survive the flip.
+        cluster: clusters,
+        clusterMaxZoom: CLUSTER_MAX_ZOOM,
+        clusterRadius: CLUSTER_PIXEL_RADIUS,
+        // Every feature carries `stack` (1 for a lone place) and its donut
+        // buckets, so a cluster reports the PLACES inside it and the
+        // breakdown its ring draws (mapData.ts clusterInputs).
+        clusterProperties: clusterProperties(),
+    })
+    // Cluster bubbles sit UNDER everything: a lone dot or a stack that
+    // escaped grouping must never be occluded by a neighbouring bubble.
+    // Installed even with clustering off — the filter matches nothing, so
+    // the layer is empty and free, and the hit test never names a missing
+    // layer.
+    map.addLayer({
+        id: LYR_CLUSTERS,
+        type: 'symbol',
+        source: SRC,
+        filter: CLUSTER_FILTER,
+        layout: {
+            // The donut: one image per (theme · size step · bucket tuple),
+            // painted on demand by the missing-image resolver (donut.ts).
+            // Fixed radii by places, never zoom-scaled — a bubble is a
+            // camera control, not a mark.
+            'icon-image': donutIconExpr(theme) as ExpressionSpec,
+            'icon-allow-overlap': true,
+            'icon-ignore-placement': true,
+            // The count rides the icon on the same layer, so the two can
+            // never drift apart across a re-cluster (fadeDuration 0 keeps
+            // symbols from cross-fading behind their bubbles).
+            'text-field': CLUSTER_COUNT_TEXT,
+            'text-font': ['Montserrat Regular'],
+            'text-size': CLUSTER_COUNT_TEXT_SIZE,
+            'text-allow-overlap': true,
+            'text-ignore-placement': true,
+        },
+        // The hole is the theme's stack surface — the stacks' own ink, no
+        // halo (the old white-on-dark-halo treatment existed for the
+        // grade-tinted fills).
+        paint: { 'text-color': STACK_INK[theme] },
+    })
     map.addLayer({
         id: LYR_POINTS,
         type: 'circle',
@@ -167,10 +247,12 @@ function fixDarkRoadLabels(map: maplibregl.Map, dark: boolean): void {
     }
 }
 
-export function MapView({ facilities, lite, dark, onSelect }: {
+export function MapView({ facilities, lite, dark, clusters, onSelect }: {
     facilities: RosterRow[]
     lite: boolean
     dark: boolean
+    /** "Group nearby places" — production's proximity clusters (CRP-M6). */
+    clusters: boolean
     /** A facility was clicked (a lone dot, or a stack member picked). */
     onSelect: (permitId: string) => void
 }) {
@@ -179,6 +261,7 @@ export function MapView({ facilities, lite, dark, onSelect }: {
     const geolocateRef = useRef<maplibregl.GeolocateControl | null>(null)
     const followingRef = useRef(false)
     const styleDarkRef = useRef(dark)
+    const clustersRef = useRef(clusters)
     const [note, setNote] = useState<{ text: string; back: boolean } | null>(null)
     const [failed, setFailed] = useState(false)
     const hideHoverRef = useRef<() => void>(() => {})
@@ -258,6 +341,21 @@ export function MapView({ facilities, lite, dark, onSelect }: {
             ;(window as unknown as { __cpMap?: maplibregl.Map }).__cpMap = map
         }
 
+        // The donut images (CRP-M6): painted the first time the style asks
+        // for an id, on the CURRENT style — setStyle drops every image and
+        // the resolver simply regenerates them (the theme is in the id).
+        // MapLibre awaits the resolver before painting, so the icon lands
+        // in the frame that asked for it. The `styleimagemissing` EVENT can
+        // no longer satisfy the request that fired it (6.6.0); this is the
+        // path. Asked about EVERY missing image, the basemap's included —
+        // parseDonutId answers null for those.
+        map.setMissingStyleImageResolver((id) => {
+            const spec = parseDonutId(id)
+            if (!spec || map.hasImage(id)) return
+            const image = paintDonut(spec)
+            if (image) map.addImage(id, image, { pixelRatio: DONUT_PIXEL_RATIO })
+        })
+
         // Bottom-right: the floating band owns the top-left corner, and the
         // right sheet (M2) opens above these on the z axis, not over them.
         map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right')
@@ -310,7 +408,7 @@ export function MapView({ facilities, lite, dark, onSelect }: {
         // Fires on the initial style AND after every setStyle (theme swap) —
         // custom sources/layers/images don't survive a swap.
         map.on('style.load', () => {
-            installDataLayers(map, dataRef.current, styleDarkRef.current)
+            installDataLayers(map, dataRef.current, styleDarkRef.current, clustersRef.current)
             fixDarkRoadLabels(map, styleDarkRef.current)
         })
 
@@ -339,7 +437,9 @@ export function MapView({ facilities, lite, dark, onSelect }: {
             ]
             let features: maplibregl.MapGeoJSONFeature[]
             try {
-                features = map.queryRenderedFeatures(box, { layers: [LYR_STACKS, LYR_POINTS] })
+                features = map.queryRenderedFeatures(box, {
+                    layers: [LYR_STACKS, LYR_POINTS, LYR_CLUSTERS],
+                })
             } catch {
                 return null
             }
@@ -431,9 +531,23 @@ export function MapView({ facilities, lite, dark, onSelect }: {
                 .addTo(map)
         }
 
-        /** Click: open a stack's member list, or select a place. Anything
-         *  that is not the open stack closes its popover — empty ground
-         *  included (the old web's dismissal rule). */
+        /** Cluster click → zoom to the level where it breaks apart
+         *  (getClusterExpansionZoom is Promise-based in MapLibre). */
+        const zoomToCluster = async (feature: maplibregl.MapGeoJSONFeature) => {
+            const source = map.getSource(SRC) as maplibregl.GeoJSONSource | undefined
+            if (!source) return
+            try {
+                const clusterId = Number(
+                    (feature.properties as { cluster_id?: unknown }).cluster_id)
+                const zoom = await source.getClusterExpansionZoom(clusterId)
+                const [lon, lat] = (feature.geometry as GeoJSON.Point).coordinates
+                map.easeTo({ center: [lon as number, lat as number], zoom: zoom + 0.5 })
+            } catch { /* cluster dissolved mid-click */ }
+        }
+
+        /** Click: open a stack's member list, select a place, or break a
+         *  cluster apart. Anything that is not the open stack closes its
+         *  popover — empty ground included (the old web's dismissal rule). */
         map.on('click', (e) => {
             const hit = pickMarkAt(e.point)
             if (!hit) {
@@ -443,6 +557,13 @@ export function MapView({ facilities, lite, dark, onSelect }: {
             const coords = (hit.candidate.feature.geometry as GeoJSON.Point)
                 .coordinates as [number, number]
             const props = hit.candidate.feature.properties as { pid?: string; skey?: string }
+            if (hit.layerId === LYR_CLUSTERS) {
+                // A cluster is a camera control, not a place.
+                closeStack()
+                hideHover()
+                void zoomToCluster(hit.candidate.feature)
+                return
+            }
             if (hit.layerId === LYR_STACKS) {
                 const skey = String(props.skey)
                 if (stackKeyRef.current === skey) {
@@ -464,6 +585,21 @@ export function MapView({ facilities, lite, dark, onSelect }: {
         }
         document.addEventListener('keydown', onStackKey)
 
+        // An open popover's stack may be swallowed by a proximity cluster
+        // on the way OUT (clusters on, camera falling into the clustered
+        // band) — dismiss it then, and only then: a bare "in the band" test
+        // fires on the way IN too, the opening ease included (mapHit.ts
+        // popoverSurvivesZoom; production's #157/#158). The hover card
+        // needs nothing here — mousemove re-resolves every frame and a
+        // cluster hit hides it.
+        let lastZoom = map.getZoom()
+        map.on('zoom', () => {
+            const zoom = map.getZoom()
+            if (clustersRef.current && stackKeyRef.current
+                && !popoverSurvivesZoom(lastZoom, zoom)) closeStack()
+            lastZoom = zoom
+        })
+
         if (!coarse) {
             map.on('mousemove', (e) => {
                 // A pointer over the interactive popover still bubbles a
@@ -478,6 +614,11 @@ export function MapView({ facilities, lite, dark, onSelect }: {
                     return
                 }
                 map.getCanvas().style.cursor = 'pointer'
+                if (hit.layerId === LYR_CLUSTERS) {
+                    // A cluster is a camera control, not a place: cursor only.
+                    hideHover()
+                    return
+                }
                 const coords = (hit.candidate.feature.geometry as GeoJSON.Point)
                     .coordinates as [number, number]
                 const props = hit.candidate.feature.properties as { pid?: string; skey?: string; stack?: number }
@@ -557,6 +698,23 @@ export function MapView({ facilities, lite, dark, onSelect }: {
         const source = map.getSource(SRC) as maplibregl.GeoJSONSource | undefined
         source?.setData(data.geojson)
     }, [data])
+
+    // The switch (CRP-M6): flip clustering on the live source in place —
+    // one worker re-index over the data it already holds, no source/layer
+    // teardown, no GeoJSON rebuild (pending updates serialize behind the
+    // source's own in-flight guard, so a flip right after a filter's
+    // setData cannot race it). Before the source exists (first mount) only
+    // the ref moves; style.load installs with it. An open popover's stack
+    // may be about to be absorbed — close it, and the hover with it.
+    useEffect(() => {
+        clustersRef.current = clusters
+        const map = mapRef.current
+        const source = map?.getSource(SRC) as maplibregl.GeoJSONSource | undefined
+        if (!source || source.getClusterOptions().cluster === clusters) return
+        hideHoverRef.current()
+        closeStackRef.current()
+        void source.setClusterOptions({ cluster: clusters })
+    }, [clusters])
 
     // Theme swap: setStyle tears everything down; style.load reinstalls.
     useEffect(() => {

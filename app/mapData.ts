@@ -14,15 +14,26 @@
  *     the letter always rides the color, §6.0) — graded facilities only;
  *   · stacks are NEUTRAL count bubbles (their PAINT carries no judgment).
  *
- * Proximity clustering was revived and withdrawn the same day
- * (2026-08-30, Cannon's live preview review — the cluster accumulator
- * machinery lives in git at CleanPlateVA #174 if it ever returns), and
- * the CRD-M1 dashed declining ring was scrapped on the same review. The
+ * Proximity clustering was revived and withdrawn the same day (2026-08-30,
+ * Cannon's live preview review; CleanPlateVA #174/#175) and the CRD-M1
+ * dashed declining ring was scrapped on the same review. The declining
  * replacement landed CRP-M1 (2026-08-31): the ↓ suffix beside the letter;
  * CRP-M2 (2026-09-05, Cannon's pick) retired the suffix for a RED RING on
  * the dot at every zoom — production's form, off-ramp color. The bake is
  * the same either way: `declining` is true for letter-carrying dots only,
  * and MapView's ring expression reads it.
+ *
+ * Clustering returned as a VISITOR SWITCH (CRP-M6, 2026-09-05, default
+ * off), so every feature also carries the cluster inputs — ALWAYS, whether
+ * the switch is on or not, so a flip never rebuilds this GeoJSON: `stack`
+ * (places standing on the point, 1 for a lone place — a cluster counts
+ * PLACES rather than the points it drew over) and the eight DONUT BUCKETS
+ * (how many of those places wear each of the dots' fills: A–F, NEW,
+ * unscored, closed). The source sums them across a cluster (MapView
+ * clusterProperties) and the donut draws the sums. The accumulators must
+ * never meet a null (old `markers.js` rule), which is why every feature
+ * carries all of them; the basic map zeroes the buckets — it publishes no
+ * grades (P6), so its donut is one neutral arc.
  */
 
 import type { Feature, FeatureCollection, Point } from 'geojson'
@@ -38,7 +49,51 @@ export function stackKey(lat: number, lon: number): string {
     return `${lat.toFixed(6)},${lon.toFixed(6)}`
 }
 
-export interface PointProps {
+/** The donut's buckets, in RING order: A→F on the ramp, NEW blue, unscored
+ *  gray, closed dimmed gray. One per fill the dots use. */
+export const BUCKET_KEYS = ['nA', 'nB', 'nC', 'nD', 'nF', 'nNew', 'nNone', 'nClosed'] as const
+export type BucketKey = (typeof BUCKET_KEYS)[number]
+export type Buckets = Record<BucketKey, number>
+
+/** Cluster inputs, present on EVERY feature (see header). */
+export interface ClusterInputs extends Buckets {
+    /** Places standing on this point (1 for a lone facility). */
+    stack: number
+}
+
+export function emptyBuckets(): Buckets {
+    return { nA: 0, nB: 0, nC: 0, nD: 0, nF: 0, nNew: 0, nNone: 0, nClosed: 0 }
+}
+
+const LETTER_BUCKET: Record<string, BucketKey> = { A: 'nA', B: 'nB', C: 'nC', D: 'nD', F: 'nF' }
+
+/** Which of the dots' fills this place wears — the bucket its cluster
+ *  counts it in. The same branches as pointPaint below, so the ring is
+ *  exactly the dots it hides. */
+export function bucketOf(f: RosterRow): BucketKey {
+    if (!isActivePermit(f)) return 'nClosed'
+    const letter = facilityPresentation(f).grade?.letter || ''
+    return LETTER_BUCKET[letter] ?? (isNewlyPermitted(f) ? 'nNew' : 'nNone')
+}
+
+/** The cluster inputs for the places standing on one point. */
+export function clusterInputs(members: RosterRow[], lite: boolean): ClusterInputs {
+    const inputs: ClusterInputs = { stack: members.length, ...emptyBuckets() }
+    if (lite) return inputs // the basic map publishes no grades — one neutral arc
+    for (const m of members) inputs[bucketOf(m)] += 1
+    return inputs
+}
+
+/** The source's `clusterProperties`: a cluster's `sum` is the PLACES inside
+ *  it (Σ stack — "without this a cluster covering Dulles counts 57 permits
+ *  as one"), and each bucket sums the same way. */
+export function clusterProperties(): Record<string, [unknown, unknown]> {
+    const spec: Record<string, [unknown, unknown]> = { sum: ['+', ['get', 'stack']] }
+    for (const key of BUCKET_KEYS) spec[key] = ['+', ['get', key]]
+    return spec
+}
+
+export interface PointProps extends ClusterInputs {
     kind: 'point'
     pid: string
     fill: string
@@ -54,11 +109,11 @@ export interface PointProps {
     declining: boolean
 }
 
-export interface StackProps {
+/** A same-point stack; its `stack` (ClusterInputs) is the bubble's label
+ *  and radius step as well as the cluster accumulator. */
+export interface StackProps extends ClusterInputs {
     kind: 'stack'
     skey: string
-    /** Member count — the bubble's label and radius step. */
-    stack: number
 }
 
 export type MarkerProps = PointProps | StackProps
@@ -72,7 +127,8 @@ export interface MapData {
     stacks: StackIndex
 }
 
-function pointProps(f: RosterRow, lite: boolean): PointProps {
+/** A lone dot's paint (the cluster inputs are spread in by the builder). */
+function pointPaint(f: RosterRow, lite: boolean): Omit<PointProps, keyof ClusterInputs> {
     const pid = String(f.permit_id)
     if (lite) {
         // The finder view: every marker a uniform neutral — the basic map
@@ -123,8 +179,8 @@ export function buildMapData(filtered: RosterRow[], lite: boolean): MapData {
             type: 'Feature',
             geometry: { type: 'Point', coordinates },
             properties: members.length === 1
-                ? pointProps(first, lite)
-                : { kind: 'stack', skey: key, stack: members.length },
+                ? { ...pointPaint(first, lite), ...clusterInputs([first], lite) }
+                : { kind: 'stack', skey: key, ...clusterInputs(members, lite) },
         })
     }
     return { geojson: { type: 'FeatureCollection', features }, stacks: groups }

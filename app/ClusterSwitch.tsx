@@ -1,0 +1,47 @@
+/**
+ * The clustering control (CRP-M6, Cannon's call): a second SWITCH in the
+ * bottom-left corner, stacked directly above the theme switch — same pill,
+ * same thumb idiom — so the corner reads as two presentation preferences.
+ * Off (every place drawn) is the shipped default; the thumb slides to the
+ * grouped mark for production's proximity clusters. Public words in the
+ * formal register: "Group nearby places" / "Show every place."
+ *
+ * Not a Filters-popover row: those are roster filters, URL-carried and
+ * counted by "Filters · N". This changes how the map is drawn, not what it
+ * shows.
+ */
+
+import { Grip, Group } from 'lucide-react'
+
+export function ClusterSwitch({ on, onToggle }: {
+    on: boolean
+    onToggle: (on: boolean) => void
+}) {
+    return (
+        <button
+            type="button"
+            role="switch"
+            aria-checked={on}
+            aria-label="Group nearby places"
+            title={on ? 'Show every place' : 'Group nearby places'}
+            onClick={() => onToggle(!on)}
+            // One switch-height above the theme switch (bottom-10 + 32px + 4px).
+            className="fixed bottom-[76px] left-3 z-10 flex items-center gap-0 rounded-cp-pill border border-cp-hairline bg-cp-surface-1 p-[3px] shadow-cp"
+        >
+            <span
+                className={`flex h-6 w-6 items-center justify-center rounded-full ${
+                    on ? 'text-cp-ink-3' : 'bg-cp-surface-3 text-cp-ink'
+                }`}
+            >
+                <Grip size={13} aria-hidden="true" />
+            </span>
+            <span
+                className={`flex h-6 w-6 items-center justify-center rounded-full ${
+                    on ? 'bg-cp-accent-solid text-cp-accent-ink' : 'text-cp-ink-3'
+                }`}
+            >
+                <Group size={13} aria-hidden="true" />
+            </span>
+        </button>
+    )
+}
