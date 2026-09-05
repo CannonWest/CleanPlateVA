@@ -15,7 +15,7 @@ export function TermsBody() {
     return (
         <div className="[&_a]:text-cp-accent [&_a:hover]:underline [&_h3]:mt-3 [&_h3]:mb-1.5 [&_h3]:text-[12.5px] [&_h3]:font-bold [&_h3:first-child]:mt-0 [&_li]:mb-1 [&_li]:text-[12.5px] [&_li]:leading-normal [&_li]:text-cp-ink-2 [&_p]:mb-2 [&_p]:text-[12.5px] [&_p]:leading-normal [&_p]:text-cp-ink-2 [&_ul]:mb-2 [&_ul]:list-disc [&_ul]:pl-4.5">
             <h3>Inspection Records and Source Data</h3>
-            <p>CleanPlateVA collects, organizes, and presents publicly available food establishment inspection records published by two agencies: the Virginia Department of Health, through <a href={PORTAL_URL} target="_blank" rel="noopener">MyHealthDepartment</a>, for localities served by VDH health districts; and the Fairfax County Health Department, through its <a href={FAIRFAX_RECORDS_URL} target="_blank" rel="noopener">Food Establishment Inspection Reports</a> system, for Fairfax County, the City of Fairfax, and the City of Falls Church.</p>
+            <p>CleanPlateVA collects, organizes, and presents publicly available food establishment inspection records published by two agencies: the Virginia Department of Health, through <a href={PORTAL_URL} target="_blank" rel="noopener">MyHealthDepartment</a>, for localities served by VDH health districts; and the Fairfax County Health Department, through its <a href={FAIRFAX_RECORDS_URL} target="_blank" rel="noopener">Food Establishment Inspection Reports</a> system, for the Fairfax localities it serves.</p>
             <p>CleanPlateVA is an independent service and is not affiliated with, operated by, or endorsed by the Virginia Department of Health, MyHealthDepartment, or the Fairfax County Health Department.</p>
             <p>Inspection information displayed on this site is an archived snapshot and may not reflect the most recent information available from the responsible health department. The original inspection record published by that department remains the authoritative source. Users should consult the source record when current or official information is required.</p>
             <h3>CleanPlateVA Scores and Grades</h3>
@@ -37,7 +37,7 @@ export function TermsBody() {
             <h3>Data and Map Attribution</h3>
             <ul>
                 <li><strong>Inspection records:</strong> Virginia Department of Health, via <a href={PORTAL_URL} target="_blank" rel="noopener">MyHealthDepartment</a>.</li>
-                <li><strong>Inspection records (Fairfax County, City of Fairfax, City of Falls Church):</strong> Fairfax County Health Department, via its <a href={FAIRFAX_RECORDS_URL} target="_blank" rel="noopener">Food Establishment Inspection Reports</a> system.</li>
+                <li><strong>Inspection records (Fairfax localities):</strong> Fairfax County Health Department, via its <a href={FAIRFAX_RECORDS_URL} target="_blank" rel="noopener">Food Establishment Inspection Reports</a> system.</li>
                 <li><strong>Establishment locations (Fairfax County):</strong> Fairfax County GIS, published by the Fairfax County Health Department.</li>
                 <li><strong>Address data:</strong> <a href="https://vgin.vdem.virginia.gov/" target="_blank" rel="noopener">Virginia Geographic Information Network (VGIN)</a>, Virginia Department of Emergency Management.</li>
                 <li><strong>Geocoding:</strong> <a href="https://geocoding.geo.census.gov/" target="_blank" rel="noopener">U.S. Census Bureau Geocoder and Gazetteer</a>.</li>
