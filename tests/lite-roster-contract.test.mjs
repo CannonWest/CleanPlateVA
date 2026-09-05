@@ -95,7 +95,18 @@ test('every record carries the exact flat V4 finder row', () => {
     const vocabSize = manifest.vocab.permit_type.length;
     const locVocabSize = manifest.vocab.loc.length;
     for (const facility of facilities) {
-        assert.deepEqual(Object.keys(facility).sort(), FIELDS, facility.permit_id);
+        // `ffx_oid` (2026-09-05): the county's OBJECTID -- an integer on Fairfax
+        // rows, null on every VDH row. Tolerated as absent only for the data
+        // generation published before the key; the exporter always emits it.
+        assert.deepEqual(Object.keys(facility).filter((k) => k !== 'ffx_oid').sort(), FIELDS, facility.permit_id);
+        if ('ffx_oid' in facility) {
+            if (facility.tenant === 'fairfax') {
+                assert.ok(Number.isInteger(facility.ffx_oid) && facility.ffx_oid > 0,
+                    `ffx_oid must be the county OBJECTID on ${facility.permit_id}`);
+            } else {
+                assert.equal(facility.ffx_oid, null, `ffx_oid filled on a non-Fairfax row ${facility.permit_id}`);
+            }
+        }
         for (const retired of ['location', 'approx', 'geocode_source', 'precision', 'source',
             'site_lat', 'site_lon', 'site_group_id', 'site_count']) {
             assert.equal(retired in facility, false,
