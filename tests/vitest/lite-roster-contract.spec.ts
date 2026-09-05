@@ -25,7 +25,7 @@ const facilities = shards.flatMap(({ payload }) => payload.facilities)
 // The V4 finder contract (cf_export_site._shape_finder_v4). Judgment fields
 // are absent BY DESIGN — the finder is shared by the public tier (P6).
 const FIELDS = [
-    'address', 'address2', 'city', 'is_restaurant', 'lat', 'loc', 'lon',
+    'address', 'address2', 'city', 'ffx_oid', 'is_restaurant', 'lat', 'loc', 'lon',
     'mobile', 'name', 'permit_id', 'pt', 'tenant', 'zip',
 ]
 
@@ -86,17 +86,16 @@ test('every record carries the exact flat V4 finder row', () => {
     const vocabSize = manifest.vocab.permit_type.length
     const locVocabSize = manifest.vocab.loc.length
     for (const facility of facilities) {
-        // `ffx_oid` (2026-09-05): the county's OBJECTID — an integer on Fairfax
-        // rows, null on every VDH row. Tolerated as absent only for the data
-        // generation published before the key; the exporter always emits it.
-        assert.deepEqual(Object.keys(facility).filter((k) => k !== 'ffx_oid').sort(), FIELDS, facility.permit_id)
-        if ('ffx_oid' in facility) {
-            if (facility.tenant === 'fairfax') {
-                assert.ok(Number.isInteger(facility.ffx_oid) && (facility.ffx_oid as number) > 0,
-                    `ffx_oid must be the county OBJECTID on ${facility.permit_id}`)
-            } else {
-                assert.equal(facility.ffx_oid, null, `ffx_oid filled on a non-Fairfax row ${facility.permit_id}`)
-            }
+        assert.deepEqual(Object.keys(facility).sort(), FIELDS, facility.permit_id)
+        // `ffx_oid` (2026-09-05): the county's OBJECTID — an integer on a
+        // roster-joined Fairfax row, null for a county facility known only from
+        // its reports, null on every VDH row. Never filled for another program.
+        if (facility.tenant === 'fairfax') {
+            assert.ok(facility.ffx_oid === null
+                || (Number.isInteger(facility.ffx_oid) && (facility.ffx_oid as number) > 0),
+            `ffx_oid must be the county OBJECTID or null on ${facility.permit_id}`)
+        } else {
+            assert.equal(facility.ffx_oid, null, `ffx_oid filled on a non-Fairfax row ${facility.permit_id}`)
         }
         for (const retired of ['location', 'approx', 'geocode_source', 'precision', 'source',
             'site_lat', 'site_lon', 'site_group_id', 'site_count']) {
@@ -113,6 +112,17 @@ test('every record carries the exact flat V4 finder row', () => {
             `duplicate permit ${facility.permit_id} across public shards`)
         permits.add(facility.permit_id)
     }
+})
+
+test('Fairfax rows deep-link by the county OBJECTID; the roster-less few fall back', () => {
+    const fairfax = facilities.filter((f) => f.tenant === 'fairfax')
+    const linked = fairfax.filter((f) => Number.isInteger(f.ffx_oid))
+    assert.ok(fairfax.length > 0, 'the Fairfax Health District rides the finder since FFX-M4')
+    assert.ok(linked.length > 0, 'no Fairfax row carries an OBJECTID')
+    // roster-joined rows carry it; a facility known only from its reports is
+    // the rare exception, never the rule
+    assert.ok(linked.length >= fairfax.length * 0.95,
+        `${fairfax.length - linked.length} of ${fairfax.length} Fairfax rows carry no OBJECTID`)
 })
 
 test('coordinates are published at 6 dp (D-DATA-4)', () => {
