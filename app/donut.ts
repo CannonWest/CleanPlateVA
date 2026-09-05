@@ -147,6 +147,27 @@ export function donutIconExpr(theme: Theme): unknown[] {
 }
 
 const TAU = Math.PI * 2
+const MARGIN = 1 // room for the arcs' outer anti-aliasing, CSS px
+const MAX_SIDE = (CLUSTER_RADII[2] + MARGIN) * 2 * DONUT_PIXEL_RATIO
+
+/** ONE scratch canvas for every donut, CPU-backed (`willReadFrequently`):
+ *  a fresh GPU-backed canvas per image cost ~3 ms each in a burst of ~100
+ *  per zoom step (measured 2026-09-05 — the allocation plus the readback
+ *  `getImageData` forces), which is the main thread frozen for a third of a
+ *  second every time the clusters re-form. Sized once for the largest step;
+ *  smaller donuts paint in its corner and read back their own square. */
+let scratch: { doc: Document; ctx: CanvasRenderingContext2D } | null = null
+
+function scratchContext(doc: Document): CanvasRenderingContext2D | null {
+    if (scratch && scratch.doc === doc) return scratch.ctx
+    const canvas = doc.createElement('canvas')
+    canvas.width = MAX_SIDE
+    canvas.height = MAX_SIDE
+    const ctx = canvas.getContext('2d', { willReadFrequently: true })
+    if (!ctx) return null
+    scratch = { doc, ctx }
+    return ctx
+}
 
 /** Paint the donut at DONUT_PIXEL_RATIO (register with the same ratio so it
  *  draws at CSS size, crisp on dense screens). Arcs clockwise from 12
@@ -157,13 +178,13 @@ const TAU = Math.PI * 2
 export function paintDonut(spec: DonutSpec, doc: Document = document): ImageData | null {
     const { theme, size, buckets } = spec
     const ratio = DONUT_PIXEL_RATIO
-    const margin = 1 // room for the arcs' outer anti-aliasing
-    const side = (size + margin) * 2
-    const canvas = doc.createElement('canvas')
-    canvas.width = side * ratio
-    canvas.height = side * ratio
-    const ctx = canvas.getContext('2d')
+    const margin = MARGIN
+    const side = (size + margin) * 2 * ratio
+    const ctx = scratchContext(doc)
     if (!ctx) return null
+    ctx.setTransform(1, 0, 0, 1, 0, 0)
+    ctx.clearRect(0, 0, side, side)
+    ctx.globalAlpha = 1
     ctx.scale(ratio, ratio)
     const c = size + margin
     const inner = size - donutRingWidth(size)
@@ -198,5 +219,10 @@ export function paintDonut(spec: DonutSpec, doc: Document = document): ImageData
     ctx.fillStyle = STACK_SURFACE[theme]
     ctx.fill()
 
-    return ctx.getImageData(0, 0, canvas.width, canvas.height)
+    return ctx.getImageData(0, 0, side, side)
+}
+
+// Dev-only hook so the paint cost can be timed from the console.
+if (import.meta.env.DEV && typeof window !== 'undefined') {
+    ;(window as unknown as { __cpPaintDonut?: typeof paintDonut }).__cpPaintDonut = paintDonut
 }
