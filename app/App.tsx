@@ -13,9 +13,11 @@ import { DataProvider, useRoster } from './data/provider'
 import { fmtDate } from './data/presentation'
 import { matchesFilters } from './search'
 import { applyThemeClass, persistTheme, storedDark } from './theme'
+import { persistClusters, storedClusters } from './clusters'
 import { useAppRouter } from './useAppRouter'
 import { AboutView } from './AboutView'
 import { AckDialog } from './AckDialog'
+import { ClusterSwitch } from './ClusterSwitch'
 import { DetailPanel } from './DetailPanel'
 import type { DetailState } from './DetailPanel'
 import { ListView } from './ListView'
@@ -88,6 +90,10 @@ function Shell({ forceLite, ack }: {
         applyThemeClass(dark)
     }, [dark])
 
+    // "Group nearby places" (CRP-M6): a presentation preference like the
+    // theme — persisted per visitor, never in the URL or AppState (C6).
+    const [clusters, setClusters] = useState(storedClusters)
+
     // The full roster the counts measure against: loaded actives + the
     // lazily-merged closed rows (they stay once loaded; the predicate
     // hides them again when the toggle goes off).
@@ -133,6 +139,7 @@ function Shell({ forceLite, ack }: {
                 facilities={filtered}
                 lite={lite}
                 dark={dark}
+                clusters={clusters}
                 onSelect={(pid) => actions.select(pid)}
             />
 
@@ -218,7 +225,16 @@ function Shell({ forceLite, ack }: {
             )}
 
             {state.view === 'map' && !blocking && (
-                <Attribution snapshot={snapshot} onTerms={showTerms} />
+                <>
+                    <ClusterSwitch
+                        on={clusters}
+                        onToggle={(next) => {
+                            persistClusters(next)
+                            setClusters(next)
+                        }}
+                    />
+                    <Attribution snapshot={snapshot} onTerms={showTerms} />
+                </>
             )}
 
             {(blocking || termsOpen) && (

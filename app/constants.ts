@@ -1,9 +1,10 @@
 /**
  * Shared vocabulary for the CR client (CRF-M1; view-layer rows CRVa-M0) —
  * the subset of the old `static/js/constants.js` the ported data layer and
- * the map surface actually read. The redesigned map draws NO proximity
- * clusters (ratified mockup: dots at every zoom; only same-point stacks
- * bubble), so the old cluster radii/steps stay retired with `map.js`.
+ * the map surface actually read. The redesigned map draws dots at every
+ * zoom by default (ratified mockup; only same-point stacks bubble); the old
+ * client's proximity clustering is a visitor SWITCH since CRP-M6, and its
+ * radii/steps are ported below.
  */
 
 export const RESTAURANTS_ONLY_KEY = 'cleanplateva.food.restaurantsOnly'
@@ -71,9 +72,16 @@ export const VA_FIT = { padding: 20 }
 
 // The visitor's persisted theme (dark is the document default, C10).
 export const THEME_KEY = 'cleanplateva.theme'
+// The visitor's persisted clustering choice (CRP-M6): '1' groups nearby
+// places into proximity clusters, '0' (and unset — the shipped default,
+// Cannon's call 2026-09-05) draws every place. A presentation preference
+// like the theme — never URL state (C6: a shared link says what you look
+// at, not how it is drawn).
+export const CLUSTERS_KEY = 'cleanplateva.clusters'
 
 // MapLibre source + layer ids (data layers re-added on every style swap).
 export const SRC = 'food-facilities'
+export const LYR_CLUSTERS = 'food-clusters'
 export const LYR_POINTS = 'food-points'
 export const LYR_POINT_LETTERS = 'food-point-letters'
 export const LYR_STACKS = 'food-stacks'
@@ -98,13 +106,43 @@ export const HIT_SLOP_COARSE = 16
 // Same-point stacks (count bubbles): core radius by member count, ported
 // from the old `stacks.js` steps (<10 / <50 / 50+) — at full size. The old
 // client only DREW stacks past clusterMaxZoom 12 (proximity clusters
-// absorbed them below); with clustering retired — tried live 2026-08-30
-// and withdrawn on Cannon's review, see #174/#175 — the equivalent
-// restraint is zoom-scaling: bubbles ride the dots' growth curve and
-// their counts appear once the bubble can carry text.
+// absorbed them below). With clustering OFF (the shipped default) the
+// equivalent restraint is zoom-scaling: bubbles ride the dots' growth curve
+// and their counts appear once the bubble can carry text. With it ON, most
+// stacks are absorbed into clusters below CLUSTER_MAX_ZOOM anyway (an
+// isolated one still draws, zoom-scaled, as it did in production).
 export const STACK_RADII = [11, 13, 15] as const
 export const STACK_STEPS = [10, 50] as const
 export const STACK_COUNT_ZOOM = 12
+
+// Proximity clusters (CRP-M6, 2026-09-05) — production's bubble clustering
+// as a VISITOR SWITCH, off by default: #174 ported it verbatim on
+// 2026-08-30 and #175 withdrew it on Cannon's review the same day; the
+// switch keeps the production look as a choice through the cutover, which
+// deletes the old client. Grouped at metro view, dissolved from
+// neighborhood zoom up — CLUSTER_MAX_ZOOM is a TILE zoom on CARTO's 512px
+// tiles, so bubbles dissolve at camera zoom 13. Bubbles are SIZED by the
+// places they stand for (sum of member stacks, the same steps the hit test
+// measures against); their FILL is the donut below. Values ported verbatim
+// from the old `constants.js` / `stacks.js`; tuning is Cannon's live-review
+// call, not the build's.
+export const CLUSTER_RADII = [12, 16, 22] as const // <10 · <50 · 50+ places
+export const CLUSTER_STEPS = [10, 50] as const
+export const CLUSTER_MAX_ZOOM = 12
+export const CLUSTER_PIXEL_RADIUS = 40 // grouping reach, source config
+export const CLUSTER_COUNT_TEXT_SIZE = 12 // production's count label
+
+// The donut (Cannon's form, 2026-09-05): a cluster is a RING whose arcs are
+// the grade breakdown of the places inside, in the dots' own fills, around
+// a hole in the theme's stack surface that carries the count — "a neutral
+// count bubble wearing the ring of the dots it hides." Painted on demand
+// as images (app/donut.ts) at 2× so each size step draws crisp rather than
+// scaled. Ring widths pair with CLUSTER_RADII; the closed arc dims like the
+// closed dots (their 0.42 fill would vanish on the basemap in a thin arc).
+export const DONUT_RING_WIDTHS = [3, 4, 5] as const
+export const DONUT_SEPARATOR = 1 // hairline between arcs, CSS px
+export const DONUT_PIXEL_RATIO = 2
+export const DONUT_CLOSED_ALPHA = 0.5
 
 // Neutral stack surfaces per basemap (MapLibre paint can't read CSS vars;
 // layers are re-added on theme swap with the right literals). Values are

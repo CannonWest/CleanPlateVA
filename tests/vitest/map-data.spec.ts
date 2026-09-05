@@ -7,19 +7,24 @@
  *   · the LETTER rides only graded, active facilities (§6.0);
  *   · same-point rows collapse into ONE stack feature carrying its member
  *     count and NO judgment properties (neutral count bubbles);
+ *   · every feature carries the cluster inputs (CRP-M6) — `stack` (1 for a
+ *     lone place) plus the eight donut buckets, so a cluster can count
+ *     places and draw the breakdown of the dots it hides; the basic map
+ *     zeroes the buckets;
  *   · rows without coordinates draw nothing.
  *
  * (The 2026-08-30 cluster accumulators and the declining-ring property
  * were withdrawn on Cannon's live review the same day — CleanPlateVA
- * #174/#175 hold the machinery if either returns. The declining form
- * returned as the CRP-M1 ↓ suffix, then became the CRP-M2 red ring — the
- * bake is the same for both: `declining` is true only where a letter
- * rides; the ring itself has no zoom gate.)
+ * #174/#175. The declining form returned as the CRP-M1 ↓ suffix, then
+ * became the CRP-M2 red ring — the bake is the same for both: `declining`
+ * is true only where a letter rides; the ring itself has no zoom gate.
+ * Clustering returned as the CRP-M6 switch, with per-bucket COUNTS in
+ * place of #174's mean-grade sums.)
  */
 import { expect, test } from 'vitest'
 import { GRADE_COLORS, CLOSED_COLOR, LITE_MARKER_COLOR, NEW_COLOR } from '../../app/constants'
-import { buildMapData, stackKey } from '../../app/mapData'
-import type { PointProps, StackProps } from '../../app/mapData'
+import { BUCKET_KEYS, buildMapData, clusterProperties, stackKey } from '../../app/mapData'
+import type { Buckets, ClusterInputs, PointProps, StackProps } from '../../app/mapData'
 import type { OverlayRow, RosterRow } from '../../app/data/types'
 
 let seq = 0
@@ -132,6 +137,63 @@ test('same-point rows collapse into one neutral stack feature', () => {
     expect('declining' in sp).toBe(false)
     // The members stay reachable for the M2 fan-out.
     expect(data.stacks.get(sp.skey)).toHaveLength(3)
+})
+
+/** Just the cluster inputs of a feature's properties. */
+function inputsOf(p: ClusterInputs): ClusterInputs {
+    const out = { stack: p.stack } as ClusterInputs
+    for (const key of BUCKET_KEYS) out[key] = p[key]
+    return out
+}
+
+const ZERO: Buckets = { nA: 0, nB: 0, nC: 0, nD: 0, nF: 0, nNew: 0, nNone: 0, nClosed: 0 }
+
+test('every lone dot carries its cluster inputs: stack 1 + the one bucket it wears (CRP-M6)', () => {
+    const a = row({ o: { grade_score: 92 } })
+    const c = row({ o: { grade_score: 75 } })
+    const f = row({ o: { grade_score: 40 } })
+    const newly = row({ o: { grade_score: null, new: 1 } })
+    const unscored = row({ o: { grade_score: null, new: 0 } })
+    const closed = row({ status: 'Business Closed', o: { grade_score: 88 } })
+    const data = buildMapData([a, c, f, newly, unscored, closed], false)
+
+    expect(inputsOf(props(data, a.permit_id))).toEqual({ ...ZERO, stack: 1, nA: 1 })
+    expect(inputsOf(props(data, c.permit_id))).toEqual({ ...ZERO, stack: 1, nC: 1 })
+    expect(inputsOf(props(data, f.permit_id))).toEqual({ ...ZERO, stack: 1, nF: 1 })
+    expect(inputsOf(props(data, newly.permit_id))).toEqual({ ...ZERO, stack: 1, nNew: 1 })
+    expect(inputsOf(props(data, unscored.permit_id))).toEqual({ ...ZERO, stack: 1, nNone: 1 })
+    // Closed counts in ITS bucket only — a shuttered grade is not an A.
+    expect(inputsOf(props(data, closed.permit_id))).toEqual({ ...ZERO, stack: 1, nClosed: 1 })
+})
+
+test('a stack sums its members into the buckets and counts every one of them', () => {
+    const a = row({ lat: 37.51, lon: -77.41, o: { grade_score: 90 } })
+    const c = row({ lat: 37.51, lon: -77.41, o: { grade_score: 70 } })
+    const closed = row({ lat: 37.51, lon: -77.41, status: 'Business Closed', o: { grade_score: 50 } })
+    const data = buildMapData([a, c, closed], false)
+    const stack = data.geojson.features
+        .find((f) => f.properties.kind === 'stack')?.properties as StackProps
+    expect(inputsOf(stack)).toEqual({ ...ZERO, stack: 3, nA: 1, nC: 1, nClosed: 1 })
+    // The ring always totals the number in the hole.
+    expect(BUCKET_KEYS.reduce((n, key) => n + stack[key], 0)).toBe(stack.stack)
+})
+
+test('the basic map zeroes every bucket — nothing to break down (P6)', () => {
+    const scored = row({ o: { grade_score: 90, trend_delta: -9 } })
+    const b = row({ lat: 37.51, lon: -77.41, o: { grade_score: 85 } })
+    const d = row({ lat: 37.51, lon: -77.41, o: { grade_score: 62 } })
+    const data = buildMapData([scored, b, d], true)
+    expect(inputsOf(props(data, scored.permit_id))).toEqual({ ...ZERO, stack: 1 })
+    const stack = data.geojson.features
+        .find((f) => f.properties.kind === 'stack')?.properties as StackProps
+    expect(inputsOf(stack)).toEqual({ ...ZERO, stack: 2 })
+})
+
+test('the source sums `sum` over stacks and every bucket over itself', () => {
+    const spec = clusterProperties()
+    expect(spec.sum).toEqual(['+', ['get', 'stack']])
+    for (const key of BUCKET_KEYS) expect(spec[key]).toEqual(['+', ['get', key]])
+    expect(Object.keys(spec)).toHaveLength(BUCKET_KEYS.length + 1)
 })
 
 test('rows without coordinates draw nothing', () => {

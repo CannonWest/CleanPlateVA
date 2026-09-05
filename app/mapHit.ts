@@ -1,22 +1,27 @@
 /**
  * Map hit-testing (CRVa-M1) — ports the old `markers.js` pointer rules to
- * the layer set (dots + same-point stacks; no clusters):
+ * the layer set (proximity clusters when the switch is on + dots +
+ * same-point stacks):
  *
  *   · Pointer events resolve against a slop-padded box, so a small dot
  *     answers to a comfortably larger target.
  *   · If the pointer is genuinely INSIDE a mark, the painted z-order wins
- *     (stacks over lone dots) — slop only ever ADDS reach.
+ *     (stacks over lone dots over clusters) — slop only ever ADDS reach.
  *   · Outside every mark, nearest wins by the gap to the mark's EDGE, not
  *     its centre — the rim is what people point at.
  *
  * The radii mirror the LAYER EXPRESSIONS exactly (a hit target that
  *  disagrees with the paint is worse than no slop at all): dots ride the
  * zoom-interpolated curve, stacks ride the same curve scaled over their
- * member-count step.
+ * member-count step, cluster bubbles step by the places they stand for.
+ *
+ * Also here, beside the radii it belongs with: the popover's zoom-out
+ * dismissal predicate (CRP-M6), production's `webSurvivesZoom`.
  */
 
 import {
-    HIT_SLOP_COARSE, HIT_SLOP_FINE, LYR_POINTS, LYR_STACKS,
+    CLUSTER_MAX_ZOOM, CLUSTER_RADII, CLUSTER_STEPS, HIT_SLOP_COARSE,
+    HIT_SLOP_FINE, LYR_CLUSTERS, LYR_POINTS, LYR_STACKS,
     POINT_RADIUS_FULL, POINT_RADIUS_STOPS, STACK_RADII, STACK_STEPS,
 } from './constants'
 
@@ -53,14 +58,51 @@ export function stackRadiusAt(zoom: number, count: number): number {
     return full * (pointRadiusAt(zoom) / POINT_RADIUS_FULL)
 }
 
+/** A cluster bubble's radius for the places it stands for — the JS twin
+ *  of the donut's size step (fixed size, never zoom-scaled: a bubble is a
+ *  camera control, not a mark). */
+export function clusterRadiusOf(sum: unknown): number {
+    const n = Number(sum) || 0
+    if (n >= CLUSTER_STEPS[1]) return CLUSTER_RADII[2]
+    return n >= CLUSTER_STEPS[0] ? CLUSTER_RADII[1] : CLUSTER_RADII[0]
+}
+
 /** What a rendered feature's radius is, by the layer it came from. */
-export function markRadius(layerId: string, properties: { stack?: unknown } = {}, zoom = 14): number {
+export function markRadius(
+    layerId: string,
+    properties: { stack?: unknown; sum?: unknown } = {},
+    zoom = 14,
+): number {
+    if (layerId === LYR_CLUSTERS) return clusterRadiusOf(properties.sum)
     if (layerId === LYR_STACKS) return stackRadiusAt(zoom, Number(properties.stack) || 1)
     return pointRadiusAt(zoom)
 }
 
-// Stacks paint above lone dots; the rank mirrors that order.
-export const MARK_RANK: Record<string, number> = { [LYR_STACKS]: 2, [LYR_POINTS]: 1 }
+// Stacks paint above lone dots, dots above cluster bubbles; the rank
+// mirrors that order (the old markers.js values).
+export const MARK_RANK: Record<string, number> = {
+    [LYR_STACKS]: 3, [LYR_POINTS]: 2, [LYR_CLUSTERS]: 1,
+}
+
+/** Does an open stack popover survive a zoom change from `from` to `to`?
+ *
+ *  DIRECTIONAL, and that is the whole point (production's
+ *  `webSurvivesZoom`, stacks.js). The dismissal exists for one event — the
+ *  stack's bubble being swallowed by a proximity cluster on the way OUT —
+ *  but a bare "are we in the clustered band" test also fires on the way IN,
+ *  and the opening ease itself flies in from wherever the visitor clicked.
+ *  Supercluster leaves an isolated stack unclustered (`minPoints: 2`), so a
+ *  lone one out in the country is clickable at metro zoom: production
+ *  measured a web opened at camera 10.5 dismissed by the ease's own frames
+ *  at 11.15 while the camera flew on to z17 (#157/#158).
+ *
+ *  A TILE zoom test: the source is 512px, so every camera zoom in [12, 13)
+ *  reads clustered z12 tiles. Equal zooms survive — a `zoom` event that did
+ *  not change the zoom is not a camera pulling back. */
+export function popoverSurvivesZoom(from: number, to: number): boolean {
+    if (!(to < from)) return true // holding, or flying IN
+    return Math.floor(to) > CLUSTER_MAX_ZOOM
+}
 
 export interface MarkCandidate {
     layerId: string
