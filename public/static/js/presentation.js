@@ -9,7 +9,8 @@
  */
 
 import {
-    AGGREGATE_TENANT, FAIRFAX_RECORDS_URL, FAIRFAX_TENANT, GRADE_COLORS, PORTAL_BASE, RF_MAX_ITEM,
+    AGGREGATE_TENANT, FAIRFAX_EXPERIENCE_SOURCE, FAIRFAX_EXPERIENCE_URL, FAIRFAX_RECORDS_URL,
+    FAIRFAX_TENANT, GRADE_COLORS, PORTAL_BASE, RF_MAX_ITEM,
 } from './constants.js';
 
 // ── Contract V4 roster row adapters ─────────────────────────────────────
@@ -145,13 +146,19 @@ function overlayLatestPresentation(o) {
  *  `f` may be a full/lite marker, a detail facility, or a merged_from entry.
  *  Pre-tenant payloads degrade to the aggregate — the old behaviour, never a
  *  broken link. A Fairfax facility (FFX-M4) has no portal page at all: its
- *  link is the county's own inspection-reports search (the finder carries no
- *  county record id, so there is no per-facility deep link; each report
- *  links itself).
+ *  link is the county's ArcGIS Experience map, selecting the facility by the
+ *  row's `ffx_oid` (the county's OBJECTID); without one — a merged-in
+ *  predecessor, or a row published before the key — it is the county's
+ *  inspection-reports search. Each report links itself either way.
  */
 export function permitUrl(f, tenant) {
     const t = tenant || f?.tenant || AGGREGATE_TENANT;
-    if (t === FAIRFAX_TENANT) return FAIRFAX_RECORDS_URL;
+    if (t === FAIRFAX_TENANT) {
+        const oid = f?.ffx_oid;
+        return Number.isInteger(oid)
+            ? `${FAIRFAX_EXPERIENCE_URL}#data_s=id%3A${FAIRFAX_EXPERIENCE_SOURCE}%3A${oid}`
+            : FAIRFAX_RECORDS_URL;
+    }
     return `${PORTAL_BASE}/${encodeURIComponent(t)}/permit/?permitID=`
         + encodeURIComponent(f?.permit_id ?? '');
 }

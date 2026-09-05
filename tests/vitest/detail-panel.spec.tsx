@@ -266,6 +266,36 @@ test('the basic map hands a Fairfax facility off to the county (FFX-M4)', async 
     expect(cta?.getAttribute('href')).toBe('https://www.fairfaxcounty.gov/health/food/inspection-reports')
 })
 
+test('a Fairfax row with ffx_oid deep-links the Source and the basic-map hand-off into the county map', async () => {
+    // DOMINION EATS — the county's own link for it carries OBJECTID 335393.
+    const deepLink = 'https://experience.arcgis.com/experience/0e687ef56da44ef287d20ced8cc85a3f/page/Main-Page'
+        + '#data_s=id%3AdataSource_5-17e77d67cec-layer-3%3A335393'
+    const full = await render(
+        <DetailPanel
+            row={row({ permit_id: 'HFOOD-2026-00063', name: 'Dominion Eats', tenant: 'fairfax', ffx_oid: 335393 })}
+            lite={false}
+            state={{ status: 'ready', detail: fairfaxDetail() }}
+            onClose={() => {}}
+            onAbout={() => {}}
+        />,
+    )
+    const source = Array.from(full.querySelectorAll('a')).find((a) => a.textContent?.includes('Source'))
+    expect(source?.getAttribute('href')).toBe(deepLink)
+    expect(source?.getAttribute('title')).toBe("Open this facility's official Fairfax County Health Department record")
+    // the basic map renders from the finder row alone — no detail fetched
+    const lite = await render(
+        <DetailPanel
+            row={row({ tenant: 'fairfax', ffx_oid: 335393 })}
+            lite
+            state={{ status: 'loading' }}
+            onClose={() => {}}
+            onAbout={() => {}}
+        />,
+    )
+    const cta = Array.from(lite.querySelectorAll('a')).find((a) => a.textContent?.includes('View inspections'))
+    expect(cta?.getAttribute('href')).toBe(deepLink)
+})
+
 test('an unavailable detail reads as exactly that', async () => {
     const el = await render(
         <DetailPanel

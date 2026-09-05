@@ -45,8 +45,9 @@ test('a missing permit_id yields an empty id, not the string "undefined"', () =>
 
 test('a Fairfax Health District facility links to the county, never a portal path (FFX-M4)', () => {
     // The county runs its own program: no MyHealthDepartment page exists for
-    // it, and the finder carries no county record id, so the facility link
-    // is the county's inspection-reports search (each report links itself).
+    // it, and without an `ffx_oid` (a row published before the key, or a
+    // merged-in predecessor) the facility link is the county's
+    // inspection-reports search (each report links itself).
     assert.equal(permitUrl({ permit_id: 'HFOOD-000010912', tenant: 'fairfax' }),
         'https://www.fairfaxcounty.gov/health/food/inspection-reports')
     assert.doesNotMatch(permitUrl({ permit_id: 'HFOOD-000010912', tenant: 'fairfax' }),
@@ -57,6 +58,24 @@ test('a Fairfax Health District facility links to the county, never a portal pat
     assert.equal(isFairfax({ permit_id: 'X', tenant: 'va-henrico' }), false)
     assert.equal(sourceDepartment({ tenant: 'fairfax' }).name, 'Fairfax County Health Department')
     assert.equal(sourceDepartment({ tenant: 'va-henrico' }).name, 'Virginia Department of Health')
+})
+
+test('a Fairfax row with ffx_oid deep-links into the county map; without one, the search page', () => {
+    // The county's Experience map selects a facility by its layer OBJECTID
+    // (`#data_s=id:<source>:<oid>`) — verified against the county's own links
+    // for ANDYS PIZZA (42459) and DOMINION EATS (335393) on 2026-09-05.
+    assert.equal(permitUrl({ permit_id: 'HFOOD-000039484', tenant: 'fairfax', ffx_oid: 42459 }),
+        'https://experience.arcgis.com/experience/0e687ef56da44ef287d20ced8cc85a3f/page/Main-Page'
+        + '#data_s=id%3AdataSource_5-17e77d67cec-layer-3%3A42459')
+    // null (every VDH row carries null; a county row published before the key
+    // lacks it) and a merged_from entry (no oid of its own) fall back.
+    assert.equal(permitUrl({ permit_id: 'HFOOD-000039484', tenant: 'fairfax', ffx_oid: null }),
+        'https://www.fairfaxcounty.gov/health/food/inspection-reports')
+    assert.equal(permitUrl({ permit_id: 'HFOOD-000000001' }, 'fairfax'),
+        'https://www.fairfaxcounty.gov/health/food/inspection-reports')
+    // a VDH row ignores the field entirely
+    assert.match(permitUrl({ permit_id: 'P-1', tenant: 'va-henrico', ffx_oid: null }),
+        /\/va-henrico\/permit\/\?permitID=P-1$/)
 })
 
 test('Active is a live permit; Inactive is not (FFX-M4)', () => {

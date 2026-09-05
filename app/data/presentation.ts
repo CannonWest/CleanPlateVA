@@ -13,7 +13,8 @@
  */
 
 import {
-    AGGREGATE_TENANT, FAIRFAX_RECORDS_URL, FAIRFAX_TENANT, GRADE_COLORS, PORTAL_BASE, RF_MAX_ITEM,
+    AGGREGATE_TENANT, FAIRFAX_EXPERIENCE_SOURCE, FAIRFAX_EXPERIENCE_URL, FAIRFAX_RECORDS_URL,
+    FAIRFAX_TENANT, GRADE_COLORS, PORTAL_BASE, RF_MAX_ITEM,
 } from '../constants'
 import type {
     Adjudication, DecodedChecklistRow, GradeBlock, Inspection, OverlayRow,
@@ -31,6 +32,8 @@ export interface FacilityLike {
     city?: string | null
     zip?: string | null
     tenant?: string
+    /** The county's OBJECTID on Fairfax rows (the deep-link id); null elsewhere. */
+    ffx_oid?: number | null
     is_restaurant?: boolean
     mobile?: boolean
     permit_type?: string
@@ -182,11 +185,18 @@ export function sourceDepartment(f: FacilityLike | null | undefined): SourceDepa
  *  a facility a district claimed is ABSENT from the `virginia` aggregate.
  *  Pre-tenant payloads degrade to the aggregate — never a broken link.
  *  A Fairfax facility has no portal page at all: its link is the county's
- *  own inspection-reports search (the finder carries no county record id,
- *  so there is no per-facility deep link; each report links itself). */
+ *  ArcGIS Experience map, selecting the facility by the row's `ffx_oid`
+ *  (the county's OBJECTID); without one — a merged-in predecessor, or a row
+ *  published before the key — it is the county's inspection-reports search.
+ *  Each report links itself either way. */
 export function permitUrl(f: FacilityLike | null | undefined, tenant?: string): string {
     const t = tenant || f?.tenant || AGGREGATE_TENANT
-    if (t === FAIRFAX_TENANT) return FAIRFAX_RECORDS_URL
+    if (t === FAIRFAX_TENANT) {
+        const oid = f?.ffx_oid
+        return Number.isInteger(oid)
+            ? `${FAIRFAX_EXPERIENCE_URL}#data_s=id%3A${FAIRFAX_EXPERIENCE_SOURCE}%3A${oid}`
+            : FAIRFAX_RECORDS_URL
+    }
     return `${PORTAL_BASE}/${encodeURIComponent(t)}/permit/?permitID=`
         + encodeURIComponent(f?.permit_id ?? '')
 }

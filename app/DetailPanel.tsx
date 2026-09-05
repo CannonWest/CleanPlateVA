@@ -172,7 +172,9 @@ export function DetailPanel({ row, lite, state, onClose, onAbout }: {
                         target="_blank"
                         rel="noopener"
                         title={fairfax
-                            ? "Find this facility's official record at the Fairfax County Health Department"
+                            ? (Number.isInteger(row.ffx_oid)
+                                ? "Open this facility's official Fairfax County Health Department record"
+                                : "Find this facility's official record at the Fairfax County Health Department")
                             : "Open this facility's official VDH record"}
                         className="inline-flex flex-none items-center gap-1.5 self-center rounded-cp-control border border-cp-accent px-2.5 py-1.5 text-[12px] font-semibold text-cp-accent hover:bg-cp-surface-3"
                     >
