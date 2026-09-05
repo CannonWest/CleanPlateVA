@@ -267,7 +267,7 @@ function Attribution({ inline = false, snapshot = null, onTerms }: {
                 ? 'mx-4 mb-4 text-[10.5px] text-cp-ink-3'
                 : 'fixed bottom-2.5 left-3 z-10 rounded-[6px] bg-cp-scrim px-2.5 py-1.5 text-[10.5px] text-[#cfd4d9] backdrop-blur-[4px]'}
         >
-            Inspection records: VDH via MyHealthDepartment · archived snapshot
+            Inspection records: VDH and Fairfax County Health Department · archived snapshot
             {snapshot ? ` · ${fmtDate(snapshot)}` : ''} ·
             scores and grades calculated by CleanPlateVA ·{' '}
             <button

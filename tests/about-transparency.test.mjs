@@ -10,7 +10,7 @@ test('the About view is public, directly linkable, and replaces the footer formu
     assert.match(html, /data-view="about"/);
     assert.match(html, /id="foodAboutWrap"/);
     assert.match(html, /Every marker has a source ID\. Every score has math\./);
-    assert.match(html, /not affiliated with or endorsed by VDH or MyHealthDepartment/);
+    assert.match(html, /not affiliated with or endorsed by VDH, MyHealthDepartment, or the Fairfax County Health Department/);
     // The legacy #about hash still lands on About — migrated to the real /about
     // route by the router (CPR-M1b), which is the directly linkable address now.
     assert.match(dashboardSource, /window\.location\.hash\.toLowerCase\(\) === '#about'/);
@@ -43,7 +43,8 @@ test('the header tab and the footer terms link are the ways into About, and each
     // in — the "Terms & attribution" link, which lands on §06 with its
     // (focusable) title focused, and is also a cold-loadable URL.
     const footer = html.match(/<div class="food-source-footer[\s\S]*?\n {8}<\/div>/)?.[0] || '';
-    assert.match(footer, /VDH via MyHealthDepartment/);
+    // FFX-M4 (Cannon, 2026-09-05): both departments in the strip, each linked.
+    assert.match(footer, /VDH<\/a> and <a[^>]*fairfaxcounty\.gov[^>]*>Fairfax County Health Department<\/a>/);
     assert.match(footer, /scores and grades calculated by CleanPlateVA/);
     assert.match(footer, /<a href="about#aboutTerms" data-terms-link>Terms &amp; attribution<\/a>/);
     assert.match(html, /<h2 id="aboutTermsTitle" tabindex="-1">/);
@@ -107,7 +108,7 @@ test('transparency content draws the official/derived boundary and full pipeline
         assert.match(html, new RegExp(label));
     }
     for (const step of [
-        'Official VDH surfaces',
+        'Official sources',
         'Archive a snapshot',
         'Parse &amp; preserve IDs',
         'Derive &amp; store',
@@ -131,7 +132,10 @@ test('transparency content draws the official/derived boundary and full pipeline
         assert.match(html, new RegExp(`Pins come from address lookups[^<]*${provider.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')}`));
     }
     assert.match(html, /Some pins are manually placed after review/);
-    assert.match(html, /VDH wins conflicts/);
+    assert.match(html, /The source record wins conflicts/);
+    // FFX-M4: the verify card offers both departments' public search pages.
+    assert.match(html, /Open VDH portal/);
+    assert.match(html, /href="https:\/\/www\.fairfaxcounty\.gov\/health\/food\/inspection-reports"[^>]*>Open Fairfax County reports/);
     assert.match(html, /Exact red-flag ranking weights/);
     assert.match(html, /<b>\+10<\/b> risk-factor item/);
     assert.match(html, /Some unbadged pins are street-level or interpolated/);

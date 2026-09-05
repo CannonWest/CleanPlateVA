@@ -54,11 +54,11 @@ test('D-URL-1/2: / is the canonical Map, /map is an alias, unknown and trailing-
 });
 
 test('document.title names the view; the Map keeps the page title', () => {
-    const base = 'CleanPlateVA — archived VDH inspection finder';
+    const base = 'CleanPlateVA — archived Virginia health inspection finder';
     assert.equal(titleForView('map', base), base);
     assert.equal(titleForView('list', base), `List · ${base}`);
     assert.equal(titleForView('about', base), `About · ${base}`);
-    assert.match(html, /<title>CleanPlateVA — archived VDH inspection finder<\/title>/);
+    assert.match(html, /<title>CleanPlateVA — archived Virginia health inspection finder<\/title>/);
 });
 
 test('D-URL-3: the URL state set — filters, permit, and List sort/dir/page — parses and validates', () => {

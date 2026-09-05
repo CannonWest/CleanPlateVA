@@ -58,10 +58,23 @@ export const inspectionMethods = {
         // The VDH report link rides in the collapsed summary row (right of the
         // metadata, next to the caret) as an icon-only control. stopPropagation
         // is bound in _select so a click opens VDH without also toggling the row.
+        // OQ-I (FFX-M4): the county lists the visit; the archive holds no
+        // report. OQ-D: the county's recorded outcome — shown with its
+        // explanation, never a badge, never an input to the score.
+        const unavailable = insp.report_available === false;
+        const outcome = typeof insp.source_outcome === 'string' && insp.source_outcome
+            ? insp.source_outcome : null;
+        // The link's wording follows the department: a county report is a PDF
+        // download, not a page (`this._fairfax` is set by _renderDetail).
+        const linkLabel = unavailable
+            ? 'Download the county’s copy of this report (PDF)'
+            : this._fairfax
+                ? 'Download the official Fairfax County Health Department report for this inspection (PDF)'
+                : 'Open the official VDH report for this inspection';
         const sourceLink = insp.report_url
             ? `<a class="food-insp-report" href="${esc(insp.report_url)}" target="_blank" rel="noopener"
-                aria-label="Open the official VDH report for this inspection"
-                title="Open the official VDH report for this inspection"><i class="bi bi-file-earmark-text" aria-hidden="true"></i><i class="bi bi-box-arrow-up-right" aria-hidden="true"></i></a>`
+                aria-label="${esc(linkLabel)}"
+                title="${esc(linkLabel)}"><i class="bi bi-file-earmark-text" aria-hidden="true"></i><i class="bi bi-box-arrow-up-right" aria-hidden="true"></i></a>`
             : '';
         return `
         <details class="food-insp"${Number.isInteger(historyIndex) ? ` data-inspection-index="${historyIndex}"` : ''}${openByDefault ? ' open' : ''}>
@@ -79,9 +92,13 @@ export const inspectionMethods = {
                 ${adj ? `<span class="food-insp-counts">${adjChip}</span>` : inspCounts}
             </summary>
             <div class="food-insp-body">
+                ${unavailable
+                    ? '<div class="food-raw-score">No report is held for this visit; the county’s copy may be available.</div>' : ''}
+                ${outcome
+                    ? `<div class="food-insp-comments"><strong>County outcome: ${esc(outcome)}.</strong> Outcome recorded by the Fairfax County Health Department for this visit. It is not derived from, and does not determine, CleanPlateVA’s computed score. Across the archived county reports, about 3 percent of visits recorded as Passed score in the D or F range under CleanPlateVA’s formula; the basis for the county’s outcome is not stated in the report.</div>` : ''}
                 ${adj
                     ? `<div class="food-raw-score">No checklist published; verdict read from the inspector's written comments.</div>` : ''}
-                ${violations.length ? violations.map((v) => `
+                ${unavailable ? '' : violations.length ? violations.map((v) => `
                     <div class="food-viol${(v.item != null && v.item <= 29) ? ' food-viol-rf' : ''}">
                         <div class="food-viol-head">
                             ${this._disposBadge(v.item, sets)}
@@ -93,7 +110,7 @@ export const inspectionMethods = {
                     </div>`).join('')
                 : adj ? ''
                     : `<div class="text-muted small px-1">${esc(noViolations)}</div>`}
-                ${this._renderChecklist(insp.checklist, view)}
+                ${unavailable ? '' : this._renderChecklist(insp.checklist, view)}
                 ${insp.comments ? `<div class="food-insp-comments"><strong>Inspector comments:</strong> ${esc(insp.comments)}</div>` : ''}
                 ${this._renderTemps(insp.temps_v2, insp.temps)}
             </div>

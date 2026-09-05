@@ -8,6 +8,7 @@ import { LIST_PAGE_SIZE } from './constants.js';
 import { maxPage, revealCount } from './router.js';
 import {
     esc, facilityPresentation, fmtDate, focusedOutcomePresentation, gradeColor, permitUrl,
+    sourceDepartment,
 } from './presentation.js';
 
 export const listMethods = {
@@ -79,7 +80,7 @@ export const listMethods = {
                 <td class="food-list-full-only food-list-col-compliance">${assessmentRecord.compliance_rate != null ? Math.round(assessmentRecord.compliance_rate * 100) + '%' : '—'}</td>
                 <td class="food-list-full-only food-list-col-trend" style="color:${tcol}">${arrow || '—'}</td>
                 <td class="food-list-date food-list-full-only food-list-col-date">${fmtDate(fp.latestDate)}</td>
-                <td class="food-list-col-vdh"><a class="food-list-vdh-link" href="${permitUrl(f)}" target="_blank" rel="noopener" aria-label="View ${esc(f.name)} on VDH" title="View ${esc(f.name)} on VDH"><i class="bi bi-box-arrow-up-right" aria-hidden="true"></i></a></td>
+                <td class="food-list-col-vdh"><a class="food-list-vdh-link" href="${permitUrl(f)}" target="_blank" rel="noopener" aria-label="View ${esc(f.name)} ${esc(sourceDepartment(f).handoff)}" title="View ${esc(f.name)} ${esc(sourceDepartment(f).handoff)}"><i class="bi bi-box-arrow-up-right" aria-hidden="true"></i></a></td>
             </tr>`;
         }).join('') + (filtered.length > shown
             ? `<tr class="food-list-more"><td colspan="${this._mode === 'lite' ? 4 : 8}">`

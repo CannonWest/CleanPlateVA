@@ -9,7 +9,7 @@
 import { GRADE_COLORS, NEW_COLOR } from './constants.js';
 import {
     LOCATION_CLASS, esc, fmtDate, fmtDateNum, gradeColor, gradePresentation, inspectionPresentation,
-    locationClass, permitUrl,
+    isFairfax, locationClass, permitUrl, sourceDepartment,
 } from './presentation.js';
 import { gradeReceiptPresentation } from './receipt.js';
 
@@ -83,10 +83,10 @@ export const detailMethods = {
             <div class="food-lite-cta">
                 <a class="btn btn-sm btn-primary" target="_blank" rel="noopener"
                    href="${permitUrl(f)}">
-                    View inspections on VDH <i class="bi bi-box-arrow-up-right"></i>
+                    View inspections ${esc(sourceDepartment(f).handoff)} <i class="bi bi-box-arrow-up-right"></i>
                 </a>
                 <div class="text-muted small mt-2">
-                    Inspection reports live on the official VDH portal — this map is a finder.
+                    Inspection reports live on the official ${isFairfax(f) ? 'Fairfax County Health Department site' : 'VDH portal'} — this map is a finder.
                 </div>
             </div>`;
     },
@@ -115,6 +115,11 @@ export const detailMethods = {
         const latestView = inspectionPresentation(latest);
         const geoNote = this._geoNote(fac);
         const sets = this._disposSets(latest?.checklist);
+        // Whose record the links open (FFX-M4): VDH, or the Fairfax Health
+        // District — named in the fact line and the Source title; the
+        // inspection rows read the flag for their report-link wording.
+        this._fairfax = isFairfax(fac);
+        const dept = sourceDepartment(fac);
 
         // The facility GRADE circle leads the panel for every facility; the
         // latest inspection is just the first (open) card in the history below.
@@ -168,7 +173,7 @@ export const detailMethods = {
                     <h5>${esc(fac.name)}</h5>
                     <div class="food-detail-title-right">
                         <a class="food-insp-report food-detail-source" href="${permitUrl(fac)}"
-                            target="_blank" rel="noopener" title="Open this facility's VDH record"><i class="bi bi-file-earmark-text"></i><span>Source</span><i class="bi bi-box-arrow-up-right"></i></a>
+                            target="_blank" rel="noopener" title="${this._fairfax ? "Find this facility's official record at the Fairfax County Health Department" : "Open this facility's VDH record"}"><i class="bi bi-file-earmark-text"></i><span>Source</span><i class="bi bi-box-arrow-up-right"></i></a>
                         <button type="button" class="btn-close food-detail-close" aria-label="Close"></button>
                     </div>
                 </div>
@@ -179,7 +184,7 @@ export const detailMethods = {
                     ${geoNote}
                 </div>
                 <div class="text-muted small">
-                    ${esc(fac.permit_type)} · ${esc(fac.status)}
+                    ${esc(fac.permit_type)} · ${esc(fac.status)} · <span title="Inspection records published by the ${esc(dept.name)}">${esc(dept.name)}</span>
                 </div>
                 ${statusNote}
                 ${(fac.merged_from || []).length ? `
@@ -225,7 +230,7 @@ export const detailMethods = {
     // circle and `computed` pill are buttons that open the grade-receipt modal;
     // the hover preview requests the same visuals without those controls.
     _gradeHero(g, sparkHtml = '', interactive = true) {
-        const tag = '<span class="food-score-computed" title="CleanPlateVA formula; VDH publishes no numeric score">computed</span>';
+        const tag = '<span class="food-score-computed" title="CleanPlateVA formula; the health department publishes no numeric score">computed</span>';
         const circle = this._gradeCircle(g.letter, g.score);
         const circleControl = interactive
             ? `<button type="button" class="food-receipt-trigger" data-grade-receipt`
@@ -404,12 +409,12 @@ export const detailMethods = {
             </div>`;
 
         // Base docket: ONE ROW PER VIOLATION, because that is how the charge
-        // is computed. Each finding shows the badges VDH filed against it and
+        // is computed. Each finding shows the badges the inspector filed against it and
         // the points it alone cost, so an item holding a fixed-on-site finding
         // beside an uncorrected one reads as the two different things it is.
         const findingRow = (it) => shell(it, `
                     ${it.repeat ? chip('food-flag-repeat', 'repeat ×1.5',
-                        'VDH badged THIS finding a repeat — 1.5× its weight') : ''}
+                        'The inspector badged THIS finding a repeat — 1.5× its weight') : ''}
                     ${it.cos ? chip('food-dispos food-dispos-cos', 'fixed on site ×0.75',
                         'This finding was corrected while the inspector watched — '
                             + 'docks 75% of its weight, provisionally') : ''}`,
@@ -446,7 +451,7 @@ export const detailMethods = {
                         it.repeatCount && it.repeatCount < it.count
                             ? `${it.repeatCount} of ${it.count} repeat ×1.5`
                             : 'repeat ×1.5',
-                        'Repeats weigh 1.5× — charged to the findings VDH badged') : ''}
+                        'Repeats weigh 1.5× — charged to the findings the inspector badged') : ''}
                     ${it.cosBase && creditHeld(bucket) ? chip('food-dispos food-dispos-cos',
                         it.cosCount && it.cosCount < it.count
                             ? `${it.cosCount} of ${it.count} fixed on site`
@@ -572,8 +577,12 @@ export const detailMethods = {
                         ${baseSection}
                         ${followupSection}
                         ${ledger}
-                        <div class="food-receipt-foot">CleanPlateVA computes this score and grade;
-                            VDH publishes no numeric score of its own.
+                        <div class="food-receipt-foot">${this._fairfax
+                            ? 'Fairfax County grades are anchored on the most recent full inspection. '
+                                + 'The county records every visit as a complete inspection, so no '
+                                + 'follow-up or re-check adjustment applies. ' : ''}CleanPlateVA computes this score and grade;
+                            neither the Virginia Department of Health nor the Fairfax County Health Department
+                            publishes a numeric score of its own.
                             Read the full method on the <a href="#about" data-receipt-about>About</a> tab.</div>
                     </div>
                 </div>

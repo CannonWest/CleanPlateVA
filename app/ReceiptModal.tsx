@@ -93,7 +93,7 @@ function JourneyRow({ row, delta }: { row: ReceiptJourneyRow; delta: React.React
                             ? `${row.repeatCount} of ${row.count} repeat ×1.5`
                             : 'repeat ×1.5'}
                         style={REPEAT_CHIP}
-                        title="Repeats weigh 1.5× — charged to the findings VDH badged"
+                        title="Repeats weigh 1.5× — charged to the findings the inspector badged"
                     />
                 )}
                 {row.cosBase && creditHeld(row.bucket) && (
@@ -164,11 +164,14 @@ const JOURNEY_GROUPS: Array<{
     },
 ]
 
-export function ReceiptModal({ receipt, name, onClose, onAbout }: {
+export function ReceiptModal({ receipt, name, onClose, onAbout, fairfax = false }: {
     receipt: GradeReceipt
     name: string
     onClose: () => void
     onAbout: () => void
+    /** The facility's record is the Fairfax Health District's (FFX-M4):
+     *  the footer carries the OQ-G disclosure. */
+    fairfax?: boolean
 }) {
     const dialog = useRef<HTMLDivElement>(null)
 
@@ -271,7 +274,7 @@ export function ReceiptModal({ receipt, name, onClose, onAbout }: {
                                         <div className="flex flex-wrap items-baseline gap-1.5">
                                             <span className="text-[11px] font-bold text-cp-ink-3 tabular-nums">#{it.item}</span>
                                             <CatChip category={it.category} points />
-                                            {it.repeat && <Chip text="repeat ×1.5" style={REPEAT_CHIP} title="VDH badged THIS finding a repeat — 1.5× its weight" />}
+                                            {it.repeat && <Chip text="repeat ×1.5" style={REPEAT_CHIP} title="The inspector badged THIS finding a repeat — 1.5× its weight" />}
                                             {it.cos && <Chip text="fixed on site ×0.75" style={COS_CHIP} title="This finding was corrected while the inspector watched — docks 75% of its weight, provisionally" />}
                                             {it.points != null && (
                                                 <span className="ml-auto text-[12px] font-bold text-cp-danger tabular-nums">−{fmt1(it.points)}</span>
@@ -351,7 +354,15 @@ export function ReceiptModal({ receipt, name, onClose, onAbout }: {
                     )}
 
                     <p className="pb-1 text-[11px] text-cp-ink-3">
-                        CleanPlateVA computes this score and grade; VDH publishes no numeric score
+                        {fairfax && (
+                            <>
+                                Fairfax County grades are anchored on the most recent full inspection.
+                                The county records every visit as a complete inspection, so no
+                                follow-up or re-check adjustment applies.{' '}
+                            </>
+                        )}
+                        CleanPlateVA computes this score and grade; neither the Virginia Department
+                        of Health nor the Fairfax County Health Department publishes a numeric score
                         of its own. Read the full method on the{' '}
                         <button type="button" className="text-cp-accent hover:underline" onClick={onAbout}>
                             About
