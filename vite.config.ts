@@ -116,8 +116,12 @@ export default defineConfig({
         // from what does not: maplibre in its own chunk (the floor no stack
         // choice moves, §8), React in its own, the rest of node_modules in
         // one more, the app's own code in the entry. Content-addressed
-        // names mean a vendor chunk's URL survives an app-only deploy, and
-        // the immutable cache rule keeps it. maplibre's runtime worker URL
+        // names mean a vendor chunk's URL survives an app-only deploy, so a
+        // returning browser's conditional GET for it is a 304 with no body
+        // (measured on the preview host; the host answers hashed assets
+        // `max-age=0, must-revalidate`, as production does the old client's
+        // /static/** — a long-lived rule for /assets/* is a follow-on, by
+        // name and never a splat, per CPH-M3). maplibre's runtime worker URL
         // resolves against ITS chunk's URL — same assets/ dir, so the
         // worker pair beside it (maplibreWorkerCopy) still resolves.
         rolldownOptions: {
