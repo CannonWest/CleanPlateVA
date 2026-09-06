@@ -110,6 +110,36 @@ export default defineConfig({
     build: {
         outDir: 'dist',
         copyPublicDir: false,
+        // The bundle diet (CRP-M5). One 1.33 MB chunk carried the app AND
+        // its vendors, so every deploy invalidated maplibre's ~800 KB for
+        // every returning browser and every edge colo. Split what changes
+        // from what does not: maplibre in its own chunk (the floor no stack
+        // choice moves, §8), React in its own, the rest of node_modules in
+        // one more, the app's own code in the entry. Content-addressed
+        // names mean a vendor chunk's URL survives an app-only deploy, so a
+        // returning browser's conditional GET for it is a 304 with no body
+        // (measured on the preview host; the host answers hashed assets
+        // `max-age=0, must-revalidate`, as production does the old client's
+        // /static/** — a long-lived rule for /assets/* is a follow-on, by
+        // name and never a splat, per CPH-M3). maplibre's runtime worker URL
+        // resolves against ITS chunk's URL — same assets/ dir, so the
+        // worker pair beside it (maplibreWorkerCopy) still resolves.
+        rolldownOptions: {
+            output: {
+                codeSplitting: {
+                    groups: [
+                        { name: 'maplibre', test: /node_modules[\\/]maplibre-gl[\\/]/, priority: 3 },
+                        { name: 'react', test: /node_modules[\\/](react|react-dom|scheduler)[\\/]/, priority: 2 },
+                        { name: 'vendor', test: /node_modules[\\/]/, priority: 1 },
+                    ],
+                },
+            },
+        },
+        // maplibre alone minifies to ~980 KB; the default 500 kB warning
+        // would fire on every build forever about the one chunk that is the
+        // floor. The entry and the lazy chunks stay an order of magnitude
+        // below this.
+        chunkSizeWarningLimit: 1024,
     },
     test: {
         include: ['app/**/*.spec.{ts,tsx}', 'tests/vitest/**/*.spec.{ts,tsx}'],

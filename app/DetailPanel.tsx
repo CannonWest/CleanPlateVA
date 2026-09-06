@@ -13,7 +13,7 @@
  * basic map keeps the old identity + official-VDH hand-off (P6/C8).
  */
 
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import {
     ExternalLink, FileText, Landmark, MoveRight, Store, TrendingDown, TrendingUp,
     Truck, Utensils, X,
@@ -25,7 +25,10 @@ import {
 import type { ScopeSeries } from './data/presentation'
 import { buildScopeSeries } from './data/presentation'
 import { gradeReceiptPresentation } from './data/receipt'
-import { ReceiptModal } from './ReceiptModal'
+// The report-card modal loads on its first open (CRP-M5): the receipt
+// MATH stays here (it gates the hero's affordance), the modal's markup
+// leaves the entry chunk. A chunk is a static asset — no Worker request.
+const ReceiptModal = lazy(() => import('./ReceiptModal').then((m) => ({ default: m.ReceiptModal })))
 import { TrendSection } from './TrendSection'
 import { InspectionRow } from './InspectionRow'
 import type { DetailFacility, FacilityDetail, Inspection, RosterRow } from './data/types'
@@ -288,16 +291,18 @@ export function DetailPanel({ row, lite, state, onClose, onAbout }: {
             </div>
 
             {receiptOpen && receipt && (
-                <ReceiptModal
-                    receipt={receipt}
-                    name={(fac.name as string) ?? row.name}
-                    fairfax={fairfax}
-                    onClose={() => setReceiptOpen(false)}
-                    onAbout={() => {
-                        setReceiptOpen(false)
-                        onAbout()
-                    }}
-                />
+                <Suspense fallback={null}>
+                    <ReceiptModal
+                        receipt={receipt}
+                        name={(fac.name as string) ?? row.name}
+                        fairfax={fairfax}
+                        onClose={() => setReceiptOpen(false)}
+                        onAbout={() => {
+                            setReceiptOpen(false)
+                            onAbout()
+                        }}
+                    />
+                </Suspense>
             )}
         </aside>
     )
