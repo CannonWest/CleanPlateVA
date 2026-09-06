@@ -12,11 +12,11 @@
  * only, Mobile food units, and the counts (P6).
  *
  * The theme control moved OFF the band at the M0 review (Cannon's call):
- * it's a real switch — `ThemeSwitch` — under the band's left edge since
- * 2026-09-06 (bottom-left before that). The band does not position
- * itself: App's top column does (fixed over the map, in-flow at the head
- * of the List / About documents) and carries the panel-aware width, so
- * the switch never has to know the band's height.
+ * it's a real switch — `ThemeSwitch` — under the band's left edge on the
+ * MAP VIEW since 2026-09-06 (bottom-left before that; the documents carry
+ * no switch). The band does not position itself: App places it — the
+ * map's fixed column, which carries the panel-aware width, or a plain
+ * in-flow wrapper at the head of the List / About documents.
  */
 
 import { useEffect, useRef, useState } from 'react'

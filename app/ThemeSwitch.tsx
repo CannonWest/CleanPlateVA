@@ -1,11 +1,12 @@
 /**
  * The theme control (CRVa-M1, Cannon's M0 review call): an actual SWITCH —
- * obvious, not a buried icon button. Under the band's left edge since
- * 2026-09-06 (Cannon's call, refined the same day from "beside the band";
- * it stood bottom-left in the corner column until then), placed by App's
- * top column on the map and on the document views alike, at 1.5× the
- * corner column's pill. `self-start` keeps it its own width in that
- * column; the band above it stretches.
+ * obvious, not a buried icon button. Under the band's left edge on the
+ * MAP VIEW ONLY since 2026-09-06 (Cannon's calls that day, in order:
+ * bottom-left corner → beside the band → under it → off the List / About
+ * documents), placed by App's top column at 1.5× the corner column's
+ * pill. `self-start` keeps it its own width in that column; the band
+ * above it stretches. The documents render no switch: the theme lives on
+ * <html> and the visitor's choice persists across every view.
  *
  * Its colors are its own, not the theme's: an off-white moon and a yellow
  * sun on a night-slate track. A theme switch is a picture of its two

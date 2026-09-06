@@ -4,7 +4,8 @@
  * switch's pill and thumb idiom at the corner's size. (The theme switch
  * itself stood right above this one until 2026-09-06, when it moved
  * under the band at the top-left, 1.5× and in color; this is the
- * corner's one switch now.) App's corner column places it (it has no fixed
+ * corner's one switch now. Both are map-view controls: neither renders
+ * on the List / About documents.) App's corner column places it (it has no fixed
  * position of its own).
  * Off (every place drawn) is the shipped default; the thumb slides to the
  * grouped mark for production's proximity clusters. Public words in the
