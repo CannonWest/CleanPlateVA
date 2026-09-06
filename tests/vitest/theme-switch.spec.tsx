@@ -2,16 +2,17 @@
 /**
  * The theme switch: a real switch — role, checked state, the words — that
  * asks for the OTHER state on click and never flips itself (the App owns
- * and persists the choice), and two Lucide glyphs in the colors Cannon
- * called (2026-09-06): an off-white moon and a yellow sun, each solid
- * (fill + stroke), so they read on the fixed night-slate track in either
- * theme. Placement is App's (the top-left row) and is not pinned here.
+ * and persists the choice); a track that is chrome, so it lightens with
+ * the theme (Cannon's call 2026-09-06); and two Lucide glyphs carrying
+ * their own inks — a yellow sun in both themes, a moon that is off-white
+ * on the dark track and mid-slate on the light one. Placement is App's
+ * (the map view's top column) and is not pinned here.
  */
 import { act, StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import type { Root } from 'react-dom/client'
 import { afterEach, beforeEach, expect, test } from 'vitest'
-import { MOON_COLOR, SUN_COLOR, ThemeSwitch } from '../../app/ThemeSwitch'
+import { MOON_COLOR, MOON_COLOR_LIGHT, SUN_COLOR, ThemeSwitch } from '../../app/ThemeSwitch'
 
 declare global {
     // eslint-disable-next-line no-var
@@ -41,6 +42,10 @@ async function mount(dark: boolean) {
     const button = host.querySelector('button[role="switch"]')
     if (!(button instanceof HTMLButtonElement)) throw new Error('no switch rendered')
     return button
+}
+
+function cells(button: HTMLButtonElement): HTMLElement[] {
+    return Array.from(button.querySelectorAll(':scope > span'))
 }
 
 beforeEach(() => {
@@ -82,31 +87,56 @@ test('dark: reports checked, offers the light theme, asks for LIGHT on click', a
     expect(asked).toEqual([false])
 })
 
-test('two Lucide glyphs, no emoji or text (§6.0): an off-white moon, a yellow sun, both solid', async () => {
+test('two Lucide glyphs, no emoji or text (§6.0), each filled and stroked in its cell\'s ink', async () => {
     const button = await mount(false)
-    const glyphs = button.querySelectorAll('svg')
+    const glyphs = Array.from(button.querySelectorAll('svg'))
     expect(glyphs).toHaveLength(2)
     expect(button.textContent?.trim()).toBe('')
-    const [moon, sun] = Array.from(glyphs)
+    const [moon, sun] = glyphs
     expect(moon?.getAttribute('class')).toContain('lucide-moon')
     expect(sun?.getAttribute('class')).toContain('lucide-sun')
-    // Cannon's call (2026-09-06): the colors are the glyphs' own, fixed in
-    // either theme, and each is filled as well as stroked.
+    // Both follow their cell's text color, so the rules below are the only
+    // place a glyph color is decided.
+    for (const glyph of glyphs) {
+        expect(glyph?.getAttribute('fill')).toBe('currentColor')
+        expect(glyph?.getAttribute('stroke')).toBe('currentColor')
+    }
+})
+
+test('the inks: an off-white moon on dark, a mid-slate moon on light, the sun yellow in both', async () => {
+    const button = await mount(false)
+    const [moonCell, sunCell] = cells(button)
     expect(MOON_COLOR).toBe('#f1f3f5')
+    expect(MOON_COLOR_LIGHT).toBe('#495057')
     expect(SUN_COLOR).toBe('#fcc419')
-    expect(moon?.getAttribute('fill')).toBe(MOON_COLOR)
-    expect(moon?.getAttribute('stroke')).toBe(MOON_COLOR)
-    expect(sun?.getAttribute('fill')).toBe(SUN_COLOR)
-    expect(sun?.getAttribute('stroke')).toBe(SUN_COLOR)
+    // The constants mirror literal class strings (Tailwind scans source
+    // text, so a hex cannot reach the stylesheet through a constant); this
+    // is what keeps the two from drifting.
+    expect(moonCell?.className).toContain(`text-[${MOON_COLOR}]`)
+    expect(moonCell?.className).toContain(`light:text-[${MOON_COLOR_LIGHT}]`)
+    expect(sunCell?.className).toContain(`text-[${SUN_COLOR}]`)
+    expect(sunCell?.className).not.toContain('light:text-')
+})
+
+test('the track is chrome (Cannon 2026-09-06): the theme\'s own surface, so it lightens with it', async () => {
+    const button = await mount(false)
+    // The surface + hairline the band and the cluster switch wear — near
+    // white on the light theme, the same #1d2126 as before on the dark one.
+    expect(button.className).toContain('bg-cp-surface-2')
+    expect(button.className).toContain('border-cp-hairline')
+    expect(button.className).not.toContain('bg-[#')
+    expect(button.className).not.toContain('border-white/')
 })
 
 test('the thumb is the state: the disc sits under the sun for light, under the moon for dark', async () => {
     const light = await mount(false)
-    const [moonCell, sunCell] = Array.from(light.querySelectorAll(':scope > span'))
+    const [moonCell, sunCell] = cells(light)
     expect(sunCell?.className).toContain('bg-')
     expect(moonCell?.className).not.toContain('bg-')
+    expect(moonCell?.className).toContain('opacity-50')
     const dark = await mount(true)
-    const [moonCellDark, sunCellDark] = Array.from(dark.querySelectorAll(':scope > span'))
+    const [moonCellDark, sunCellDark] = cells(dark)
     expect(moonCellDark?.className).toContain('bg-')
     expect(sunCellDark?.className).not.toContain('bg-')
+    expect(sunCellDark?.className).toContain('opacity-50')
 })

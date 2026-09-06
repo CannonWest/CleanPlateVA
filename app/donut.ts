@@ -3,7 +3,7 @@
  * the map draws when "Group nearby places" is on. A cluster is a RING whose
  * arcs are the grade breakdown of the places it hides, in the very fills
  * the dots use (A–F on the ramp, NEW blue, unscored gray, closed dimmed),
- * around a hole in the theme's stack surface that carries the count — so a
+ * around a hole in the stacks' own surface that carries the count — so a
  * bubble reads as a neutral count bubble wearing the ring of the dots
  * beneath it, one vocabulary with the neutral stacks (neutral disc + white
  * ring) and the dots (fill + ring). The basic map's buckets are all zero
@@ -14,9 +14,13 @@
  * missing-image resolver parses the id and paints it on a canvas the first
  * time the style asks for it (MapView). The theme rides in the id so a
  * stale image can never survive a style swap (setStyle drops every image;
- * the resolver simply regenerates on the new style). The id codec and the
- * arc geometry live here, pure and pinned; the canvas painter is verified
- * live (jsdom has no canvas).
+ * the resolver simply regenerates on the new style). Since 2026-09-06 every
+ * color a donut paints is theme-invariant — the ramp always was, the hole
+ * joined it — so the two themes' images are identical and the theme segment
+ * is pure cache identity: a swap still evicts and repaints, at the measured
+ * 0.23 ms a ring, which is not worth a codec change to avoid. The id codec
+ * and the arc geometry live here, pure and pinned; the canvas painter is
+ * verified live (jsdom has no canvas).
  */
 
 import {
@@ -172,11 +176,13 @@ function scratchContext(doc: Document): CanvasRenderingContext2D | null {
 /** Paint the donut at DONUT_PIXEL_RATIO (register with the same ratio so it
  *  draws at CSS size, crisp on dense screens). Arcs clockwise from 12
  *  o'clock in bucket order with hairline separators in the hole's surface;
- *  the hole in the theme's stack surface; no outer ring — the arcs meet the
+ *  the hole in the stacks' surface; no outer ring — the arcs meet the
  *  basemap directly (Cannon's live-review call, 2026-09-05). Null where
  *  there is no 2D canvas (headless runners). */
 export function paintDonut(spec: DonutSpec, doc: Document = document): ImageData | null {
-    const { theme, size, buckets } = spec
+    // `theme` rides in the spec for the image id alone — no color here
+    // reads it any more (the hole is theme-invariant with the stacks).
+    const { size, buckets } = spec
     const ratio = DONUT_PIXEL_RATIO
     const margin = MARGIN
     const side = (size + margin) * 2 * ratio
@@ -203,7 +209,7 @@ export function paintDonut(spec: DonutSpec, doc: Document = document): ImageData
     ctx.globalAlpha = 1
 
     if (arcs.length > 1) {
-        ctx.strokeStyle = STACK_SURFACE[theme]
+        ctx.strokeStyle = STACK_SURFACE
         ctx.lineWidth = DONUT_SEPARATOR
         for (const arc of arcs) {
             const a = rad(arc.start)
@@ -216,7 +222,7 @@ export function paintDonut(spec: DonutSpec, doc: Document = document): ImageData
 
     ctx.beginPath()
     ctx.arc(c, c, inner, 0, TAU)
-    ctx.fillStyle = STACK_SURFACE[theme]
+    ctx.fillStyle = STACK_SURFACE
     ctx.fill()
 
     return ctx.getImageData(0, 0, side, side)
