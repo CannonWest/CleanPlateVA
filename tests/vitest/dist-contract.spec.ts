@@ -54,10 +54,11 @@ describe.skipIf(!built)('dist/ excludes what the build must ignore (§3)', () =>
     test('dist/index.html is the built app entry, not the old shell', () => {
         const html = readFileSync(resolve(DIST, 'index.html'), 'utf8')
         expect(html).toContain('<script type="module"')
-        // The old no-build shell boots static/js/app.js and loads Bootstrap
-        // from jsDelivr; neither may appear in the built entry.
-        expect(html).not.toContain('static/js/app.js')
-        expect(html).not.toContain('cdn.jsdelivr.net')
+        // The old no-build shell booted its app module from public/static and
+        // loaded Bootstrap from a CDN host; neither may appear in the built
+        // entry (the two assertions name the retired strings to refuse them).
+        expect(html).not.toContain('static/js/app.js')  // retired-ok
+        expect(html).not.toContain('cdn.jsdelivr.net')  // retired-ok
     })
 })
 

@@ -1,6 +1,6 @@
 /**
  * Shared vocabulary for the CR client (CRF-M1; view-layer rows CRVa-M0) —
- * the subset of the old `static/js/constants.js` the ported data layer and
+ * the subset of the old client's `constants.js` (deleted at CRC) the ported data layer and
  * the map surface actually read. The redesigned map draws dots at every
  * zoom by default (ratified mockup; only same-point stacks bubble); the old
  * client's proximity clustering is a visitor SWITCH since CRP-M6, and its

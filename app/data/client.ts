@@ -1,5 +1,5 @@
 /** CleanPlateVA prepared-data client for manifest-led Contract V4 —
- * `createFoodApi` ported whole from `static/js/dataClient.js` (design ref
+ * `createFoodApi` ported whole from the old client's `dataClient.js` (design ref
  * §5, C1), same observable behavior, pinned by the ported contract suite.
  *
  * Both tiers boot on the same finder family; the full tier reads finder

@@ -1,15 +1,15 @@
 # Push to main deploys production (Cloudflare Workers Builds), so the PR
 # check is the last gate before a change is live.
 #
-# Two suites through the CR transition (design ref docs/frontend-redesign.md
-# §7): the legacy node:test suite keeps refereeing the served no-build client
-# — including tests/lite-roster-contract.test.mjs, which validates the
-# COMMITTED public/data/finder/*.json + manifest.json and is the tripwire
-# for a stale export overwriting the public payload with an older shape —
-# and Vitest referees the CR scaffold. The build step mirrors the Workers
-# Builds command (npm ci && npx vite build) so the deploy pipeline is proven
-# on every PR, and tests/vitest/dist-contract.spec.ts then pins the build
-# output (publisher files byte-identical in dist/, old client excluded — C5).
+# One runner since CRC (design ref docs/frontend-redesign.md §7, §9.1):
+# Vitest referees the app, the contract tripwires under tests/vitest/ —
+# including lite-roster-contract.spec.ts, which validates the COMMITTED
+# public/data/finder/*.json + manifest.json and is the tripwire for a stale
+# export overwriting the public payload with an older shape, and the
+# retired-vocabulary scan — and, after the build step, dist-contract.spec.ts
+# pins the build output (publisher files byte-identical in dist/, the old
+# client absent — C5). The build step mirrors the Workers Builds command
+# (npm ci && npx vite build) so the deploy pipeline is proven on every PR.
 name: tests
 
 on:
@@ -18,7 +18,7 @@ on:
     branches: [main]
 
 jobs:
-  node-test:
+  vitest:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -29,4 +29,3 @@ jobs:
       - run: npm ci
       - run: npx vite build
       - run: npx vitest run
-      - run: node --test

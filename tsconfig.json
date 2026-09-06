@@ -1,9 +1,9 @@
 {
     // CR scaffold (CRF-M0, design ref §3): TypeScript strict is D-CR-LANG-1.
-    // Covers the app tree, the Vite config, and the Vitest specs; the legacy
-    // no-build client under public/static/js and the node:test suites under
-    // tests/*.test.mjs are NOT in the program — they keep serving/running
-    // untouched until CRC.
+    // Covers the app tree, the Vite config, and the Vitest specs. src/worker.js
+    // (plain JS, the Worker) enters the program only through the
+    // worker-cache-contract spec's import — allowJs types it by inference and
+    // checkJs stays off, so it is neither rewritten nor type-checked.
     "compilerOptions": {
         "target": "ES2022",
         "lib": ["ES2022", "DOM", "DOM.Iterable"],
@@ -11,6 +11,7 @@
         "moduleResolution": "bundler",
         "jsx": "react-jsx",
         "types": ["vite/client"],
+        "allowJs": true,
         "strict": true,
         "noUncheckedIndexedAccess": true,
         "noFallthroughCasesInSwitch": true,
