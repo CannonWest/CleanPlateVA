@@ -70,7 +70,9 @@ export const VA_BOUNDS: [[number, number], [number, number]] =
     [[-83.7, 36.5], [-75.2, 39.5]]
 export const VA_FIT = { padding: 20 }
 
-// The visitor's persisted theme (dark is the document default, C10).
+// The visitor's persisted theme, 'dark' | 'light'; unset reads as LIGHT — the
+// visitor default since 2026-09-06 (Cannon's call, C10 amended; the CSS base
+// stays the dark design, D-CR-STYLE-1 — app/theme.ts).
 export const THEME_KEY = 'cleanplateva.theme'
 // The visitor's persisted clustering choice (CRP-M6): '1' groups nearby
 // places into proximity clusters, '0' (and unset — the shipped default,

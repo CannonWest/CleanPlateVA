@@ -2,8 +2,9 @@
 <!-- CR app entry (CRF-M0, design ref §3). This is Vite's root index.html —
      the dev-server page and the template for dist/index.html, the served
      site since CRC (2026-09-06; wrangler.jsonc assets.directory ./dist).
-     Dark is the document default (C10); .theme-light on <html> flips the
-     theme (docs/mockups/tokens.css). -->
+     Light is the visitor default (2026-09-06, C10 amended): the un-prefixed
+     CSS is the dark design and .theme-light on <html> is the light hook
+     (docs/mockups/tokens.css), applied below unless the visitor chose dark. -->
 <html lang="en">
 <head>
     <meta charset="utf-8">
@@ -16,14 +17,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>CleanPlateVA — archived Virginia health inspection finder</title>
     <script>
-    // Apply the stored theme before first paint to avoid a flash. Dark is
-    // the document default (C10); the key matches app/theme.ts.
+    // Apply the stored theme before first paint to avoid a flash. Light is
+    // the visitor default (2026-09-06): the class goes on unless the visitor
+    // chose dark; the key and the rule match app/theme.ts (storedDark).
+    // Pinned by tests/vitest/theme.spec.ts, which runs this script.
     (function () {
+        var dark = false;
         try {
-            if (localStorage.getItem('cleanplateva.theme') === 'light') {
-                document.documentElement.classList.add('theme-light');
-            }
-        } catch (e) { /* private mode: dark default stands */ }
+            dark = localStorage.getItem('cleanplateva.theme') === 'dark';
+        } catch (e) { /* private mode: the light default stands */ }
+        if (!dark) {
+            document.documentElement.classList.add('theme-light');
+        }
     })();
     </script>
 </head>
