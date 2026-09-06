@@ -348,9 +348,14 @@ tripwire, and, once `npm run build` has produced `dist/`, the build-output
 contract; `npm run typecheck` runs `tsc`. CI runs `npm ci`, `npx vite build`,
 `npx vitest run` on every PR and push.
 
-`tools/` holds dev-only helpers that are not part of the site:
+`tools/` holds helpers the build never runs:
 `tools/dev_preview_mockups.py` serves the CRD mockups under `docs/mockups/`
-on a throwaway port. The exporter/renderer parity proof behind design ref
+on a throwaway port, and `tools/make_favicon.py` renders `public/favicon.ico`
+and `public/apple-touch-icon.png` from the brand mark. The icons are
+COMMITTED and ship from `public/`, under stable names a bare `/favicon.ico`
+probe can find; nothing regenerates them, so re-run the tool after any edit
+to `app/clean-plate-va-logo.png` and commit what changes. The
+exporter/renderer parity proof behind design ref
 D-DATA-13 is `tests/vitest/visits-parity.spec.ts`; the archive-wide
 crosscheck tool that established it at CPH-M0/M1 retired with the old
 client (design ref §14.1).
