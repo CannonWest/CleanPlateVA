@@ -158,10 +158,11 @@ function Shell({ forceLite, ack }: {
                 <GhostShell />
             ) : state.view !== 'map' ? (
                 // List and About are scrolling DOCUMENTS (§6.3/§6.4): the
-                // band rides in the flow at the top; content scrolls under it.
+                // band rides in the flow at the top with the theme switch
+                // under its left edge (the map's column, in-flow); content
+                // scrolls under them.
                 <div className="absolute inset-0 z-10 overflow-y-auto bg-cp-bg">
-                    <div className="mx-3 mt-3 flex items-start gap-2.5">
-                        <ThemeSwitch dark={dark} onTheme={onTheme} />
+                    <div className="mx-3 mt-3 flex flex-col gap-2.5">
                         <Toolbar
                             state={state}
                             actions={actions}
@@ -169,6 +170,7 @@ function Shell({ forceLite, ack }: {
                             shown={filtered.length}
                             total={all.length}
                         />
+                        <ThemeSwitch dark={dark} onTheme={onTheme} />
                     </div>
                     <Suspense fallback={<ViewLoading />}>
                     {state.view === 'list' ? (
@@ -207,30 +209,31 @@ function Shell({ forceLite, ack }: {
                     <Attribution inline snapshot={snapshot} onTerms={showTerms} />
                 </div>
             ) : (
-                // The top-left corner as ONE row — the theme switch beside the
-                // band (Cannon's call 2026-09-06; the switch stood bottom-left
-                // in the corner column until then) — so neither has to know
-                // the other's width: the row is as wide as the two of them,
-                // capped at the viewport's gutters, and the band wraps its
-                // controls inside whatever the switch leaves it. Beside an
-                // OPEN panel, from `sm` up the right sheet takes 400px +
-                // gutters and the row reflows into what is left; below `sm`
+                // The top-left as ONE self-stacking column — the band, with
+                // the theme switch hanging under its left edge (Cannon's call
+                // 2026-09-06, refined the same day from "beside the band":
+                // under it, the band keeps its full width on every screen;
+                // the switch stood bottom-left in the corner column before
+                // that) — so the switch never depends on the band's height,
+                // which wraps with the viewport and beside an open panel. The
+                // column is as wide as the band, capped at the viewport's
+                // gutters and, beside an OPEN panel from `sm` up (the right
+                // sheet takes 400px + gutters), at what is left; below `sm`
                 // the panel is a bottom sheet (DetailPanel's max-sm rules)
-                // and the row keeps the full width — the caps are the band's
-                // own from the mobile fix of 2026-09-06 (an inline
+                // and the column keeps the full width — the caps are the
+                // band's own from the mobile fix of 2026-09-06 (an inline
                 // min(100vw - 24px, 100vw - 448px) went negative on a phone
-                // and collapsed the band), carried over unchanged. Only the
-                // two children take the pointer, so the map still drags in
-                // the gap between them. (Whole class strings, whitespace-
-                // delimited: Tailwind's scanner drops one glued to a `${`.)
+                // and collapsed the band). Only the two children take the
+                // pointer, so the map still drags beside the switch. (Whole
+                // class strings, whitespace-delimited: Tailwind's scanner
+                // drops one glued to a `${`.)
                 <div
-                    className={`pointer-events-none fixed top-3 left-3 z-20 flex items-start gap-2.5 [&>*]:pointer-events-auto ${
+                    className={`pointer-events-none fixed top-3 left-3 z-20 flex flex-col gap-2.5 [&>*]:pointer-events-auto ${
                         selected
                             ? 'max-w-[calc(100vw-24px)] sm:max-w-[calc(100vw-448px)]'
                             : 'max-w-[calc(100vw-24px)]'
                     }`}
                 >
-                    <ThemeSwitch dark={dark} onTheme={onTheme} />
                     <Toolbar
                         state={state}
                         actions={actions}
@@ -238,6 +241,7 @@ function Shell({ forceLite, ack }: {
                         shown={filtered.length}
                         total={all.length}
                     />
+                    <ThemeSwitch dark={dark} onTheme={onTheme} />
                 </div>
             )}
 
@@ -255,8 +259,8 @@ function Shell({ forceLite, ack }: {
             {state.view === 'map' && !blocking && (
                 // The bottom-left corner as ONE self-stacking column — the
                 // cluster switch over the attribution chip (the theme switch
-                // stood between them until 2026-09-06, when it moved to the
-                // top-left row above) — so nothing depends on the chip's
+                // stood between them until 2026-09-06, when it moved under
+                // the band in the top-left column) — so nothing depends on the chip's
                 // height: at phone widths the C8 line
                 // wraps to three or four lines and used to bury the theme
                 // switch (fixed 40px up) and the map's zoom buttons under it
