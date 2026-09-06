@@ -158,11 +158,15 @@ function Shell({ forceLite, ack }: {
                 <GhostShell />
             ) : state.view !== 'map' ? (
                 // List and About are scrolling DOCUMENTS (§6.3/§6.4): the
-                // band rides in the flow at the top with the theme switch
-                // under its left edge (the map's column, in-flow); content
-                // scrolls under them.
+                // band rides in the flow at the top; content scrolls under
+                // it. NO theme switch here — it is the map view's control
+                // (Cannon's call 2026-09-06): a document is a page of
+                // records, and the two presentation switches belong with
+                // the thing they present. The theme itself still holds
+                // (it is on <html>, not on the view), and a visitor's
+                // choice persists across every view.
                 <div className="absolute inset-0 z-10 overflow-y-auto bg-cp-bg">
-                    <div className="mx-3 mt-3 flex flex-col gap-2.5">
+                    <div className="mx-3 mt-3">
                         <Toolbar
                             state={state}
                             actions={actions}
@@ -170,7 +174,6 @@ function Shell({ forceLite, ack }: {
                             shown={filtered.length}
                             total={all.length}
                         />
-                        <ThemeSwitch dark={dark} onTheme={onTheme} />
                     </div>
                     <Suspense fallback={<ViewLoading />}>
                     {state.view === 'list' ? (
@@ -209,12 +212,14 @@ function Shell({ forceLite, ack }: {
                     <Attribution inline snapshot={snapshot} onTerms={showTerms} />
                 </div>
             ) : (
-                // The top-left as ONE self-stacking column — the band, with
-                // the theme switch hanging under its left edge (Cannon's call
-                // 2026-09-06, refined the same day from "beside the band":
-                // under it, the band keeps its full width on every screen;
-                // the switch stood bottom-left in the corner column before
-                // that) — so the switch never depends on the band's height,
+                // The map view's top-left as ONE self-stacking column — the
+                // band, with the theme switch hanging under its left edge
+                // (Cannon's call 2026-09-06, refined twice the same day: from
+                // "beside the band" to under it, so the band keeps its full
+                // width on every screen; and off the List / About documents
+                // entirely, so the switch rides with the map like the cluster
+                // switch below. It stood bottom-left in the corner column
+                // before all that) — so the switch never depends on the band's height,
                 // which wraps with the viewport and beside an open panel. The
                 // column is as wide as the band, capped at the viewport's
                 // gutters and, beside an OPEN panel from `sm` up (the right
