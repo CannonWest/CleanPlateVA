@@ -12,11 +12,11 @@
  * only, Mobile food units, and the counts (P6).
  *
  * The theme control moved OFF the band at the M0 review (Cannon's call):
- * it's a real switch — `ThemeSwitch` — beside the band's left edge since
+ * it's a real switch — `ThemeSwitch` — under the band's left edge since
  * 2026-09-06 (bottom-left before that). The band does not position
- * itself: App's top row does (a fixed row over the map, an in-flow row at
- * the head of the List / About documents) and carries the panel-aware
- * width, so the switch and the band never have to know each other's size.
+ * itself: App's top column does (fixed over the map, in-flow at the head
+ * of the List / About documents) and carries the panel-aware width, so
+ * the switch never has to know the band's height.
  */
 
 import { useEffect, useRef, useState } from 'react'
@@ -101,9 +101,9 @@ export function Toolbar({ state, actions, lite, shown, total }: {
         ? `${shown.toLocaleString()} of ${total.toLocaleString()} facilities match the active filters`
         : `${total.toLocaleString()} facilities in this snapshot`
 
-    // The card is a flex item of App's top row: min-w-0 lets it shrink to
-    // the width the row leaves it and wrap its controls inside (the row
-    // carries the viewport / open-panel caps — App.tsx).
+    // The card is the first item of App's top column: it takes the
+    // column's width (the column carries the viewport / open-panel caps —
+    // App.tsx) and wraps its controls inside it.
     return (
         <header
             className="relative z-20 flex min-w-0 flex-wrap items-center gap-x-3.5 gap-y-1.5 rounded-cp-card border border-cp-hairline bg-cp-surface-1 px-3 py-2 shadow-cp"
