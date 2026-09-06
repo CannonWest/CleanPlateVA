@@ -56,8 +56,8 @@ export const OVERLAY_SCOPES = ['unknown', 'broad', 'focused'] as const
 
 /** "Declining" is banded (CRP-M1b, Cannon 2026-08-31): strictly MORE than
  *  this many points of grade-to-grade drop. Mirrors the exporter's
- *  cf_export_site.TREND_DECLINE_BAND and the old client's
- *  static/js/presentation.js — change all three together. */
+ *  cf_export_site.TREND_DECLINE_BAND — change both together (the old
+ *  client's presentation.js was the third copy until CRC). */
 export const TREND_DECLINE_BAND = 5
 // Codes are identity, not a quality ordering. `venue` is a better pin than
 // `street` but is APPENDED at 3, because the exporter may only ever append.

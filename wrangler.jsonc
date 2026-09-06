@@ -3,7 +3,7 @@
 // The worker (src/worker.js) serves ONE thing: /data-full/* from the R2
 // bucket (the full inspection archive — a PUBLIC channel since CPF-M2:
 // public cache-control + Cache API at the edge; the tier boundary is the
-// client's acknowledgement, see public/static/js/ack.js and design ref §9).
+// client's acknowledgement, see app/ack.ts and design ref §9).
 // Everything else — the site, the committed public data channel /data/*, and
 // its cache-control (public/_headers) — is served by the static-assets
 // layer without invoking the worker at all (design ref §9, D-TRANSPORT-4,
@@ -11,7 +11,7 @@
 // requests served without the worker are free and unlimited.
 //
 // Deployed by the Workers Builds git integration running
-// `npx wrangler deploy` on push. workers.dev publishing is off (no
+// `npm ci && npx vite build` then `npx wrangler deploy` on push. workers.dev publishing is off (no
 // subdomain registered); the worker deploys straight to its custom
 // domains. preview_urls off for the same reason.
 {
@@ -19,7 +19,10 @@
     "compatibility_date": "2026-07-03",
     "main": "src/worker.js",
     "assets": {
-        "directory": "./public",
+        // The Vite build (CRC, 2026-09-06): index.html + assets/ from app/, plus
+        // public/data/** and public/_headers copied in byte-identical (C5,
+        // pinned by tests/vitest/dist-contract.spec.ts).
+        "directory": "./dist",
         "binding": "ASSETS",
         // In its array form this list is THE set of paths that invoke the
         // worker at all (docs: "define the routes that invoke your Worker
@@ -46,7 +49,7 @@
         // invocation per file): a missing .js there surfaces immediately as
         // a console MIME error rather than a silent mis-parse.
         "run_worker_first": ["/data-full/*"],
-        // Real per-view URLs (/list, /about — static/js/router.js): any path
+        // Real per-view URLs (/list, /about — app/router.ts): any path
         // that is not an asset gets index.html and the client routes it
         // (unknown paths normalize to /). Assets and the /data-full/*
         // routing above are unaffected.

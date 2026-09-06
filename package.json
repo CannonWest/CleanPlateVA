@@ -2,7 +2,7 @@
   "name": "cleanplateva",
   "private": true,
   "type": "module",
-  "description": "CleanPlateVA — React + Vite + Tailwind client (CR program; design ref docs/frontend-redesign.md). The no-build client under public/ keeps serving until CRC.",
+  "description": "CleanPlateVA — React + Vite + Tailwind client (CR program; design ref docs/frontend-redesign.md), served from dist/ since CRC.",
   "engines": {
     "node": ">=22.12"
   },
@@ -11,7 +11,6 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:node": "node --test",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
