@@ -1,9 +1,11 @@
 /**
  * The theme control (CRVa-M1, Cannon's M0 review call): an actual SWITCH —
- * obvious, not a buried icon button. In the TOP-LEFT corner since
- * 2026-09-06 (Cannon's call; it stood bottom-left in the corner column
- * until then), placed by App's top row beside the band on the map and on
- * the document views alike, at 1.5× the corner column's pill.
+ * obvious, not a buried icon button. Under the band's left edge since
+ * 2026-09-06 (Cannon's call, refined the same day from "beside the band";
+ * it stood bottom-left in the corner column until then), placed by App's
+ * top column on the map and on the document views alike, at 1.5× the
+ * corner column's pill. `self-start` keeps it its own width in that
+ * column; the band above it stretches.
  *
  * Its colors are its own, not the theme's: an off-white moon and a yellow
  * sun on a night-slate track. A theme switch is a picture of its two
@@ -35,7 +37,7 @@ export function ThemeSwitch({ dark, onTheme }: {
             aria-label="Dark theme"
             title={dark ? 'Switch to the light theme' : 'Switch to the dark theme'}
             onClick={() => onTheme(!dark)}
-            className="flex flex-none items-center gap-0 rounded-cp-pill border border-white/10 bg-[#1d2126] p-[5px] shadow-cp"
+            className="flex flex-none self-start items-center gap-0 rounded-cp-pill border border-white/10 bg-[#1d2126] p-[5px] shadow-cp"
         >
             <span
                 className={`flex h-9 w-9 items-center justify-center rounded-full ${
