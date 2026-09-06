@@ -22,8 +22,13 @@
 // What DOES ride into dist/: public/data/** (manifest + finder shards) and
 // public/_headers — cannon-food's write targets, byte-identical (C5), pinned
 // by tests/vitest/dist-contract.spec.ts.
+//
+// The build then APPENDS its own rules to the dist/ copy of _headers — one
+// immutable rule per content-hashed asset, by name (buildAssetHeaders below,
+// D-CRX-1) — so C5 reads "publisher block verbatim + build block appended";
+// public/_headers itself is never touched.
 /// <reference types="vitest/config" />
-import { cp } from 'node:fs/promises'
+import { cp, readFile, writeFile } from 'node:fs/promises'
 import { relative, resolve } from 'node:path'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
@@ -79,8 +84,68 @@ function maplibreWorkerCopy() {
     }
 }
 
+// Long-lived cache-control for the build's content-hashed assets (CRX,
+// D-CRX-1, Cannon's call 2026-09-06). The host serves everything under dist/
+// at the platform default `public, max-age=0, must-revalidate`, so a
+// returning browser re-validates every chunk — a 304 with no body, ~75 ms per
+// wave measured on production. Vite names each emitted file
+// `assets/[name]-[hash][ext]`, so those names are immutable by construction
+// and can be cached for a year — BY NAME, never as a `/assets/*` splat: a
+// splat rule also stamps `immutable` on the SPA shell a MISSING name returns
+// (CPH-M3, measured 2026-09-05), and the maplibre worker pair above is copied
+// by name, not hashed, so it must keep re-validating. The rules go on the
+// dist/ copy of the publisher's _headers, after cpPublicCopy has landed it
+// (closeBundle is a parallel hook; `sequential` + `order: 'post'` makes this
+// one wait for the others), leaving the publisher's block byte-identical —
+// C5 now reads "publisher block verbatim + build block appended". A bundle
+// file under assets/ WITHOUT a hash fails the build rather than getting a
+// rule that would cache it forever. Pinned by tests/vitest/dist-contract.spec.ts.
+const HASHED_ASSET = /^assets\/.+-[A-Za-z0-9_-]{8}\.[a-z0-9]+$/
+const BUILD_HEADERS_MARK = '# Build assets (D-CRX-1)'
+
+function buildAssetHeaders() {
+    let emitted: string[] = []
+    return {
+        name: 'build-asset-headers',
+        apply: 'build' as const,
+        writeBundle(_options: unknown, bundle: Record<string, { fileName: string }>) {
+            const files = Object.values(bundle)
+                .map((output) => output.fileName)
+                .filter((fileName) => fileName.startsWith('assets/'))
+            const unhashed = files.filter((fileName) => !HASHED_ASSET.test(fileName))
+            if (unhashed.length) {
+                throw new Error(
+                    'build-asset-headers: emitted under assets/ without a content hash — an '
+                    + `immutable rule would cache it forever: ${unhashed.join(', ')}`,
+                )
+            }
+            emitted = [...files].sort()
+        },
+        closeBundle: {
+            order: 'post' as const,
+            sequential: true,
+            async handler() {
+                const publisher = await readFile(resolve(import.meta.dirname, 'public/_headers'), 'utf8')
+                const eol = publisher.includes('\r\n') ? '\r\n' : '\n'
+                const block = [
+                    '',
+                    `${BUILD_HEADERS_MARK} — appended by vite.config.ts buildAssetHeaders: one rule per`,
+                    '# content-hashed file this build emitted, by name, never a splat (a /assets/*',
+                    '# rule would stamp immutable on the SPA shell a missing name returns, CPH-M3).',
+                    '# The maplibre worker pair is copied by name, not hashed, and carries no rule.',
+                    '# The publisher\'s block above is byte-identical to public/_headers (C5).',
+                    ...emitted.flatMap((fileName) => [
+                        '', `/${fileName}`, '\tCache-Control: public, max-age=31536000, immutable',
+                    ]),
+                ].join(eol) + eol
+                await writeFile(resolve(import.meta.dirname, 'dist/_headers'), publisher + block)
+            },
+        },
+    }
+}
+
 export default defineConfig({
-    plugins: [react(), tailwindcss(), cpPublicCopy(), maplibreWorkerCopy()],
+    plugins: [react(), tailwindcss(), cpPublicCopy(), maplibreWorkerCopy(), buildAssetHeaders()],
     // Base-relative asset URLs (D-CR-EMBED-1, C7): the CannonAI Food tab
     // serves this build under /cleanplate/ behind a rewritten <base href>,
     // so the built entry must reference ./assets/* and let index.html's
