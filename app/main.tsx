@@ -1,4 +1,4 @@
-// CR app bootstrap (CRF-M0). Nothing here is the served site until CRC.
+// CR app bootstrap (CRF-M0); the served site since CRC (2026-09-06).
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './theme.css'

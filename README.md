@@ -18,12 +18,12 @@ acknowledges the terms.
 - **Inspection grades (Full)** — archived inspection histories, derived scores
   and facility grades, violations, checklists, temperatures, and comments,
   fetched only after the visitor acknowledges the **Terms of Use and Data
-  Acknowledgment** (About §06). `public/static/js/ack.js` shows a first-load
-  dialog over the empty basemap that blocks and fetches nothing until
-  answered — "Agree and View Grades" loads Full, "Decline and Use Basic Map"
-  the basic map — remembers the answer per device
-  (`localStorage['cleanplateva.ack.v1']`; bump `ACK_VERSION` to re-ask), and
-  keeps a header control that re-opens the terms so the answer can change.
+  Acknowledgment** (About §06). `app/AckDialog.tsx` (state in `app/ack.ts`)
+  shows a first-load dialog over the empty basemap that blocks and fetches
+  nothing until answered — "Agree and View Grades" loads Full, "Decline and
+  Use Basic Map" the basic map — and remembers the answer per device
+  (`localStorage['cleanplateva.ack.v1']`; bump `ACK_VERSION` to re-ask);
+  About §06 re-opens the terms so the answer can change.
   If full data is unavailable for any reason, the same client falls back to
   the basic map. There is no login: the Cloudflare Access application that
   used to gate `/data-full/*` was retired 2026-08-17 (CPF-M3).
@@ -38,8 +38,9 @@ acknowledges the terms.
 > 2026-08-17. CPX (the close-out sweep) is the remaining V4 arc.
 
 The site is a static MapLibre client. Cloudflare's static-assets layer serves
-[`public/`](public/) — the page, the modules, and the committed public data
-channel — and a small Cloudflare Worker ([`src/worker.js`](src/worker.js))
+the Vite build in `dist/` — the app shell, its hashed assets, and the
+committed public data channel copied verbatim from [`public/`](public/) —
+and a small Cloudflare Worker ([`src/worker.js`](src/worker.js))
 serves only the full channel from R2, with public cache-control and an edge
 cache. Nothing queries VDH or CouchDB at request time, and nothing invokes
 the Worker for a static file: on Workers Free the metered unit is the
@@ -47,15 +48,13 @@ request, so the basic map costs zero Worker requests and the acked boot
 seventeen (the full manifest and sixteen overlay shards); the shared finder
 is read from the static channel by content-addressed name.
 
-The client is plain ES modules under `public/static/js/` — no build step.
-`app.js` boots the page; `dataClient.js` loads the manifest-led tiers;
-`foodDashboard.js` is the dashboard orchestrator (constructor, toolbar
-wiring, load/refresh, view switch) and re-exports the pure helpers. Every
-other concern is one sibling module installed onto the dashboard prototype:
-`constants` · `stacks` · `presentation` · `receipt` (pure) and `map` ·
-`markers` · `hover` · `filters` · `list` · `about` · `detail` · `sparkline` ·
-`inspection` · `router` (method bundles). `tests/support/dashboard.mjs` is
-how the suites import the graph and its concatenated source.
+The client is a React + TypeScript app under [`app/`](app/), built by Vite
+(design ref [`docs/frontend-redesign.md`](docs/frontend-redesign.md)).
+`app/main.tsx` boots it; `app/data/client.ts` loads the manifest-led tiers;
+`app/App.tsx` owns the views (`MapView`, `ListView`, `AboutView`) over the
+router hook (`app/useAppRouter.ts`, on the pure `app/router.ts`) and the
+acknowledgement gate (`app/ack.ts`, `app/AckDialog.tsx`). The suites under
+`tests/vitest/` and beside the modules import them directly.
 
 ### Routes
 
@@ -94,8 +93,8 @@ from the address bar.
 
 Serving this needs one thing from the host: any non-asset path must return
 `index.html` so the client can route it. Cloudflare does that through
-`assets.not_found_handling` in [`wrangler.jsonc`](wrangler.jsonc); `app.py`
-and the CannonAI embed mount mirror it.
+`assets.not_found_handling` in [`wrangler.jsonc`](wrangler.jsonc); the Vite
+dev server and the CannonAI embed mount mirror it.
 
 That setting is all-or-nothing: a genuinely missing data shard comes back as
 `200 text/html` too. The client keeps that honest — `dataClient` treats the
@@ -117,9 +116,9 @@ name the static tree lacks (the minutes between a site deploy and the R2
 flip) simply falls back to R2 by the same name. Static assets stay on the
 fast path: a missing `.js` announces itself as a console MIME error, and a
 per-file worker invocation would be a request-quota cost for a cosmetic
-improvement. `app.py` and the embed mount have no such split — they decide
-before serving, so everything 404s correctly there (and `_headers` is a
-Workers-only file, inert locally).
+improvement. The embed mount has no such split — it decides before serving,
+so a missing shard 404s there (and `_headers` is a Workers-only file, inert
+locally).
 
 The page declares its mount with `<base href>` (`/` here, rewritten to
 `/cleanplate/` by the CannonAI passthrough) and the router reads it from
@@ -213,7 +212,7 @@ and About state — and `vocab: {permit_type, loc, scope}`. Shard descriptors
 include path, bucket, SHA-256, byte size, and record count; shards contain no
 timestamp. There is no public `facilities.json` monolith or compatibility
 loader. The committed artifact contract is pinned by
-`tests/lite-roster-contract.test.mjs`.
+`tests/vitest/lite-roster-contract.spec.ts`.
 
 ### Full archive contract
 
@@ -265,7 +264,7 @@ permits are presentation-merged into that history with lineage retained.
 Details have no timestamp, so unchanged bytes preserve local mtimes and skip
 R2 upload. Compact checklist rows use
 `[item, disposition, flags(, override)]`, where flags are
-`1 compliant | 2 violation | 4 cos | 8 repeat | 16 sentinel`; `dataClient.js`
+`1 compliant | 2 violation | 4 cos | 8 repeat | 16 sentinel`; `app/data/client.ts`
 expands them using `standards.json`.
 
 The client accepts Contract V4 only. A failed Full-manifest read falls back to
@@ -309,45 +308,42 @@ adjustment ladder, provenance, and limitations.
 ## Hosting and local use
 
 Cloudflare Workers deploys [cleanplateva.com](https://cleanplateva.com) from
-`main`. Workers Builds runs `npm ci && npx vite build` on every push (the CR
-program's pipeline, design ref `docs/frontend-redesign.md` §3) — but what is
-*served* is still the no-build client under `public/` (`assets.directory:
-./public`), untouched until CRC's one-PR cutover flips it to `./dist`.
+`main`. Workers Builds runs `npm ci && npx vite build` on every push and
+deploys the result (design ref `docs/frontend-redesign.md` §3):
+`wrangler.jsonc` serves `dist/` — the app shell, its hashed assets, and the
+publisher's `data/` + `_headers` copied verbatim from `public/`, a copy that
+`tests/vitest/dist-contract.spec.ts` pins — with the Worker in front of
+`/data-full/*` only. A branch push builds too, so a PR proves its build
+before it merges. The no-build client this replaced was deleted at CRC
+(2026-09-06); its files are in git history.
 
 ```text
-pip install -r requirements.txt
-python app.py
+npm ci
+npm run dev
 ```
 
-Open `http://127.0.0.1:5001`. Put an exported full tier under
-`public/data-full/` (gitignored) to exercise the full presentation locally:
-the first visit shows the Terms of Use and Data Acknowledgment dialog over the
-empty basemap and fetches nothing until you answer; "Agree and View Grades"
-loads the full tier, "Decline and Use Basic Map" the basic map. The answer is
+Open the URL Vite prints. It serves the app from `app/` with `public/` as a
+passthrough, so put an exported full tier under `public/data-full/`
+(gitignored, unwatched) to exercise the full presentation locally: the first
+visit shows the Terms of Use and Data Acknowledgment dialog over the empty
+basemap and fetches nothing until you answer; "Agree and View Grades" loads
+the full tier, "Decline and Use Basic Map" the basic map. The answer is
 remembered under `localStorage['cleanplateva.ack.v1']` (clear it, or bump
-`ACK_VERSION` in `ack.js`, to be asked again); the header's terms control
-re-opens the dialog. Append `?tier=lite` to force the basic map with no terms
-asked and the control hidden.
+`ACK_VERSION` in `app/ack.ts`, to be asked again); About §06 re-opens the
+dialog. Append `?tier=lite` to force the basic map with no terms asked.
 
-`app.py` is the dev server *because* it does the view-path fallback (see
-Routes above). A bare static server over `public/` still works for the map,
-but loading `/list` or `/about` directly will 404 on it — reach those through
-the in-page tabs, or use `app.py`.
-
-The CR rewrite (React + Vite + Tailwind, design ref
-`docs/frontend-redesign.md`) develops against the Vite dev server instead:
-`npm ci`, then `npm run dev` — it serves the new app from `app/` with the
-same `public/` passthrough (including a local `data-full/`, unwatched) and
-the same SPA fallback. `npm test` runs the Vitest suite, `npm run build` the
-production build into `dist/` (never committed, not served until CRC).
+`npm test` runs the Vitest suite — the component and contract suites, the
+committed-artifact tripwire (`lite-roster-contract`), the retired-vocabulary
+tripwire, and, once `npm run build` has produced `dist/`, the build-output
+contract; `npm run typecheck` runs `tsc`. CI runs `npm ci`, `npx vite build`,
+`npx vitest run` on every PR and push.
 
 `tools/` holds dev-only checks that are not part of the site:
 `tools/visits-crosscheck.mjs` runs the real sparkline pipeline over every
 detail under `public/data-full/facility/` and compares the marks with the
 overlay's `visits` column (`--view public/data-full`, or `--dump` a
 permit→visits map) — the exporter/renderer parity proof behind design ref
-D-DATA-13. `node --test` runs the legacy suites (the served client's
-tripwires); `npx vitest run` the CR scaffold's — CI runs both.
+D-DATA-13.
 
 ## Data source
 

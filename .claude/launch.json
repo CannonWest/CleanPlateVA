@@ -2,10 +2,10 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "clean-plate-va",
-      "runtimeExecutable": "python",
-      "runtimeArgs": ["app.py"],
-      "port": 5001
+      "name": "cleanplateva-vite",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["vite", "--port", "5620", "--strictPort"],
+      "port": 5620
     }
   ]
 }

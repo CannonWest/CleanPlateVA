@@ -1,24 +1,23 @@
 // CR build config (CRF-M0) — the D-CR-BUILD-1 layout, ratified CRD-M0
-// (design ref docs/frontend-redesign.md §3, §10):
+// (design ref docs/frontend-redesign.md §3, §10); the served site since
+// CRC's one-PR flip (2026-09-06, wrangler.jsonc assets.directory ./dist):
 //
 //   · Vite at the repo root, the app under app/, output dist/.
 //   · public/ is the publisher's channel (C5): in dev it is served as a
 //     passthrough (including a local data-full/ for full-tier work); at
-//     build it rides into dist/ verbatim — EXCEPT the three entries below.
-//   · src/worker.js and wrangler's `main` pointer never move, and
-//     wrangler.jsonc's assets.directory stays ./public until CRC's one-PR
-//     flip (C4) — building dist/ changes nothing about what is served.
+//     build it rides into dist/ verbatim — EXCEPT the entry below.
+//   · src/worker.js and wrangler's `main` pointer never move (C4).
 //
 // Vite has no publicDir exclude list, so the build copy is done by the
 // closeBundle plugin below instead of copyPublicDir:
 //
 //   · data-full/**  — the 400+ MB local-only full archive (gitignored;
 //     absent in the Workers Builds checkout). Never a build input.
-//   · index.html + static/** — the OLD no-build client, which remains the
-//     *served* site until CRC and is ignored by the build (§3). The built
-//     dist/index.html is the new app's entry; copying the old shell over it
-//     (or its 19 ES modules beside it) would re-ship the client this
-//     program retires.
+//
+// The old no-build client (public/index.html + public/static/**) was the
+// second exclusion until CRC deleted it; tests/vitest/dist-contract.spec.ts
+// keeps its "static/** is not copied" pin as the tripwire against a
+// resurrected public/static.
 //
 // What DOES ride into dist/: public/data/** (manifest + finder shards) and
 // public/_headers — cannon-food's write targets, byte-identical (C5), pinned
@@ -30,7 +29,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
-const PUBLIC_COPY_EXCLUDED = ['data-full', 'index.html', 'static']
+const PUBLIC_COPY_EXCLUDED = ['data-full']
 
 function cpPublicCopy() {
     return {
