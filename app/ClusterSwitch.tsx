@@ -2,6 +2,7 @@
  * The clustering control (CRP-M6, Cannon's call): a second SWITCH in the
  * bottom-left corner, stacked directly above the theme switch — same pill,
  * same thumb idiom — so the corner reads as two presentation preferences.
+ * App's corner column places it (it has no fixed position of its own).
  * Off (every place drawn) is the shipped default; the thumb slides to the
  * grouped mark for production's proximity clusters. Public words in the
  * formal register: "Group nearby places" / "Show every place."
@@ -25,8 +26,7 @@ export function ClusterSwitch({ on, onToggle }: {
             aria-label="Group nearby places"
             title={on ? 'Show every place' : 'Group nearby places'}
             onClick={() => onToggle(!on)}
-            // One switch-height above the theme switch (bottom-10 + 32px + 4px).
-            className="fixed bottom-[76px] left-3 z-10 flex items-center gap-0 rounded-cp-pill border border-cp-hairline bg-cp-surface-1 p-[3px] shadow-cp"
+            className="flex items-center gap-0 rounded-cp-pill border border-cp-hairline bg-cp-surface-1 p-[3px] shadow-cp"
         >
             <span
                 className={`flex h-6 w-6 items-center justify-center rounded-full ${

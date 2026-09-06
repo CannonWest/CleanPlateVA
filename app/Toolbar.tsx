@@ -2,7 +2,9 @@
  * The ONE floating band (§6.2 chrome, CRVa-M0) — brand · Map/List/About
  * switcher · search pill · A–F grade chips · Filters pill · Show closed ·
  * counts, in a single card that reflows into the space left of an open
- * panel (the panel never obscures chrome). Wired to the ported filter
+ * panel (the panel never obscures chrome — the RIGHT sheet, from `sm`
+ * up; on a phone the panel is a bottom sheet and the band keeps its
+ * full width). Wired to the ported filter
  * predicate through the router actions; every control speaks C6.
  *
  * Tier rules (ported): the basic map hides the judgment controls — grade
@@ -94,6 +96,19 @@ export function Toolbar({ state, actions, lite, shown, total, panelOpen, docked 
         : (['restaurantsOnly', 'showNew', 'showMobile'] as const))
     const deviations = popoverFlags.filter((f) => filters[f] !== FLAG_DEFAULTS[f]).length
 
+    // The band beside an OPEN panel: from `sm` up the right sheet takes
+    // 400px + gutters and the band reflows into what is left; below `sm`
+    // the panel is a bottom sheet (DetailPanel's max-sm rules) and the
+    // band keeps the full width. The old inline
+    // min(100vw − 24px, 100vw − 448px) went negative on a phone, clamped
+    // to 0, and collapsed the band to its padding with every control
+    // spilling out of the card (mobile fix, 2026-09-06).
+    // (Whole class strings, whitespace-delimited: Tailwind's scanner reads
+    // source text for candidates and drops one glued to a `${`.)
+    const floating = panelOpen
+        ? 'fixed top-3 left-3 max-w-[calc(100vw-24px)] sm:max-w-[calc(100vw-448px)]'
+        : 'fixed top-3 left-3 max-w-[calc(100vw-24px)]'
+
     const filtered = shown !== total
     const countTitle = filtered
         ? `${shown.toLocaleString()} of ${total.toLocaleString()} facilities match the active filters`
@@ -102,13 +117,8 @@ export function Toolbar({ state, actions, lite, shown, total, panelOpen, docked 
     return (
         <header
             className={`z-20 flex flex-wrap items-center gap-x-3.5 gap-y-1.5 rounded-cp-card border border-cp-hairline bg-cp-surface-1 px-3 py-2 shadow-cp ${
-                docked ? 'relative mx-3 mt-3' : 'fixed top-3 left-3'
+                docked ? 'relative mx-3 mt-3' : floating
             }`}
-            style={docked ? undefined : {
-                maxWidth: panelOpen
-                    ? 'min(calc(100vw - 24px), calc(100vw - 448px))'
-                    : 'calc(100vw - 24px)',
-            }}
         >
             <div className="flex flex-none items-center gap-2 text-[14.5px] font-bold">
                 <img
