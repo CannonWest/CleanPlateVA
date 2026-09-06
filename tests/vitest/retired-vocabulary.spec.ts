@@ -78,7 +78,7 @@ const RETIRED: { re: RegExp; why: string }[] = [
     // --- CRC (2026-09-06): the no-build client, its dev server and its runner ---
     { re: /cdn\.jsdelivr\.net/, why: 'no CDN host — the Vite build vendors every dependency first-party (CRC)' },
     { re: /bootstrap-icons/, why: 'Lucide, inlined and tree-shaken; the icon font is gone (CRC)' },
-    { re: /data-bs-theme/, why: 'Bootstrap is gone; dark is the document default and .theme-light the opt-in (CRC)' },
+    { re: /data-bs-theme/, why: 'Bootstrap is gone; the theme is .theme-light on <html> over the dark CSS base (CRC)' },
     { re: /static\/css\/style\.css/, why: 'app/theme.css (CRC)' },
     { re: /static\/js\//, why: 'the shipped client is the Vite build from index.html + app/ (CRC)' },
     { re: /dashboard\.mjs/, why: 'Vitest imports the modules; the concatenated-source shim died with the module graph it shimmed (CRC)' },

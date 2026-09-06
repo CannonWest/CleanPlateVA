@@ -1,8 +1,11 @@
 /**
- * The clustering control (CRP-M6, Cannon's call): a second SWITCH in the
- * bottom-left corner, stacked directly above the theme switch — same pill,
- * same thumb idiom — so the corner reads as two presentation preferences.
- * App's corner column places it (it has no fixed position of its own).
+ * The clustering control (CRP-M6, Cannon's call): a SWITCH in the
+ * bottom-left corner, directly above the attribution chip — the theme
+ * switch's pill and thumb idiom at the corner's size. (The theme switch
+ * itself stood right above this one until 2026-09-06, when it moved to
+ * the top-left beside the band, 1.5× and in color; this is the corner's
+ * one switch now.) App's corner column places it (it has no fixed
+ * position of its own).
  * Off (every place drawn) is the shipped default; the thumb slides to the
  * grouped mark for production's proximity clusters. Public words in the
  * formal register: "Group nearby places" / "Show every place."
