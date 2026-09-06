@@ -152,10 +152,10 @@ export function installDataLayers(map: LayerHost, data: MapData, dark: boolean, 
             'text-allow-overlap': true,
             'text-ignore-placement': true,
         },
-        // The hole is the theme's stack surface — the stacks' own ink, no
-        // halo (the old white-on-dark-halo treatment existed for the
-        // grade-tinted fills).
-        paint: { 'text-color': STACK_INK[theme] },
+        // The hole is the stacks' surface — their own ink, no halo (the
+        // old white-on-dark-halo treatment existed for the grade-tinted
+        // fills). Theme-invariant with them since 2026-09-06.
+        paint: { 'text-color': STACK_INK },
     })
     map.addLayer({
         id: LYR_POINTS,
@@ -197,7 +197,7 @@ export function installDataLayers(map: LayerHost, data: MapData, dark: boolean, 
         filter: STACK_FILTER,
         paint: {
             'circle-radius': stackRadiusExpr(),
-            'circle-color': STACK_SURFACE[theme],
+            'circle-color': STACK_SURFACE,
             'circle-stroke-color': MARKER_RING[theme],
             'circle-stroke-width': ['interpolate', ['linear'], ['zoom'], 9, 1.5, 12, 2],
         },
@@ -217,7 +217,7 @@ export function installDataLayers(map: LayerHost, data: MapData, dark: boolean, 
         },
         // Neutral bubble, ink label — the count sits INSIDE (the old
         // outside-offset dodge existed for grade-tinted fills).
-        paint: { 'text-color': STACK_INK[theme] },
+        paint: { 'text-color': STACK_INK },
     })
 }
 

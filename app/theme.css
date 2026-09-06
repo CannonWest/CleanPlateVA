@@ -19,8 +19,10 @@
 @import "tailwindcss";
 
 /* The class flip. The un-prefixed styles ARE the dark design, so the
-   variant is `light:` (there is no `dark:`; use `light:` only for
-   structural differences the tokens cannot carry — none does today). */
+   variant is `light:` (there is no `dark:`; use `light:` only for what the
+   tokens cannot carry). One use today: ThemeSwitch's moon, whose ink is
+   the control's own rather than the theme's — off-white on the dark track,
+   mid-slate on the light one — so it cannot ride a semantic token. */
 @custom-variant light (&:where(.theme-light, .theme-light *));
 
 :root {

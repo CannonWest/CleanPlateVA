@@ -113,7 +113,7 @@ test('filters and zoom gates: clusters by point_count, points/stacks by kind, le
     expect(evaluate(POINT_FILTER, 'filter', 8, dot)).toBe(true)
 })
 
-test('the theme reaches the paint: ring color, stack surface + ink, the donut ids', () => {
+test('the theme reaches the paint: ring color and the donut ids (the stacks no longer take it)', () => {
     for (const dark of [true, false]) {
         const theme = dark ? 'dark' : 'light'
         const { host, calls } = recorder()
@@ -125,15 +125,34 @@ test('the theme reaches the paint: ring color, stack surface + ink, the donut id
         expect(points['circle-radius']).toEqual(pointRadiusExpr())
         expect(points['circle-stroke-color']).toEqual(ringColorExpr(theme))
         expect(points['circle-stroke-width']).toEqual(ringWidthExpr())
-        expect(by[LYR_STACKS]!.paint!['circle-color']).toBe(STACK_SURFACE[theme])
+        expect(by[LYR_STACKS]!.paint!['circle-color']).toBe(STACK_SURFACE)
         expect(by[LYR_STACKS]!.paint!['circle-stroke-color']).toBe(MARKER_RING[theme])
         expect(by[LYR_STACKS]!.paint!['circle-radius']).toEqual(stackRadiusExpr())
-        expect(by[LYR_STACK_COUNT]!.paint!['text-color']).toBe(STACK_INK[theme])
-        expect(by[LYR_CLUSTERS]!.paint!['text-color']).toBe(STACK_INK[theme])
+        expect(by[LYR_STACK_COUNT]!.paint!['text-color']).toBe(STACK_INK)
+        expect(by[LYR_CLUSTERS]!.paint!['text-color']).toBe(STACK_INK)
         expect(by[LYR_CLUSTERS]!.layout!['icon-image']).toEqual(donutIconExpr(theme))
         expect(by[LYR_CLUSTERS]!.layout!['text-field']).toEqual(CLUSTER_COUNT_TEXT)
         expect(by[LYR_POINT_LETTERS]!.paint!['text-color']).toBe('#ffffff')
     }
+})
+
+test('the neutral count bubble is THEME-INVARIANT (Cannon 2026-09-06): the dark surface + ink on a light basemap too', () => {
+    expect(STACK_SURFACE).toBe('#242a31')
+    expect(STACK_INK).toBe('#e9ecef')
+    // Four paints across the two themes — the stack bubble, its count, and
+    // the donut hole's count — collapse to ONE surface and ONE ink, so a
+    // stack looks like a stack wherever you meet it and an isolated stack
+    // can never read differently from the cluster bubble beside it.
+    const painted = new Set<string>()
+    for (const dark of [true, false]) {
+        const { host, calls } = recorder()
+        installDataLayers(host, DATA, dark, false)
+        const by = Object.fromEntries(calls.addLayer.map((l) => [l.id, l])) as Record<string, Layer>
+        painted.add(String(by[LYR_STACKS]!.paint!['circle-color']))
+        painted.add(String(by[LYR_STACK_COUNT]!.paint!['text-color']))
+        painted.add(String(by[LYR_CLUSTERS]!.paint!['text-color']))
+    }
+    expect([...painted].sort()).toEqual([STACK_SURFACE, STACK_INK].sort())
 })
 
 test('the ring (CRP-M2): declining trades the theme white for the red, at a wider stroke, no zoom gate', () => {
