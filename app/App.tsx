@@ -224,7 +224,7 @@ function Shell({ forceLite, ack }: {
                 // column is as wide as the band, capped at the viewport's
                 // gutters and, beside an OPEN panel from `sm` up (the right
                 // sheet takes 400px + gutters), at what is left; below `sm`
-                // the panel is a bottom sheet (DetailPanel's max-sm rules)
+                // the panel is a full-screen sheet (DetailPanel's max-sm rules)
                 // and the column keeps the full width — the caps are the
                 // band's own from the mobile fix of 2026-09-06 (an inline
                 // min(100vw - 24px, 100vw - 448px) went negative on a phone

@@ -1,6 +1,9 @@
 /**
- * The detail panel (§6.2, CRVa-M2) — right sheet on desktop, bottom sheet
- * on mobile. Header: name/address + the Source button (the external
+ * The detail panel (§6.2, CRVa-M2) — a right sheet from `sm` up; on a
+ * phone it takes the WHOLE screen, the close ✕ at the screen's top-right
+ * (Cannon's call 2026-09-06, replacing the 62vh bottom sheet: any width
+ * that would put the panel at the bottom gets it full-screen instead).
+ * Header: name/address + the Source button (the external
  * grammar) + close; the fact line renders permanent facts structurally
  * (kind as icon + word, status as dot + word) with `≈ approximate
  * location` as the ONE badge; the grade hero is a single centered
@@ -159,7 +162,7 @@ export function DetailPanel({ row, lite, state, onClose, onAbout }: {
 
     return (
         <aside
-            className="fixed top-3 right-3 bottom-3 z-30 flex w-[min(400px,calc(100vw-24px))] flex-col overflow-hidden rounded-cp-card border border-cp-hairline bg-cp-surface-1 shadow-cp max-sm:top-auto max-sm:right-0 max-sm:bottom-0 max-sm:max-h-[62vh] max-sm:w-full max-sm:rounded-b-none"
+            className="fixed top-3 right-3 bottom-3 z-30 flex w-[min(400px,calc(100vw-24px))] flex-col overflow-hidden rounded-cp-card border border-cp-hairline bg-cp-surface-1 shadow-cp max-sm:inset-0 max-sm:w-full max-sm:rounded-none max-sm:border-0 max-sm:shadow-none"
             aria-label={`${row.name} details`}
         >
             <header className="border-b border-cp-hairline px-4 pt-4 pb-3">
@@ -184,7 +187,9 @@ export function DetailPanel({ row, lite, state, onClose, onAbout }: {
                         Source
                         <ExternalLink size={13} aria-hidden="true" />
                     </a>
-                    <button type="button" aria-label="Close" onClick={onClose} className="flex-none self-start text-cp-ink-3 hover:text-cp-ink">
+                    {/* On a phone the ✕ IS the screen's top-right corner: the
+                        icon stays put, the hit box grows to 8px off both edges. */}
+                    <button type="button" aria-label="Close" onClick={onClose} className="flex-none self-start text-cp-ink-3 hover:text-cp-ink max-sm:-m-2 max-sm:p-2">
                         <X size={17} aria-hidden="true" />
                     </button>
                 </div>
