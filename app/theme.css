@@ -4,8 +4,12 @@
    The token vocabulary is docs/mockups/tokens.css ("slate & signal",
    ratified CRD-M1 2026-08-29; the style tile is its reviewed spec) —
    translated here into the Tailwind @theme per D-CR-STYLE-1: v4 CSS-first
-   config, class-based variant, DARK AS THE DOCUMENT DEFAULT (C10).
-   :root carries the dark values; .theme-light on <html> flips the theme.
+   config, class-based variant, the DARK design as the un-prefixed CSS base.
+   :root carries the dark values; .theme-light on <html> flips the theme —
+   and since 2026-09-06 the class is ON by default: LIGHT is the visitor
+   default (Cannon's call, C10 amended; index.html + app/theme.ts add the
+   class unless the visitor chose dark). The base itself did not flip —
+   no component uses the `light:` variant, so nothing had to.
    The raw --cp-* custom properties are the source of truth and the @theme
    maps them 1:1 (inline, so utilities reference live var()s and flip with
    the class) — a value change belongs in the --cp-* blocks, mirrored from
@@ -14,9 +18,9 @@
 
 @import "tailwindcss";
 
-/* The class flip. Dark is the default document, so the variant is `light:`
-   (there is no `dark:` — un-prefixed styles ARE the dark design; use
-   `light:` only for structural differences the tokens cannot carry). */
+/* The class flip. The un-prefixed styles ARE the dark design, so the
+   variant is `light:` (there is no `dark:`; use `light:` only for
+   structural differences the tokens cannot carry — none does today). */
 @custom-variant light (&:where(.theme-light, .theme-light *));
 
 :root {

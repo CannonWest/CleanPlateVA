@@ -12,7 +12,11 @@
  * only, Mobile food units, and the counts (P6).
  *
  * The theme control moved OFF the band at the M0 review (Cannon's call):
- * it's a real switch in the bottom-left corner now — `ThemeSwitch`.
+ * it's a real switch — `ThemeSwitch` — beside the band's left edge since
+ * 2026-09-06 (bottom-left before that). The band does not position
+ * itself: App's top row does (a fixed row over the map, an in-flow row at
+ * the head of the List / About documents) and carries the panel-aware
+ * width, so the switch and the band never have to know each other's size.
  */
 
 import { useEffect, useRef, useState } from 'react'
@@ -43,16 +47,12 @@ function canonicalQuery(raw: string): string {
     return raw.trim().toLowerCase().replace(/\s+/g, ' ')
 }
 
-export function Toolbar({ state, actions, lite, shown, total, panelOpen, docked = false }: {
+export function Toolbar({ state, actions, lite, shown, total }: {
     state: AppState
     actions: RouterActions
     lite: boolean
     shown: number
     total: number
-    panelOpen: boolean
-    /** Map: a floating fixed band over the canvas. List/About documents:
-     *  the band rides IN the page flow at the top of the scroll. */
-    docked?: boolean
 }) {
     const { filters } = state
 
@@ -96,29 +96,17 @@ export function Toolbar({ state, actions, lite, shown, total, panelOpen, docked 
         : (['restaurantsOnly', 'showNew', 'showMobile'] as const))
     const deviations = popoverFlags.filter((f) => filters[f] !== FLAG_DEFAULTS[f]).length
 
-    // The band beside an OPEN panel: from `sm` up the right sheet takes
-    // 400px + gutters and the band reflows into what is left; below `sm`
-    // the panel is a bottom sheet (DetailPanel's max-sm rules) and the
-    // band keeps the full width. The old inline
-    // min(100vw − 24px, 100vw − 448px) went negative on a phone, clamped
-    // to 0, and collapsed the band to its padding with every control
-    // spilling out of the card (mobile fix, 2026-09-06).
-    // (Whole class strings, whitespace-delimited: Tailwind's scanner reads
-    // source text for candidates and drops one glued to a `${`.)
-    const floating = panelOpen
-        ? 'fixed top-3 left-3 max-w-[calc(100vw-24px)] sm:max-w-[calc(100vw-448px)]'
-        : 'fixed top-3 left-3 max-w-[calc(100vw-24px)]'
-
     const filtered = shown !== total
     const countTitle = filtered
         ? `${shown.toLocaleString()} of ${total.toLocaleString()} facilities match the active filters`
         : `${total.toLocaleString()} facilities in this snapshot`
 
+    // The card is a flex item of App's top row: min-w-0 lets it shrink to
+    // the width the row leaves it and wrap its controls inside (the row
+    // carries the viewport / open-panel caps — App.tsx).
     return (
         <header
-            className={`z-20 flex flex-wrap items-center gap-x-3.5 gap-y-1.5 rounded-cp-card border border-cp-hairline bg-cp-surface-1 px-3 py-2 shadow-cp ${
-                docked ? 'relative mx-3 mt-3' : floating
-            }`}
+            className="relative z-20 flex min-w-0 flex-wrap items-center gap-x-3.5 gap-y-1.5 rounded-cp-card border border-cp-hairline bg-cp-surface-1 px-3 py-2 shadow-cp"
         >
             <div className="flex flex-none items-center gap-2 text-[14.5px] font-bold">
                 <img

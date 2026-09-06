@@ -66,7 +66,6 @@ async function mount(over: {
                     lite={over.lite ?? false}
                     shown={over.shown ?? 25164}
                     total={over.total ?? 25164}
-                    panelOpen={false}
                 />
             </StrictMode>,
         )

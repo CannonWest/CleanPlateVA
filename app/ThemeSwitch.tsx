@@ -1,20 +1,31 @@
 /**
- * The theme control (CRVa-M1, Cannon's M0 review call): an actual SWITCH in
- * the bottom-left corner — obvious, not a buried icon button. Dark is the
- * document default (C10); the thumb slides to the sun for light. On the
- * map it sits in App's corner column, directly above the attribution
- * chip; on the document views (List, About) it floats bottom-left on
- * its own.
+ * The theme control (CRVa-M1, Cannon's M0 review call): an actual SWITCH —
+ * obvious, not a buried icon button. In the TOP-LEFT corner since
+ * 2026-09-06 (Cannon's call; it stood bottom-left in the corner column
+ * until then), placed by App's top row beside the band on the map and on
+ * the document views alike, at 1.5× the corner column's pill.
+ *
+ * Its colors are its own, not the theme's: an off-white moon and a yellow
+ * sun on a night-slate track. A theme switch is a picture of its two
+ * options, and the picture must read the same in either theme — an
+ * off-white moon on the light theme's white surface would vanish. The
+ * thumb (the disc under the active glyph: the sun for light, the moon for
+ * dark) is the state; the other glyph dims. Light is the visitor default
+ * (theme.ts); the control asks for the OTHER state on click and never
+ * flips itself.
  */
 
 import { Moon, Sun } from 'lucide-react'
 
-export function ThemeSwitch({ dark, onTheme, floating = true }: {
+/** The glyph colors (Cannon's call 2026-09-06): Open Color gray-1 for the
+ *  moon, yellow-5 for the sun — solid (fill + stroke), so each reads as a
+ *  body, not an outline. Pinned by tests/vitest/theme-switch.spec.tsx. */
+export const MOON_COLOR = '#f1f3f5'
+export const SUN_COLOR = '#fcc419'
+
+export function ThemeSwitch({ dark, onTheme }: {
     dark: boolean
     onTheme: (dark: boolean) => void
-    /** Its own fixed bottom-left placement (the document views), or
-     *  placed by a parent (the map's corner column). */
-    floating?: boolean
 }) {
     return (
         <button
@@ -24,21 +35,21 @@ export function ThemeSwitch({ dark, onTheme, floating = true }: {
             aria-label="Dark theme"
             title={dark ? 'Switch to the light theme' : 'Switch to the dark theme'}
             onClick={() => onTheme(!dark)}
-            className={`${floating ? 'fixed bottom-10 left-3 z-10 ' : ''}flex items-center gap-0 rounded-cp-pill border border-cp-hairline bg-cp-surface-1 p-[3px] shadow-cp`}
+            className="flex flex-none items-center gap-0 rounded-cp-pill border border-white/10 bg-[#1d2126] p-[5px] shadow-cp"
         >
             <span
-                className={`flex h-6 w-6 items-center justify-center rounded-full ${
-                    dark ? 'bg-cp-surface-3 text-cp-ink' : 'text-cp-ink-3'
+                className={`flex h-9 w-9 items-center justify-center rounded-full ${
+                    dark ? 'bg-[#343a40]' : 'opacity-50'
                 }`}
             >
-                <Moon size={13} aria-hidden="true" />
+                <Moon size={20} color={MOON_COLOR} fill={MOON_COLOR} aria-hidden="true" />
             </span>
             <span
-                className={`flex h-6 w-6 items-center justify-center rounded-full ${
-                    dark ? 'text-cp-ink-3' : 'bg-cp-accent-solid text-cp-accent-ink'
+                className={`flex h-9 w-9 items-center justify-center rounded-full ${
+                    dark ? 'opacity-50' : 'bg-cp-accent-solid'
                 }`}
             >
-                <Sun size={13} aria-hidden="true" />
+                <Sun size={20} color={SUN_COLOR} fill={SUN_COLOR} aria-hidden="true" />
             </span>
         </button>
     )

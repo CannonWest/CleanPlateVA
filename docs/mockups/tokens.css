@@ -1,6 +1,7 @@
 /* ============================================================
    CleanPlateVA CR tokens — "slate & signal" (ratified CRD-M1, 2026-08-29)
-   Dark is the document default; .theme-light on <html> flips the theme.
+   The un-prefixed values are the dark design; .theme-light on <html> flips
+   the theme (ON by default since 2026-09-06 — light is the visitor default).
    At CRF these become the Tailwind v4 @theme vocabulary; the style tile
    (style-tile.html) is the reviewed spec of this file.
    ============================================================ */
