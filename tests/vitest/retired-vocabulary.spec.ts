@@ -84,6 +84,7 @@ const RETIRED: { re: RegExp; why: string }[] = [
     { re: /dashboard\.mjs/, why: 'Vitest imports the modules; the concatenated-source shim died with the module graph it shimmed (CRC)' },
     { re: /python app\.py/, why: 'dev is `npm run dev`; the Flask dev server retired (CRC)' },
     { re: /node --test|test:node/, why: 'Vitest is the one runner (CRC)' },
+    { re: /wrangler\.preview\.jsonc|cleanplateva-preview/, why: 'the dual-track preview retired at CRC-M2 (2026-09-06); production serves dist/' },
 ]
 
 const SCAN_DIRS = ['docs', 'src', 'public', 'tests', 'app']
@@ -187,10 +188,9 @@ test('no retired vocabulary in live prose or code (design ref §14.1)', () => {
  *    is the Vite entry, and the constitution's decision rows quote the files
  *    they retired. Only the dead-outright forms (`python app.py`, the
  *    `static/js/` and `static/css/style.css` paths) are listed.
- *  - `wrangler.preview.jsonc` / `cleanplateva-preview` / `next.cleanplateva.com`
- *    — the dual-track preview's config left with the flip, but the Worker
- *    and its domain stay up through CRC-M2's host verification; the row is
- *    in §14.1 and its regex lands when they are torn down.
+ *  - `next.cleanplateva.com` — the dual-track preview's hostname survives in
+ *    dated receipts (design ref §3, §8, §9.1); its config file and Worker
+ *    name were the dead-outright strings and are listed above (CRC-M2).
  *
  * And the class it cannot catch at all: prose built entirely from live
  * vocabulary that describes a world which changed. CPX-M0 finding F5 — the
