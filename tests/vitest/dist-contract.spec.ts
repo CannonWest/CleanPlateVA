@@ -25,9 +25,39 @@ function sameBytes(relPath: string) {
     expect(copy.equals(source), `${relPath} must reach dist/ byte-identical`).toBe(true)
 }
 
+// Vite names every emitted file `assets/[name]-[hash][ext]`; the maplibre
+// worker pair is COPIED by name (vite.config.ts maplibreWorkerCopy) and does
+// not match. Same expression as the build plugin — the pin re-derives the
+// expected rule set from dist/assets rather than trusting the plugin's list.
+const HASHED_ASSET = /-[A-Za-z0-9_-]{8}\.[a-z0-9]+$/
+const IMMUTABLE = 'public, max-age=31536000, immutable'
+
 describe.skipIf(!built)('dist/ carries the publisher channel verbatim (C5)', () => {
-    test('_headers reaches dist/ byte-identical', () => {
-        sameBytes('_headers')
+    test('_headers reaches dist/ as the publisher block byte-identical, then the build rules (D-CRX-1)', () => {
+        const source = readFileSync(resolve(PUBLIC, '_headers'))
+        const copy = readFileSync(resolve(DIST, '_headers'))
+        expect(copy.subarray(0, source.length).equals(source),
+            'the publisher block must LEAD dist/_headers byte-identical').toBe(true)
+
+        // The appended block: one rule per content-hashed asset, by name — never
+        // a splat (a /assets/* rule stamps `immutable` on the SPA shell a missing
+        // name returns, CPH-M3), never the un-hashed worker pair, never a /data/
+        // rule (those are the publisher's and live only in its block).
+        const appended = copy.subarray(source.length).toString('utf8')
+        expect(appended).toContain('# Build assets (D-CRX-1)')
+        expect(appended).not.toMatch(/^\/assets\/\*/m)
+        expect(appended).not.toContain('/data/')
+        for (const name of ['maplibre-gl-worker.mjs', 'maplibre-gl-shared.mjs']) expect(appended).not.toContain(name)
+
+        const rules = [...appended.matchAll(/^\/(assets\/\S+)\r?\n[ \t]+Cache-Control: ([^\r\n]+)/gm)]
+        const ruled = rules.map((m) => m[1]!).sort()
+        const hashed = readdirSync(resolve(DIST, 'assets'))
+            .filter((name) => HASHED_ASSET.test(name))
+            .map((name) => `assets/${name}`)
+            .sort()
+        expect(hashed.length).toBeGreaterThan(0)
+        expect(ruled, 'every hashed asset has exactly one rule and nothing else does').toEqual(hashed)
+        for (const m of rules) expect(m[2]).toBe(IMMUTABLE)
     })
 
     test('data/manifest.json reaches dist/ byte-identical', () => {

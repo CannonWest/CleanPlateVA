@@ -315,10 +315,12 @@ adjustment ladder, provenance, and limitations.
 Cloudflare Workers deploys [cleanplateva.com](https://cleanplateva.com) from
 `main`. On a push to `main`, Workers Builds runs `npm ci && npx vite build`
 and deploys the result (design ref `docs/frontend-redesign.md` §3):
-`wrangler.jsonc` serves `dist/` — the app shell, its hashed assets, and the
-publisher's `data/` + `_headers` copied verbatim from `public/`, a copy that
-`tests/vitest/dist-contract.spec.ts` pins — with the Worker in front of
-`/data-full/*` only. A push to any other branch runs **no build command**
+`wrangler.jsonc` serves `dist/` — the app shell, its hashed assets, the
+publisher's `data/` copied verbatim from `public/`, and its `_headers`
+carried verbatim with the build's own rules appended (one `immutable` rule
+per content-hashed asset, by name, never a splat; `public/_headers` itself is
+never edited) — `tests/vitest/dist-contract.spec.ts` pins all of it — with
+the Worker in front of `/data-full/*` only. A push to any other branch runs **no build command**
 (measured at the flip, design ref §3), so its Workers Builds check reads
 red now that `dist/` needs a build; the pre-merge proof of a PR is the
 GitHub Actions job below plus a local `npx wrangler deploy --dry-run`
