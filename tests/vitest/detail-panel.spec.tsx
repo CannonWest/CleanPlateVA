@@ -136,6 +136,11 @@ test('the full panel: header, fact line, tappable hero → report-card modal, tr
     await act(async () => {
         ;(hero as HTMLButtonElement).click()
     })
+    // The modal's chunk loads on its first open (CRP-M5) — give the lazy
+    // import a moment to land; every later open is synchronous.
+    for (let i = 0; i < 100 && !el.querySelector('[role="dialog"]'); i += 1) {
+        await act(async () => { await new Promise((r) => setTimeout(r, 20)) })
+    }
     const modal = el.querySelector('[role="dialog"]')
     expect(modal).toBeTruthy()
     expect(modal?.textContent).toContain('How this grade was computed')
