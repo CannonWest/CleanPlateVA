@@ -85,6 +85,9 @@ const RETIRED: { re: RegExp; why: string }[] = [
     { re: /python app\.py/, why: 'dev is `npm run dev`; the Flask dev server retired (CRC)' },
     { re: /node --test|test:node/, why: 'Vitest is the one runner (CRC)' },
     { re: /wrangler\.preview\.jsonc|cleanplateva-preview/, why: 'the dual-track preview retired at CRC-M2 (2026-09-06); production serves dist/' },
+
+    // --- CRX (2026-09-06): the dev tool that imported the deleted client ---
+    { re: /visits-crosscheck\.mjs/, why: 'deleted at CRX-M1 — it imported the old client\'s presentation.js + dataClient.js; tests/vitest/visits-parity.spec.ts pins the derivation' },
 ]
 
 const SCAN_DIRS = ['docs', 'src', 'public', 'tests', 'app']

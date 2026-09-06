@@ -80,7 +80,7 @@ The regexes are clean here (the site tripwire already scans the file). The deepe
 | 34–36 | "CPX (the close-out sweep) is the remaining V4 arc." | rewrite | CPX closed 2026-08-18; the CR program then rewrote the front end and flipped 2026-09-06. The design-reference callout should name both constitutions and the state |
 | 311–312 | "Workers Builds runs `npm ci && npx vite build` on every push and deploys the result" | rewrite | on pushes to `main` only — a non-production branch runs no build command (design ref §3, corrected at the flip) |
 | 316–317 | "A branch push builds too, so a PR proves its build before it merges." | rewrite | false since the flip made `./dist` need a build: the PR proof is GitHub Actions (`npm ci · npx vite build · npx vitest run`) plus a local `npx wrangler deploy --dry-run`; the Workers Builds branch check reads red until D-CRX-2 |
-| 246, 342 | `tools/visits-crosscheck.mjs` described as the live exporter/renderer parity proof | rewrite, after §3.4's call | the tool is dead (below); `tests/vitest/visits-parity.spec.ts` is the parity pin on the CR stack |
+| 246, 342 | `tools/visits-crosscheck.mjs` described as the live exporter/renderer parity proof | rewrite, after §3.4's call | the tool is dead (below); `tests/vitest/visits-parity.spec.ts` is the parity pin on the CR stack | <!-- retired-ok: CRX-M0 inventory -->
 | 317 | "The no-build client this replaced was deleted at CRC (2026-09-06)" | — | correct past tense; the phrase regex's one README hit |
 
 ### 3.4 the site's `tools/` — unscanned, and one dead tool
@@ -89,7 +89,7 @@ The regexes are clean here (the site tripwire already scans the file). The deepe
 
 | File | Line | Class | Note |
 |---|---|---|---|
-| `tools/visits-crosscheck.mjs` | 34–38 | **code** | `pathToFileURL(join(root, 'public', 'static', 'js'))` then `import(new URL('presentation.js', jsDir))` and `dataClient.js` — both deleted by the flip. The archive-wide exporter-vs-renderer crosscheck (27,919/27,919 at CPH-M0/M1; architecture-v4 §13, §15) has no CR-stack equivalent; `visits-parity.spec.ts` pins the derivation from the row on fixtures, not over the archive. §4.3 |
+| `tools/visits-crosscheck.mjs` | 34–38 | **code** | `pathToFileURL(join(root, 'public', 'static', 'js'))` then `import(new URL('presentation.js', jsDir))` and `dataClient.js` — both deleted by the flip. The archive-wide exporter-vs-renderer crosscheck (27,919/27,919 at CPH-M0/M1; architecture-v4 §13, §15) has no CR-stack equivalent; `visits-parity.spec.ts` pins the derivation from the row on fixtures, not over the archive. §4.3 | <!-- retired-ok: CRX-M0 inventory -->
 | `tools/dev_preview_mockups.py` | — | — | the CRD mockup server; imports nothing from the client |
 
 ### 3.5 the rest of the checkout, and `launch.json`
@@ -120,7 +120,7 @@ Add to `cannon-food/tests/test_retired_vocabulary.py`'s `RETIRED` (its scope: `c
 ### 4.3 Calls — two live breaks, both outside CRX's stated scope
 
 1. **`cannon-food/scripts/cf_publish_cleanplate.py:618` — the Lite gate runs a deleted file.** Not prose: the next publish halts at `lite_contract`. Fix shape: `["node", "node_modules/vitest/vitest.mjs", "run", "tests/vitest/lite-roster-contract.spec.ts"]` with `cwd=site` (the `node …/bin` form the workspace launch file already uses for Vite; `npx` is a `.cmd` shim `subprocess` will not resolve without a shell), plus the two prose lines. The routine's version pins name the archive schema only, so no `routine_version` bump. The briefing says cannon-food's publisher is not CRX — it is a CRC regression on a nightly, so it is a hotfix on its own PR, before 20:00 local, on Cannon's go. |
-2. **`tools/visits-crosscheck.mjs` — dead since the flip.** Delete it (README ×2 and architecture-v4 §15 re-pointed at `visits-parity.spec.ts`; the §13 history rows are exempt and stay), or port it to the CR stack as a Vitest spec gated on a local `public/data-full/`. Cannon's call; the recommendation is delete — the archive-wide check ran at CPH-M0/M1 for the encoding decision and has not been needed since.
+2. **`tools/visits-crosscheck.mjs` — dead since the flip.** Delete it (README ×2 and architecture-v4 §15 re-pointed at `visits-parity.spec.ts`; the §13 history rows are exempt and stay), or port it to the CR stack as a Vitest spec gated on a local `public/data-full/`. Cannon's call; the recommendation is delete — the archive-wide check ran at CPH-M0/M1 for the encoding decision and has not been needed since. <!-- retired-ok: CRX-M0 inventory -->
 
 ### 4.4 Rewrites — the M1 PR list
 
