@@ -15,6 +15,18 @@
          rewrites this one href; the router reads document.baseURI. -->
     <base href="/">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- Site icons, rendered from the brand mark by tools/make_favicon.py and
+         shipped from public/ under stable names (a content-hashed
+         dist/assets/ name is unreachable for a bare probe). Relative hrefs,
+         so they resolve through the <base> above and follow the mount when
+         the CannonAI Food tab rewrites it. Absent these files the assets
+         layer answers /favicon.ico with the SPA shell -- 200 text/html,
+         measured on production 2026-09-06 -- and the tab shows the generic
+         globe. The ico is a rounded dark tile (--cp-surface-1 dark): the
+         mark's plate is white and Chrome's tab strip is near-white, so
+         untiled it disappears at 16px. -->
+    <link rel="icon" href="./favicon.ico" sizes="16x16 32x32 48x48">
+    <link rel="apple-touch-icon" href="./apple-touch-icon.png">
     <title>CleanPlateVA — archived Virginia health inspection finder</title>
     <script>
     // Apply the stored theme before first paint to avoid a flash. Light is
