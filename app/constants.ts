@@ -146,11 +146,16 @@ export const DONUT_SEPARATOR = 1 // hairline between arcs, CSS px
 export const DONUT_PIXEL_RATIO = 2
 export const DONUT_CLOSED_ALPHA = 0.5
 
-// Neutral stack surfaces per basemap (MapLibre paint can't read CSS vars;
-// layers are re-added on theme swap with the right literals). Values are
-// tokens.css --cp-surface-3 / --cp-ink / --cp-marker-ring.
-export const STACK_SURFACE = { dark: '#242a31', light: '#eef1f4' } as const
-export const STACK_INK = { dark: '#e9ecef', light: '#1d2129' } as const
+// The neutral count bubble — THEME-INVARIANT since 2026-09-06 (Cannon's
+// call): a stack wears the dark theme's surface and ink on the light
+// basemap too, so a stack looks like a stack wherever you meet it. The
+// donut's hole is the same surface (donut.ts) and its count the same ink,
+// which is what keeps an isolated stack and a cluster bubble reading as one
+// vocabulary on a light map. Values are the dark theme's tokens.css
+// --cp-surface-3 / --cp-ink; MapLibre paint can't read CSS vars, so these
+// are literals and the layers are re-added on a theme swap regardless.
+export const STACK_SURFACE = '#242a31'
+export const STACK_INK = '#e9ecef'
 export const MARKER_RING = {
     dark: 'rgba(255, 255, 255, .85)',
     light: 'rgba(255, 255, 255, .95)',
