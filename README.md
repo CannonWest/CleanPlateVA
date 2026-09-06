@@ -30,12 +30,16 @@ acknowledges the terms.
 
 ## Architecture
 
-> **Design reference (V4):** the shared design — public Full behind an
+> **Design references:** the shared V4 design — public Full behind an
 > acknowledgement instead of Access, the barest boot payload per view, and
-> real per-view URLs — is [`docs/architecture-v4.md`](docs/architecture-v4.md).
-> Contract V4 (the data below) shipped with the CPD arc; the acknowledgement
-> gate, the public transport, and the Access retirement (CPF-M1..M3) shipped
-> 2026-08-17. CPX (the close-out sweep) is the remaining V4 arc.
+> real per-view URLs — is [`docs/architecture-v4.md`](docs/architecture-v4.md);
+> the V4 program (CPR → CPD → CPF → CPH → CPX) closed 2026-08-18, and every
+> published object is Contract V4. The front end is the CR program's
+> React + Vite + Tailwind client, designed and built against
+> [`docs/frontend-redesign.md`](docs/frontend-redesign.md) (the front-end
+> constitution: §2 invariants, §6 per-view specs, §9 the cutover receipts);
+> production flipped to it 2026-09-06, and CRX, the close-out sweep, is that
+> program's last arc.
 
 The site is a static MapLibre client. Cloudflare's static-assets layer serves
 the Vite build in `dist/` — the app shell, its hashed assets, and the
@@ -242,8 +246,9 @@ addressed]` a focused re-check with a trustworthy ratio (`[2, d]` without — a
 baseline tick), `[3, d, code]` a scope-unknown Follow-Up with an adjudicated
 written verdict (1 all corrected · 2 priority corrected · 3 none corrected;
 `[3, d, 4, ins, outs]` an item-by-item verdict), `[0, d]` nothing claimable.
-The exporter writes exactly the marks the sparkline would derive from the
-detail (verified across the archive by `tools/visits-crosscheck.mjs`), so
+The exporter writes exactly the marks the trend instrument would derive from
+the detail (pinned by `tests/vitest/visits-parity.spec.ts`; cross-checked
+across the whole archive at CPH-M0/M1, design ref §13), so
 the hover card renders **completely from the row in memory** — grade circle,
 NEW / no-grade text, last-broad and last-visit dates, and the trend — and
 **nothing is fetched on hover** (on Workers Free the metered unit is the
@@ -308,13 +313,16 @@ adjustment ladder, provenance, and limitations.
 ## Hosting and local use
 
 Cloudflare Workers deploys [cleanplateva.com](https://cleanplateva.com) from
-`main`. Workers Builds runs `npm ci && npx vite build` on every push and
-deploys the result (design ref `docs/frontend-redesign.md` §3):
+`main`. On a push to `main`, Workers Builds runs `npm ci && npx vite build`
+and deploys the result (design ref `docs/frontend-redesign.md` §3):
 `wrangler.jsonc` serves `dist/` — the app shell, its hashed assets, and the
 publisher's `data/` + `_headers` copied verbatim from `public/`, a copy that
 `tests/vitest/dist-contract.spec.ts` pins — with the Worker in front of
-`/data-full/*` only. A branch push builds too, so a PR proves its build
-before it merges. The no-build client this replaced was deleted at CRC
+`/data-full/*` only. A push to any other branch runs **no build command**
+(measured at the flip, design ref §3), so its Workers Builds check reads
+red now that `dist/` needs a build; the pre-merge proof of a PR is the
+GitHub Actions job below plus a local `npx wrangler deploy --dry-run`
+against `dist/`. The no-build client this replaced was deleted at CRC
 (2026-09-06); its files are in git history.
 
 ```text
@@ -338,12 +346,12 @@ tripwire, and, once `npm run build` has produced `dist/`, the build-output
 contract; `npm run typecheck` runs `tsc`. CI runs `npm ci`, `npx vite build`,
 `npx vitest run` on every PR and push.
 
-`tools/` holds dev-only checks that are not part of the site:
-`tools/visits-crosscheck.mjs` runs the real sparkline pipeline over every
-detail under `public/data-full/facility/` and compares the marks with the
-overlay's `visits` column (`--view public/data-full`, or `--dump` a
-permit→visits map) — the exporter/renderer parity proof behind design ref
-D-DATA-13.
+`tools/` holds dev-only helpers that are not part of the site:
+`tools/dev_preview_mockups.py` serves the CRD mockups under `docs/mockups/`
+on a throwaway port. The exporter/renderer parity proof behind design ref
+D-DATA-13 is `tests/vitest/visits-parity.spec.ts`; the archive-wide
+crosscheck tool that established it at CPH-M0/M1 retired with the old
+client (design ref §14.1).
 
 ## Data source
 
