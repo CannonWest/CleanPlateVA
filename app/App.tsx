@@ -96,6 +96,10 @@ function Shell({ forceLite, ack }: {
     useEffect(() => {
         applyThemeClass(dark)
     }, [dark])
+    const onTheme = (next: boolean) => {
+        setDark(next)
+        persistTheme(next)
+    }
 
     // "Group nearby places" (CRP-M6): a presentation preference like the
     // theme — persisted per visitor, never in the URL or AppState (C6).
@@ -223,18 +227,26 @@ function Shell({ forceLite, ack }: {
                 />
             )}
 
-            {!blocking && (
-                <ThemeSwitch
-                    dark={dark}
-                    onTheme={(next) => {
-                        setDark(next)
-                        persistTheme(next)
-                    }}
-                />
+            {!blocking && state.view !== 'map' && (
+                <ThemeSwitch dark={dark} onTheme={onTheme} />
             )}
 
             {state.view === 'map' && !blocking && (
-                <>
+                // The bottom-left corner as ONE self-stacking column — the two
+                // presentation switches over the attribution chip — so nothing
+                // depends on the chip's height: at phone widths the C8 line
+                // wraps to three or four lines and used to bury the theme
+                // switch (fixed 40px up) and the map's zoom buttons under it
+                // (mobile fix, 2026-09-06). Below `sm` the column also stops
+                // short of the map's bottom-right control lane, so the chip
+                // wraps beside the zoom and locate buttons instead of under
+                // them, and sits above the basemap's attribution strip: on a
+                // map under 640px MapLibre's attribution is compact and opens
+                // EXPANDED until the first drag, its text reaching left under
+                // the chip otherwise. The column's own box is as wide as the
+                // chip; only its three children take the pointer, so the map
+                // beside the switches still drags.
+                <div className="pointer-events-none fixed bottom-2.5 left-3 z-10 flex flex-col items-start gap-1.5 max-sm:right-[54px] max-sm:bottom-[38px] [&>*]:pointer-events-auto">
                     <ClusterSwitch
                         on={clusters}
                         onToggle={(next) => {
@@ -242,8 +254,9 @@ function Shell({ forceLite, ack }: {
                             setClusters(next)
                         }}
                     />
+                    <ThemeSwitch dark={dark} onTheme={onTheme} floating={false} />
                     <Attribution snapshot={snapshot} onTerms={showTerms} />
-                </>
+                </div>
             )}
 
             {(blocking || termsOpen) && (
@@ -283,8 +296,9 @@ function GhostShell() {
     )
 }
 
-/** The C8 attribution line: a scrim chip floating over the map, or an
- *  in-flow line at the end of a scrolling document view. The scrim is
+/** The C8 attribution line: a scrim chip over the map (placed by the
+ *  corner column above), or an in-flow line at the end of a scrolling
+ *  document view. The scrim is
  *  dark in BOTH themes, so the floating variant's ink is fixed light —
  *  theme tokens would flip it muddy. The snapshot date rides the line
  *  (CRP-M0): staleness stays ambient on every view — About's live cards
@@ -298,7 +312,7 @@ function Attribution({ inline = false, snapshot = null, onTerms }: {
         <footer
             className={inline
                 ? 'mx-4 mb-4 text-[10.5px] text-cp-ink-3'
-                : 'fixed bottom-2.5 left-3 z-10 rounded-[6px] bg-cp-scrim px-2.5 py-1.5 text-[10.5px] text-[#cfd4d9] backdrop-blur-[4px]'}
+                : 'rounded-[6px] bg-cp-scrim px-2.5 py-1.5 text-[10.5px] text-[#cfd4d9] backdrop-blur-[4px]'}
         >
             Inspection records: VDH and Fairfax County Health Department · archived snapshot
             {snapshot ? ` · ${fmtDate(snapshot)}` : ''} ·
