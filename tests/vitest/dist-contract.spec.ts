@@ -86,6 +86,46 @@ describe.skipIf(!built)('dist/ ships the app shell complete', () => {
     })
 })
 
+describe.skipIf(!built)('dist/ splits what changes from what does not (CRP-M5)', () => {
+    const assets = () => readdirSync(resolve(DIST, 'assets'))
+    const one = (re: RegExp) => {
+        const hits = assets().filter((name) => re.test(name))
+        expect(hits, `expected exactly one ${re}, saw: ${assets().join(', ')}`).toHaveLength(1)
+        return readFileSync(resolve(DIST, 'assets', hits[0]!), 'utf8')
+    }
+
+    test('maplibre rides in its own chunk, the one that resolves the worker pair', () => {
+        expect(one(/^maplibre-.*\.js$/)).toContain('maplibre-gl-worker.mjs')
+    })
+
+    test('react rides in its own chunk', () => {
+        expect(one(/^react-.*\.js$/)).toContain('react')
+    })
+
+    test('the entry chunk is the app, not the vendors', () => {
+        const entry = one(/^index-.*\.js$/)
+        expect(entry).not.toContain('maplibre-gl-worker.mjs')
+        // A vendor-free entry stays an order of magnitude under the floor;
+        // this is a structural pin (the split happened), not a byte gate
+        // (D-CR-PERF-1) — hence the loose bound.
+        expect(entry.length).toBeLessThan(400_000)
+    })
+
+    test('List, About and the report-card modal load on demand', () => {
+        for (const name of ['ListView', 'AboutView', 'ReceiptModal']) {
+            expect(assets().some((file) => new RegExp(`^${name}-.*\\.js$`).test(file)),
+                `no lazy chunk for ${name} in ${assets().join(', ')}`).toBe(true)
+        }
+    })
+
+    test('the shell preloads the static vendor chunks and never the lazy ones', () => {
+        const html = readFileSync(resolve(DIST, 'index.html'), 'utf8')
+        expect(html).toMatch(/modulepreload[^>]*assets\/maplibre-/)
+        expect(html).toMatch(/modulepreload[^>]*assets\/react-/)
+        for (const name of ['ListView', 'AboutView', 'ReceiptModal']) expect(html).not.toContain(`${name}-`)
+    })
+})
+
 describe('the app never reaches into the retired client (§3)', () => {
     // Source-level companion to the dist checks above: catches a
     // reintroduced /static/... reference at edit time, with no build. An

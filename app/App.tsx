@@ -6,7 +6,7 @@
  * ack dialog until CRV-b builds it (briefing: restyle minimally, don't
  * build the dialog here).
  */
-import { useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { ACK_DECLINED, createAckState, forceLiteFromSearch } from './ack'
 import { createFoodApi } from './data/client'
 import { DataProvider, useRoster } from './data/provider'
@@ -15,17 +15,24 @@ import { matchesFilters } from './search'
 import { applyThemeClass, persistTheme, storedDark } from './theme'
 import { persistClusters, storedClusters } from './clusters'
 import { useAppRouter } from './useAppRouter'
-import { AboutView } from './AboutView'
 import { AckDialog } from './AckDialog'
 import { ClusterSwitch } from './ClusterSwitch'
 import { DetailPanel } from './DetailPanel'
 import type { DetailState } from './DetailPanel'
-import { ListView } from './ListView'
 import { MapView } from './MapView'
 import { ThemeSwitch } from './ThemeSwitch'
 import { Toolbar } from './Toolbar'
 import type { AckState } from './ack'
 import type { LoadedRoster, RosterRow } from './data/types'
+
+// The List and About documents load on demand (CRP-M5, the bundle diet):
+// neither is on the map view's critical path, so their code leaves the
+// entry chunk and arrives the first time a visitor switches view (a deep
+// link to /list or /about fetches it alongside the data). A chunk is a
+// static asset — free on Workers, cached like the rest of the build — so
+// the request budget (C3) is untouched: zero Worker requests either way.
+const AboutView = lazy(() => import('./AboutView').then((m) => ({ default: m.AboutView })))
+const ListView = lazy(() => import('./ListView').then((m) => ({ default: m.ListView })))
 
 export function App() {
     const forceLite = useMemo(() => forceLiteFromSearch(window.location.search), [])
@@ -158,6 +165,7 @@ function Shell({ forceLite, ack }: {
                         panelOpen={!!selected}
                         docked
                     />
+                    <Suspense fallback={<ViewLoading />}>
                     {state.view === 'list' ? (
                         <ListView
                             rows={filtered}
@@ -190,6 +198,7 @@ function Shell({ forceLite, ack }: {
                             onTermsShown={() => setTermsIntent(false)}
                         />
                     )}
+                    </Suspense>
                     <Attribution inline snapshot={snapshot} onTerms={showTerms} />
                 </div>
             ) : (
@@ -247,6 +256,14 @@ function Shell({ forceLite, ack }: {
             )}
         </div>
     )
+}
+
+/** The document area while a lazily-loaded view's chunk is in flight
+ *  (CRP-M5): the band above it is already live, so this only holds the
+ *  space — no words (C8 has nothing to say here), no spinner; the chunk is
+ *  a few KB and cached after the first visit. */
+function ViewLoading() {
+    return <div className="min-h-[50vh]" aria-busy="true" />
 }
 
 /** The first-load shell behind the blocking dialog (§6.1): brand + search
