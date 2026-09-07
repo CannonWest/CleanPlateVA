@@ -43,6 +43,11 @@
     --cp-focus: #4dabf7;
     --cp-shadow: none;
     --cp-scrim: rgba(4, 6, 8, .62);
+    /* A stronger, separate scrim for the map's floating attribution chip
+       only (App.tsx) — legible over marker clutter and MapLibre's own
+       controls. --cp-scrim stays as-is: AckDialog and ReceiptModal use it
+       as a full-screen backdrop, a different visual job. */
+    --cp-scrim-2: rgba(4, 6, 8, .85);
     --cp-basemap: #0e0e0e;
     --cp-marker-ring: rgba(255, 255, 255, .85);
 
@@ -84,6 +89,7 @@
     --cp-focus: #1c7ed6;
     --cp-shadow: 0 1px 2px rgba(16, 24, 32, .06), 0 4px 16px rgba(16, 24, 32, .08);
     --cp-scrim: rgba(24, 30, 36, .45);
+    --cp-scrim-2: rgba(24, 30, 36, .78);
     --cp-basemap: #eae8e4;
     --cp-marker-ring: rgba(255, 255, 255, .95);
 }
@@ -107,6 +113,7 @@
     --color-cp-danger-solid: var(--cp-danger-solid);
     --color-cp-focus: var(--cp-focus);
     --color-cp-scrim: var(--cp-scrim);
+    --color-cp-scrim-2: var(--cp-scrim-2);
     --color-cp-basemap: var(--cp-basemap);
     --color-cp-marker-ring: var(--cp-marker-ring);
     --color-cp-grade-a: var(--cp-grade-a);
