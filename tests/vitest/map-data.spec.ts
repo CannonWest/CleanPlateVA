@@ -17,7 +17,9 @@
  * were withdrawn on Cannon's live review the same day — CleanPlateVA
  * #174/#175. The declining form returned as the CRP-M1 ↓ suffix, then
  * became the CRP-M2 red ring — the bake is the same for both: `declining`
- * is true only where a letter rides; the ring itself has no zoom gate.
+ * is true only on a GRADED dot; the ring itself has no zoom gate. The
+ * grade letters that predicate was once phrased against left the map
+ * 2026-09-06 (Cannon's call), so no feature carries a `letter` any more.
  * Clustering returned as the CRP-M6 switch, with per-bucket COUNTS in
  * place of #174's mean-grade sums.)
  */
@@ -64,22 +66,22 @@ test('the full-tier fills: grade color, NEW blue, unscored gray, closed gray+dim
     const data = buildMapData([graded, newly, unscored, closed], false)
 
     const g = props(data, graded.permit_id)
-    expect(g.fill).toBe(GRADE_COLORS.A)
-    expect(g.letter).toBe('A')
+    expect(g.fill).toBe(GRADE_COLORS.A)          // the grade rides the COLOR alone now
     expect(g.opacity).toBe(0.88)
 
     const n = props(data, newly.permit_id)
-    expect(n.fill).toBe(NEW_COLOR)
-    expect(n.letter).toBe('')                    // blue is NEW's alone; no letter rides
+    expect(n.fill).toBe(NEW_COLOR)               // blue is NEW's alone
 
     const u = props(data, unscored.permit_id)
     expect(u.fill).toBe(GRADE_COLORS.none)
-    expect(u.letter).toBe('')
 
     const c = props(data, closed.permit_id)
     expect(c.fill).toBe(CLOSED_COLOR)
     expect(c.opacity).toBe(0.42)                 // dimmed: not currently open
-    expect(c.letter).toBe('')                    // a shuttered grade is not a fact today
+
+    // The letters left the map 2026-09-06: no dot carries the property
+    // the retired symbol layer read.
+    for (const p of [g, n, u, c]) expect('letter' in p).toBe(false)
 })
 
 test('the basic map is uniform and judgment-free (P6)', () => {
@@ -89,13 +91,12 @@ test('the basic map is uniform and judgment-free (P6)', () => {
     for (const pid of [scored.permit_id, plain.permit_id]) {
         const p = props(data, pid)
         expect(p.fill).toBe(LITE_MARKER_COLOR)
-        expect(p.letter).toBe('')
         expect(p.opacity).toBe(0.88)
         expect(p.declining).toBe(false)          // the fixture's -9 delta stays mute here
     }
 })
 
-test('the declining ring bakes only where a letter rides, banded past 5 (CRP-M2; band M1b)', () => {
+test('the declining ring bakes only on a graded dot, banded past 5 (CRP-M2; band M1b)', () => {
     const declining = row({ o: { grade_score: 78, trend_delta: -9 } })
     const edgeSix = row({ o: { grade_score: 78, trend_delta: -6 } })
     // The band is STRICT: a −5 grade-to-grade drop ships in the delta but
@@ -111,7 +112,7 @@ test('the declining ring bakes only where a letter rides, banded past 5 (CRP-M2;
 
     const d = props(data, declining.permit_id)
     expect(d.declining).toBe(true)
-    expect(d.letter).toBe('C')                   // the ring never rides alone
+    expect(d.fill).toBe(GRADE_COLORS.C)          // the ring never rides an ungraded dot
     expect(props(data, edgeSix.permit_id).declining).toBe(true)
     for (const r of [edgeFive, steady, improving, noTrend, unscored, closed]) {
         expect(props(data, r.permit_id).declining).toBe(false)
@@ -131,9 +132,8 @@ test('same-point rows collapse into one neutral stack feature', () => {
     const sp = stack?.properties as StackProps
     expect(sp.stack).toBe(3)
     expect(sp.skey).toBe(stackKey(37.541234, -77.435678))
-    // Neutral: a count bubble carries no fill/letter/judgment channels.
+    // Neutral: a count bubble carries no fill/judgment channels.
     expect('fill' in sp).toBe(false)
-    expect('letter' in sp).toBe(false)
     expect('declining' in sp).toBe(false)
     // The members stay reachable for the M2 fan-out.
     expect(data.stacks.get(sp.skey)).toHaveLength(3)

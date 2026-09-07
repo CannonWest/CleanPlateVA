@@ -11,7 +11,7 @@ import { createExpression } from '@maplibre/maplibre-gl-style-spec'
 import { expect, test } from 'vitest'
 import {
     CLUSTER_MAX_ZOOM, CLUSTER_PIXEL_RADIUS, DARK_MAJOR_ROAD_LABEL_COLOR, DARK_MAJOR_ROAD_LABEL_LAYER,
-    DECLINE_RING, DECLINE_RING_WIDTH, LETTER_ZOOM, LYR_CLUSTERS, LYR_POINT_LETTERS, LYR_POINTS,
+    DECLINE_RING, DECLINE_RING_WIDTH, LYR_CLUSTERS, LYR_POINTS,
     LYR_STACK_COUNT, LYR_STACKS, MARKER_RING, MARKER_RING_WIDTH, SRC, STACK_COUNT_ZOOM, STACK_INK,
     STACK_SURFACE,
 } from '../../app/constants'
@@ -77,20 +77,20 @@ test('the source carries the cluster config, the switch state, and the bucket su
     }
 })
 
-test('five layers, bottom to top: clusters · points · letters · stacks · stack counts', () => {
+test('four layers, bottom to top: clusters · points · stacks · stack counts', () => {
     const { host, calls } = recorder()
     installDataLayers(host, DATA, true, false)
     expect(calls.addLayer.map((l) => l.id)).toEqual([
-        LYR_CLUSTERS, LYR_POINTS, LYR_POINT_LETTERS, LYR_STACKS, LYR_STACK_COUNT,
+        LYR_CLUSTERS, LYR_POINTS, LYR_STACKS, LYR_STACK_COUNT,
     ])
-    expect(calls.addLayer.map((l) => l.type)).toEqual(['symbol', 'circle', 'symbol', 'circle', 'symbol'])
+    expect(calls.addLayer.map((l) => l.type)).toEqual(['symbol', 'circle', 'circle', 'symbol'])
     expect(new Set(calls.addLayer.map((l) => l.source))).toEqual(new Set([SRC]))
     // Every layer the pointer queries is installed — the hit test never
     // names a missing layer, clustering on or off.
     for (const id of HIT_LAYERS) expect(calls.addLayer.some((l) => l.id === id)).toBe(true)
 })
 
-test('filters and zoom gates: clusters by point_count, points/stacks by kind, letters + counts gated', () => {
+test('filters and zoom gates: clusters by point_count, points/stacks by kind, counts gated', () => {
     const { host, calls } = recorder()
     installDataLayers(host, DATA, false, true)
     const by = Object.fromEntries(calls.addLayer.map((l) => [l.id, l])) as Record<string, Layer>
@@ -98,8 +98,6 @@ test('filters and zoom gates: clusters by point_count, points/stacks by kind, le
     expect(by[LYR_POINTS]!.filter).toEqual(POINT_FILTER)
     expect(by[LYR_STACKS]!.filter).toEqual(STACK_FILTER)
     expect(by[LYR_STACK_COUNT]!.filter).toEqual(STACK_FILTER)
-    expect(by[LYR_POINT_LETTERS]!.filter).toEqual(['all', POINT_FILTER, ['!=', ['get', 'letter'], '']])
-    expect(by[LYR_POINT_LETTERS]!.minzoom).toBe(LETTER_ZOOM)
     expect(by[LYR_STACK_COUNT]!.minzoom).toBe(STACK_COUNT_ZOOM)
     expect(by[LYR_CLUSTERS]!.minzoom).toBeUndefined()
     expect(by[LYR_POINTS]!.minzoom).toBeUndefined()
@@ -132,7 +130,6 @@ test('the theme reaches the paint: ring color and the donut ids (the stacks no l
         expect(by[LYR_CLUSTERS]!.paint!['text-color']).toBe(STACK_INK)
         expect(by[LYR_CLUSTERS]!.layout!['icon-image']).toEqual(donutIconExpr(theme))
         expect(by[LYR_CLUSTERS]!.layout!['text-field']).toEqual(CLUSTER_COUNT_TEXT)
-        expect(by[LYR_POINT_LETTERS]!.paint!['text-color']).toBe('#ffffff')
     }
 })
 

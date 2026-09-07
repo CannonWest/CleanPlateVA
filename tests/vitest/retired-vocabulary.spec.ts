@@ -88,6 +88,10 @@ const RETIRED: { re: RegExp; why: string }[] = [
 
     // --- CRX (2026-09-06): the dev tool that imported the deleted client ---
     { re: /visits-crosscheck\.mjs/, why: 'deleted at CRX-M1 — it imported the old client\'s presentation.js + dataClient.js; tests/vitest/visits-parity.spec.ts pins the derivation' },
+
+    // --- post-CR (2026-09-06): the grade letters left the map ---
+    { re: /food-point-letters|LYR_POINT_LETTERS/, why: "the letters layer is deleted; the dot is grade color + ring alone (Cannon's call 2026-09-06)" },
+    { re: /LETTER_ZOOM|LETTER_TEXT_SIZE/, why: "the letters' zoom gate and text size went with the layer that read them" },
 ]
 
 const SCAN_DIRS = ['docs', 'src', 'public', 'tests', 'app']
