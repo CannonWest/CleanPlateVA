@@ -15,8 +15,14 @@
  */
 import { expect, test } from '@playwright/test'
 import {
-    GRADE_PALETTES, LYR_POINTS, PALETTE_KEY, SETTINGS_HINT_KEY, SETTINGS_SEEN_KEY, SRC, THEME_KEY,
+    LYR_POINTS, PALETTE_KEY, SETTINGS_HINT_KEY, SETTINGS_SEEN_KEY, SRC, THEME_KEY,
 } from '../../app/constants'
+import { gradeHex } from '../../app/data/presentation'
+
+// The A fill in each ramp — the one hex that tells the two apart in a
+// serialized expression (the grays are shared).
+const STANDARD_A = gradeHex('A', 'standard')
+const COLORBLIND_A = gradeHex('A', 'colorblind')
 
 interface MapHandle {
     loaded(): boolean
@@ -29,7 +35,7 @@ type Probe = { __cpMap?: MapHandle; __setDataCalls?: () => number }
 test('choosing the color-blind ramp re-points the dots\' fill in place and never re-sets the source', async ({ page }) => {
     await page.addInitScript((entries) => {
         for (const [key, value] of entries) window.localStorage.setItem(key, value)
-    }, [[SETTINGS_SEEN_KEY, '1'], [SETTINGS_HINT_KEY, '1'], [THEME_KEY, 'dark']])
+    }, Object.entries({ [SETTINGS_SEEN_KEY]: '1', [SETTINGS_HINT_KEY]: '1', [THEME_KEY]: 'dark' }))
     await page.goto('/?tier=lite')
     await page.waitForFunction(
         (layer) => {
@@ -55,20 +61,20 @@ test('choosing the color-blind ramp re-points the dots\' fill in place and never
         (layer) => JSON.stringify((window as unknown as Probe).__cpMap?.getPaintProperty(layer, 'circle-color')),
         LYR_POINTS)
     const before = await fillOf()
-    expect(before).toContain(GRADE_PALETTES.standard.A)
-    expect(before).not.toContain(GRADE_PALETTES.colorblind.A)
+    expect(before).toContain(STANDARD_A)
+    expect(before).not.toContain(COLORBLIND_A)
 
     // The real dialog: the pill under the band, then the ramp.
     await page.getByRole('button', { name: 'Settings' }).click()
     await page.getByRole('radio', { name: /Color-blind friendly/ }).click()
     await page.waitForFunction(
         ([layer, hex]) => JSON.stringify((window as unknown as Probe).__cpMap?.getPaintProperty(layer as string, 'circle-color')).includes(hex as string),
-        [LYR_POINTS, GRADE_PALETTES.colorblind.A],
+        [LYR_POINTS, COLORBLIND_A],
         { timeout: 10_000 },
     )
     const after = await fillOf()
-    expect(after).toContain(GRADE_PALETTES.colorblind.A)
-    expect(after).not.toContain(GRADE_PALETTES.standard.A)
+    expect(after).toContain(COLORBLIND_A)
+    expect(after).not.toContain(STANDARD_A)
     // Persisted for the visitor, never in the URL (C6).
     expect(await page.evaluate((key) => window.localStorage.getItem(key), PALETTE_KEY)).toBe('colorblind')
     await expect(page).not.toHaveURL(/palette/)
