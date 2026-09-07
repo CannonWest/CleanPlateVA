@@ -1,6 +1,7 @@
 {
     // CR scaffold (CRF-M0, design ref §3): TypeScript strict is D-CR-LANG-1.
-    // Covers the app tree, the Vite config, and the Vitest specs. src/worker.js
+    // Covers the app tree, the Vite config, the Vitest specs, and the
+    // Playwright smoke + its config (tests/e2e/, design ref §7). src/worker.js
     // (plain JS, the Worker) enters the program only through the
     // worker-cache-contract spec's import — allowJs types it by inference and
     // checkJs stays off, so it is neither rewritten nor type-checked.
@@ -21,5 +22,5 @@
         "skipLibCheck": true,
         "noEmit": true
     },
-    "include": ["app", "tests/vitest", "vite.config.ts"]
+    "include": ["app", "tests/vitest", "tests/e2e", "vite.config.ts", "playwright.config.ts"]
 }

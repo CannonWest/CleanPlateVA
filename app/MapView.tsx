@@ -140,9 +140,12 @@ export function MapView({ facilities, lite, dark, clusters, palette, onSelect }:
         }
         mapRef.current = map
         styleDarkRef.current = darkRef.current
-        if (import.meta.env.DEV) {
-            ;(window as unknown as { __cpMap?: maplibregl.Map }).__cpMap = map
-        }
+        // The map's handle — for the console, and for the e2e smoke
+        // (tests/e2e/map-paints.spec.ts), which asks the RUNNING map
+        // whether it painted and must do so against the production build:
+        // hence not DEV-gated. A client-side object; nothing about the
+        // visitor rides on it.
+        ;(window as unknown as { __cpMap?: maplibregl.Map }).__cpMap = map
 
         // The donut images (CRP-M6): painted the first time the style asks
         // for an id, on the CURRENT style — setStyle drops every image and
@@ -371,6 +374,7 @@ export function MapView({ facilities, lite, dark, clusters, palette, onSelect }:
             stack.dispose()
             geolocate.dispose()
             mapRef.current = null
+            ;(window as unknown as { __cpMap?: maplibregl.Map }).__cpMap = undefined
             map.remove()
         }
     }, [])
