@@ -59,6 +59,7 @@ import {
 import { paintDonut, parseDonutId } from './donut'
 import { buildMapData } from './mapData'
 import type { MapData } from './mapData'
+import { selectionCamera } from './mapCamera'
 import { hitSlop, markRadius, pickMark, popoverSurvivesZoom } from './mapHit'
 import { HIT_LAYERS, applyPalette, fixDarkRoadLabels, installDataLayers } from './mapLayers'
 import { useGeolocate } from './useGeolocate'
@@ -66,9 +67,10 @@ import { useMapPopup } from './useMapPopup'
 import { HoverCard } from './HoverCard'
 import { StackPopover } from './StackPopover'
 import type { GradePalette } from './constants'
+import { coordsOf } from './data/presentation'
 import type { RosterRow } from './data/types'
 
-export function MapView({ facilities, lite, dark, clusters, palette, onSelect, locateReady }: {
+export function MapView({ facilities, lite, dark, clusters, palette, onSelect, locateReady, selected }: {
     facilities: RosterRow[]
     lite: boolean
     dark: boolean
@@ -85,6 +87,11 @@ export function MapView({ facilities, lite, dark, clusters, palette, onSelect, l
      *  visitor must never meet the browser's location prompt UNDER the terms
      *  dialog (2026-09-07 — it did, from the mount, since the old client). */
     locateReady: boolean
+    /** The selected facility (the panel's), whoever selected it. A
+     *  selection the map did not make — a shared link, a List row,
+     *  Back/Forward — brings the place into view (mapCamera.ts); the map's
+     *  own picks never move the camera. */
+    selected: RosterRow | null
 }) {
     const container = useRef<HTMLDivElement>(null)
     const mapRef = useRef<maplibregl.Map | null>(null)
@@ -111,6 +118,12 @@ export function MapView({ facilities, lite, dark, clusters, palette, onSelect, l
     liteRef.current = lite
     const onSelectRef = useRef(onSelect)
     onSelectRef.current = onSelect
+    // The pid of a selection THIS map just made (a dot clicked, a stack
+    // member picked): the selection effect below sees it arrive as
+    // `selected` and leaves the camera alone.
+    const ownPick = useRef<string | null>(null)
+    // A selection has claimed the camera: the settle re-fit stands down.
+    const cameraClaimed = useRef(false)
 
     // The marker-bound hover card (M1): display-only and mouse-transparent
     // (theme.css .cp-tip); its key guard keeps the same facility from
@@ -232,6 +245,7 @@ export function MapView({ facilities, lite, dark, clusters, palette, onSelect, l
                     lite={liteRef.current}
                     onPick={(pid) => {
                         stack.hide()
+                        ownPick.current = pid
                         onSelectRef.current(pid)
                     }}
                 />
@@ -283,6 +297,7 @@ export function MapView({ facilities, lite, dark, clusters, palette, onSelect, l
             stack.hide()
             if (props.pid && byPidRef.current.has(String(props.pid))) {
                 hover.hide() // the panel takes over
+                ownPick.current = String(props.pid)
                 onSelectRef.current(String(props.pid))
             }
         })
@@ -361,12 +376,14 @@ export function MapView({ facilities, lite, dark, clusters, palette, onSelect, l
         }
 
         // The container may have been zero-sized at construction (embed,
-        // flex not yet resolved) — re-fit once unless a location fix has
-        // already claimed the camera.
+        // flex not yet resolved) — re-fit once unless a location fix or a
+        // selection has already claimed the camera.
         const settle = setTimeout(() => {
             try {
                 map.resize()
-                if (!geolocate.following.current) map.fitBounds(VA_BOUNDS, { ...VA_FIT, duration: 0 })
+                if (!geolocate.following.current && !cameraClaimed.current) {
+                    map.fitBounds(VA_BOUNDS, { ...VA_FIT, duration: 0 })
+                }
             } catch {
                 // A map that survived construction but never finished
                 // starting (jsdom under Vitest: no WebGL, so no painter)
@@ -424,6 +441,27 @@ export function MapView({ facilities, lite, dark, clusters, palette, onSelect, l
         if (!locateReady || !mapRef.current) return
         geolocate.autoLocate()
     }, [locateReady])
+
+    // A selection the map did not make brings the place into view
+    // (mapCamera.ts): a shared link, a List row, Back/Forward. The map's
+    // own picks are skipped — the visitor is looking at the place already,
+    // and a lurch under the click is the one thing this must not do.
+    useEffect(() => {
+        const map = mapRef.current
+        if (!map || !selected) return
+        const pid = String(selected.permit_id)
+        if (ownPick.current === pid) {
+            ownPick.current = null
+            return
+        }
+        const { lat, lon } = coordsOf(selected)
+        if (lat == null || lon == null || !Number.isFinite(lat) || !Number.isFinite(lon)) return
+        const move = selectionCamera([lon, lat], map.getBounds().contains([lon, lat]), map.getZoom())
+        if (!move) return
+        cameraClaimed.current = true
+        geolocate.release() // a follow lock would pull the camera straight back
+        map.easeTo(move)
+    }, [selected])
 
     // Theme swap: setStyle tears everything down; style.load reinstalls.
     useEffect(() => {
