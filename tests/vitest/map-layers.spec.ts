@@ -10,10 +10,10 @@
 import { createExpression } from '@maplibre/maplibre-gl-style-spec'
 import { expect, test } from 'vitest'
 import {
-    CLUSTER_MAX_ZOOM, CLUSTER_PIXEL_RADIUS, DARK_MAJOR_ROAD_LABEL_COLOR, DARK_MAJOR_ROAD_LABEL_LAYER,
-    DECLINE_RING, DECLINE_RINGS, DECLINE_RING_WIDTH, LYR_CLUSTERS, LYR_POINTS,
-    LYR_STACK_COUNT, LYR_STACKS, MARKER_RING, MARKER_RING_WIDTH, SRC, STACK_COUNT_ZOOM, STACK_INK,
-    STACK_SURFACE,
+    CLOSED_COLOR, CLOSED_OPACITY, CLUSTER_MAX_ZOOM, CLUSTER_PIXEL_RADIUS, DARK_MAJOR_ROAD_LABEL_COLOR,
+    DARK_MAJOR_ROAD_LABEL_LAYER, DECLINE_RING, DECLINE_RINGS, DECLINE_RING_WIDTH, GRADE_PALETTES,
+    LITE_MARKER_COLOR, LYR_CLUSTERS, LYR_POINTS, LYR_STACK_COUNT, LYR_STACKS, MARKER_RING,
+    MARKER_RING_WIDTH, NEW_COLORS, POINT_OPACITY, SRC, STACK_COUNT_ZOOM, STACK_INK, STACK_SURFACE,
 } from '../../app/constants'
 import { donutIconExpr, donutId } from '../../app/donut'
 import { pointRadiusAt, stackRadiusAt } from '../../app/mapHit'
@@ -21,8 +21,8 @@ import { BUCKET_KEYS, buildMapData } from '../../app/mapData'
 import type { Buckets } from '../../app/mapData'
 import {
     CLUSTER_COUNT_TEXT, CLUSTER_FILTER, HIT_LAYERS, POINT_FILTER, STACK_FILTER,
-    applyPalette, fixDarkRoadLabels, installDataLayers, pointRadiusExpr, ringColorExpr, ringWidthExpr,
-    stackRadiusExpr,
+    applyPalette, fixDarkRoadLabels, installDataLayers, pointFillExpr, pointOpacityExpr, pointRadiusExpr,
+    ringColorExpr, ringWidthExpr, stackRadiusExpr,
 } from '../../app/mapLayers'
 import type { LayerHost } from '../../app/mapLayers'
 
@@ -120,8 +120,8 @@ test('the theme reaches the paint: ring color and the donut ids (the stacks no l
         installDataLayers(host, DATA, dark, false)
         const by = Object.fromEntries(calls.addLayer.map((l) => [l.id, l])) as Record<string, Layer>
         const points = by[LYR_POINTS]!.paint!
-        expect(points['circle-color']).toEqual(['get', 'fill'])
-        expect(points['circle-opacity']).toEqual(['get', 'opacity'])
+        expect(points['circle-color']).toEqual(pointFillExpr())
+        expect(points['circle-opacity']).toEqual(pointOpacityExpr())
         expect(points['circle-radius']).toEqual(pointRadiusExpr())
         expect(points['circle-stroke-color']).toEqual(ringColorExpr(theme))
         expect(points['circle-stroke-width']).toEqual(ringWidthExpr())
@@ -176,21 +176,53 @@ test('the ring (CRP-M2): declining trades the theme white for the palette\'s mar
     expect(DECLINE_RINGS.colorblind).not.toBe(DECLINE_RING)
 })
 
-test('a palette switch re-points the ring and the donut ids on a LIVE style and evicts the other palette\'s donuts', () => {
+test('the fill is the BUCKET in the palette (2026-09-07): one table with the donut arcs, evaluated by MapLibre', () => {
+    for (const palette of ['standard', 'colorblind'] as const) {
+        const fill = pointFillExpr(palette)
+        const ramp = GRADE_PALETTES[palette]
+        const at = (buckets: Partial<Buckets>) => evaluate(fill, 'paint.circle-color', 12, { ...ZERO, ...buckets })
+        expect(at({ nA: 1 })).toBe(ramp.A)
+        expect(at({ nB: 1 })).toBe(ramp.B)
+        expect(at({ nC: 1 })).toBe(ramp.C)
+        expect(at({ nD: 1 })).toBe(ramp.D)
+        expect(at({ nF: 1 })).toBe(ramp.F)
+        expect(at({ nNew: 1 })).toBe(NEW_COLORS[palette])
+        expect(at({ nNone: 1 })).toBe(ramp.none)
+        expect(at({ nClosed: 1 })).toBe(CLOSED_COLOR)
+        // All zero — the basic map's dot (P6): the uniform gray.
+        expect(at({})).toBe(LITE_MARKER_COLOR)
+        // Every fill is hex: MapLibre paint cannot read a CSS token.
+        for (const key of BUCKET_KEYS) expect(at({ [key]: 1 })).toMatch(/^#[0-9a-f]{6}$/)
+    }
+    // The bare call is the standard ramp — the pre-2026-09-06 call sites.
+    expect(evaluate(pointFillExpr(), 'paint.circle-color', 12, { ...ZERO, nA: 1 })).toBe(GRADE_PALETTES.standard.A)
+    // Closed dims; everything else is the dot's full presence.
+    const opacity = pointOpacityExpr()
+    expect(evaluate(opacity, 'paint.circle-opacity', 12, { ...ZERO, nClosed: 1 })).toBe(CLOSED_OPACITY)
+    expect(evaluate(opacity, 'paint.circle-opacity', 12, { ...ZERO, nA: 1 })).toBe(POINT_OPACITY)
+    expect(evaluate(opacity, 'paint.circle-opacity', 12, ZERO)).toBe(POINT_OPACITY)
+    expect(CLOSED_OPACITY).toBe(0.42)
+    expect(POINT_OPACITY).toBe(0.88)
+})
+
+test('a palette switch re-points the fill, the ring and the donut ids on a LIVE style and evicts the other palette\'s donuts', () => {
     const images = [
         'donut:dark:standard:22:3-1-0-0-0-1-0-0', 'donut:dark:standard:12:0-0-0-0-0-0-0-0',
         'donut:dark:colorblind:16:0-2-0-0-0-0-0-0', 'donut:light:colorblind:22:3-1-0-0-0-1-0-0', 'airport-11',
     ]
     const { host, calls } = recorder({ hasSource: true, images, layers: [LYR_POINTS, LYR_CLUSTERS, LYR_STACKS] })
     applyPalette(host, true, 'colorblind')
-    expect(calls.setPaint).toEqual([[LYR_POINTS, 'circle-stroke-color', ringColorExpr('dark', 'colorblind')]])
+    expect(calls.setPaint).toEqual([
+        [LYR_POINTS, 'circle-color', pointFillExpr('colorblind')],
+        [LYR_POINTS, 'circle-stroke-color', ringColorExpr('dark', 'colorblind')],
+    ])
     expect(calls.setLayout).toEqual([[LYR_CLUSTERS, 'icon-image', donutIconExpr('dark', 'colorblind')]])
     // This theme's, this palette's donut stays; every other donut goes; the basemap's icons are not ours.
     expect(calls.removeImage).toEqual([
         'donut:dark:standard:22:3-1-0-0-0-1-0-0', 'donut:dark:standard:12:0-0-0-0-0-0-0-0',
         'donut:light:colorblind:22:3-1-0-0-0-1-0-0',
     ])
-    // Nothing is added or re-sourced: the fills are the data's, re-set by MapView.
+    // Nothing is added or re-sourced: the fill is paint too, so the data never moves.
     expect(calls.addSource).toEqual([])
     expect(calls.addLayer).toEqual([])
     // Before the layers exist there is nothing to re-point — and nothing throws.
@@ -203,6 +235,7 @@ test('a palette switch re-points the ring and the donut ids on a LIVE style and 
     const install = recorder()
     installDataLayers(install.host, DATA, false, false, 'colorblind')
     const by = Object.fromEntries(install.calls.addLayer.map((l) => [l.id, l])) as Record<string, Layer>
+    expect(by[LYR_POINTS]!.paint!['circle-color']).toEqual(pointFillExpr('colorblind'))
     expect(by[LYR_POINTS]!.paint!['circle-stroke-color']).toEqual(ringColorExpr('light', 'colorblind'))
     expect(by[LYR_CLUSTERS]!.layout!['icon-image']).toEqual(donutIconExpr('light', 'colorblind'))
 })

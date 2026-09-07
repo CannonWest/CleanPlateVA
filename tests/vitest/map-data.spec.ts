@@ -2,15 +2,17 @@
  * The §6.2 marker grammar as source data (CRVa-M0) — `buildMapData` is the
  * pure half of the MapView island, so the grammar pins without MapLibre:
  *
- *   · fill = grade color · NEW blue · closed gray+dim · unscored gray ·
- *     basic-map uniform gray (P6: the basic map carries no judgment);
- *   · the LETTER rides only graded, active facilities (§6.0);
+ *   · the fill is NOT a property (2026-09-07): each feature carries the
+ *     BUCKET it wears — grade A–F, NEW, unscored, closed — and the points
+ *     layer paints the bucket in the visitor's palette (map-layers.spec
+ *     evaluates that expression); a palette switch never rebuilds this data;
+ *   · the declining ring rides only graded, active, full-tier dots;
  *   · same-point rows collapse into ONE stack feature carrying its member
  *     count and NO judgment properties (neutral count bubbles);
  *   · every feature carries the cluster inputs (CRP-M6) — `stack` (1 for a
  *     lone place) plus the eight donut buckets, so a cluster can count
  *     places and draw the breakdown of the dots it hides; the basic map
- *     zeroes the buckets;
+ *     zeroes the buckets (P6: the basic map carries no judgment);
  *   · rows without coordinates draw nothing.
  *
  * (The 2026-08-30 cluster accumulators and the declining-ring property
@@ -21,12 +23,10 @@
  * grade letters that predicate was once phrased against left the map
  * 2026-09-06 (Cannon's call), so no feature carries a `letter` any more.
  * Clustering returned as the CRP-M6 switch, with per-bucket COUNTS in
- * place of #174's mean-grade sums.)
+ * place of #174's mean-grade sums. The hex fill and the opacity left the
+ * data 2026-09-07 — the bucket already said what the dot IS.)
  */
 import { expect, test } from 'vitest'
-import {
-    GRADE_COLORS, GRADE_PALETTES, CLOSED_COLOR, LITE_MARKER_COLOR, NEW_COLOR, NEW_COLORS,
-} from '../../app/constants'
 import { BUCKET_KEYS, buildMapData, clusterProperties, stackKey } from '../../app/mapData'
 import type { Buckets, ClusterInputs, PointProps, StackProps } from '../../app/mapData'
 import type { OverlayRow, RosterRow } from '../../app/data/types'
@@ -60,40 +60,47 @@ function props(data: ReturnType<typeof buildMapData>, pid: string): PointProps {
     return feature.properties as PointProps
 }
 
-test('the full-tier fills: grade color, NEW blue, unscored gray, closed gray+dim', () => {
+/** Just the cluster inputs of a feature's properties. */
+function inputsOf(p: ClusterInputs): ClusterInputs {
+    const out = { stack: p.stack } as ClusterInputs
+    for (const key of BUCKET_KEYS) out[key] = p[key]
+    return out
+}
+
+const ZERO: Buckets = { nA: 0, nB: 0, nC: 0, nD: 0, nF: 0, nNew: 0, nNone: 0, nClosed: 0 }
+
+test('a dot carries its judgment as a BUCKET, never a color: the layer paints the bucket', () => {
     const graded = row({ o: { grade_score: 93 } })
     const newly = row({ o: { grade_score: null, new: 1 } })
     const unscored = row({ o: { grade_score: null, new: 0 } })
     const closed = row({ status: 'Business Closed', o: { grade_score: 88 } })
     const data = buildMapData([graded, newly, unscored, closed], false)
 
-    const g = props(data, graded.permit_id)
-    expect(g.fill).toBe(GRADE_COLORS.A)          // the grade rides the COLOR alone now
-    expect(g.opacity).toBe(0.88)
-
-    const n = props(data, newly.permit_id)
-    expect(n.fill).toBe(NEW_COLOR)               // blue is NEW's alone
-
-    const u = props(data, unscored.permit_id)
-    expect(u.fill).toBe(GRADE_COLORS.none)
-
-    const c = props(data, closed.permit_id)
-    expect(c.fill).toBe(CLOSED_COLOR)
-    expect(c.opacity).toBe(0.42)                 // dimmed: not currently open
-
-    // The letters left the map 2026-09-06: no dot carries the property
-    // the retired symbol layer read.
-    for (const p of [g, n, u, c]) expect('letter' in p).toBe(false)
+    expect(props(data, graded.permit_id).nA).toBe(1)
+    expect(props(data, newly.permit_id).nNew).toBe(1)
+    expect(props(data, unscored.permit_id).nNone).toBe(1)
+    expect(props(data, closed.permit_id).nClosed).toBe(1)
+    for (const r of [graded, newly, unscored, closed]) {
+        const p = props(data, r.permit_id) as unknown as Record<string, unknown>
+        // No hex, no opacity, no letter: the points layer paints the bucket
+        // in the visitor's palette (mapLayers pointFillExpr), so the data
+        // never changes under a palette switch.
+        expect('fill' in p).toBe(false)
+        expect('opacity' in p).toBe(false)
+        expect('letter' in p).toBe(false)
+    }
+    // No palette reaches the builder at all.
+    expect(buildMapData.length).toBe(2)
 })
 
-test('the basic map is uniform and judgment-free (P6)', () => {
+test('the basic map is uniform and judgment-free (P6): no bucket, no ring', () => {
     const scored = row({ o: { grade_score: 60, trend_delta: -9 } })
     const plain = row()
     const data = buildMapData([scored, plain], true)
     for (const pid of [scored.permit_id, plain.permit_id]) {
         const p = props(data, pid)
-        expect(p.fill).toBe(LITE_MARKER_COLOR)
-        expect(p.opacity).toBe(0.88)
+        // All zero: the layer's fallback fill, the basic map's uniform gray.
+        expect(inputsOf(p)).toEqual({ ...ZERO, stack: 1 })
         expect(p.declining).toBe(false)          // the fixture's -9 delta stays mute here
     }
 })
@@ -114,7 +121,7 @@ test('the declining ring bakes only on a graded dot, banded past 5 (CRP-M2; band
 
     const d = props(data, declining.permit_id)
     expect(d.declining).toBe(true)
-    expect(d.fill).toBe(GRADE_COLORS.C)          // the ring never rides an ungraded dot
+    expect(d.nC).toBe(1)                         // the ring never rides an ungraded dot
     expect(props(data, edgeSix.permit_id).declining).toBe(true)
     for (const r of [edgeFive, steady, improving, noTrend, unscored, closed]) {
         expect(props(data, r.permit_id).declining).toBe(false)
@@ -134,21 +141,12 @@ test('same-point rows collapse into one neutral stack feature', () => {
     const sp = stack?.properties as StackProps
     expect(sp.stack).toBe(3)
     expect(sp.skey).toBe(stackKey(37.541234, -77.435678))
-    // Neutral: a count bubble carries no fill/judgment channels.
-    expect('fill' in sp).toBe(false)
+    // Neutral: a count bubble carries no judgment channel of its own.
     expect('declining' in sp).toBe(false)
+    expect('pid' in sp).toBe(false)
     // The members stay reachable for the M2 fan-out.
     expect(data.stacks.get(sp.skey)).toHaveLength(3)
 })
-
-/** Just the cluster inputs of a feature's properties. */
-function inputsOf(p: ClusterInputs): ClusterInputs {
-    const out = { stack: p.stack } as ClusterInputs
-    for (const key of BUCKET_KEYS) out[key] = p[key]
-    return out
-}
-
-const ZERO: Buckets = { nA: 0, nB: 0, nC: 0, nD: 0, nF: 0, nNew: 0, nNone: 0, nClosed: 0 }
 
 test('every lone dot carries its cluster inputs: stack 1 + the one bucket it wears (CRP-M6)', () => {
     const a = row({ o: { grade_score: 92 } })
@@ -202,29 +200,4 @@ test('rows without coordinates draw nothing', () => {
     const nowhere = row({ lat: Number.NaN, lon: Number.NaN })
     const data = buildMapData([nowhere], false)
     expect(data.geojson.features).toHaveLength(0)
-})
-
-test('the color-blind palette re-fills the graded dots and NEW; the grays, closed and the buckets stand', () => {
-    const graded = row({ o: { grade_score: 93 } })
-    const newly = row({ o: { grade_score: null, new: 1 } })
-    const unscored = row({ o: { grade_score: null, new: 0 } })
-    const closed = row({ status: 'Business Closed', o: { grade_score: 88 } })
-    const data = buildMapData([graded, newly, unscored, closed], false, 'colorblind')
-    expect(props(data, graded.permit_id).fill).toBe(GRADE_PALETTES.colorblind.A)   // deep blue, not green
-    expect(props(data, graded.permit_id).fill).toBe('#045a8d')
-    expect(props(data, newly.permit_id).fill).toBe(NEW_COLORS.colorblind)          // NEW leaves blue: A and B are blues here
-    expect(props(data, newly.permit_id).fill).not.toBe(NEW_COLOR)
-    expect(props(data, unscored.permit_id).fill).toBe(GRADE_PALETTES.colorblind.none)
-    expect(props(data, unscored.permit_id).fill).toBe(GRADE_COLORS.none)          // the same gray in both
-    expect(props(data, closed.permit_id).fill).toBe(CLOSED_COLOR)
-    // The buckets count what the dots ARE, whichever palette paints them.
-    expect(props(data, graded.permit_id).nA).toBe(1)
-    expect(props(data, newly.permit_id).nNew).toBe(1)
-    // The bare call is the standard ramp — the pre-2026-09-06 call sites.
-    const standard = buildMapData([graded], false)
-    expect(props(standard, graded.permit_id).fill).toBe(GRADE_COLORS.A)
-    // Every fill the map is handed is hex: MapLibre paint cannot read a CSS token.
-    for (const f of data.geojson.features) {
-        if (f.properties.kind === 'point') expect(f.properties.fill).toMatch(/^#[0-9a-f]{6}$/)
-    }
 })

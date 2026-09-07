@@ -20,17 +20,17 @@
 
 import type * as maplibregl from 'maplibre-gl'
 import {
-    CLUSTER_COUNT_TEXT_SIZE, CLUSTER_MAX_ZOOM, CLUSTER_PIXEL_RADIUS,
+    CLOSED_OPACITY, CLUSTER_COUNT_TEXT_SIZE, CLUSTER_MAX_ZOOM, CLUSTER_PIXEL_RADIUS,
     DARK_MAJOR_ROAD_LABEL_COLOR, DARK_MAJOR_ROAD_LABEL_LAYER,
     DECLINE_RINGS, DECLINE_RING_WIDTH,
-    LYR_CLUSTERS,
+    LITE_MARKER_COLOR, LYR_CLUSTERS,
     LYR_POINTS, LYR_STACK_COUNT, LYR_STACKS, MARKER_RING, MARKER_RING_WIDTH,
-    POINT_RADIUS_FULL, POINT_RADIUS_STOPS, SRC, STACK_COUNT_ZOOM,
+    POINT_OPACITY, POINT_RADIUS_FULL, POINT_RADIUS_STOPS, SRC, STACK_COUNT_ZOOM,
     STACK_INK, STACK_RADII, STACK_STEPS, STACK_SURFACE,
 } from './constants'
 import type { GradePalette } from './constants'
-import { donutIconExpr, staleDonutIds } from './donut'
-import { clusterProperties } from './mapData'
+import { bucketFills, donutIconExpr, staleDonutIds } from './donut'
+import { BUCKET_KEYS, clusterProperties } from './mapData'
 import type { MapData } from './mapData'
 
 type ExpressionSpec = maplibregl.ExpressionSpecification
@@ -51,6 +51,26 @@ export function pointRadiusExpr(): ExpressionSpec {
     const expr: unknown[] = ['interpolate', ['linear'], ['zoom']]
     for (const [zoom, radius] of POINT_RADIUS_STOPS) expr.push(zoom, radius)
     return expr as ExpressionSpec
+}
+
+/** The dot's fill: the bucket it wears, in the palette — ONE table with the
+ *  donut's arcs (donut.ts bucketFills), so a dot and the arc that hides it
+ *  can never disagree. Exactly one bucket is 1 on a lone dot; all zero is
+ *  the basic map's uniform gray (P6). A paint expression, not a feature
+ *  property (2026-09-07): the palette is re-pointed in place (applyPalette)
+ *  and the data never changes — the principle the cluster switch and the
+ *  declining ring already held. */
+export function pointFillExpr(palette: GradePalette = 'standard'): ExpressionSpec {
+    const fills = bucketFills(palette)
+    const expr: unknown[] = ['case']
+    for (const key of BUCKET_KEYS) expr.push(['>', ['get', key], 0], fills[key])
+    expr.push(LITE_MARKER_COLOR)
+    return expr as ExpressionSpec
+}
+
+/** The dot's presence: closed dims, everything else stands at full. */
+export function pointOpacityExpr(): ExpressionSpec {
+    return ['case', ['>', ['get', 'nClosed'], 0], CLOSED_OPACITY, POINT_OPACITY] as unknown as ExpressionSpec
 }
 
 /** Stack radius: the member-count step at full size, riding the dots' own
@@ -102,15 +122,17 @@ export function ringWidthExpr(): ExpressionSpec {
 }
 
 /** Re-point the palette-bearing layer properties on a LIVE style (the
- *  settings dialog's grade-palette switch): the dot ring's declining color
- *  and the donut ids the cluster layer asks for, then evict the other
- *  palette's donuts so the resolver repaints under the new one. The dots'
- *  fills are baked into the data — MapView rebuilds and re-sets the source
- *  (buildMapData takes the palette). Before the layers exist (first mount)
- *  there is nothing to re-point: style.load installs with the palette. */
+ *  settings dialog's grade-palette switch): the dots' fill (their bucket,
+ *  in the palette), the ring's declining color and the donut ids the
+ *  cluster layer asks for, then evict the other palette's donuts so the
+ *  resolver repaints under the new one. Paint only — the data is
+ *  palette-free (mapData.ts, since 2026-09-07), so no rebuild and no
+ *  setData. Before the layers exist (first mount) there is nothing to
+ *  re-point: style.load installs with the palette. */
 export function applyPalette(map: LayerHost, dark: boolean, palette: GradePalette): void {
     const theme = dark ? 'dark' : 'light'
     if (map.getLayer(LYR_POINTS)) {
+        map.setPaintProperty(LYR_POINTS, 'circle-color', pointFillExpr(palette))
         map.setPaintProperty(LYR_POINTS, 'circle-stroke-color', ringColorExpr(theme, palette))
     }
     if (map.getLayer(LYR_CLUSTERS)) {
@@ -187,8 +209,8 @@ export function installDataLayers(
         filter: POINT_FILTER,
         paint: {
             'circle-radius': pointRadiusExpr(),
-            'circle-color': ['get', 'fill'],
-            'circle-opacity': ['get', 'opacity'],
+            'circle-color': pointFillExpr(palette),
+            'circle-opacity': pointOpacityExpr(),
             'circle-stroke-color': ringColorExpr(theme, palette),
             'circle-stroke-width': ringWidthExpr(),
         },
