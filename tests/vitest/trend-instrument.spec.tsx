@@ -24,7 +24,6 @@ import { createRoot } from 'react-dom/client'
 import type { Root } from 'react-dom/client'
 import { afterEach, expect, test } from 'vitest'
 import { visitsOf } from '../../app/data/presentation'
-import { GRADE_COLORS } from '../../app/constants'
 import { trendFloor, trendLayout } from '../../app/trend'
 import { TrendInstrument } from '../../app/TrendInstrument'
 import type { RosterRow } from '../../app/data/types'
@@ -113,7 +112,7 @@ test('focused re-checks plot at their COMPLIANCE height, outcome-toned; unknown 
     expect(dia?.label).toBe('1/3') // the claim says '1/3 OUT'; the label drops the suffix
     // 66.67 on the resting scale: 26 + (33.33/45)*72 ≈ 79.3.
     expect(+((dia?.y ?? 0).toFixed(1))).toBe(79.3)
-    expect(dia?.color).toBe(GRADE_COLORS.C) // watch tone speaks the ramp
+    expect(dia?.color).toBe('var(--cp-grade-c)') // watch tone speaks the ramp's token, so it follows the palette
     expect(layout.marks.filter((m) => m.kind === 'tick')).toHaveLength(1)
 })
 

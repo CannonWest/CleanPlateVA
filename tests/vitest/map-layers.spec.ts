@@ -11,7 +11,7 @@ import { createExpression } from '@maplibre/maplibre-gl-style-spec'
 import { expect, test } from 'vitest'
 import {
     CLUSTER_MAX_ZOOM, CLUSTER_PIXEL_RADIUS, DARK_MAJOR_ROAD_LABEL_COLOR, DARK_MAJOR_ROAD_LABEL_LAYER,
-    DECLINE_RING, DECLINE_RING_WIDTH, LYR_CLUSTERS, LYR_POINTS,
+    DECLINE_RING, DECLINE_RINGS, DECLINE_RING_WIDTH, LYR_CLUSTERS, LYR_POINTS,
     LYR_STACK_COUNT, LYR_STACKS, MARKER_RING, MARKER_RING_WIDTH, SRC, STACK_COUNT_ZOOM, STACK_INK,
     STACK_SURFACE,
 } from '../../app/constants'
@@ -21,7 +21,7 @@ import { BUCKET_KEYS, buildMapData } from '../../app/mapData'
 import type { Buckets } from '../../app/mapData'
 import {
     CLUSTER_COUNT_TEXT, CLUSTER_FILTER, HIT_LAYERS, POINT_FILTER, STACK_FILTER,
-    fixDarkRoadLabels, installDataLayers, pointRadiusExpr, ringColorExpr, ringWidthExpr,
+    applyPalette, fixDarkRoadLabels, installDataLayers, pointRadiusExpr, ringColorExpr, ringWidthExpr,
     stackRadiusExpr,
 } from '../../app/mapLayers'
 import type { LayerHost } from '../../app/mapLayers'
@@ -36,6 +36,7 @@ function recorder(state: { hasSource?: boolean; images?: string[]; layers?: stri
         addLayer: [] as Layer[],
         removeImage: [] as string[],
         setPaint: [] as Array<[string, string, unknown]>,
+        setLayout: [] as Array<[string, string, unknown]>,
     }
     const host = {
         getSource: () => (state.hasSource ? {} : undefined),
@@ -45,6 +46,7 @@ function recorder(state: { hasSource?: boolean; images?: string[]; layers?: stri
         removeImage: (id: string) => { calls.removeImage.push(id) },
         getLayer: (id: string) => ((state.layers ?? []).includes(id) ? {} : undefined),
         setPaintProperty: (id: string, name: string, value: unknown) => { calls.setPaint.push([id, name, value]) },
+        setLayoutProperty: (id: string, name: string, value: unknown) => { calls.setLayout.push([id, name, value]) },
     } as unknown as LayerHost
     return { host, calls }
 }
@@ -152,20 +154,57 @@ test('the neutral count bubble is THEME-INVARIANT (Cannon 2026-09-06): the dark 
     expect([...painted].sort()).toEqual([STACK_SURFACE, STACK_INK].sort())
 })
 
-test('the ring (CRP-M2): declining trades the theme white for the red, at a wider stroke, no zoom gate', () => {
+test('the ring (CRP-M2): declining trades the theme white for the palette\'s mark, at a wider stroke, no zoom gate', () => {
     for (const theme of ['dark', 'light'] as const) {
-        const color = ringColorExpr(theme)
-        const width = ringWidthExpr()
-        for (const zoom of [5, 9, 13.4, 16]) {
-            // Evaluated without a property spec, a color expression yields
-            // its literal — the hex the constants hold.
-            expect(evaluate(color, 'paint.circle-stroke-color', zoom, { declining: true })).toBe(DECLINE_RING)
-            expect(evaluate(color, 'paint.circle-stroke-color', zoom, { declining: false })).toBe(MARKER_RING[theme])
-            expect(evaluate(color, 'paint.circle-stroke-color', zoom, {})).toBe(MARKER_RING[theme])
-            expect(evaluate(width, 'paint.circle-stroke-width', zoom, { declining: true })).toBe(DECLINE_RING_WIDTH)
-            expect(evaluate(width, 'paint.circle-stroke-width', zoom, { declining: false })).toBe(MARKER_RING_WIDTH)
+        for (const palette of ['standard', 'colorblind'] as const) {
+            const color = ringColorExpr(theme, palette)
+            const width = ringWidthExpr()
+            for (const zoom of [5, 9, 13.4, 16]) {
+                // Evaluated without a property spec, a color expression yields
+                // its literal — the hex the constants hold.
+                expect(evaluate(color, 'paint.circle-stroke-color', zoom, { declining: true })).toBe(DECLINE_RINGS[palette])
+                expect(evaluate(color, 'paint.circle-stroke-color', zoom, { declining: false })).toBe(MARKER_RING[theme])
+                expect(evaluate(color, 'paint.circle-stroke-color', zoom, {})).toBe(MARKER_RING[theme])
+                expect(evaluate(width, 'paint.circle-stroke-width', zoom, { declining: true })).toBe(DECLINE_RING_WIDTH)
+                expect(evaluate(width, 'paint.circle-stroke-width', zoom, { declining: false })).toBe(MARKER_RING_WIDTH)
+            }
         }
+        // The bare call is the standard ramp's red — the pre-2026-09-06 call sites.
+        expect(evaluate(ringColorExpr(theme), 'paint.circle-stroke-color', 9, { declining: true })).toBe(DECLINE_RING)
     }
+    // Red on the color-blind ramp's umber F is ~1.4:1: that palette's mark is not red.
+    expect(DECLINE_RINGS.colorblind).not.toBe(DECLINE_RING)
+})
+
+test('a palette switch re-points the ring and the donut ids on a LIVE style and evicts the other palette\'s donuts', () => {
+    const images = [
+        'donut:dark:standard:22:3-1-0-0-0-1-0-0', 'donut:dark:standard:12:0-0-0-0-0-0-0-0',
+        'donut:dark:colorblind:16:0-2-0-0-0-0-0-0', 'donut:light:colorblind:22:3-1-0-0-0-1-0-0', 'airport-11',
+    ]
+    const { host, calls } = recorder({ hasSource: true, images, layers: [LYR_POINTS, LYR_CLUSTERS, LYR_STACKS] })
+    applyPalette(host, true, 'colorblind')
+    expect(calls.setPaint).toEqual([[LYR_POINTS, 'circle-stroke-color', ringColorExpr('dark', 'colorblind')]])
+    expect(calls.setLayout).toEqual([[LYR_CLUSTERS, 'icon-image', donutIconExpr('dark', 'colorblind')]])
+    // This theme's, this palette's donut stays; every other donut goes; the basemap's icons are not ours.
+    expect(calls.removeImage).toEqual([
+        'donut:dark:standard:22:3-1-0-0-0-1-0-0', 'donut:dark:standard:12:0-0-0-0-0-0-0-0',
+        'donut:light:colorblind:22:3-1-0-0-0-1-0-0',
+    ])
+    // Nothing is added or re-sourced: the fills are the data's, re-set by MapView.
+    expect(calls.addSource).toEqual([])
+    expect(calls.addLayer).toEqual([])
+    // Before the layers exist there is nothing to re-point — and nothing throws.
+    const bare = recorder({ images: ['donut:light:standard:22:3-1-0-0-0-1-0-0'] })
+    applyPalette(bare.host, false, 'standard')
+    expect(bare.calls.setPaint).toEqual([])
+    expect(bare.calls.setLayout).toEqual([])
+    expect(bare.calls.removeImage).toEqual([])
+    // The install itself paints in the palette it is handed.
+    const install = recorder()
+    installDataLayers(install.host, DATA, false, false, 'colorblind')
+    const by = Object.fromEntries(install.calls.addLayer.map((l) => [l.id, l])) as Record<string, Layer>
+    expect(by[LYR_POINTS]!.paint!['circle-stroke-color']).toEqual(ringColorExpr('light', 'colorblind'))
+    expect(by[LYR_CLUSTERS]!.layout!['icon-image']).toEqual(donutIconExpr('light', 'colorblind'))
 })
 
 test('the paint radii and the hit test agree at every zoom (mapHit.ts is the JS twin)', () => {

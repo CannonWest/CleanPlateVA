@@ -25,8 +25,37 @@
 import { Monitor, Moon, Sun, X } from 'lucide-react'
 import { Dialog, Slider, ToggleGroup } from 'radix-ui'
 import type { ThemeChoice } from './theme'
-import { STACK_INK, STACK_SURFACE } from './constants'
+import { GRADE_PALETTES, STACK_INK, STACK_SURFACE } from './constants'
+import type { GradePalette } from './constants'
 import { TEXT_SIZE_DEFAULT, TEXT_SIZE_MAX, TEXT_SIZE_MIN, TEXT_SIZE_STEP } from './settings'
+
+/** The two ramps in display order; the labels are the public words. */
+export const PALETTE_OPTIONS: ReadonlyArray<{ value: GradePalette; label: string }> = [
+    { value: 'standard', label: 'Standard' },
+    { value: 'colorblind', label: 'Color-blind friendly' },
+]
+
+const GRADE_LETTERS = ['A', 'B', 'C', 'D', 'F'] as const
+
+/** A ramp's five grade chips in ITS colors — the literal hex from the table,
+ *  never the live tokens, so each option shows its own ramp whichever one
+ *  is on. The band's chip idiom (26px, rounded, the bold white letter);
+ *  hidden from the accessible name, which the caption carries alone. */
+function Ramp({ palette }: { palette: GradePalette }) {
+    return (
+        <span className="flex items-center gap-1" aria-hidden="true">
+            {GRADE_LETTERS.map((letter) => (
+                <span
+                    key={letter}
+                    className="flex h-[26px] min-w-[26px] items-center justify-center rounded-[6px] text-cp-11.5 font-bold text-white"
+                    style={{ background: GRADE_PALETTES[palette][letter] }}
+                >
+                    {letter}
+                </span>
+            ))}
+        </span>
+    )
+}
 
 /** The three options in display order; the labels are the public words. */
 export const THEME_OPTIONS: ReadonlyArray<{
@@ -144,14 +173,16 @@ const PICTURE_ITEM = 'flex flex-1 flex-col items-center gap-1.5 rounded-cp-contr
     + 'data-[state=off]:opacity-50 data-[state=on]:border-cp-accent-solid data-[state=on]:text-cp-ink'
 
 export function SettingsDialog({
-    open, onOpenChange, theme, clusters, textSize, onTheme, onClusters, onTextSize,
+    open, onOpenChange, theme, palette, clusters, textSize, onTheme, onPalette, onClusters, onTextSize,
 }: {
     open: boolean
     onOpenChange: (open: boolean) => void
     theme: ThemeChoice
+    palette: GradePalette
     clusters: boolean
     textSize: number
     onTheme: (choice: ThemeChoice) => void
+    onPalette: (palette: GradePalette) => void
     onClusters: (on: boolean) => void
     onTextSize: (size: number) => void
 }) {
@@ -201,6 +232,28 @@ export function SettingsDialog({
                                     >
                                         <Icon size={14} aria-hidden="true" />
                                         {label}
+                                    </ToggleGroup.Item>
+                                ))}
+                            </ToggleGroup.Root>
+                        </section>
+
+                        <section aria-labelledby="cpSettingsPalette">
+                            <h2 id="cpSettingsPalette" className="text-cp-13 font-semibold">
+                                Grade colors
+                            </h2>
+                            <ToggleGroup.Root
+                                type="single"
+                                value={palette}
+                                onValueChange={(value) => {
+                                    if (value) onPalette(value as GradePalette)
+                                }}
+                                aria-labelledby="cpSettingsPalette"
+                                className="mt-2 flex gap-2"
+                            >
+                                {PALETTE_OPTIONS.map(({ value, label }) => (
+                                    <ToggleGroup.Item key={value} value={value} className={PICTURE_ITEM}>
+                                        <Ramp palette={value} />
+                                        <span>{label}</span>
                                     </ToggleGroup.Item>
                                 ))}
                             </ToggleGroup.Root>

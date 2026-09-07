@@ -14,8 +14,9 @@
 
 import {
     AGGREGATE_TENANT, FAIRFAX_EXPERIENCE_SOURCE, FAIRFAX_EXPERIENCE_URL, FAIRFAX_RECORDS_URL,
-    FAIRFAX_TENANT, GRADE_COLORS, PORTAL_BASE, RF_MAX_ITEM,
+    FAIRFAX_TENANT, GRADE_COLORS, GRADE_PALETTES, PORTAL_BASE, RF_MAX_ITEM,
 } from '../constants'
+import type { GradePalette } from '../constants'
 import type {
     Adjudication, DecodedChecklistRow, GradeBlock, Inspection, OverlayRow,
     VisitEntry, Violation,
@@ -202,8 +203,21 @@ export function permitUrl(f: FacilityLike | null | undefined, tenant?: string): 
         + encodeURIComponent(f?.permit_id ?? '')
 }
 
+/** A grade's color for the DOM: the CSS custom property, which flips with
+ *  the palette class on <html> (palette.ts) — so every chip, badge and hero
+ *  circle follows the visitor's choice with no plumbing. Anything that is
+ *  not a grade letter is the no-grade gray. Canvas and MapLibre paint cannot
+ *  read a custom property: they take gradeHex. */
 export function gradeColor(grade: string | null | undefined): string {
-    return (grade && GRADE_COLORS[grade]) || (GRADE_COLORS['none'] as string)
+    const key = grade && GRADE_COLORS[grade] ? grade.toLowerCase() : 'none'
+    return `var(--cp-grade-${key})`
+}
+
+/** The same color as hex, for the map's paint and the donut canvas — by
+ *  palette name, the caller's live choice. */
+export function gradeHex(grade: string | null | undefined, palette: GradePalette): string {
+    const ramp = GRADE_PALETTES[palette]
+    return (grade && ramp[grade]) || (ramp['none'] as string)
 }
 
 export function gradeForScore(score: number): string {

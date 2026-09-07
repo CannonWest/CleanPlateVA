@@ -22,12 +22,13 @@ import type * as maplibregl from 'maplibre-gl'
 import {
     CLUSTER_COUNT_TEXT_SIZE, CLUSTER_MAX_ZOOM, CLUSTER_PIXEL_RADIUS,
     DARK_MAJOR_ROAD_LABEL_COLOR, DARK_MAJOR_ROAD_LABEL_LAYER,
-    DECLINE_RING, DECLINE_RING_WIDTH,
+    DECLINE_RINGS, DECLINE_RING_WIDTH,
     LYR_CLUSTERS,
     LYR_POINTS, LYR_STACK_COUNT, LYR_STACKS, MARKER_RING, MARKER_RING_WIDTH,
     POINT_RADIUS_FULL, POINT_RADIUS_STOPS, SRC, STACK_COUNT_ZOOM,
     STACK_INK, STACK_RADII, STACK_STEPS, STACK_SURFACE,
 } from './constants'
+import type { GradePalette } from './constants'
 import { donutIconExpr, staleDonutIds } from './donut'
 import { clusterProperties } from './mapData'
 import type { MapData } from './mapData'
@@ -38,7 +39,7 @@ type ExpressionSpec = maplibregl.ExpressionSpecification
  *  it; a spec passes a recorder. */
 export type LayerHost = Pick<maplibregl.Map,
     'getSource' | 'addSource' | 'addLayer' | 'listImages' | 'removeImage'
-    | 'getLayer' | 'setPaintProperty'>
+    | 'getLayer' | 'setPaintProperty' | 'setLayoutProperty'>
 
 /** The layers the pointer resolves against, in one padded query — every
  *  mark type at once, so a stack beside a dot beside a bubble all compete
@@ -85,28 +86,51 @@ export const CLUSTER_COUNT_TEXT = ['case',
 
 const DECLINING = ['==', ['get', 'declining'], true]
 
-/** The dot's ring (CRP-M2): the declining red over the theme's white
+/** The dot's ring (CRP-M2): the declining color over the theme's white
  *  separator, on the SAME circle layer — MapLibre draws one stroke per
- *  circle, so a declining dot trades its white ring for the red (a second
- *  halo layer beneath was scoped and not taken). No zoom gate: the ring
- *  rides the dot wherever the dot is drawn. */
-export function ringColorExpr(theme: 'dark' | 'light'): ExpressionSpec {
-    return ['case', DECLINING, DECLINE_RING, MARKER_RING[theme]] as unknown as ExpressionSpec
+ *  circle, so a declining dot trades its white ring for the marked one (a
+ *  second halo layer beneath was scoped and not taken). No zoom gate: the
+ *  ring rides the dot wherever the dot is drawn. The color is the palette's
+ *  (constants.ts DECLINE_RINGS): red on the standard ramp, near-black on
+ *  the color-blind one. */
+export function ringColorExpr(theme: 'dark' | 'light', palette: GradePalette = 'standard'): ExpressionSpec {
+    return ['case', DECLINING, DECLINE_RINGS[palette], MARKER_RING[theme]] as unknown as ExpressionSpec
 }
 
 export function ringWidthExpr(): ExpressionSpec {
     return ['case', DECLINING, DECLINE_RING_WIDTH, MARKER_RING_WIDTH] as unknown as ExpressionSpec
 }
 
+/** Re-point the palette-bearing layer properties on a LIVE style (the
+ *  settings dialog's grade-palette switch): the dot ring's declining color
+ *  and the donut ids the cluster layer asks for, then evict the other
+ *  palette's donuts so the resolver repaints under the new one. The dots'
+ *  fills are baked into the data — MapView rebuilds and re-sets the source
+ *  (buildMapData takes the palette). Before the layers exist (first mount)
+ *  there is nothing to re-point: style.load installs with the palette. */
+export function applyPalette(map: LayerHost, dark: boolean, palette: GradePalette): void {
+    const theme = dark ? 'dark' : 'light'
+    if (map.getLayer(LYR_POINTS)) {
+        map.setPaintProperty(LYR_POINTS, 'circle-stroke-color', ringColorExpr(theme, palette))
+    }
+    if (map.getLayer(LYR_CLUSTERS)) {
+        map.setLayoutProperty(LYR_CLUSTERS, 'icon-image', donutIconExpr(theme, palette) as ExpressionSpec)
+    }
+    for (const id of staleDonutIds(map.listImages(), theme, palette)) map.removeImage(id)
+}
+
 /** Add source + the marker layers to the CURRENT style. Idempotent per
  *  style — style.load hands a bare basemap each time. */
-export function installDataLayers(map: LayerHost, data: MapData, dark: boolean, clusters: boolean): void {
+export function installDataLayers(
+    map: LayerHost, data: MapData, dark: boolean, clusters: boolean, palette: GradePalette = 'standard',
+): void {
     if (map.getSource(SRC)) return
     const theme = dark ? 'dark' : 'light'
     // A theme swap diffs the style in place and keeps the image manager
     // (measured: both themes' donuts listed after a swap) — drop the
-    // outgoing theme's; this theme's are repainted on demand.
-    for (const id of staleDonutIds(map.listImages(), theme)) map.removeImage(id)
+    // outgoing theme's, and any other palette's; this pair's are repainted
+    // on demand.
+    for (const id of staleDonutIds(map.listImages(), theme, palette)) map.removeImage(id)
     map.addSource(SRC, {
         type: 'geojson',
         data: data.geojson,
@@ -135,11 +159,11 @@ export function installDataLayers(map: LayerHost, data: MapData, dark: boolean, 
         source: SRC,
         filter: CLUSTER_FILTER,
         layout: {
-            // The donut: one image per (theme · size step · bucket tuple),
-            // painted on demand by the missing-image resolver (donut.ts).
-            // Fixed radii by places, never zoom-scaled — a bubble is a
-            // camera control, not a mark.
-            'icon-image': donutIconExpr(theme) as ExpressionSpec,
+            // The donut: one image per (theme · palette · size step · bucket
+            // tuple), painted on demand by the missing-image resolver
+            // (donut.ts). Fixed radii by places, never zoom-scaled — a
+            // bubble is a camera control, not a mark.
+            'icon-image': donutIconExpr(theme, palette) as ExpressionSpec,
             'icon-allow-overlap': true,
             'icon-ignore-placement': true,
             // The count rides the icon on the same layer, so the two can
@@ -165,7 +189,7 @@ export function installDataLayers(map: LayerHost, data: MapData, dark: boolean, 
             'circle-radius': pointRadiusExpr(),
             'circle-color': ['get', 'fill'],
             'circle-opacity': ['get', 'opacity'],
-            'circle-stroke-color': ringColorExpr(theme),
+            'circle-stroke-color': ringColorExpr(theme, palette),
             'circle-stroke-width': ringWidthExpr(),
         },
     })

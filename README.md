@@ -58,7 +58,8 @@ The client is a React + TypeScript app under [`app/`](app/), built by Vite
 `app/App.tsx` owns the views (`MapView`, `ListView`, `AboutView`) over the
 router hook (`app/useAppRouter.ts`, on the pure `app/router.ts`), the
 acknowledgement gate (`app/ack.ts`, `app/AckDialog.tsx`), and the visitor's
-presentation choices — theme (`app/theme.ts`, light / dark / system),
+presentation choices — theme (`app/theme.ts`, light / dark / system), grade
+colors (`app/palette.ts`, the ratified ramp or a color-blind friendly one),
 "Group nearby places" (`app/clusters.ts`) and text size (`app/settings.ts`)
 — set in the settings dialog (`app/SettingsDialog.tsx`, Radix primitives),
 which opens once on a first map view and from the Settings button under

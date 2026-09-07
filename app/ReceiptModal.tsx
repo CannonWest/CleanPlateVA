@@ -10,7 +10,6 @@
 
 import { useEffect, useRef } from 'react'
 import { X } from 'lucide-react'
-import { GRADE_COLORS } from './constants'
 import { fmtDate, fmtDateNum, gradeColor, gradeForScore } from './data/presentation'
 import type { GradeReceipt, JourneyBucket, ReceiptJourneyRow } from './data/receipt'
 
@@ -252,7 +251,7 @@ export function ReceiptModal({ receipt, name, onClose, onAbout, fairfax = false 
                                 <Chip
                                     text={`${n} violation${n === 1 ? '' : 's'}`}
                                     className="text-white"
-                                    style={{ background: n ? GRADE_COLORS.F : GRADE_COLORS.A }}
+                                    style={{ background: n ? gradeColor('F') : gradeColor('A') }}
                                 />
                                 {!!b.rfCount && <Chip text={`${b.rfCount} risk factor`} style={REPEAT_CHIP} title="Foodborne-illness risk factors (form items 1–29)" />}
                                 {!!b.grpCount && <Chip text={`${b.grpCount} retail practice`} style={NARR_CHIP} title="Good Retail Practices (items 30+)" />}

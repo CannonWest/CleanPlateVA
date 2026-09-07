@@ -19,7 +19,6 @@
  */
 
 import { ChevronDown, ExternalLink } from 'lucide-react'
-import { GRADE_COLORS } from './constants'
 import {
     fmtDate, focusedOutcomePresentation, gradeColor, gradeForScore,
     inspectionCountsPresentation, inspectionPresentation,
@@ -50,9 +49,9 @@ function disposSets(rows: DecodedChecklistRow[]) {
 }
 
 function Flag({ kind, children }: { kind: 'viol' | 'cos' | 'rep' | 'ok'; children: React.ReactNode }) {
-    const bg = kind === 'viol' ? GRADE_COLORS.F
-        : kind === 'cos' ? GRADE_COLORS.A
-            : kind === 'rep' ? GRADE_COLORS.D
+    const bg = kind === 'viol' ? gradeColor('F')
+        : kind === 'cos' ? gradeColor('A')
+            : kind === 'rep' ? gradeColor('D')
                 : 'var(--cp-surface-3)'
     return (
         <span
@@ -77,7 +76,7 @@ function OutcomeBadge({ insp }: { insp: Inspection }) {
         return (
             <span
                 className="inline-flex min-w-[34px] items-center justify-center rounded-[6px] px-1.5 py-1 text-cp-12 font-bold text-white tabular-nums"
-                style={{ background: view.score != null ? gradeColor(gradeForScore(view.score)) : GRADE_COLORS.none }}
+                style={{ background: view.score != null ? gradeColor(gradeForScore(view.score)) : gradeColor(null) }}
                 title="Inspection score (0–100, no letter — letters are a facility grade)"
             >
                 {view.score ?? '—'}
@@ -147,7 +146,7 @@ function Checklist({ rows, count }: { rows: DecodedChecklistRow[]; count: number
                             <span className="ml-2 h-1 min-w-[56px] flex-1 overflow-hidden rounded-[2px] bg-cp-surface-3">
                                 <span
                                     className="block h-full"
-                                    style={{ width: `${okPct}%`, background: cOut ? GRADE_COLORS.C : GRADE_COLORS.A }}
+                                    style={{ width: `${okPct}%`, background: cOut ? gradeColor('C') : gradeColor('A') }}
                                 />
                             </span>
                         </summary>
@@ -395,7 +394,7 @@ export function InspectionRow({ insp, openByDefault, fairfax = false }: {
                     <span className="flex basis-full flex-wrap gap-1.5 pl-0.5">
                         <span
                             className="rounded-[4px] px-2 py-1 text-cp-10.5 font-bold text-white"
-                            style={{ background: counts.n ? GRADE_COLORS.F : GRADE_COLORS.A }}
+                            style={{ background: counts.n ? gradeColor('F') : gradeColor('A') }}
                         >
                             {counts.n} violation{counts.n === 1 ? '' : 's'}
                         </span>

@@ -17,7 +17,9 @@ import { act, StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import type { Root } from 'react-dom/client'
 import { afterEach, beforeEach, expect, test } from 'vitest'
-import { SettingsDialog, THEME_OPTIONS } from '../../app/SettingsDialog'
+import { PALETTE_OPTIONS, SettingsDialog, THEME_OPTIONS } from '../../app/SettingsDialog'
+import { GRADE_PALETTES } from '../../app/constants'
+import type { GradePalette } from '../../app/constants'
 import type { ThemeChoice } from '../../app/theme'
 
 declare global {
@@ -37,6 +39,7 @@ globalThis.ResizeObserver ??= ResizeObserverStub as unknown as typeof ResizeObse
 
 interface Asked {
     theme: ThemeChoice[]
+    palette: GradePalette[]
     clusters: boolean[]
     textSize: number[]
     open: boolean[]
@@ -48,6 +51,7 @@ let asked: Asked
 
 async function mount(props: Partial<{
     theme: ThemeChoice
+    palette: GradePalette
     clusters: boolean
     textSize: number
 }> = {}) {
@@ -64,9 +68,11 @@ async function mount(props: Partial<{
                     open
                     onOpenChange={(open) => { asked.open.push(open) }}
                     theme={props.theme ?? 'system'}
+                    palette={props.palette ?? 'standard'}
                     clusters={props.clusters ?? false}
                     textSize={props.textSize ?? 14}
                     onTheme={(choice) => { asked.theme.push(choice) }}
+                    onPalette={(palette) => { asked.palette.push(palette) }}
                     onClusters={(on) => { asked.clusters.push(on) }}
                     onTextSize={(size) => { asked.textSize.push(size) }}
                 />
@@ -93,10 +99,24 @@ async function press(target: HTMLElement, key: string) {
     })
 }
 
+/** The option's caption: its one span that is not hidden from the name (the
+ *  ramp chips and the donut's count are text too, but aria-hidden). */
+function caption(item: HTMLElement): string | undefined {
+    return Array.from(item.children)
+        .find((child) => child.tagName === 'SPAN' && child.getAttribute('aria-hidden') !== 'true')
+        ?.textContent ?? undefined
+}
+
+/** jsdom stores an inline hex background as rgb(). */
+function rgb(hex: string): string {
+    const n = parseInt(hex.slice(1), 16)
+    return `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`
+}
+
 beforeEach(() => {
     host = document.createElement('div')
     document.body.appendChild(host)
-    asked = { theme: [], clusters: [], textSize: [], open: [] }
+    asked = { theme: [], palette: [], clusters: [], textSize: [], open: [] }
 })
 
 afterEach(async () => {
@@ -144,6 +164,47 @@ test('the theme is a radio group of three in order; the current one is checked; 
         items[2]?.click()
     })
     expect(asked.theme).toEqual(['dark'])
+})
+
+test('Grade colors is a two-ramp choice — Standard · Color-blind friendly — each showing its own five chips; pressing the other asks for it', async () => {
+    expect(PALETTE_OPTIONS.map((option) => option.value)).toEqual(['standard', 'colorblind'])
+    const dialog = await mount({ palette: 'standard' })
+    const items = radios(dialog, 'cpSettingsPalette')
+    expect(items.map(caption)).toEqual(['Standard', 'Color-blind friendly'])
+    expect(items.map((item) => item.getAttribute('data-state'))).toEqual(['on', 'off'])
+    // Each option's chips are ITS ramp's literal hex — not the live tokens,
+    // which would make both options show the same colors — lettered A–F
+    // like the band's chips, and hidden from the option's name.
+    for (const [i, { value }] of PALETTE_OPTIONS.entries()) {
+        const ramp = items[i]?.querySelector('[aria-hidden="true"]')
+        const chips = Array.from(ramp?.querySelectorAll<HTMLElement>('span') ?? [])
+        expect(chips.map((chip) => chip.textContent)).toEqual(['A', 'B', 'C', 'D', 'F'])
+        expect(chips.map((chip) => chip.style.background)).toEqual(
+            ['A', 'B', 'C', 'D', 'F'].map((letter) => rgb(GRADE_PALETTES[value][letter] as string)),
+        )
+    }
+    // The fade and the accent border are the same rules the pictures wear.
+    for (const item of items) {
+        expect(item.className).toContain('data-[state=off]:opacity-50')
+        expect(item.className).toContain('data-[state=on]:border-cp-accent-solid')
+    }
+    await act(async () => {
+        items[1]?.click()
+    })
+    expect(asked.palette).toEqual(['colorblind'])
+    // Controlled: the options report the App's state, not their own.
+    expect(items.map((item) => item.getAttribute('data-state'))).toEqual(['on', 'off'])
+    await act(async () => {
+        items[0]?.click()
+    })
+    expect(asked.palette).toEqual(['colorblind'])
+    const cb = await mount({ palette: 'colorblind' })
+    const cbItems = radios(cb, 'cpSettingsPalette')
+    expect(cbItems.map((item) => item.getAttribute('data-state'))).toEqual(['off', 'on'])
+    await act(async () => {
+        cbItems[0]?.click()
+    })
+    expect(asked.palette).toEqual(['colorblind', 'standard'])
 })
 
 test('Group nearby places is a two-picture choice — Every place · Grouped — the current one on, the other faded', async () => {
@@ -240,6 +301,7 @@ test('every way out asks to close — ✕, Done, Escape — and none of them is 
     await press(dialog, 'Escape')
     expect(asked.open).toEqual([false, false, false])
     expect(asked.theme).toEqual([])
+    expect(asked.palette).toEqual([])
     expect(asked.clusters).toEqual([])
     expect(asked.textSize).toEqual([])
 })
