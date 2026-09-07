@@ -10,8 +10,11 @@
  *   · closed permits (visible only under "Show closed") plot dimmed.
  *
  * Redesigned per the ratified mockup (design ref §6.2, CRD-M1):
- *   · grade LETTERS ride the dots past a zoom threshold (letter property;
- *     the letter always rides the color, §6.0) — graded facilities only;
+ *   · the dot is COLOR + RING alone. Grade letters rode the dots past a
+ *     z13.5 gate (a `letter` property feeding a symbol layer) until
+ *     2026-09-06, when Cannon retired them from the map — the letter still
+ *     rides every place a grade is NAMED (hover card, panel, list, chips),
+ *     so this bake keeps deriving the letter, but only to pick the fill;
  *   · stacks are NEUTRAL count bubbles (their PAINT carries no judgment).
  *
  * Proximity clustering was revived and withdrawn the same day (2026-08-30,
@@ -20,8 +23,8 @@
  * replacement landed CRP-M1 (2026-08-31): the ↓ suffix beside the letter;
  * CRP-M2 (2026-09-05, Cannon's pick) retired the suffix for a RED RING on
  * the dot at every zoom — production's form, off-ramp color. The bake is
- * the same either way: `declining` is true for letter-carrying dots only,
- * and MapView's ring expression reads it.
+ * the same either way: `declining` is true for GRADED dots only (what the
+ * letters used to mark), and MapView's ring expression reads it.
  *
  * Clustering returned as a VISITOR SWITCH (CRP-M6, 2026-09-05, default
  * off), so every feature also carries the cluster inputs — ALWAYS, whether
@@ -98,14 +101,12 @@ export interface PointProps extends ClusterInputs {
     pid: string
     fill: string
     opacity: number
-    /** The grade letter for the symbol layer; '' when nothing rides. */
-    letter: string
-    /** The declining ring (CRP-M2; band from M1b): true only for a dot
-     *  that CARRIES a letter — graded, active, full tier — whose
-     *  grade-to-grade drop exceeds TREND_DECLINE_BAND (>5 points), so
-     *  closed/NEW/unscored/basic-map dots never carry it. Unlike the
-     *  letter, the ring has no zoom gate: it rides the dot wherever the
-     *  dot is drawn. */
+    /** The declining ring (CRP-M2; band from M1b): true only for a GRADED
+     *  dot — graded, active, full tier — whose grade-to-grade drop exceeds
+     *  TREND_DECLINE_BAND (>5 points), so closed/NEW/unscored/basic-map
+     *  dots never carry it. The ring has no zoom gate: it rides the dot
+     *  wherever the dot is drawn (the letters it once accompanied were
+     *  gated at z13.5 and are gone since 2026-09-06). */
     declining: boolean
 }
 
@@ -133,11 +134,11 @@ function pointPaint(f: RosterRow, lite: boolean): Omit<PointProps, keyof Cluster
     if (lite) {
         // The finder view: every marker a uniform neutral — the basic map
         // locates places, it doesn't judge them (P6).
-        return { kind: 'point', pid, fill: LITE_MARKER_COLOR, opacity: 0.88, letter: '', declining: false }
+        return { kind: 'point', pid, fill: LITE_MARKER_COLOR, opacity: 0.88, declining: false }
     }
     const active = isActivePermit(f)
     if (!active) {
-        return { kind: 'point', pid, fill: CLOSED_COLOR, opacity: 0.42, letter: '', declining: false }
+        return { kind: 'point', pid, fill: CLOSED_COLOR, opacity: 0.42, declining: false }
     }
     const view = facilityPresentation(f)
     const letter = view.grade?.letter || ''
@@ -147,11 +148,10 @@ function pointPaint(f: RosterRow, lite: boolean): Omit<PointProps, keyof Cluster
             pid,
             fill: isNewlyPermitted(f) ? NEW_COLOR : gradeColor(null),
             opacity: 0.88,
-            letter: '',
             declining: false,
         }
     }
-    return { kind: 'point', pid, fill: gradeColor(letter), opacity: 0.88, letter, declining: view.declining }
+    return { kind: 'point', pid, fill: gradeColor(letter), opacity: 0.88, declining: view.declining }
 }
 
 /** Build the source data for the current filtered roster + tier. */

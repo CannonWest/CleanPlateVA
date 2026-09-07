@@ -4,8 +4,10 @@
  * CRF proof map into the real §6.2 marker grammar:
  *
  *   · grade-colored dots with a ring in every mode (zoom-scaled radius);
- *   · grade letters on the dots past LETTER_ZOOM (§6.0: the letter always
- *     rides the color);
+ *     the dots carried their grade letter past z13.5 until 2026-09-06,
+ *     when Cannon retired the glyphs from the map (§6.0 amended: the
+ *     letter still rides every place a grade is NAMED — hover card,
+ *     panel, list, chips — but the dot is color + ring alone);
  *   · gray uniform = basic map, gray = unscored, dimmed gray = closed;
  *   · same-point stacks as NEUTRAL count bubbles; no proximity clusters BY
  *     DEFAULT — the CRD-M1 mockup rule, re-ratified 2026-08-30 after a live
