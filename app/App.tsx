@@ -230,6 +230,7 @@ function Shell({ forceLite, ack }: {
                 clusters={clusters}
                 palette={palette}
                 onSelect={(pid) => actions.select(pid)}
+                locateReady={!blocking}
             />
 
             {blocking ? (

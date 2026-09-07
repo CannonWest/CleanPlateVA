@@ -39,8 +39,9 @@
  * ride one `useMapPopup` controller each (the display-only hover card and
  * the interactive stack popover), and geolocate + the patient auto-locate
  * + the coverage note are `useGeolocate`. What stays here is the island
- * itself: the map's lifecycle, the pointer rules, and the four effects
- * that answer data / switch / theme changes.
+ * itself: the map's lifecycle, the pointer rules, the effects that answer
+ * data / switch / theme / palette changes, and the one that releases the
+ * auto-locate once the page is ready for it.
  *
  * Ported from the old `map.js`: the dark-matter road-label contrast fix,
  * fadeDuration 0 (symbol counts must move with their bubbles), geolocate +
@@ -67,7 +68,7 @@ import { StackPopover } from './StackPopover'
 import type { GradePalette } from './constants'
 import type { RosterRow } from './data/types'
 
-export function MapView({ facilities, lite, dark, clusters, palette, onSelect }: {
+export function MapView({ facilities, lite, dark, clusters, palette, onSelect, locateReady }: {
     facilities: RosterRow[]
     lite: boolean
     dark: boolean
@@ -78,6 +79,12 @@ export function MapView({ facilities, lite, dark, clusters, palette, onSelect }:
     palette: GradePalette
     /** A facility was clicked (a lone dot, or a stack member picked). */
     onSelect: (permitId: string) => void
+    /** The page is ready for the unsolicited auto-locate: the acknowledgement
+     *  is answered — or was never asked (`?tier=lite`, a returning visitor).
+     *  Until then the "Find me" control stands and asks nothing; a first-time
+     *  visitor must never meet the browser's location prompt UNDER the terms
+     *  dialog (2026-09-07 — it did, from the mount, since the old client). */
+    locateReady: boolean
 }) {
     const container = useRef<HTMLDivElement>(null)
     const mapRef = useRef<maplibregl.Map | null>(null)
@@ -407,6 +414,16 @@ export function MapView({ facilities, lite, dark, clusters, palette, onSelect }:
         stack.hide()
         void source.setClusterOptions({ cluster: clusters })
     }, [clusters])
+
+    // The unsolicited auto-locate, released ONCE, the first time the page
+    // is ready for it — after the map exists (the mount effect above runs
+    // first, so a visitor who never sees the dialog is located from the
+    // mount as before). The control itself was installed at mount and asks
+    // nothing on its own; autoLocate is idempotent.
+    useEffect(() => {
+        if (!locateReady || !mapRef.current) return
+        geolocate.autoLocate()
+    }, [locateReady])
 
     // Theme swap: setStyle tears everything down; style.load reinstalls.
     useEffect(() => {

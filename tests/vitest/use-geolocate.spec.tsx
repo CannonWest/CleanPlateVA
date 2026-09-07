@@ -4,7 +4,9 @@
  * hook's wiring against a recording GeolocateControl — the ratified control
  * options, bottom-right placement, the note for a fix outside the mapped
  * area and for a failed fix, the follow lock's two-way tracking, and "Back
- * to Virginia" dropping the lock before it fits the state.
+ * to Virginia" dropping the lock before it fits the state. And the
+ * auto-locate's timing (2026-09-07): install asks the browser for nothing;
+ * `autoLocate` is the one request, once.
  */
 import { act, StrictMode, useEffect, useRef } from 'react'
 import { createRoot } from 'react-dom/client'
@@ -106,6 +108,21 @@ function fakeMap() {
     return { map, calls }
 }
 
+/** A recording stand-in for the browser's geolocation + Permissions API
+ *  (jsdom has neither): the REQUEST is what the specs count — the prompt
+ *  it would raise is browser chrome. */
+function stubGeolocation(permission: 'prompt' | 'denied' | 'granted' = 'prompt') {
+    const getCurrentPosition = vi.fn()
+    Object.defineProperty(navigator, 'geolocation', { configurable: true, value: { getCurrentPosition } })
+    Object.defineProperty(navigator, 'permissions', {
+        configurable: true, value: { query: vi.fn(async () => ({ state: permission })) },
+    })
+    return getCurrentPosition
+}
+
+/** Let the auto-locate's awaited permission query settle. */
+const flush = () => new Promise((resolve) => setTimeout(resolve, 0))
+
 beforeEach(() => {
     host = document.createElement('div')
     document.body.appendChild(host)
@@ -119,6 +136,45 @@ afterEach(async () => {
         root = null
     }
     host.remove()
+    delete (navigator as unknown as { geolocation?: unknown }).geolocation
+    delete (navigator as unknown as { permissions?: unknown }).permissions
+})
+
+test('install asks the browser for nothing; autoLocate asks once, patiently, and hands a fix to the control', async () => {
+    const getCurrentPosition = stubGeolocation('prompt')
+    const geo = await mount()
+    const { map } = fakeMap()
+    act(() => { geo.install(map) })
+    await flush()
+    // The control is up; no request has left the page (a first-time visitor
+    // sees the terms dialog at this moment — no location prompt under it).
+    expect(FakeGeolocateControl.instances).toHaveLength(1)
+    expect(getCurrentPosition).not.toHaveBeenCalled()
+
+    geo.autoLocate()
+    await flush()
+    expect(getCurrentPosition).toHaveBeenCalledTimes(1)
+    // Its own PATIENT request: the prompt's decision time counts against it.
+    expect(getCurrentPosition.mock.calls[0]?.[2]).toEqual({ enableHighAccuracy: true, timeout: 20000, maximumAge: 0 })
+    // A fix hands over to the control (the first kick lands: the control is ready).
+    const onFix = getCurrentPosition.mock.calls[0]?.[0] as () => void
+    onFix()
+    expect(FakeGeolocateControl.instances[0]!.triggered).toBe(1)
+
+    // Once per mount: a second release is a no-op.
+    geo.autoLocate()
+    await flush()
+    expect(getCurrentPosition).toHaveBeenCalledTimes(1)
+})
+
+test('a permission already denied never asks', async () => {
+    const getCurrentPosition = stubGeolocation('denied')
+    const geo = await mount()
+    act(() => { geo.install(fakeMap().map) })
+    geo.autoLocate()
+    await flush()
+    await flush()
+    expect(getCurrentPosition).not.toHaveBeenCalled()
 })
 
 test('install: the ratified control, bottom-right, once', async () => {
