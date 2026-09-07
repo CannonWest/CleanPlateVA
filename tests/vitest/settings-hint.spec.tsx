@@ -76,6 +76,26 @@ test('one control — the dismiss ✕ — and the tip is chrome, hidden from the
     expect(tip?.className).toContain('rotate-45')
 })
 
+test('it does not whisper: a 2px accent outline the tip carries too, and text ABOVE the 14px body', async () => {
+    // The pointer AT the accessibility choices is the one floating control
+    // that must read at a glance over a busy map (Cannon, 2026-09-07), so
+    // these are contract, not styling incidentals: every other floating
+    // control sits at 11.5–13px inside a hairline.
+    const note = await mount()
+    expect(note.className).toContain('border-2')
+    expect(note.className).toContain('border-cp-accent')
+    expect(note.className).not.toContain('border-cp-hairline')
+    expect(note.className).toContain('text-cp-15') // 15 × the visitor's scale
+    expect(note.className).toContain('font-medium')
+    expect(note.className).toContain('text-cp-ink') // not the muted ink-2/ink-3
+    const tip = note.querySelector('[aria-hidden="true"]:not(svg)')
+    expect(tip?.className).toContain('border-t-2')
+    expect(tip?.className).toContain('border-l-2')
+    expect(tip?.className).toContain('border-cp-accent')
+    // Its fill is the card's own surface, so it covers the outline behind it.
+    expect(tip?.className).toContain('bg-cp-surface-1')
+})
+
 test('it asks to be dismissed and never dismisses itself (the App persists)', async () => {
     const note = await mount()
     const close = note.querySelector('button')
