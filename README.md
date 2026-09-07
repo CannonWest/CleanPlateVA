@@ -384,8 +384,17 @@ dialog. Append `?tier=lite` to force the basic map with no terms asked.
 `npm test` runs the Vitest suite — the component and contract suites, the
 committed-artifact tripwire (`lite-roster-contract`), the retired-vocabulary
 tripwire, and, once `npm run build` has produced `dist/`, the build-output
-contract; `npm run typecheck` runs `tsc`. CI runs `npm ci`, `npx vite build`,
-`npx vitest run` on every PR and push.
+contract; `npm run typecheck` runs `tsc`. `npm run test:e2e` builds and runs
+the Playwright smoke (`tests/e2e/`): the production build served by `vite
+preview` in a real Chromium, asked through `window.__cpMap` whether the map
+actually painted — dots rendered, the canvas holding more than one color, in
+both themes and with "Group nearby places" on. Every Vitest map spec runs
+against a fake; this is the one that asks the running map, and the only test
+that exercises the worker file the build copies beside the main chunk. It
+needs the Playwright Chromium once (`npx playwright install chromium`) and
+CARTO's basemap live. CI runs `npm ci`, `npx vite build`, `npx vitest run`,
+then the smoke, on every PR and push; the smoke's report is uploaded as an
+artifact when it fails.
 
 `tools/` holds helpers the build never runs:
 `tools/dev_preview_mockups.py` serves the CRD mockups under `docs/mockups/`
