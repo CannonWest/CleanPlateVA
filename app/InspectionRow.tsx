@@ -56,7 +56,7 @@ function Flag({ kind, children }: { kind: 'viol' | 'cos' | 'rep' | 'ok'; childre
                 : 'var(--cp-surface-3)'
     return (
         <span
-            className="rounded-[4px] px-1.5 py-[3px] text-[9px] font-bold"
+            className="rounded-[4px] px-1.5 py-[3px] text-cp-9 font-bold"
             style={{ background: bg, color: kind === 'ok' ? 'var(--cp-ink-2)' : '#fff' }}
         >
             {children}
@@ -76,7 +76,7 @@ function OutcomeBadge({ insp }: { insp: Inspection }) {
     if (view.scope === 'broad') {
         return (
             <span
-                className="inline-flex min-w-[34px] items-center justify-center rounded-[6px] px-1.5 py-1 text-[12px] font-bold text-white tabular-nums"
+                className="inline-flex min-w-[34px] items-center justify-center rounded-[6px] px-1.5 py-1 text-cp-12 font-bold text-white tabular-nums"
                 style={{ background: view.score != null ? gradeColor(gradeForScore(view.score)) : GRADE_COLORS.none }}
                 title="Inspection score (0–100, no letter — letters are a facility grade)"
             >
@@ -88,7 +88,7 @@ function OutcomeBadge({ insp }: { insp: Inspection }) {
         const outcome = focusedOutcomePresentation(view)
         return (
             <span
-                className="text-[12.5px] font-bold tabular-nums"
+                className="text-cp-12.5 font-bold tabular-nums"
                 style={{ color: toneColor(outcome.tone) }}
                 title={outcome.description}
             >
@@ -100,7 +100,7 @@ function OutcomeBadge({ insp }: { insp: Inspection }) {
     if (adj) {
         return (
             <span
-                className="text-[12.5px] font-bold"
+                className="text-cp-12.5 font-bold"
                 style={{ color: toneColor(adj.tone) }}
                 role="img"
                 title={adj.detail}
@@ -110,7 +110,7 @@ function OutcomeBadge({ insp }: { insp: Inspection }) {
             </span>
         )
     }
-    return <span className="text-[12.5px] font-bold text-cp-ink-3">?</span>
+    return <span className="text-cp-12.5 font-bold text-cp-ink-3">?</span>
 }
 
 function Checklist({ rows, count }: { rows: DecodedChecklistRow[]; count: number | null }) {
@@ -129,7 +129,7 @@ function Checklist({ rows, count }: { rows: DecodedChecklistRow[]; count: number
     const out = real.filter((r) => r.violation).length
     return (
         <details className="mt-2">
-            <summary className="flex cursor-pointer list-none items-center gap-1.5 py-1 text-[11.5px] text-cp-ink-3 [&::-webkit-details-marker]:hidden">
+            <summary className="flex cursor-pointer list-none items-center gap-1.5 py-1 text-cp-11.5 text-cp-ink-3 [&::-webkit-details-marker]:hidden">
                 <ChevronDown size={13} aria-hidden="true" className="caret shrink-0" />
                 Inspection checklist — {count ?? 0} distinct applicable code items · {real.length} published rows · {out} OUT
             </summary>
@@ -141,9 +141,9 @@ function Checklist({ rows, count }: { rows: DecodedChecklistRow[]; count: number
                 const okPct = denom ? Math.round((cOk / denom) * 100) : 100
                 return (
                     <details key={c} className="my-1.5 rounded-[6px] border border-cp-hairline bg-cp-surface-1">
-                        <summary className="flex cursor-pointer list-none items-center gap-2 px-2.5 py-1.5 text-[12px] text-cp-ink-2 [&::-webkit-details-marker]:hidden">
+                        <summary className="flex cursor-pointer list-none items-center gap-2 px-2.5 py-1.5 text-cp-12 text-cp-ink-2 [&::-webkit-details-marker]:hidden">
                             <span>{c}</span>
-                            <span className="text-[11px] font-semibold text-cp-ink-3 tabular-nums">{cOk}/{denom}</span>
+                            <span className="text-cp-11 font-semibold text-cp-ink-3 tabular-nums">{cOk}/{denom}</span>
                             <span className="ml-2 h-1 min-w-[56px] flex-1 overflow-hidden rounded-[2px] bg-cp-surface-3">
                                 <span
                                     className="block h-full"
@@ -153,8 +153,8 @@ function Checklist({ rows, count }: { rows: DecodedChecklistRow[]; count: number
                         </summary>
                         <div className="border-t border-cp-hairline px-2.5 py-1">
                             {cr.map((r, i) => (
-                                <div key={i} className="flex items-baseline gap-2 py-1 text-[12px] text-cp-ink-2">
-                                    <span className="min-w-[22px] text-[10.5px] font-bold text-cp-ink-3 tabular-nums">{r.item ?? '?'}</span>
+                                <div key={i} className="flex items-baseline gap-2 py-1 text-cp-12 text-cp-ink-2">
+                                    <span className="min-w-[22px] text-cp-10.5 font-bold text-cp-ink-3 tabular-nums">{r.item ?? '?'}</span>
                                     <span>{r.standard_text}</span>
                                     <span className="ml-auto flex flex-none gap-1">
                                         {r.violation ? <Flag kind="viol">OUT</Flag> : <Flag kind="ok">{r.disposition || 'IN'}</Flag>}
@@ -213,7 +213,7 @@ function sanitizerBad(r: NonNullable<TempsV2['warewashing']>[number]): boolean {
 function TempTable({ head, rows }: { head: string[]; rows: Array<{ cells: (string | number | null | undefined)[]; bad?: boolean }> }) {
     return (
         <div className="overflow-x-auto">
-            <table className="mt-1 w-full text-[11.5px]">
+            <table className="mt-1 w-full text-cp-11.5">
                 <thead>
                     <tr>
                         {head.map((h) => (
@@ -249,7 +249,7 @@ function Temps({ insp }: { insp: Inspection }) {
             n += tv.food.length
             sections.push(
                 <div key="food">
-                    <div className="mt-2 text-[11px] font-semibold text-cp-ink-3 uppercase">Food temperatures</div>
+                    <div className="mt-2 text-cp-11 font-semibold text-cp-ink-3 uppercase">Food temperatures</div>
                     <TempTable
                         head={['Item', 'Temp', 'State']}
                         rows={tv.food.map((r) => ({ cells: [r.description, r.temperature, r.state_of_food], bad: foodTempBad(r) }))}
@@ -261,7 +261,7 @@ function Temps({ insp }: { insp: Inspection }) {
             n += tv.warewashing.length
             sections.push(
                 <div key="ware">
-                    <div className="mt-2 text-[11px] font-semibold text-cp-ink-3 uppercase">Warewashing &amp; sanitizer</div>
+                    <div className="mt-2 text-cp-11 font-semibold text-cp-ink-3 uppercase">Warewashing &amp; sanitizer</div>
                     <TempTable
                         head={['Machine', 'Method', 'PPM', 'Temp']}
                         rows={tv.warewashing.map((r) => ({
@@ -281,7 +281,7 @@ function Temps({ insp }: { insp: Inspection }) {
             n += tv.equipment.length
             sections.push(
                 <div key="equip">
-                    <div className="mt-2 text-[11px] font-semibold text-cp-ink-3 uppercase">Equipment temperatures</div>
+                    <div className="mt-2 text-cp-11 font-semibold text-cp-ink-3 uppercase">Equipment temperatures</div>
                     <TempTable
                         head={['Equipment', 'Temp']}
                         rows={tv.equipment.map((r) => ({ cells: [r.description, r.temperature] }))}
@@ -295,13 +295,13 @@ function Temps({ insp }: { insp: Inspection }) {
         const total = legacy.reduce((sum, t) => sum + (t.rows?.length ?? 0), 0)
         return (
             <details className="mt-2">
-                <summary className="flex cursor-pointer list-none items-center gap-1.5 py-1 text-[11.5px] text-cp-ink-3 [&::-webkit-details-marker]:hidden">
+                <summary className="flex cursor-pointer list-none items-center gap-1.5 py-1 text-cp-11.5 text-cp-ink-3 [&::-webkit-details-marker]:hidden">
                     <ChevronDown size={13} aria-hidden="true" className="caret shrink-0" />
                     Temperature log ({total} readings)
                 </summary>
                 {legacy.map((t, i) => (
                     <div key={i}>
-                        <div className="mt-2 text-[11px] font-semibold text-cp-ink-3 uppercase">{t.category}</div>
+                        <div className="mt-2 text-cp-11 font-semibold text-cp-ink-3 uppercase">{t.category}</div>
                         <TempTable head={[]} rows={(t.rows ?? []).map((cells) => ({ cells }))} />
                     </div>
                 ))}
@@ -310,7 +310,7 @@ function Temps({ insp }: { insp: Inspection }) {
     }
     return (
         <details className="mt-2">
-            <summary className="flex cursor-pointer list-none items-center gap-1.5 py-1 text-[11.5px] text-cp-ink-3 [&::-webkit-details-marker]:hidden">
+            <summary className="flex cursor-pointer list-none items-center gap-1.5 py-1 text-cp-11.5 text-cp-ink-3 [&::-webkit-details-marker]:hidden">
                 <ChevronDown size={13} aria-hidden="true" className="caret shrink-0" />
                 Temperatures &amp; sanitizer — {n} readings
             </summary>
@@ -355,13 +355,13 @@ export function InspectionRow({ insp, openByDefault, fairfax = false }: {
         <details className="my-1.5 overflow-hidden rounded-[8px] border border-cp-hairline bg-cp-surface-2" open={openByDefault}>
             <summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-2.5 gap-y-1 px-3 py-2.5 [&::-webkit-details-marker]:hidden">
                 <OutcomeBadge insp={insp} />
-                <span className="text-[12.5px] font-semibold tabular-nums">{fmtDate(insp.date)}</span>
-                <span className="text-[11.5px] text-cp-ink-3">{insp.purpose as string}</span>
+                <span className="text-cp-12.5 font-semibold tabular-nums">{fmtDate(insp.date)}</span>
+                <span className="text-cp-11.5 text-cp-ink-3">{insp.purpose as string}</span>
                 {/* An adjudicated unknown shows its VERDICT chip instead of a
                     scope label — "Scope unknown" describes the missing
                     checklist, which is exactly what the adjudication resolved. */}
                 {!(adj && view.scope === 'unknown') && (
-                    <span className="rounded-[4px] bg-cp-surface-3 px-1.5 py-1 text-[9.5px] font-semibold tracking-[.05em] text-cp-ink-2 uppercase">
+                    <span className="rounded-[4px] bg-cp-surface-3 px-1.5 py-1 text-cp-9.5 font-semibold tracking-[.05em] text-cp-ink-2 uppercase">
                         {view.scope === 'broad' ? 'Broad' : view.scope === 'focused' ? 'Focused' : 'Scope unknown'}
                     </span>
                 )}
@@ -384,7 +384,7 @@ export function InspectionRow({ insp, openByDefault, fairfax = false }: {
                 {adj ? (
                     <span className="flex basis-full gap-1.5 pl-0.5">
                         <span
-                            className="rounded-[4px] border px-1.5 py-[3px] text-[10.5px] font-semibold"
+                            className="rounded-[4px] border px-1.5 py-[3px] text-cp-10.5 font-semibold"
                             style={{ color: toneColor(adj.tone), borderColor: toneColor(adj.tone) }}
                             title={adj.detail}
                         >
@@ -394,14 +394,14 @@ export function InspectionRow({ insp, openByDefault, fairfax = false }: {
                 ) : counts.show ? (
                     <span className="flex basis-full flex-wrap gap-1.5 pl-0.5">
                         <span
-                            className="rounded-[4px] px-2 py-1 text-[10.5px] font-bold text-white"
+                            className="rounded-[4px] px-2 py-1 text-cp-10.5 font-bold text-white"
                             style={{ background: counts.n ? GRADE_COLORS.F : GRADE_COLORS.A }}
                         >
                             {counts.n} violation{counts.n === 1 ? '' : 's'}
                         </span>
                         {!!counts.rf && (
                             <span
-                                className="rounded-[4px] border px-1.5 py-[3px] text-[10.5px] font-semibold"
+                                className="rounded-[4px] border px-1.5 py-[3px] text-cp-10.5 font-semibold"
                                 style={{ color: 'var(--cp-grade-d)', borderColor: 'var(--cp-grade-d)' }}
                                 title="Foodborne-illness risk factors (form items 1–29)"
                             >
@@ -410,14 +410,14 @@ export function InspectionRow({ insp, openByDefault, fairfax = false }: {
                         )}
                         {!!counts.grp && (
                             <span
-                                className="rounded-[4px] border border-cp-hairline px-1.5 py-[3px] text-[10.5px] font-semibold text-cp-ink-2"
+                                className="rounded-[4px] border border-cp-hairline px-1.5 py-[3px] text-cp-10.5 font-semibold text-cp-ink-2"
                                 title="Good Retail Practices (items 30+)"
                             >
                                 {counts.grp} retail practice
                             </span>
                         )}
                         {counts.n === 0 && view.scope !== 'unknown' && (
-                            <span className="self-center text-[11px] text-cp-ink-3">
+                            <span className="self-center text-cp-11 text-cp-ink-3">
                                 {view.count} items in compliance
                             </span>
                         )}
@@ -426,18 +426,18 @@ export function InspectionRow({ insp, openByDefault, fairfax = false }: {
             </summary>
             <div className="border-t border-cp-hairline px-3 py-2.5">
                 {unavailable && (
-                    <p className="mb-2 text-[12px] text-cp-ink-2">
+                    <p className="mb-2 text-cp-12 text-cp-ink-2">
                         No report is held for this visit; the county’s copy may be available.
                     </p>
                 )}
                 {outcome && (
-                    <div className="mb-2 rounded-[6px] border border-cp-hairline bg-cp-bg px-2.5 py-2 text-[12px] leading-normal text-cp-ink-2">
-                        <b className="mb-0.5 block text-[11px] tracking-[.05em] text-cp-ink uppercase">County outcome: {outcome}</b>
+                    <div className="mb-2 rounded-[6px] border border-cp-hairline bg-cp-bg px-2.5 py-2 text-cp-12 leading-normal text-cp-ink-2">
+                        <b className="mb-0.5 block text-cp-11 tracking-[.05em] text-cp-ink uppercase">County outcome: {outcome}</b>
                         Outcome recorded by the Fairfax County Health Department for this visit. It is not derived from, and does not determine, CleanPlateVA’s computed score. Across the archived county reports, about 3 percent of visits recorded as Passed score in the D or F range under CleanPlateVA’s formula; the basis for the county’s outcome is not stated in the report.
                     </div>
                 )}
                 {adj && (
-                    <p className="mb-2 text-[12px] text-cp-ink-2">
+                    <p className="mb-2 text-cp-12 text-cp-ink-2">
                         No checklist published; verdict read from the inspector's written comments.
                     </p>
                 )}
@@ -455,14 +455,14 @@ export function InspectionRow({ insp, openByDefault, fairfax = false }: {
                                 ) : v.item != null && sets.open.has(v.item) ? (
                                     <Flag kind="viol">OUT</Flag>
                                 ) : null}
-                                <span className="text-[11px] font-bold text-cp-ink-3 tabular-nums" title={v.code || 'no regulation code'}>
+                                <span className="text-cp-11 font-bold text-cp-ink-3 tabular-nums" title={v.code || 'no regulation code'}>
                                     #{v.item ?? '?'}
                                 </span>
                                 {v.item != null && sets.repeat.has(v.item) && <Flag kind="rep">repeat</Flag>}
-                                <span className="text-[12.5px]">{v.text}</span>
+                                <span className="text-cp-12.5">{v.text}</span>
                             </div>
                             {typeof v.corrective === 'string' && v.corrective && (
-                                <div className="mt-1 pl-1 text-[12px] text-cp-ink-2">
+                                <div className="mt-1 pl-1 text-cp-12 text-cp-ink-2">
                                     <span className="text-cp-ink-3">↳ </span>
                                     {v.corrective}
                                 </div>
@@ -470,12 +470,12 @@ export function InspectionRow({ insp, openByDefault, fairfax = false }: {
                         </div>
                     )
                 }) : adj ? null : (
-                    <p className="text-[12px] text-cp-ink-3">{noViolations}</p>
+                    <p className="text-cp-12 text-cp-ink-3">{noViolations}</p>
                 )}
                 {!unavailable && <Checklist rows={rows} count={view.count} />}
                 {typeof insp.comments === 'string' && insp.comments && (
-                    <div className="mt-2 rounded-[6px] border border-cp-hairline bg-cp-bg px-2.5 py-2 text-[12px] leading-normal text-cp-ink-2">
-                        <b className="mb-0.5 block text-[11px] tracking-[.05em] text-cp-ink uppercase">Inspector comments</b>
+                    <div className="mt-2 rounded-[6px] border border-cp-hairline bg-cp-bg px-2.5 py-2 text-cp-12 leading-normal text-cp-ink-2">
+                        <b className="mb-0.5 block text-cp-11 tracking-[.05em] text-cp-ink uppercase">Inspector comments</b>
                         {insp.comments}
                     </div>
                 )}

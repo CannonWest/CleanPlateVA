@@ -81,7 +81,7 @@ export function AckDialog({ blocking, onDecide, onEscapeDecline, onClose }: {
                             <X size={16} aria-hidden="true" />
                         </button>
                     )}
-                    <h1 id="cpAckTitle" className="mb-3.5 text-center text-[17px] font-bold tracking-[.01em]">
+                    <h1 id="cpAckTitle" className="mb-3.5 text-center text-cp-17 font-bold tracking-[.01em]">
                         Terms of Use and Data Acknowledgment
                     </h1>
                     <div className="min-h-0 w-[min(36rem,100%)] flex-1 self-center rounded-cp-control border border-cp-hairline bg-cp-bg py-1 pr-0.5">
@@ -93,14 +93,14 @@ export function AckDialog({ blocking, onDecide, onEscapeDecline, onClose }: {
                         <button
                             type="button"
                             onClick={() => onDecide(ACK_DECLINED)}
-                            className="rounded-cp-control bg-cp-danger-solid px-3.5 py-2 text-[12.5px] font-semibold text-white"
+                            className="rounded-cp-control bg-cp-danger-solid px-3.5 py-2 text-cp-12.5 font-semibold text-white"
                         >
                             Decline and Use Basic Map
                         </button>
                         <button
                             type="button"
                             onClick={() => onDecide(ACK_AGREED)}
-                            className="rounded-cp-control bg-cp-accent-solid px-3.5 py-2 text-[12.5px] font-semibold text-cp-accent-ink"
+                            className="rounded-cp-control bg-cp-accent-solid px-3.5 py-2 text-cp-12.5 font-semibold text-cp-accent-ink"
                         >
                             Agree and View Grades
                         </button>

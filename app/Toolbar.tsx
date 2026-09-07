@@ -39,7 +39,7 @@ const GRADES = ['A', 'B', 'C', 'D', 'F'] as const
 const VIEW_LABEL: Record<View, string> = { map: 'Map', list: 'List', about: 'About' }
 
 const PILL = 'inline-flex items-center gap-1.5 rounded-cp-pill border border-cp-hairline '
-    + 'bg-cp-surface-2 px-3 py-2 text-[12px] font-semibold text-cp-ink-2'
+    + 'bg-cp-surface-2 px-3 py-2 text-cp-12 font-semibold text-cp-ink-2'
 
 /** The canonical form the URL carries (C6): trimmed, lower-cased, internal
  *  whitespace runs collapsed. The box itself keeps whatever was typed. */
@@ -108,7 +108,7 @@ export function Toolbar({ state, actions, lite, shown, total }: {
         <header
             className="relative z-20 flex min-w-0 flex-wrap items-center gap-x-3.5 gap-y-1.5 rounded-cp-card border border-cp-hairline bg-cp-surface-1 px-3 py-2 shadow-cp"
         >
-            <div className="flex flex-none items-center gap-2 text-[14.5px] font-bold">
+            <div className="flex flex-none items-center gap-2 text-cp-14.5 font-bold">
                 <img
                     src={logoUrl}
                     alt=""
@@ -128,7 +128,7 @@ export function Toolbar({ state, actions, lite, shown, total }: {
                         type="button"
                         aria-current={state.view === view ? 'page' : undefined}
                         onClick={() => actions.setView(view)}
-                        className={`rounded-[5px] px-3.5 py-[7px] text-[12.5px] font-semibold ${
+                        className={`rounded-[5px] px-3.5 py-[7px] text-cp-12.5 font-semibold ${
                             state.view === view
                                 ? 'bg-cp-accent-solid text-cp-accent-ink'
                                 : 'text-cp-ink-2 hover:text-cp-ink'
@@ -139,7 +139,7 @@ export function Toolbar({ state, actions, lite, shown, total }: {
                 ))}
             </nav>
 
-            <div className="flex min-w-[180px] flex-[1_1_200px] items-center gap-2 rounded-cp-pill border border-cp-hairline bg-cp-surface-2 px-3 py-2 text-[13px] sm:max-w-[360px]">
+            <div className="flex min-w-[180px] flex-[1_1_200px] items-center gap-2 rounded-cp-pill border border-cp-hairline bg-cp-surface-2 px-3 py-2 text-cp-13 sm:max-w-[360px]">
                 <Search size={15} aria-hidden="true" className="shrink-0 text-cp-ink-3" />
                 <input
                     ref={searchInput}
@@ -185,7 +185,7 @@ export function Toolbar({ state, actions, lite, shown, total }: {
                                     ? `Showing only grade ${letter} — select again to clear`
                                     : `Show only grade ${letter}`}
                                 onClick={() => actions.setGrade(filters.grade === letter ? '' : letter)}
-                                className={`h-[26px] min-w-[26px] rounded-[6px] text-[11.5px] font-bold text-white ${
+                                className={`h-[26px] min-w-[26px] rounded-[6px] text-cp-11.5 font-bold text-white ${
                                     dimmed ? 'opacity-30' : 'opacity-95'
                                 } ${filters.grade === letter ? 'ring-2 ring-cp-focus ring-offset-1 ring-offset-cp-surface-1' : ''}`}
                                 style={{ background: `var(--cp-grade-${letter.toLowerCase()})` }}
@@ -241,7 +241,7 @@ export function Toolbar({ state, actions, lite, shown, total }: {
                 </button>
             )}
 
-            <span className="flex-none text-[11.5px] font-semibold text-cp-ink-3 tabular-nums" title={countTitle}>
+            <span className="flex-none text-cp-11.5 font-semibold text-cp-ink-3 tabular-nums" title={countTitle}>
                 {filtered ? (
                     <>
                         <b className="font-bold text-cp-ink">{shown.toLocaleString()}</b>
@@ -262,7 +262,7 @@ function FlagRow({ label, checked, onChange }: {
     onChange: (value: boolean) => void
 }) {
     return (
-        <label className="flex cursor-pointer items-center justify-between gap-3 rounded-cp-control px-2 py-1.5 text-[12.5px] text-cp-ink-2 hover:bg-cp-surface-2">
+        <label className="flex cursor-pointer items-center justify-between gap-3 rounded-cp-control px-2 py-1.5 text-cp-12.5 text-cp-ink-2 hover:bg-cp-surface-2">
             {label}
             <input
                 type="checkbox"

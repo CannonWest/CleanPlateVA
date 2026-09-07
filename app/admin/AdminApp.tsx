@@ -23,7 +23,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createAckState } from '../ack'
 import { createFoodApi } from '../data/client'
 import { DataProvider, useRoster } from '../data/provider'
-import { applyThemeClass, persistTheme, storedDark } from '../theme'
+import { applyThemeClass, persistTheme, resolveDark, storedTheme, systemPrefersDark } from '../theme'
 import { AboutView } from '../AboutView'
 import type { LoadedRoster } from '../data/types'
 import {
@@ -59,7 +59,9 @@ function AdminShell() {
         ? (roster.result as LoadedRoster)
         : null
 
-    const [dark, setDark] = useState(storedDark)
+    // The editor's own two-state flip over the site's three-way choice: it
+    // starts from the RESOLVED theme and writes an explicit word.
+    const [dark, setDark] = useState(() => resolveDark(storedTheme(), systemPrefersDark()))
     useEffect(() => {
         applyThemeClass(dark)
     }, [dark])
@@ -215,16 +217,16 @@ function AdminShell() {
                 : `[${HIDDEN_ATTR}]{outline:2px dashed var(--cp-grade-f);outline-offset:2px;opacity:.28;}`}</style>
 
             <header className="flex flex-none flex-wrap items-center gap-2.5 border-b border-cp-hairline bg-cp-surface-1 px-3.5 py-2.5">
-                <span className="text-[13px] font-bold">About editor</span>
-                <span className="rounded-cp-pill border border-cp-hairline px-2 py-0.5 text-[10.5px] text-cp-ink-3">
+                <span className="text-cp-13 font-bold">About editor</span>
+                <span className="rounded-cp-pill border border-cp-hairline px-2 py-0.5 text-cp-10.5 text-cp-ink-3">
                     draft on this device · nothing published
                 </span>
-                <span className="text-[11.5px] text-cp-ink-3">
+                <span className="text-cp-11.5 text-cp-ink-3">
                     {ops.length} edit{ops.length === 1 ? '' : 's'}
                 </span>
                 <div className="ml-auto flex items-center gap-2">
                     <button type="button" className={BTN} onClick={() => setDark((d) => {
-                        persistTheme(!d)
+                        persistTheme(d ? 'light' : 'dark')
                         return !d
                     })}>
                         {dark ? 'Light' : 'Dark'}
@@ -250,8 +252,8 @@ function AdminShell() {
                 <div className="fixed inset-0 z-[60] flex items-center justify-center bg-cp-scrim-2 p-6">
                     <div className="flex max-h-full w-full max-w-[760px] flex-col gap-2.5 rounded-cp-card border border-cp-hairline bg-cp-surface-1 p-4 shadow-cp">
                         <div className="flex items-center gap-2.5">
-                            <span className="text-[13px] font-bold">Export</span>
-                            <span className="text-[11.5px] text-cp-ink-3">
+                            <span className="text-cp-13 font-bold">Export</span>
+                            <span className="text-cp-11.5 text-cp-ink-3">
                                 hand this to Claude to fold into app/AboutView.tsx
                             </span>
                             <div className="ml-auto flex gap-2">
@@ -265,7 +267,7 @@ function AdminShell() {
                         </div>
                         <textarea
                             readOnly
-                            className="min-h-[320px] w-full flex-1 resize-none rounded-[8px] border border-cp-hairline bg-cp-surface-2 p-2.5 font-mono text-[11.5px]"
+                            className="min-h-[320px] w-full flex-1 resize-none rounded-[8px] border border-cp-hairline bg-cp-surface-2 p-2.5 font-mono text-cp-11.5"
                             value={exportText(ops)}
                             onFocus={(e) => e.currentTarget.select()}
                         />
@@ -295,7 +297,7 @@ function AdminShell() {
 
                 <aside className="w-[300px] flex-none overflow-y-auto border-l border-cp-hairline bg-cp-surface-1 px-3.5 py-3">
                     {!selection ? (
-                        <p className="text-[12.5px] leading-normal text-cp-ink-3">
+                        <p className="text-cp-12.5 leading-normal text-cp-ink-3">
                             Click any element in the document to pick it. Its own words can be
                             rewritten; the element itself can be hidden. Edits persist on this
                             device and are exported as text — <strong>/about is never changed</strong>.
@@ -303,32 +305,32 @@ function AdminShell() {
                     ) : (
                         <div className="flex flex-col gap-3">
                             <div>
-                                <div className="text-[10.5px] font-semibold tracking-[.07em] text-cp-accent uppercase">
+                                <div className="text-cp-10.5 font-semibold tracking-[.07em] text-cp-accent uppercase">
                                     Selected
                                 </div>
-                                <div className="mt-1 text-[13px] font-bold">&lt;{selection.tag}&gt;</div>
-                                <div className="mt-1 break-words text-[11.5px] text-cp-ink-3">
+                                <div className="mt-1 text-cp-13 font-bold">&lt;{selection.tag}&gt;</div>
+                                <div className="mt-1 break-words text-cp-11.5 text-cp-ink-3">
                                     {selection.text || '(no text)'}
                                 </div>
-                                <div className="mt-1 font-mono text-[10.5px] text-cp-ink-3">
+                                <div className="mt-1 font-mono text-cp-10.5 text-cp-ink-3">
                                     path {selection.path}
                                 </div>
                             </div>
 
                             {isDeleted && (
-                                <p className="rounded-[8px] border border-cp-hairline bg-cp-surface-2 px-2.5 py-2 text-[11.5px]">
+                                <p className="rounded-[8px] border border-cp-hairline bg-cp-surface-2 px-2.5 py-2 text-cp-11.5">
                                     Marked for deletion.
                                 </p>
                             )}
 
                             {selection.editable && !isDeleted && (
                                 <div>
-                                    <label className="text-[11.5px] font-semibold" htmlFor="cp-admin-text">
+                                    <label className="text-cp-11.5 font-semibold" htmlFor="cp-admin-text">
                                         Text
                                     </label>
                                     <textarea
                                         id="cp-admin-text"
-                                        className="mt-1 w-full resize-y rounded-[8px] border border-cp-hairline bg-cp-surface-2 px-2.5 py-2 text-[12.5px]"
+                                        className="mt-1 w-full resize-y rounded-[8px] border border-cp-hairline bg-cp-surface-2 px-2.5 py-2 text-cp-12.5"
                                         rows={5}
                                         value={draftText}
                                         onChange={(e) => setDraftText(e.target.value)}
@@ -340,7 +342,7 @@ function AdminShell() {
                             )}
 
                             {!selection.editable && !isDeleted && (
-                                <p className="text-[11.5px] text-cp-ink-3">
+                                <p className="text-cp-11.5 text-cp-ink-3">
                                     This element has no words of its own — pick the element inside
                                     it to edit text, or hide this one whole.
                                 </p>
@@ -367,9 +369,9 @@ function AdminShell() {
     )
 }
 
-const BTN = 'rounded-cp-pill border border-cp-hairline px-2.5 py-1 text-[11.5px] font-semibold '
+const BTN = 'rounded-cp-pill border border-cp-hairline px-2.5 py-1 text-cp-11.5 font-semibold '
     + 'disabled:opacity-40'
-const BTN_ACCENT = 'rounded-cp-pill border border-cp-accent px-2.5 py-1 text-[11.5px] font-semibold '
+const BTN_ACCENT = 'rounded-cp-pill border border-cp-accent px-2.5 py-1 text-cp-11.5 font-semibold '
     + 'text-cp-accent disabled:opacity-40'
 
 /** A hairline over an element's box — drawn beside the document rather

@@ -29,17 +29,30 @@
     <link rel="apple-touch-icon" href="./apple-touch-icon.png">
     <title>CleanPlateVA — archived Virginia health inspection finder</title>
     <script>
-    // Apply the stored theme before first paint to avoid a flash. Light is
-    // the visitor default (2026-09-06): the class goes on unless the visitor
-    // chose dark; the key and the rule match app/theme.ts (storedDark).
-    // Pinned by tests/vitest/theme.spec.ts, which runs this script.
+    // Apply the stored theme and text size before first paint to avoid a
+    // flash. The theme is three-way (2026-09-06): 'dark' and 'light' are
+    // the visitor's own words; anything else — the default — follows the
+    // device's appearance. The class goes on whenever the RESOLVED theme is
+    // light; the key and the rule match app/theme.ts (storedTheme +
+    // resolveDark). The text size is the body size in px, honored when it
+    // is an integer in 12..20 and applied as its ratio to the ratified 14
+    // (app/settings.ts validTextSize + applyTextSize). Pinned by
+    // tests/vitest/theme.spec.ts and settings.spec.ts, which run this script.
     (function () {
-        var dark = false;
+        var theme = null;
+        var size = null;
         try {
-            dark = localStorage.getItem('cleanplateva.theme') === 'dark';
-        } catch (e) { /* private mode: the light default stands */ }
+            theme = localStorage.getItem('cleanplateva.theme');
+            size = localStorage.getItem('cleanplateva.textSize');
+        } catch (e) { /* private mode: the defaults stand */ }
+        var dark = theme === 'dark' || (theme !== 'light'
+            && !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches));
         if (!dark) {
             document.documentElement.classList.add('theme-light');
+        }
+        var px = Number(size);
+        if (size !== null && Number.isInteger(px) && px >= 12 && px <= 20 && px !== 14) {
+            document.documentElement.style.setProperty('--cp-text-scale', String(px / 14));
         }
     })();
     </script>
