@@ -84,6 +84,10 @@ export const NEW_COLOR = NEW_COLORS.standard
 
 export const LITE_MARKER_COLOR = '#8d939c' // basic map: uniform, judgment-free
 export const CLOSED_COLOR = '#9aa0a6'      // not a live permit
+// The dot's presence: closed permits (visible only under "Show closed") dim.
+// Paint expressions over the feature's bucket (mapLayers pointOpacityExpr).
+export const POINT_OPACITY = 0.88
+export const CLOSED_OPACITY = 0.42
 
 // CARTO vector basemaps (attribution rides in the style's sources).
 export const STYLE_LIGHT = 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json'

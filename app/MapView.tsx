@@ -101,7 +101,7 @@ export function MapView({ facilities, lite, dark, clusters, palette, onSelect, l
     paletteRef.current = palette
     const [failed, setFailed] = useState(false)
 
-    const data = useMemo(() => buildMapData(facilities, lite, palette), [facilities, lite, palette])
+    const data = useMemo(() => buildMapData(facilities, lite), [facilities, lite])
     const dataRef = useRef<MapData>(data)
     dataRef.current = data
     const darkRef = useRef(dark)
@@ -473,11 +473,12 @@ export function MapView({ facilities, lite, dark, clusters, palette, onSelect, l
         map.setStyle(dark ? STYLE_DARK : STYLE_LIGHT)
     }, [dark])
 
-    // The grade palette (the settings dialog): the dots' fills are baked
-    // into the data, so the rebuild above re-sets the source; the declining
-    // ring and the donut ids are layer properties, re-pointed in place with
-    // the other palette's donuts evicted (mapLayers applyPalette). Before
-    // the layers exist only the ref moves; style.load installs with it.
+    // The grade palette (the settings dialog): paint only — the dots' fill
+    // (the bucket each feature carries, in the palette), the declining ring
+    // and the donut ids are layer properties, re-pointed in place with the
+    // other palette's donuts evicted (mapLayers applyPalette). The data is
+    // palette-free (2026-09-07), so no rebuild and no setData. Before the
+    // layers exist only the ref moves; style.load installs with it.
     useEffect(() => {
         const map = mapRef.current
         if (!map || !map.getSource(SRC)) return

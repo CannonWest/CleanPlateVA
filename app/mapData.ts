@@ -6,15 +6,19 @@
  *   · one feature per DISTINCT POINT — facilities sharing a coordinate
  *     (6-dp `stackKey`, matching the finder's export rounding) collapse
  *     into a single stack feature carrying its member count;
- *   · fill = grade color · NEW blue · closed gray+dim · lite uniform gray;
- *   · closed permits (visible only under "Show closed") plot dimmed.
+ *   · the FILL is not here (since 2026-09-07): each feature carries the
+ *     BUCKET it wears (below), and the points layer paints the bucket in the
+ *     visitor's palette (mapLayers pointFillExpr, one table with the donut's
+ *     arcs) — a palette switch is a paint change, never a data rebuild;
+ *   · closed permits (visible only under "Show closed") dim — by their
+ *     bucket too (mapLayers pointOpacityExpr).
  *
  * Redesigned per the ratified mockup (design ref §6.2, CRD-M1):
  *   · the dot is COLOR + RING alone. Grade letters rode the dots past a
  *     z13.5 gate (a `letter` property feeding a symbol layer) until
  *     2026-09-06, when Cannon retired them from the map — the letter still
  *     rides every place a grade is NAMED (hover card, panel, list, chips),
- *     so this bake keeps deriving the letter, but only to pick the fill;
+ *     so this bake keeps deriving the letter, but only to pick the bucket;
  *   · stacks are NEUTRAL count bubbles (their PAINT carries no judgment).
  *
  * Proximity clustering was revived and withdrawn the same day (2026-08-30,
@@ -40,10 +44,8 @@
  */
 
 import type { Feature, FeatureCollection, Point } from 'geojson'
-import { CLOSED_COLOR, LITE_MARKER_COLOR, NEW_COLORS } from './constants'
-import type { GradePalette } from './constants'
 import {
-    coordsOf, facilityPresentation, gradeHex, isActivePermit, isNewlyPermitted,
+    coordsOf, facilityPresentation, isActivePermit, isNewlyPermitted,
 } from './data/presentation'
 import type { RosterRow } from './data/types'
 
@@ -97,11 +99,13 @@ export function clusterProperties(): Record<string, [unknown, unknown]> {
     return spec
 }
 
+/** A lone dot. No fill and no opacity here: its bucket (ClusterInputs —
+ *  exactly one of the eight is 1; all zero on the basic map) IS what it
+ *  wears, and the points layer paints that in the visitor's palette
+ *  (mapLayers pointFillExpr / pointOpacityExpr). */
 export interface PointProps extends ClusterInputs {
     kind: 'point'
     pid: string
-    fill: string
-    opacity: number
     /** The declining ring (CRP-M2; band from M1b): true only for a GRADED
      *  dot — graded, active, full tier — whose grade-to-grade drop exceeds
      *  TREND_DECLINE_BAND (>5 points), so closed/NEW/unscored/basic-map
@@ -129,39 +133,23 @@ export interface MapData {
     stacks: StackIndex
 }
 
-/** A lone dot's paint (the cluster inputs are spread in by the builder).
- *  The fill is HEX — MapLibre paint reads a feature property, never a CSS
- *  custom property — so the palette is baked here (gradeHex), and a palette
- *  change rebuilds the data (MapView's useMemo) and re-sets the source. */
-function pointPaint(f: RosterRow, lite: boolean, palette: GradePalette): Omit<PointProps, keyof ClusterInputs> {
+/** A lone dot's judgment channel (its cluster inputs — the bucket among
+ *  them, which is its fill — are spread in by the builder): the declining
+ *  ring, on a graded, active, full-tier dot only. No color since
+ *  2026-09-07 — the points layer paints the bucket in the visitor's palette,
+ *  so this data is palette-free and a palette switch never rebuilds it. */
+function pointPaint(f: RosterRow, lite: boolean): Omit<PointProps, keyof ClusterInputs> {
     const pid = String(f.permit_id)
-    if (lite) {
-        // The finder view: every marker a uniform neutral — the basic map
-        // locates places, it doesn't judge them (P6).
-        return { kind: 'point', pid, fill: LITE_MARKER_COLOR, opacity: 0.88, declining: false }
-    }
-    const active = isActivePermit(f)
-    if (!active) {
-        return { kind: 'point', pid, fill: CLOSED_COLOR, opacity: 0.42, declining: false }
-    }
+    // The basic map locates places, it doesn't judge them (P6); a closed
+    // permit carries no ring either.
+    if (lite || !isActivePermit(f)) return { kind: 'point', pid, declining: false }
     const view = facilityPresentation(f)
-    const letter = view.grade?.letter || ''
-    if (!letter) {
-        return {
-            kind: 'point',
-            pid,
-            fill: isNewlyPermitted(f) ? NEW_COLORS[palette] : gradeHex(null, palette),
-            opacity: 0.88,
-            declining: false,
-        }
-    }
-    return { kind: 'point', pid, fill: gradeHex(letter, palette), opacity: 0.88, declining: view.declining }
+    return { kind: 'point', pid, declining: !!view.grade?.letter && view.declining }
 }
 
-/** Build the source data for the current filtered roster + tier, in the
- *  visitor's grade palette (the buckets are palette-free: they count what
- *  the dots ARE; the donut paints them in the palette it is asked for). */
-export function buildMapData(filtered: RosterRow[], lite: boolean, palette: GradePalette = 'standard'): MapData {
+/** Build the source data for the current filtered roster + tier. Palette-
+ *  free: the buckets count what the dots ARE, and the layers paint them. */
+export function buildMapData(filtered: RosterRow[], lite: boolean): MapData {
     const groups: StackIndex = new Map()
     const at = new Map<string, [number, number]>()
     for (const f of filtered) {
@@ -185,7 +173,7 @@ export function buildMapData(filtered: RosterRow[], lite: boolean, palette: Grad
             type: 'Feature',
             geometry: { type: 'Point', coordinates },
             properties: members.length === 1
-                ? { ...pointPaint(first, lite, palette), ...clusterInputs([first], lite) }
+                ? { ...pointPaint(first, lite), ...clusterInputs([first], lite) }
                 : { kind: 'stack', skey: key, ...clusterInputs(members, lite) },
         })
     }
