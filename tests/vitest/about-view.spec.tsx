@@ -1,19 +1,19 @@
 // @vitest-environment jsdom
 /**
- * The §6.4 About (CRVb-M1): full content parity with the live page in the
- * ratified structure — the hero legend + four live cards, §01's boards
- * and BOTH worked receipts, §02's signals + red-flag weights, §03's
- * pipeline (C8: the channel chips say "basic map", never "lite"), §04's
- * lineage + tiers + the current-access card, §05's eight limits + the
- * verify card, and §06's VERBATIM single-source terms with the real
- * attribution hrefs + the status panel OUTSIDE the cloned body owning
- * the one tier switch (C2). Plus the ported tier/status derivations.
+ * The §6.4 About (CRVb-M1), pinned to Cannon's 2026-09-07 copy pass:
+ * the hero's title + two bold disclaimers + four live cards (no badges, no
+ * kicker), §01's boards and BOTH worked receipts, §02's pipeline (C8: the
+ * channel chips say "basic map", never "lite"), §03's lineage + tiers,
+ * §04's eight limits + the verify card, and §05's VERBATIM single-source
+ * terms with the real attribution hrefs + the status panel OUTSIDE the
+ * cloned body owning the one tier switch (C2). The old §02 signals
+ * section and the current-access card are asserted ABSENT.
  */
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import type { Root } from 'react-dom/client'
 import { afterEach, expect, test, vi } from 'vitest'
-import { AboutView, accessCard, basicMapReason, termsStatus } from '../../app/AboutView'
+import { AboutView, termsStatus } from '../../app/AboutView'
 import type { LoadedRoster } from '../../app/data/types'
 
 declare global {
@@ -27,23 +27,7 @@ const ANSWERED = { agreed: true, decided: true, persisted: true }
 const DECLINED = { agreed: false, decided: true, persisted: true }
 const UNDECIDED = { agreed: false, decided: false, persisted: false }
 
-test('basicMapReason speaks the terms vocabulary for every state', () => {
-    expect(basicMapReason(true, UNDECIDED)).toBe('Forced by ?tier=lite; no terms asked')
-    expect(basicMapReason(false, ANSWERED))
-        .toBe('Terms acknowledged; inspection data unavailable, basic map shown')
-    expect(basicMapReason(false, DECLINED)).toBe('Terms declined on this device')
-    expect(basicMapReason(false, { ...DECLINED, persisted: false }))
-        .toBe('Terms declined for this visit')
-    expect(basicMapReason(false, UNDECIDED)).toBe('Terms not yet acknowledged')
-})
-
-test('the current-access card states the tier actually loaded AND why', () => {
-    expect(accessCard(false, false, ANSWERED))
-        .toEqual({ label: 'Inspection grades', detail: 'Terms acknowledged on this device' })
-    expect(accessCard(true, false, DECLINED).label).toBe('Basic map')
-})
-
-test('the §06 status panel: agreed → red switch out · declined → blue way in · ?tier=lite → no button', () => {
+test('the §05 status panel: agreed → red switch out · declined → blue way in · ?tier=lite → no button', () => {
     const agreed = termsStatus(false, ANSWERED)
     expect(agreed.text).toContain('acknowledged on this device')
     expect(agreed.action).toEqual({ label: 'Switch to the basic map', tone: 'danger' })
@@ -94,7 +78,6 @@ async function render(over: Partial<React.ComponentProps<typeof AboutView>> = {}
             <AboutView
                 loaded={over.loaded !== undefined ? over.loaded : loadedFixture()}
                 unavailable={over.unavailable ?? false}
-                lite={over.lite ?? false}
                 forceLite={over.forceLite ?? false}
                 ack={over.ack ?? ANSWERED}
                 onSwitchToBasic={over.onSwitchToBasic ?? (() => {})}
@@ -109,39 +92,78 @@ async function render(over: Partial<React.ComponentProps<typeof AboutView>> = {}
 
 test('content parity: hero, both receipts, weights, pipeline, lineage, all eight limits', async () => {
     const el = await render()
-    // Hero: the live H1, the legend, the four ratified live cards.
-    expect(el.textContent).toContain('Every marker has a source ID. Every score has math.')
-    for (const badge of ['Official source', 'Archived snapshot', 'CleanPlateVA-derived']) {
-        expect(el.textContent).toContain(badge)
-    }
+    // Hero (2026-09-07): the title, the two bold disclaimers as REAL
+    // emphasis (the editor hands over `<b>`/`<br>` as text; the JSX must
+    // carry them as elements), the four live cards under their new labels
+    // — and neither the provenance legend nor the kicker.
+    expect(el.textContent).toContain("CleanPlateVA: an unofficial archive and grading of Virginia's health-inspected food-serving facilities")
+    const hero = el.querySelector('h1 + p') as HTMLElement
+    expect(hero.querySelectorAll('strong')).toHaveLength(2)
+    expect(hero.querySelectorAll('br')).toHaveLength(2)
+    expect(hero.textContent).toContain("derived from CleanPlateVA's proprietary grading system")
+    expect(hero.textContent).toContain('This site is for reference use only')
+    expect(hero.textContent).not.toContain('<b>')
+    expect(el.querySelector('[aria-label="Provenance legend"]')).toBeNull()
+    expect(el.textContent).not.toContain('Methodology & provenance')
+    expect(el.textContent).not.toContain('Every marker has a source ID')
+    expect(el.textContent).toContain('Last snapshot')
     expect(el.textContent).toContain('Aug 24, 2026')     // fetched_at → snapshot card
+    expect(el.textContent).not.toContain('export time, not a live query')
     expect(el.textContent).toContain('Aug 21, 2026')     // newest report held
-    expect(el.textContent).toContain('25,164')           // places = ACTIVE, not total
+    expect(el.textContent).toContain('Facilities')
+    expect(el.textContent).toContain('25,164')           // facilities = ACTIVE, not total
     expect(el.textContent).not.toContain('28,087')       // the closed-inclusive total never shows
     expect(el.textContent).toContain('2')                // ZIP count excludes '?'
-    // §01: both worked receipts with their exact numbers.
+    // The sections run 01–05: the signals section is gone whole and every
+    // number after it moved up one (Cannon's call, incl. Terms → 05).
+    const numbers = Array.from(el.querySelectorAll('span.opacity-60')).map((s) => s.textContent)
+    expect(numbers).toEqual(['01', '02', '03', '04', '05'])
+    expect(el.textContent).not.toContain('What the other signals mean')
+    expect(el.textContent).not.toContain('+8 sewage/wastewater')
+    // §01: the reframed head, both worked receipts with their exact numbers,
+    // the `<i>broad</i>` handed over as an <em>.
+    expect(el.textContent).toContain('All facilities start at 100, with violations subtracting')
+    expect(el.textContent).toContain('do not provides grades or scores')
+    expect(el.textContent).not.toContain('Computed here')
     expect(el.textContent).toContain('2 good-retail-practice violations, corrected on site')
+    expect(Array.from(el.querySelectorAll('em')).some((e) => e.textContent === 'broad')).toBe(true)
     expect(el.textContent).toContain('as a facility grade → B')
+    expect(el.textContent).toContain('Follow-ups that adjust the grade')
+    expect(el.textContent).toContain('Grades are anchored on the most recent broad score')
     expect(el.textContent).toContain('Broad inspection score')
     expect(el.textContent).toContain('83 · B')
-    expect(el.textContent).toContain('not laundered')
+    expect(el.textContent).toContain('9/10 violations corrected')
+    expect(el.textContent).not.toContain('not laundered')
     expect(el.textContent).toContain('Hedged or ambiguous comments')   // the full edge-cases text
-    // §02: signals + the weight disclosure.
-    expect(el.textContent).toContain('+8 sewage/wastewater · rodents/pests · vomit/diarrhea/ill employee')
-    expect(el.textContent).toContain('capped at 180 characters')
-    // §03: six steps; the channel chips speak C8 — never "lite".
-    expect(el.textContent).toContain('idempotent CouchDB projections')
+    // §02 pipeline: six steps; the channel chips speak C8 — never "lite".
+    expect(el.textContent).toContain('Users see a prepared snapshot of archived permits and inspections.')
+    expect(el.textContent).toContain('Archival process')
+    expect(el.textContent).toContain('Published contracts')
+    expect(el.textContent).not.toContain('idempotent CouchDB projections')
+    expect(el.textContent).not.toContain('Snapshot pipeline')
     expect(el.textContent).toContain('static basic map')
     expect(el.textContent).not.toContain('static lite')
-    // §04: lineage lists + tier route + current access.
+    // §03 lineage: the lists minus the retired compliance row; the tier
+    // arrow row and the current-access card are gone; the cross-reference
+    // into the terms follows the renumbering.
+    expect(el.textContent).toContain("What's official, and what's CleanPlateVA")
     expect(el.textContent).toContain('Checklist IN/OUT/N/A/N/O, COS, and Repeat markings')
-    expect(el.textContent).toContain('Terms acknowledged on this device')
-    // §05: all eight limit headings + the verify card's real portal href.
+    expect(el.textContent).toContain('Inspection score: raw 0–100 formula on each broad report')
+    expect(el.textContent).not.toContain('Checklist compliance percentage')
+    expect(el.textContent).toContain("Reports plus CleanPlateVA's proprietary derived signals")
+    expect(el.textContent).toContain('Data Acknowledgment (§05)')
+    expect(el.textContent).not.toContain('(§06)')
+    expect(el.textContent).not.toContain('Current access')
+    expect(el.textContent).not.toContain('inspection grades load; otherwise the basic map remains')
+    // §04: all eight limit headings + the verify card's real portal href.
+    expect(el.textContent).toContain('Limitations')
     for (const h of ['Selected coverage', 'Snapshot, not live', 'Permit status can age',
-        'Source retention', 'Geocoded locations', 'Presentation heuristics',
-        'Focused is not facility-wide', 'The source record wins conflicts']) {
+        'Source retention', 'Geocoded locations', 'Presentation decisions',
+        'Inspection breadth is a determinative CleanPlateVA heuristic',
+        'The source record remains the source of truth']) {
         expect(el.textContent).toContain(h)
     }
+    expect(el.textContent).toContain('pins are “stacked” together')
     const portal = Array.from(el.querySelectorAll('a')).find((a) => a.textContent?.includes('Open VDH portal'))
     expect(portal?.getAttribute('href')).toBe('https://inspections.myhealthdepartment.com/virginia')
     // FFX-M4: the verify card offers both departments' public search pages.
@@ -149,7 +171,7 @@ test('content parity: hero, both receipts, weights, pipeline, lineage, all eight
     expect(county?.getAttribute('href')).toBe('https://www.fairfaxcounty.gov/health/food/inspection-reports')
 })
 
-test('§06 carries the verbatim single-source terms with the real attribution hrefs', async () => {
+test('§05 carries the verbatim single-source terms with the real attribution hrefs', async () => {
     const el = await render()
     const body = el.querySelector('#aboutTermsBody')
     expect(body).toBeTruthy()
@@ -200,7 +222,7 @@ test('the status panel buttons drive the tier switch', async () => {
             root?.unmount()
         })
         host?.remove()
-        return render({ lite: true, ack: DECLINED, onReviewTerms: () => { reviewed += 1 } })
+        return render({ ack: DECLINED, onReviewTerms: () => { reviewed += 1 } })
     })()
     const back = Array.from(el2.querySelectorAll('button')).find((b) => b.textContent === 'Review the terms and view grades')
     await act(async () => {
@@ -210,13 +232,13 @@ test('the status panel buttons drive the tier switch', async () => {
 })
 
 test('?tier=lite states the override and offers nothing to press', async () => {
-    const el = await render({ lite: true, forceLite: true, ack: UNDECIDED })
+    const el = await render({ forceLite: true, ack: UNDECIDED })
     expect(el.textContent).toContain('?tier=lite')
     expect(Array.from(el.querySelectorAll('button')).map((b) => b.textContent))
         .not.toContain('Review the terms and view grades')
 })
 
-test('a cold-loaded terms intent scrolls §06 into view and focuses the title, once', async () => {
+test('a cold-loaded terms intent scrolls §05 into view and focuses the title, once', async () => {
     const scrolled = vi.fn()
     Element.prototype.scrollIntoView = scrolled
     let shown = 0
@@ -232,6 +254,9 @@ test('a cold-loaded terms intent scrolls §06 into view and focuses the title, o
 test('an unavailable roster keeps the methodology and says the cards are unavailable', async () => {
     const el = await render({ loaded: null, unavailable: true })
     expect(el.textContent).toContain('Unavailable')
-    expect(el.textContent).toContain('Every marker has a source ID')
+    // The unavailable branch carries the same card labels as the live one.
+    expect(el.textContent).toContain('Last snapshot')
+    expect(el.textContent).toContain('Facilities')
+    expect(el.textContent).toContain('CleanPlateVA: an unofficial archive and grading')
     expect(el.querySelector('#aboutTermsBody')).toBeTruthy()
 })
