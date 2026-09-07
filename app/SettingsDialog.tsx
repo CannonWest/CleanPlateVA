@@ -2,27 +2,30 @@
  * The settings dialog (2026-09-06, Cannon's call) — the site's presentation
  * choices in one place, Radix primitives dressed in the theme's tokens:
  * the THEME as a three-way group (Light · Dark · System, the segmented
- * idiom of the band's view switcher), "Group nearby places" as a switch
- * (the words CRP-M6 shipped), and the TEXT SIZE as a slider over the body
- * size in px (settings.ts). Every change applies as it is made and is kept
- * on the device — the App owns the state and the storage; this component
- * only asks. It opens on its own once, on a visitor's first map view after
- * the acknowledgement, and from the Settings button under the band (map
- * view only) any later time. An ordinary dialog: ✕, backdrop, Escape and
- * Done all close it; nothing here is a decision (§6.1's dialog is the one
- * with a fork).
+ * idiom of the band's view switcher), GROUP NEARBY PLACES as a two-picture
+ * choice (the two map states drawn in the map's own marker vocabulary, the
+ * current one lit and the other faded — Cannon's ask on the first look,
+ * replacing a plain switch), and the TEXT SIZE as a slider over the body
+ * size in px (settings.ts). The copy is the title and three short labels:
+ * the lede and the System hint were cut on that same review. Every change
+ * applies as it is made and is kept on the device — the App owns the state
+ * and the storage; this component only asks. It opens on its own once, on
+ * a visitor's first map view after the acknowledgement, and from the
+ * Settings button under the band (map view only) any later time. An
+ * ordinary dialog: ✕, backdrop, Escape and Done all close it; nothing here
+ * is a decision (§6.1's dialog is the one with a fork).
  *
  * Radix does the mechanics — the portal, the focus trap and its return,
- * the scroll lock, aria-modal / labelledby / describedby, the theme
- * group's roving focus and radio semantics, the slider's pointer and
- * arrow-key handling, the switch's role and state — so this file is
- * markup and words. Below `sm` it is a bottom sheet, as the
- * acknowledgement dialog is.
+ * the scroll lock, aria-modal-by-aria-hidden / labelledby, the groups'
+ * roving focus and radio semantics, the slider's pointer and arrow-key
+ * handling — so this file is markup and two small pictures. Below `sm` it
+ * is a bottom sheet, as the acknowledgement dialog is.
  */
 
 import { Monitor, Moon, Sun, X } from 'lucide-react'
-import { Dialog, Slider, Switch, ToggleGroup } from 'radix-ui'
+import { Dialog, Slider, ToggleGroup } from 'radix-ui'
 import type { ThemeChoice } from './theme'
+import { STACK_INK, STACK_SURFACE } from './constants'
 import { TEXT_SIZE_DEFAULT, TEXT_SIZE_MAX, TEXT_SIZE_MIN, TEXT_SIZE_STEP } from './settings'
 
 /** The three options in display order; the labels are the public words. */
@@ -36,14 +39,116 @@ export const THEME_OPTIONS: ReadonlyArray<{
     { value: 'system', label: 'System', Icon: Monitor },
 ]
 
+/** The two pictures' shared cast, in the map's vocabulary: nine places on a
+ *  160×80 basemap tint — seven close together on the left, two apart on the
+ *  right. The first picture draws all nine as dots; the second folds the
+ *  seven into one donut (its arcs the grade breakdown, its hole the count)
+ *  and keeps the two. Whole class strings — Tailwind scans source text. */
+type Dot = readonly [cx: number, cy: number, fill: string]
+const NEAR_DOTS: readonly Dot[] = [
+    [40, 26, 'fill-cp-grade-a'], [60, 20, 'fill-cp-grade-a'], [78, 30, 'fill-cp-grade-c'],
+    [44, 50, 'fill-cp-grade-a'], [66, 46, 'fill-cp-grade-b'], [52, 64, 'fill-cp-grade-a'],
+    [76, 60, 'fill-cp-grade-b'],
+]
+const FAR_DOTS: readonly Dot[] = [
+    [120, 24, 'fill-cp-grade-a'], [136, 58, 'fill-cp-grade-b'],
+]
+/** The donut's arcs — the seven near places by grade, clockwise from 12
+ *  o'clock as the map paints them (donut.ts). */
+const DONUT_ARCS: ReadonlyArray<readonly [stroke: string, places: number]> = [
+    ['stroke-cp-grade-a', 4], ['stroke-cp-grade-b', 2], ['stroke-cp-grade-c', 1],
+]
+const DONUT = { cx: 58, cy: 42, r: 16, width: 5, gap: 1.5 } as const
+const DOT_R = 5.5
+
+function Ground() {
+    return <rect width="160" height="80" rx="6" className="fill-cp-basemap" />
+}
+
+function Dots({ dots }: { dots: readonly Dot[] }) {
+    return (
+        <>
+            {dots.map(([cx, cy, fill]) => (
+                <circle
+                    key={`${cx},${cy}`}
+                    cx={cx}
+                    cy={cy}
+                    r={DOT_R}
+                    className={`${fill} stroke-cp-marker-ring`}
+                    strokeWidth="1.5"
+                />
+            ))}
+        </>
+    )
+}
+
+/** "Every place": all nine dots. */
+export function EveryPlacePicture() {
+    return (
+        <svg viewBox="0 0 160 80" className="h-auto w-full" aria-hidden="true">
+            <Ground />
+            <Dots dots={NEAR_DOTS} />
+            <Dots dots={FAR_DOTS} />
+        </svg>
+    )
+}
+
+/** "Grouped": the seven near places as one donut, the two far ones as dots. */
+export function GroupedPicture() {
+    const total = DONUT_ARCS.reduce((sum, [, places]) => sum + places, 0)
+    let start = 0
+    return (
+        <svg viewBox="0 0 160 80" className="h-auto w-full" aria-hidden="true">
+            <Ground />
+            {/* The hole, reaching under the arcs so the gaps between them
+                read as separators in the hole's own surface (donut.ts). */}
+            <circle cx={DONUT.cx} cy={DONUT.cy} r={DONUT.r + DONUT.width / 2} fill={STACK_SURFACE} />
+            {DONUT_ARCS.map(([stroke, places]) => {
+                const length = (places / total) * 100
+                const arc = (
+                    <circle
+                        key={stroke}
+                        cx={DONUT.cx}
+                        cy={DONUT.cy}
+                        r={DONUT.r}
+                        pathLength={100}
+                        fill="none"
+                        className={stroke}
+                        strokeWidth={DONUT.width}
+                        strokeDasharray={`${length - DONUT.gap} ${100 - length + DONUT.gap}`}
+                        strokeDashoffset={-start}
+                        transform={`rotate(-90 ${DONUT.cx} ${DONUT.cy})`}
+                    />
+                )
+                start += length
+                return arc
+            })}
+            <text
+                x={DONUT.cx}
+                y={DONUT.cy + 4}
+                textAnchor="middle"
+                fontSize="11"
+                fontWeight="700"
+                fill={STACK_INK}
+            >
+                {total}
+            </text>
+            <Dots dots={FAR_DOTS} />
+        </svg>
+    )
+}
+
+const PICTURE_ITEM = 'flex flex-1 flex-col items-center gap-1.5 rounded-cp-control border-2 border-cp-hairline '
+    + 'bg-cp-surface-2 p-2 text-cp-11.5 font-semibold text-cp-ink-2 outline-none transition-opacity '
+    + 'hover:opacity-100 focus-visible:ring-2 focus-visible:ring-cp-focus '
+    + 'data-[state=off]:opacity-50 data-[state=on]:border-cp-accent-solid data-[state=on]:text-cp-ink'
+
 export function SettingsDialog({
-    open, onOpenChange, theme, systemDark, clusters, textSize, onTheme, onClusters, onTextSize,
+    open, onOpenChange, theme, clusters, textSize, onTheme, onClusters, onTextSize,
 }: {
     open: boolean
     onOpenChange: (open: boolean) => void
     theme: ThemeChoice
-    /** What 'system' resolves to right now — named in the hint. */
-    systemDark: boolean
     clusters: boolean
     textSize: number
     onTheme: (choice: ThemeChoice) => void
@@ -55,6 +160,8 @@ export function SettingsDialog({
             <Dialog.Portal>
                 <Dialog.Overlay className="fixed inset-0 z-50 bg-cp-scrim backdrop-blur-[2px]" />
                 <Dialog.Content
+                    // No lede (Cannon's cut): the title alone names the dialog.
+                    aria-describedby={undefined}
                     className="fixed top-1/2 left-1/2 z-50 flex max-h-[min(86vh,720px)] w-[min(26rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 flex-col overflow-y-auto rounded-cp-card border border-cp-hairline bg-cp-surface-1 px-5 pt-5 pb-4 shadow-cp outline-none max-sm:top-auto max-sm:bottom-0 max-sm:left-0 max-sm:max-h-[92vh] max-sm:w-full max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-b-none"
                 >
                     <Dialog.Close asChild>
@@ -69,9 +176,6 @@ export function SettingsDialog({
                     <Dialog.Title className="text-cp-17 font-bold tracking-[.01em]">
                         Settings
                     </Dialog.Title>
-                    <Dialog.Description className="mt-1 text-cp-12 text-cp-ink-3">
-                        Applied as you change them and kept on this device.
-                    </Dialog.Description>
 
                     <div className="mt-4 flex flex-col gap-5">
                         <section aria-labelledby="cpSettingsTheme">
@@ -86,7 +190,7 @@ export function SettingsDialog({
                                     // pressed again; one option is always on.
                                     if (value) onTheme(value as ThemeChoice)
                                 }}
-                                aria-label="Theme"
+                                aria-labelledby="cpSettingsTheme"
                                 className="flex gap-0.5 rounded-cp-control border border-cp-hairline bg-cp-surface-2 p-[3px]"
                             >
                                 {THEME_OPTIONS.map(({ value, label, Icon }) => (
@@ -100,35 +204,33 @@ export function SettingsDialog({
                                     </ToggleGroup.Item>
                                 ))}
                             </ToggleGroup.Root>
-                            <p className="mt-1.5 text-cp-11.5 text-cp-ink-3">
-                                System follows the device&apos;s appearance
-                                {theme === 'system' ? ` (${systemDark ? 'dark' : 'light'} now).` : '.'}
-                            </p>
                         </section>
 
-                        <section aria-labelledby="cpSettingsClustersLabel">
-                            <div className="flex items-center justify-between gap-4">
-                                <div className="min-w-0">
-                                    <label
-                                        id="cpSettingsClustersLabel"
-                                        htmlFor="cpSettingsClusters"
-                                        className="text-cp-13 font-semibold"
-                                    >
-                                        Group nearby places
-                                    </label>
-                                    <p className="mt-0.5 text-cp-11.5 text-cp-ink-3">
-                                        On, nearby places share one bubble until you zoom in; off, every place is drawn.
-                                    </p>
-                                </div>
-                                <Switch.Root
-                                    id="cpSettingsClusters"
-                                    checked={clusters}
-                                    onCheckedChange={onClusters}
-                                    className="relative h-6 w-11 shrink-0 rounded-full border border-cp-hairline bg-cp-ink-3 outline-none focus-visible:ring-2 focus-visible:ring-cp-focus focus-visible:ring-offset-2 focus-visible:ring-offset-cp-surface-1 data-[state=checked]:bg-cp-accent-solid"
-                                >
-                                    <Switch.Thumb className="block h-5 w-5 translate-x-px rounded-full bg-white shadow-[0_1px_2px_rgba(0,0,0,.35)] transition-transform data-[state=checked]:translate-x-[21px]" />
-                                </Switch.Root>
-                            </div>
+                        <section aria-labelledby="cpSettingsClusters">
+                            <h2 id="cpSettingsClusters" className="text-cp-13 font-semibold">
+                                Group nearby places
+                            </h2>
+                            <p className="mt-0.5 text-cp-11.5 text-cp-ink-3">
+                                Nearby places share one bubble when zoomed out.
+                            </p>
+                            <ToggleGroup.Root
+                                type="single"
+                                value={clusters ? 'on' : 'off'}
+                                onValueChange={(value) => {
+                                    if (value) onClusters(value === 'on')
+                                }}
+                                aria-labelledby="cpSettingsClusters"
+                                className="mt-2 flex gap-2"
+                            >
+                                <ToggleGroup.Item value="off" className={PICTURE_ITEM}>
+                                    <EveryPlacePicture />
+                                    <span>Every place</span>
+                                </ToggleGroup.Item>
+                                <ToggleGroup.Item value="on" className={PICTURE_ITEM}>
+                                    <GroupedPicture />
+                                    <span>Grouped</span>
+                                </ToggleGroup.Item>
+                            </ToggleGroup.Root>
                         </section>
 
                         <section aria-labelledby="cpSettingsTextSize">

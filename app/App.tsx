@@ -342,7 +342,6 @@ function Shell({ forceLite, ack }: {
                 open={settingsOpen && !blocking}
                 onOpenChange={setSettingsOpen}
                 theme={theme}
-                systemDark={systemDark}
                 clusters={clusters}
                 textSize={textSize}
                 onTheme={onTheme}

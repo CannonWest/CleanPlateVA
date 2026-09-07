@@ -1,15 +1,17 @@
 // @vitest-environment jsdom
 /**
  * The settings dialog (2026-09-06): Radix primitives, so the suite pins the
- * CONTRACT they render — a modal dialog named "Settings" with its
- * description wired (aria-modal / labelledby / describedby), portaled over
- * the page; the theme as a radio group of three (Light · Dark · System, in
- * that order) that reports the current choice and asks for the pressed one;
- * "Group nearby places" as a labeled switch that asks for the other state;
- * the text size as a slider 12..20 by 1 that reports its value and asks by
- * keyboard; the readout and the reset that appears off the default; and
- * every way out — ✕, Done, Escape — asking to close. The dialog never flips
- * its own state: the App owns and persists every choice.
+ * CONTRACT they render — a modal dialog named "Settings" (the title alone:
+ * the lede and the System hint were cut on Cannon's first look), portaled
+ * over the page; the theme as a radio group of three (Light · Dark ·
+ * System, in that order) that reports the current choice and asks for the
+ * pressed one; "Group nearby places" as a two-picture radio group — Every
+ * place · Grouped, each a drawing of that map state, the current one on and
+ * the other faded — that asks for the boolean; the text size as a slider
+ * 12..20 by 1 that reports its value and asks by keyboard; the readout and
+ * the reset that appears off the default; and every way out — ✕, Done,
+ * Escape — asking to close. The dialog never flips its own state: the App
+ * owns and persists every choice.
  */
 import { act, StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
@@ -46,7 +48,6 @@ let asked: Asked
 
 async function mount(props: Partial<{
     theme: ThemeChoice
-    systemDark: boolean
     clusters: boolean
     textSize: number
 }> = {}) {
@@ -63,7 +64,6 @@ async function mount(props: Partial<{
                     open
                     onOpenChange={(open) => { asked.open.push(open) }}
                     theme={props.theme ?? 'system'}
-                    systemDark={props.systemDark ?? false}
                     clusters={props.clusters ?? false}
                     textSize={props.textSize ?? 14}
                     onTheme={(choice) => { asked.theme.push(choice) }}
@@ -79,8 +79,12 @@ async function mount(props: Partial<{
     return dialog
 }
 
-function radios(dialog: HTMLElement): HTMLElement[] {
-    return Array.from(dialog.querySelectorAll<HTMLElement>('[role="radio"]'))
+/** The radio items of the group labelled by the given heading id (Radix
+ *  renders a single-select toggle group as a radiogroup of radios). */
+function radios(dialog: HTMLElement, headingId: string): HTMLElement[] {
+    const group = dialog.querySelector<HTMLElement>(`[role="radiogroup"][aria-labelledby="${headingId}"]`)
+    if (!group) throw new Error(`no radiogroup labelled by ${headingId}`)
+    return Array.from(group.querySelectorAll<HTMLElement>('[role="radio"]'))
 }
 
 async function press(target: HTMLElement, key: string) {
@@ -105,7 +109,7 @@ afterEach(async () => {
     host.remove()
 })
 
-test('a modal dialog named Settings, described, portaled over the page', async () => {
+test('a modal dialog named Settings — the title alone, no lede — portaled over the page', async () => {
     const dialog = await mount()
     expect(dialog.getAttribute('data-state')).toBe('open')
     expect(host.contains(dialog)).toBe(false)
@@ -114,15 +118,17 @@ test('a modal dialog named Settings, described, portaled over the page', async (
     expect(host.getAttribute('aria-hidden')).toBe('true')
     const title = document.getElementById(dialog.getAttribute('aria-labelledby') ?? '')
     expect(title?.textContent).toBe('Settings')
-    const description = document.getElementById(dialog.getAttribute('aria-describedby') ?? '')
-    expect(description?.textContent).toContain('kept on this device')
+    // Cannon's cut (2026-09-06): no description, no System hint.
+    expect(dialog.getAttribute('aria-describedby')).toBeNull()
+    expect(dialog.textContent).not.toContain('kept on this device')
+    expect(dialog.textContent).not.toContain('appearance')
 })
 
 test('the theme is a radio group of three in order; the current one is checked; pressing another asks for it', async () => {
     expect(THEME_OPTIONS.map((option) => option.value)).toEqual(['light', 'dark', 'system'])
     expect(THEME_OPTIONS.map((option) => option.label)).toEqual(['Light', 'Dark', 'System'])
     const dialog = await mount({ theme: 'system' })
-    const items = radios(dialog)
+    const items = radios(dialog, 'cpSettingsTheme')
     expect(items.map((item) => item.textContent?.trim())).toEqual(['Light', 'Dark', 'System'])
     expect(items.map((item) => item.getAttribute('aria-checked'))).toEqual(['false', 'false', 'true'])
     // Lucide glyphs beside the words, none of them emoji (§6.0).
@@ -140,32 +146,47 @@ test('the theme is a radio group of three in order; the current one is checked; 
     expect(asked.theme).toEqual(['dark'])
 })
 
-test('the hint names what System resolves to right now, and only under System', async () => {
-    let dialog = await mount({ theme: 'system', systemDark: true })
-    expect(dialog.textContent).toContain('System follows the device\'s appearance (dark now).')
-    dialog = await mount({ theme: 'system', systemDark: false })
-    expect(dialog.textContent).toContain('(light now).')
-    dialog = await mount({ theme: 'light', systemDark: true })
-    expect(dialog.textContent).toContain('System follows the device\'s appearance.')
-    expect(dialog.textContent).not.toContain('now)')
-})
-
-test('Group nearby places is a labeled switch that asks for the other state', async () => {
+test('Group nearby places is a two-picture choice — Every place · Grouped — the current one on, the other faded', async () => {
     const dialog = await mount({ clusters: false })
-    const toggle = dialog.querySelector<HTMLElement>('[role="switch"]')
-    expect(toggle?.getAttribute('aria-checked')).toBe('false')
-    const label = Array.from(dialog.querySelectorAll('label')).find((el) => el.htmlFor === toggle?.id)
-    expect(label?.textContent).toBe('Group nearby places')
+    expect(dialog.textContent).toContain('Group nearby places')
+    expect(dialog.textContent).toContain('Nearby places share one bubble when zoomed out.')
+    const items = radios(dialog, 'cpSettingsClusters')
+    // The caption is its own element: the donut's count is text too, and the
+    // picture is aria-hidden, so the caption alone names the option.
+    expect(items.map((item) => item.querySelector('span')?.textContent)).toEqual(['Every place', 'Grouped'])
+    expect(items.every((item) => item.querySelector('svg')?.getAttribute('aria-hidden') === 'true')).toBe(true)
+    expect(items.map((item) => item.getAttribute('data-state'))).toEqual(['on', 'off'])
+    // Each option is a drawing of its map state: dots on the basemap tint,
+    // and on the grouped side one donut carrying the count of the places it
+    // folds — the seven near ones — beside the two that stay dots.
+    const [every, grouped] = items
+    const everyDots = every?.querySelectorAll('svg circle[class*="fill-cp-grade-"]') ?? []
+    expect(everyDots.length).toBe(9)
+    expect(grouped?.querySelector('svg text')?.textContent).toBe('7')
+    expect(grouped?.querySelectorAll('svg circle[class*="stroke-cp-grade-"]').length).toBe(3) // the arcs
+    expect(grouped?.querySelectorAll('svg circle[class*="fill-cp-grade-"]').length).toBe(2) // the far dots
+    // The fade is the off state's own rule, carried by the same class on
+    // both items (Tailwind's data variant); the on item wears the accent.
+    for (const item of items) {
+        expect(item.className).toContain('data-[state=off]:opacity-50')
+        expect(item.className).toContain('data-[state=on]:border-cp-accent-solid')
+    }
     await act(async () => {
-        toggle?.click()
+        grouped?.click()
     })
     expect(asked.clusters).toEqual([true])
-    expect(toggle?.getAttribute('aria-checked')).toBe('false')
-    const on = await mount({ clusters: true })
-    const onToggle = on.querySelector<HTMLElement>('[role="switch"]')
-    expect(onToggle?.getAttribute('aria-checked')).toBe('true')
+    // Controlled: the pictures report the App's state, not their own.
+    expect(items.map((item) => item.getAttribute('data-state'))).toEqual(['on', 'off'])
+    // Pressing the current picture again asks for nothing.
     await act(async () => {
-        onToggle?.click()
+        every?.click()
+    })
+    expect(asked.clusters).toEqual([true])
+    const on = await mount({ clusters: true })
+    const onItems = radios(on, 'cpSettingsClusters')
+    expect(onItems.map((item) => item.getAttribute('data-state'))).toEqual(['off', 'on'])
+    await act(async () => {
+        onItems[0]?.click()
     })
     expect(asked.clusters).toEqual([true, false])
 })
