@@ -275,10 +275,16 @@ function Shell({ forceLite, ack }: {
                 // them, and sits above the basemap's attribution strip: on a
                 // map under 640px MapLibre's attribution is compact and opens
                 // EXPANDED until the first drag, its text reaching left under
-                // the chip otherwise. The column's own box is as wide as the
-                // chip; only its two children take the pointer, so the map
-                // beside the switches still drags.
-                <div className="pointer-events-none fixed bottom-2.5 left-3 z-10 flex flex-col items-start gap-1.5 max-sm:right-[54px] max-sm:bottom-[38px] [&>*]:pointer-events-auto">
+                // the chip otherwise. From `sm` up the same lane needs its own
+                // stop (measured 2026-09-06): the (i) control's hover/click
+                // expansion is ~320px wide plus its own 10px margin, and a
+                // long attribution sentence at a merely-wide-not-huge desktop
+                // width reaches that corner too — `sm:right-[360px]` clears it
+                // with room to spare, wrapping the chip to a second line
+                // rather than running under the expanded control. The column's
+                // own box is as wide as the chip; only its two children take
+                // the pointer, so the map beside the switches still drags.
+                <div className="pointer-events-none fixed bottom-2.5 left-3 z-10 flex flex-col items-start gap-1.5 sm:right-[360px] max-sm:right-[54px] max-sm:bottom-[38px] [&>*]:pointer-events-auto">
                     <ClusterSwitch
                         on={clusters}
                         onToggle={(next) => {
@@ -343,7 +349,7 @@ function Attribution({ inline = false, snapshot = null, onTerms }: {
         <footer
             className={inline
                 ? 'mx-4 mb-4 text-[10.5px] text-cp-ink-3'
-                : 'rounded-[6px] bg-cp-scrim px-2.5 py-1.5 text-[10.5px] text-[#cfd4d9] backdrop-blur-[4px]'}
+                : 'rounded-[6px] bg-cp-scrim-2 px-2.5 py-1.5 text-[10.5px] font-semibold text-[#cfd4d9] backdrop-blur-[4px]'}
         >
             Inspection records: VDH and Fairfax County Health Department · archived snapshot
             {snapshot ? ` · ${fmtDate(snapshot)}` : ''} ·
