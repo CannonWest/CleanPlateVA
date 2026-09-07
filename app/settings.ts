@@ -15,7 +15,7 @@
  * size pre-paint by the same rule; this module owns it from then on.
  */
 
-import { SETTINGS_SEEN_KEY, TEXT_SIZE_KEY } from './constants'
+import { SETTINGS_HINT_KEY, SETTINGS_SEEN_KEY, TEXT_SIZE_KEY } from './constants'
 
 /** The ratified body size — scale 1. */
 export const TEXT_SIZE_DEFAULT = 14
@@ -74,6 +74,25 @@ export function storedSettingsSeen(storage: Pick<Storage, 'getItem'> = window.lo
 export function persistSettingsSeen(storage: Pick<Storage, 'setItem'> = window.localStorage): void {
     try {
         storage.setItem(SETTINGS_SEEN_KEY, '1')
+    } catch {
+        /* private mode */
+    }
+}
+
+/** Whether the visitor has closed the hint under the Settings pill — or
+ *  opened Settings themselves, which answers the same question. Unset, the
+ *  hint stands: it is help, not a notification, so nothing times it out. */
+export function storedSettingsHintDismissed(storage: Pick<Storage, 'getItem'> = window.localStorage): boolean {
+    try {
+        return storage.getItem(SETTINGS_HINT_KEY) === '1'
+    } catch {
+        return false
+    }
+}
+
+export function persistSettingsHintDismissed(storage: Pick<Storage, 'setItem'> = window.localStorage): void {
+    try {
+        storage.setItem(SETTINGS_HINT_KEY, '1')
     } catch {
         /* private mode */
     }
