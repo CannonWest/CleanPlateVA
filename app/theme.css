@@ -70,6 +70,16 @@
     --cp-r-pill: 999px;
 
     --cp-font: system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+
+    /* The visitor's text size as a ratio of the ratified design (the
+       settings dialog, 2026-09-06): 1 is the 14px body the mockups were
+       ratified at; app/settings.ts sets a stored size's ratio on <html>
+       (index.html pre-paint, the module from then on). Every text size in
+       the app multiplies by it — the body below and the `text-cp-<px>`
+       utility — so the slider moves the site's text and nothing else: the
+       chrome's px geometry, the map's canvas labels and the trend SVG
+       stand. Not a theme token: .theme-light leaves it alone. */
+    --cp-text-scale: 1;
 }
 
 .theme-light {
@@ -135,12 +145,23 @@
     --font-sans: var(--cp-font);
 }
 
+/* The app's text sizes: `text-cp-12.5` is the ratified 12.5px times the
+   visitor's scale. A functional utility (Tailwind v4 `@utility` + `--value`)
+   rather than a named scale, so every size the mockups ratified keeps its
+   own number in the class and stays greppable to them — `text-cp-11.5`
+   reads as the 11.5px it was. Only text sizes go through it; a fixed px
+   width or height stays the literal it is. (Tailwind scans source text:
+   the number must be written whole in the class, never spliced in.) */
+@utility text-cp-* {
+    font-size: calc(--value(number) * 1px * var(--cp-text-scale));
+}
+
 @layer base {
     body {
         background: var(--cp-bg);
         color: var(--cp-ink);
         font-family: var(--cp-font);
-        font-size: 14px;
+        font-size: calc(14px * var(--cp-text-scale));
         line-height: 1.45;
     }
 }

@@ -39,9 +39,9 @@ export function HoverCard({ f, lite }: { f: RosterRow; lite: boolean }) {
     if (lite) {
         return (
             <div className="w-56 text-cp-ink">
-                <div className="text-[13px] font-semibold">{f.name}</div>
-                <div className="text-[11.5px] text-cp-ink-3">{addressLine}</div>
-                {approx && <div className="mt-0.5 text-[11px] text-cp-ink-3">≈ {approx}</div>}
+                <div className="text-cp-13 font-semibold">{f.name}</div>
+                <div className="text-cp-11.5 text-cp-ink-3">{addressLine}</div>
+                {approx && <div className="mt-0.5 text-cp-11 text-cp-ink-3">≈ {approx}</div>}
             </div>
         )
     }
@@ -58,16 +58,16 @@ export function HoverCard({ f, lite }: { f: RosterRow; lite: boolean }) {
             {/* The head: identity, its own bordered zone (the old
                 .food-hover-card-head). */}
             <div className="border-b border-cp-hairline pb-2">
-                <div className="text-[13.5px] font-semibold">
+                <div className="text-cp-13.5 font-semibold">
                     {f.name}
                     {!active && (
-                        <span className="ml-1.5 align-middle text-[10px] font-semibold text-cp-ink-3 uppercase">
+                        <span className="ml-1.5 align-middle text-cp-10 font-semibold text-cp-ink-3 uppercase">
                             {f.status || 'closed'}
                         </span>
                     )}
                 </div>
-                <div className="text-[11.5px] text-cp-ink-3">{addressLine}</div>
-                {approx && <div className="text-[11px] text-cp-ink-3">≈ {approx}</div>}
+                <div className="text-cp-11.5 text-cp-ink-3">{addressLine}</div>
+                {approx && <div className="text-cp-11 text-cp-ink-3">≈ {approx}</div>}
             </div>
 
             {/* The grade hero: the verdict circle beside its number and
@@ -78,7 +78,7 @@ export function HoverCard({ f, lite }: { f: RosterRow; lite: boolean }) {
                     style={{
                         background: grade ? gradeColor(grade.letter)
                             : isNew ? 'var(--cp-new)' : 'var(--cp-grade-none)',
-                        fontSize: grade ? 22 : isNew ? 11.5 : 20,
+                        fontSize: `calc(${grade ? 22 : isNew ? 11.5 : 20}px * var(--cp-text-scale))`,
                     }}
                 >
                     {grade ? grade.letter : isNew ? 'NEW' : '–'}
@@ -86,25 +86,25 @@ export function HoverCard({ f, lite }: { f: RosterRow; lite: boolean }) {
                 <div className="min-w-0">
                     {grade ? (
                         <>
-                            <div className="text-[22px] leading-none font-bold tabular-nums">
+                            <div className="text-cp-22 leading-none font-bold tabular-nums">
                                 {grade.score}
-                                <small className="text-[13px] font-semibold text-cp-ink-3">/100</small>
+                                <small className="text-cp-13 font-semibold text-cp-ink-3">/100</small>
                             </div>
-                            <div className="mt-1 text-[11.5px] text-cp-ink-3 tabular-nums">
+                            <div className="mt-1 text-cp-11.5 text-cp-ink-3 tabular-nums">
                                 Broad inspection · {fmtDate(grade.baseDate)}
                             </div>
                         </>
                     ) : isNew ? (
                         <>
-                            <div className="text-[14px] font-bold">Permitted</div>
-                            <div className="mt-0.5 text-[11.5px] text-cp-ink-2">
+                            <div className="text-cp-14 font-bold">Permitted</div>
+                            <div className="mt-0.5 text-cp-11.5 text-cp-ink-2">
                                 Cleared to open; grade pending its first broad inspection.
                             </div>
                         </>
                     ) : (
                         <>
-                            <div className="text-[12px] font-semibold text-cp-ink-2">no grade yet</div>
-                            <div className="mt-0.5 text-[11.5px] text-cp-ink-2">
+                            <div className="text-cp-12 font-semibold text-cp-ink-2">no grade yet</div>
+                            <div className="mt-0.5 text-cp-11.5 text-cp-ink-2">
                                 No broad inspection (20+ items) captured yet.
                             </div>
                         </>
@@ -116,7 +116,7 @@ export function HoverCard({ f, lite }: { f: RosterRow; lite: boolean }) {
             {!isNew && <TrendSection series={series} width={HOVER_TREND_WIDTH} />}
 
             {!hasRecord && (
-                <p className="mt-2 text-[11.5px] text-cp-ink-3">No inspections on record yet.</p>
+                <p className="mt-2 text-cp-11.5 text-cp-ink-3">No inspections on record yet.</p>
             )}
         </div>
     )

@@ -321,7 +321,7 @@ export function MapView({ facilities, lite, dark, clusters, onSelect }: {
                     hover.key.current = key
                     hover.show(map, [...coords], (
                         <div className="text-cp-ink">
-                            <div className="text-[13px] font-semibold tabular-nums">
+                            <div className="text-cp-13 font-semibold tabular-nums">
                                 {props.stack} places at this point
                             </div>
                         </div>
@@ -412,12 +412,12 @@ export function MapView({ facilities, lite, dark, clusters, onSelect }: {
         <div className="absolute inset-0">
             <div ref={container} className="h-full w-full" aria-label="map" />
             {failed && (
-                <p className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[12.5px] text-cp-ink-3">
+                <p className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-cp-12.5 text-cp-ink-3">
                     The map could not start (WebGL unavailable).
                 </p>
             )}
             {note && (
-                <div className="absolute top-16 left-1/2 z-10 flex max-w-sm -translate-x-1/2 items-center gap-3 rounded-cp-card border border-cp-hairline bg-cp-surface-1/95 px-3 py-2 text-[12.5px] shadow-cp">
+                <div className="absolute top-16 left-1/2 z-10 flex max-w-sm -translate-x-1/2 items-center gap-3 rounded-cp-card border border-cp-hairline bg-cp-surface-1/95 px-3 py-2 text-cp-12.5 shadow-cp">
                     <span>{note.text}</span>
                     {note.back && (
                         <button

@@ -6,21 +6,27 @@
  * ack dialog until CRV-b builds it (briefing: restyle minimally, don't
  * build the dialog here).
  */
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { ACK_DECLINED, createAckState, forceLiteFromSearch } from './ack'
 import { createFoodApi } from './data/client'
 import { DataProvider, useRoster } from './data/provider'
 import { fmtDate } from './data/presentation'
 import { matchesFilters } from './search'
-import { applyThemeClass, persistTheme, storedDark } from './theme'
+import {
+    applyThemeClass, DARK_SCHEME_QUERY, persistTheme, resolveDark, storedTheme, systemPrefersDark,
+} from './theme'
+import type { ThemeChoice } from './theme'
 import { persistClusters, storedClusters } from './clusters'
+import {
+    applyTextSize, persistSettingsSeen, persistTextSize, storedSettingsSeen, storedTextSize,
+} from './settings'
 import { useAppRouter } from './useAppRouter'
 import { AckDialog } from './AckDialog'
-import { ClusterSwitch } from './ClusterSwitch'
 import { DetailPanel } from './DetailPanel'
 import type { DetailState } from './DetailPanel'
 import { MapView } from './MapView'
-import { ThemeSwitch } from './ThemeSwitch'
+import { SettingsButton } from './SettingsButton'
+import { SettingsDialog } from './SettingsDialog'
 import { Toolbar } from './Toolbar'
 import type { AckState } from './ack'
 import type { LoadedRoster, RosterRow } from './data/types'
@@ -92,18 +98,60 @@ function Shell({ forceLite, ack }: {
         reload()
     }
 
-    const [dark, setDark] = useState(storedDark)
+    // The theme (theme.ts): the visitor's three-way choice, resolved against
+    // the device's appearance — 'system' (the default) re-resolves when
+    // that setting changes under the page. The RESOLVED theme is what the
+    // class on <html> and the map's basemap follow.
+    const [theme, setTheme] = useState<ThemeChoice>(storedTheme)
+    const [systemDark, setSystemDark] = useState(systemPrefersDark)
+    useEffect(() => {
+        if (typeof window.matchMedia !== 'function') return
+        const query = window.matchMedia(DARK_SCHEME_QUERY)
+        const onChange = (e: MediaQueryListEvent) => setSystemDark(e.matches)
+        query.addEventListener('change', onChange)
+        return () => query.removeEventListener('change', onChange)
+    }, [])
+    const dark = resolveDark(theme, systemDark)
     useEffect(() => {
         applyThemeClass(dark)
     }, [dark])
-    const onTheme = (next: boolean) => {
-        setDark(next)
+    const onTheme = (next: ThemeChoice) => {
+        setTheme(next)
         persistTheme(next)
     }
 
     // "Group nearby places" (CRP-M6): a presentation preference like the
     // theme — persisted per visitor, never in the URL or AppState (C6).
     const [clusters, setClusters] = useState(storedClusters)
+    const onClusters = (next: boolean) => {
+        persistClusters(next)
+        setClusters(next)
+    }
+
+    // The text size (settings.ts): the body size in px, reflected on <html>
+    // as the scale every text size in the stylesheet multiplies by.
+    const [textSize, setTextSize] = useState(storedTextSize)
+    useEffect(() => {
+        applyTextSize(textSize)
+    }, [textSize])
+    const onTextSize = (next: number) => {
+        setTextSize(next)
+        persistTextSize(next)
+    }
+
+    // The settings dialog holds the three choices above. It opens on its
+    // own ONCE — a visitor's first map view, after the acknowledgement has
+    // been answered (never over the blocking dialog) — and from the button
+    // under the band any later time. "Seen" is stored when it opens, so a
+    // reload mid-dialog does not ask again.
+    const [settingsOpen, setSettingsOpen] = useState(false)
+    const settingsIntroduced = useRef(storedSettingsSeen())
+    useEffect(() => {
+        if (blocking || state.view !== 'map' || settingsIntroduced.current) return
+        settingsIntroduced.current = true
+        persistSettingsSeen()
+        setSettingsOpen(true)
+    }, [blocking, state.view])
 
     // The full roster the counts measure against: loaded actives + the
     // lazily-merged closed rows (they stay once loaded; the predicate
@@ -159,12 +207,12 @@ function Shell({ forceLite, ack }: {
             ) : state.view !== 'map' ? (
                 // List and About are scrolling DOCUMENTS (§6.3/§6.4): the
                 // band rides in the flow at the top; content scrolls under
-                // it. NO theme switch here — it is the map view's control
-                // (Cannon's call 2026-09-06): a document is a page of
-                // records, and the two presentation switches belong with
-                // the thing they present. The theme itself still holds
-                // (it is on <html>, not on the view), and a visitor's
-                // choice persists across every view.
+                // it. NO settings button here — it is the map view's
+                // control (Cannon's call 2026-09-06): a document is a page
+                // of records, and the presentation choices belong with the
+                // thing they present. The choices themselves still hold
+                // (the theme class and the text scale are on <html>, not
+                // on the view), and persist across every view.
                 <div className="absolute inset-0 z-10 overflow-y-auto bg-cp-bg">
                     <div className="mx-3 mt-3">
                         <Toolbar
@@ -212,25 +260,21 @@ function Shell({ forceLite, ack }: {
                 </div>
             ) : (
                 // The map view's top-left as ONE self-stacking column — the
-                // band, with the theme switch hanging under its left edge
-                // (Cannon's call 2026-09-06, refined twice the same day: from
-                // "beside the band" to under it, so the band keeps its full
-                // width on every screen; and off the List / About documents
-                // entirely, so the switch rides with the map like the cluster
-                // switch below. It stood bottom-left in the corner column
-                // before all that) — so the switch never depends on the band's height,
-                // which wraps with the viewport and beside an open panel. The
-                // column is as wide as the band, capped at the viewport's
-                // gutters and, beside an OPEN panel from `sm` up (the right
-                // sheet takes 400px + gutters), at what is left; below `sm`
-                // the panel is a full-screen sheet (DetailPanel's max-sm rules)
-                // and the column keeps the full width — the caps are the
-                // band's own from the mobile fix of 2026-09-06 (an inline
-                // min(100vw - 24px, 100vw - 448px) went negative on a phone
-                // and collapsed the band). Only the two children take the
-                // pointer, so the map still drags beside the switch. (Whole
-                // class strings, whitespace-delimited: Tailwind's scanner
-                // drops one glued to a `${`.)
+                // band, with the settings button hanging under its left edge
+                // (where the theme switch stood until the settings dialog
+                // took the theme, 2026-09-06) — so the button never depends
+                // on the band's height, which wraps with the viewport and
+                // beside an open panel. The column is as wide as the band,
+                // capped at the viewport's gutters and, beside an OPEN panel
+                // from `sm` up (the right sheet takes 400px + gutters), at
+                // what is left; below `sm` the panel is a full-screen sheet
+                // (DetailPanel's max-sm rules) and the column keeps the full
+                // width — the caps are the band's own from the mobile fix of
+                // 2026-09-06 (an inline min(100vw - 24px, 100vw - 448px)
+                // went negative on a phone and collapsed the band). Only the
+                // two children take the pointer, so the map still drags
+                // beside the button. (Whole class strings, whitespace-
+                // delimited: Tailwind's scanner drops one glued to a `${`.)
                 <div
                     className={`pointer-events-none fixed top-3 left-3 z-20 flex flex-col gap-2.5 [&>*]:pointer-events-auto ${
                         selected
@@ -245,7 +289,7 @@ function Shell({ forceLite, ack }: {
                         shown={filtered.length}
                         total={all.length}
                     />
-                    <ThemeSwitch dark={dark} onTheme={onTheme} />
+                    <SettingsButton onClick={() => setSettingsOpen(true)} />
                 </div>
             )}
 
@@ -261,36 +305,26 @@ function Shell({ forceLite, ack }: {
             )}
 
             {state.view === 'map' && !blocking && (
-                // The bottom-left corner as ONE self-stacking column — the
-                // cluster switch over the attribution chip (the theme switch
-                // stood between them until 2026-09-06, when it moved under
-                // the band in the top-left column) — so nothing depends on the chip's
-                // height: at phone widths the C8 line
-                // wraps to three or four lines and used to bury the theme
-                // switch (fixed 40px up) and the map's zoom buttons under it
-                // (mobile fix, 2026-09-06). Below `sm` the column also stops
-                // short of the map's bottom-right control lane, so the chip
-                // wraps beside the zoom and locate buttons instead of under
-                // them, and sits above the basemap's attribution strip: on a
-                // map under 640px MapLibre's attribution is compact and opens
-                // EXPANDED until the first drag, its text reaching left under
-                // the chip otherwise. From `sm` up the same lane needs its own
-                // stop (measured 2026-09-06): the (i) control's hover/click
-                // expansion is ~320px wide plus its own 10px margin, and a
-                // long attribution sentence at a merely-wide-not-huge desktop
-                // width reaches that corner too — `sm:right-[360px]` clears it
-                // with room to spare, wrapping the chip to a second line
-                // rather than running under the expanded control. The column's
-                // own box is as wide as the chip; only its two children take
-                // the pointer, so the map beside the switches still drags.
+                // The bottom-left corner: the attribution chip in a
+                // pointer-transparent column box (the cluster switch stood
+                // over it until the settings dialog took it, 2026-09-06; the
+                // column idiom stays, so a control can return above the chip
+                // without re-deriving the rules below). Below `sm` the box
+                // stops short of the map's bottom-right control lane, so the
+                // chip wraps beside the zoom and locate buttons instead of
+                // under them, and sits above the basemap's attribution strip:
+                // on a map under 640px MapLibre's attribution is compact and
+                // opens EXPANDED until the first drag, its text reaching left
+                // under the chip otherwise. From `sm` up the same lane needs
+                // its own stop (measured 2026-09-06): the (i) control's
+                // hover/click expansion is ~320px wide plus its own 10px
+                // margin, and a long attribution sentence at a merely-wide-
+                // not-huge desktop width reaches that corner too —
+                // `sm:right-[360px]` clears it with room to spare, wrapping
+                // the chip to a second line rather than running under the
+                // expanded control. Only the chip takes the pointer, so the
+                // map beside it still drags.
                 <div className="pointer-events-none fixed bottom-2.5 left-3 z-10 flex flex-col items-start gap-1.5 sm:right-[360px] max-sm:right-[54px] max-sm:bottom-[38px] [&>*]:pointer-events-auto">
-                    <ClusterSwitch
-                        on={clusters}
-                        onToggle={(next) => {
-                            persistClusters(next)
-                            setClusters(next)
-                        }}
-                    />
                     <Attribution snapshot={snapshot} onTerms={showTerms} />
                 </div>
             )}
@@ -303,6 +337,18 @@ function Shell({ forceLite, ack }: {
                     onClose={() => setTermsOpen(false)}
                 />
             )}
+
+            <SettingsDialog
+                open={settingsOpen && !blocking}
+                onOpenChange={setSettingsOpen}
+                theme={theme}
+                systemDark={systemDark}
+                clusters={clusters}
+                textSize={textSize}
+                onTheme={onTheme}
+                onClusters={onClusters}
+                onTextSize={onTextSize}
+            />
         </div>
     )
 }
@@ -321,11 +367,11 @@ function ViewLoading() {
 function GhostShell() {
     return (
         <div className="pointer-events-none fixed top-3 right-3 left-3 z-10 flex items-center gap-2.5" aria-hidden="true">
-            <div className="flex items-center gap-2 rounded-cp-card border border-cp-hairline bg-cp-surface-1 px-3.5 py-2 text-[14.5px] font-bold shadow-cp">
+            <div className="flex items-center gap-2 rounded-cp-card border border-cp-hairline bg-cp-surface-1 px-3.5 py-2 text-cp-14.5 font-bold shadow-cp">
                 <span className="h-[18px] w-[18px] rounded-full border-[2.5px] border-cp-accent" />
                 CleanPlateVA
             </div>
-            <div className="max-w-[420px] flex-1 rounded-cp-pill border border-cp-hairline bg-cp-surface-1 px-3.5 py-2 text-[13px] text-cp-ink-3 shadow-cp">
+            <div className="max-w-[420px] flex-1 rounded-cp-pill border border-cp-hairline bg-cp-surface-1 px-3.5 py-2 text-cp-13 text-cp-ink-3 shadow-cp">
                 Search name, address, city, or ZIP
             </div>
         </div>
@@ -347,8 +393,8 @@ function Attribution({ inline = false, snapshot = null, onTerms }: {
     return (
         <footer
             className={inline
-                ? 'mx-4 mb-4 text-[10.5px] text-cp-ink-3'
-                : 'rounded-[6px] bg-cp-scrim-2 px-2.5 py-1.5 text-[10.5px] font-semibold text-[#cfd4d9] backdrop-blur-[4px]'}
+                ? 'mx-4 mb-4 text-cp-10.5 text-cp-ink-3'
+                : 'rounded-[6px] bg-cp-scrim-2 px-2.5 py-1.5 text-cp-10.5 font-semibold text-[#cfd4d9] backdrop-blur-[4px]'}
         >
             Inspection records: VDH and Fairfax County Health Department · archived snapshot
             {snapshot ? ` · ${fmtDate(snapshot)}` : ''} ·

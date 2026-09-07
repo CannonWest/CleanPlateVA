@@ -89,7 +89,7 @@ function ScoreCell({ f }: { f: RosterRow }) {
         return (
             <span className="flex items-center gap-2">
                 <span
-                    className="flex h-[26px] min-w-[26px] items-center justify-center rounded-[6px] text-[11.5px] font-bold text-white"
+                    className="flex h-[26px] min-w-[26px] items-center justify-center rounded-[6px] text-cp-11.5 font-bold text-white"
                     style={{ background: gradeColor(grade.letter) }}
                 >
                     {grade.letter}
@@ -101,7 +101,7 @@ function ScoreCell({ f }: { f: RosterRow }) {
     if (isNewlyPermitted(f)) {
         return (
             <span
-                className="inline-flex rounded-[6px] px-1.5 py-1 text-[10.5px] font-bold text-white"
+                className="inline-flex rounded-[6px] px-1.5 py-1 text-cp-10.5 font-bold text-white"
                 style={{ background: 'var(--cp-new)' }}
                 title="Newly permitted; grade pending a broad inspection"
             >
@@ -158,7 +158,7 @@ export function ListView({ rows, lite, sort, page, selectedPermit, onSort, onMor
 
     return (
         <div className="mx-3 mt-3.5 mb-3 overflow-hidden rounded-cp-card border border-cp-hairline bg-cp-surface-1 shadow-cp">
-            <table className="w-full border-collapse text-[13px]">
+            <table className="w-full border-collapse text-cp-13">
                 <thead>
                     <tr>
                         {headers.map(({ key, label, narrow }) => {
@@ -168,13 +168,13 @@ export function ListView({ rows, lite, sort, page, selectedPermit, onSort, onMor
                                     key={key}
                                     aria-sort={active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
                                     onClick={() => onSort(key)}
-                                    className={`sticky top-0 z-10 cursor-pointer border-b border-cp-hairline bg-cp-surface-2 px-3 py-2.5 text-left text-[10.5px] font-semibold tracking-[.06em] whitespace-nowrap uppercase select-none ${
+                                    className={`sticky top-0 z-10 cursor-pointer border-b border-cp-hairline bg-cp-surface-2 px-3 py-2.5 text-left text-cp-10.5 font-semibold tracking-[.06em] whitespace-nowrap uppercase select-none ${
                                         active ? 'text-cp-accent' : 'text-cp-ink-3'
                                     } ${narrow ? 'max-md:hidden' : ''}`}
                                 >
                                     {label}
                                     {active && (
-                                        <span aria-hidden="true" className="ml-1 text-[9px]">
+                                        <span aria-hidden="true" className="ml-1 text-cp-9">
                                             {sort.dir === 'asc' ? '▲' : '▼'}
                                         </span>
                                     )}
@@ -208,18 +208,18 @@ export function ListView({ rows, lite, sort, page, selectedPermit, onSort, onMor
                                     <div className="font-semibold">
                                         {f.name}
                                         {isNew && (
-                                            <span className="ml-2 inline-flex items-center gap-1.5 align-middle text-[10px] font-semibold tracking-[.05em] text-cp-accent uppercase">
+                                            <span className="ml-2 inline-flex items-center gap-1.5 align-middle text-cp-10 font-semibold tracking-[.05em] text-cp-accent uppercase">
                                                 <span className="h-[7px] w-[7px] rounded-full" style={{ background: 'var(--cp-new)' }} aria-hidden="true" />
                                                 new
                                             </span>
                                         )}
                                         {closed && (
-                                            <span className="ml-2 align-middle text-[10px] font-semibold tracking-[.05em] text-cp-ink-3 uppercase">
+                                            <span className="ml-2 align-middle text-cp-10 font-semibold tracking-[.05em] text-cp-ink-3 uppercase">
                                                 closed
                                             </span>
                                         )}
                                     </div>
-                                    <div className="mt-px text-[11.5px] text-cp-ink-3">
+                                    <div className="mt-px text-cp-11.5 text-cp-ink-3">
                                         {[f.address, f.address2, f.city, f.zip].filter(Boolean).join(' · ')}
                                     </div>
                                 </td>
@@ -237,7 +237,7 @@ export function ListView({ rows, lite, sort, page, selectedPermit, onSort, onMor
                                         <td className="px-3 py-2 align-middle text-cp-ink-2 tabular-nums">
                                             {fp.latestDate ?? <span className="text-cp-ink-3">—</span>}
                                             {fp.latestDate && visitSuffix(f) && (
-                                                <span className="text-[11px] text-cp-ink-3"> · {visitSuffix(f)}</span>
+                                                <span className="text-cp-11 text-cp-ink-3"> · {visitSuffix(f)}</span>
                                             )}
                                         </td>
                                     </>
@@ -262,17 +262,17 @@ export function ListView({ rows, lite, sort, page, selectedPermit, onSort, onMor
                                 next?.scrollIntoView({ block: 'nearest' })
                             })
                         }}
-                        className="rounded-cp-control border border-cp-hairline bg-cp-surface-1 px-3 py-1.5 text-[12px] font-semibold text-cp-ink-2 hover:text-cp-ink"
+                        className="rounded-cp-control border border-cp-hairline bg-cp-surface-1 px-3 py-1.5 text-cp-12 font-semibold text-cp-ink-2 hover:text-cp-ink"
                     >
                         Show {Math.min(LIST_PAGE_SIZE, remaining).toLocaleString()} more ·{' '}
                         <span className="tabular-nums">{sorted.length.toLocaleString()}</span> match
                     </button>
-                    <span className="text-[11.5px] text-cp-ink-3 tabular-nums">
+                    <span className="text-cp-11.5 text-cp-ink-3 tabular-nums">
                         {shown.toLocaleString()} shown
                     </span>
                 </div>
             ) : sorted.length > LIST_PAGE_SIZE ? (
-                <div className="border-t border-cp-hairline bg-cp-surface-2 p-3 text-center text-[11.5px] text-cp-ink-3 tabular-nums">
+                <div className="border-t border-cp-hairline bg-cp-surface-2 p-3 text-center text-cp-11.5 text-cp-ink-3 tabular-nums">
                     All {sorted.length.toLocaleString()} shown
                 </div>
             ) : null}

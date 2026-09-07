@@ -17,13 +17,13 @@ export function TrendSection({ series, width }: { series: ScopeSeries; width?: n
     if (!series.events.length) return null
     return (
         <section className="mt-2.5 rounded-[8px] border border-cp-hairline bg-cp-surface-2 px-3 pt-2.5 pb-2">
-            <div className="text-[12px] font-semibold tracking-[.07em] text-cp-ink-3 uppercase">
+            <div className="text-cp-12 font-semibold tracking-[.07em] text-cp-ink-3 uppercase">
                 Trend · {series.events.length} visit{series.events.length === 1 ? '' : 's'}
             </div>
             <div className="mt-1.5">
                 <TrendInstrument series={series} variant="panel" width={width} />
             </div>
-            <div className="mt-1 flex gap-4 text-[12.5px] text-cp-ink-3">
+            <div className="mt-1 flex gap-4 text-cp-12.5 text-cp-ink-3">
                 <span className="inline-flex items-center gap-1.5">
                     <i className="inline-block h-[11px] w-[11px] rounded-full border-[1.5px] border-dashed border-cp-ink-3" aria-hidden="true" />
                     broad score

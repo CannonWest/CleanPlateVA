@@ -53,7 +53,7 @@ function TrendChip({ delta }: { delta: number | null }) {
             ? [TrendingUp, 'Improving', 'var(--cp-grade-a)']
             : [MoveRight, 'Steady', 'var(--cp-ink-3)']
     return (
-        <span className="inline-flex items-center gap-1 text-[11px] font-semibold" style={{ color }}>
+        <span className="inline-flex items-center gap-1 text-cp-11 font-semibold" style={{ color }}>
             <Icon size={13} aria-hidden="true" />
             {word}
         </span>
@@ -79,29 +79,29 @@ function GradeHero({ fac, delta, onOpen }: {
                 className="flex w-full flex-col items-center rounded-cp-card border border-cp-hairline bg-cp-surface-2 px-4 pt-4 pb-2.5 text-center hover:border-cp-accent"
             >
                 <span
-                    className="flex h-[58px] w-[58px] items-center justify-center rounded-full text-[26px] font-bold text-white"
+                    className="flex h-[58px] w-[58px] items-center justify-center rounded-full text-cp-26 font-bold text-white"
                     style={{ background: gradeColor(grade.letter) }}
                 >
                     {grade.letter}
                 </span>
                 <span className="mt-2.5 flex items-baseline gap-2.5">
-                    <span className="text-[30px] leading-none font-bold tabular-nums">
+                    <span className="text-cp-30 leading-none font-bold tabular-nums">
                         {grade.score}
-                        <small className="text-[15px] font-semibold text-cp-ink-3">/100</small>
+                        <small className="text-cp-15 font-semibold text-cp-ink-3">/100</small>
                     </span>
                     <TrendChip delta={delta} />
                 </span>
-                <span className="mt-1.5 text-[11.5px] text-cp-ink-3 tabular-nums">
+                <span className="mt-1.5 text-cp-11.5 text-cp-ink-3 tabular-nums">
                     Broad inspection · {fmtDate(grade.baseDate)}
                 </span>
                 {isFairfax(fac) && (
                     // OQ-G disclosure (FFX-M4): the county records every visit
                     // as a complete inspection, so no re-check channel exists.
-                    <span className="mt-1 text-[11px] leading-snug text-cp-ink-3">
+                    <span className="mt-1 text-cp-11 leading-snug text-cp-ink-3">
                         Fairfax County grades are anchored on the most recent full inspection.
                     </span>
                 )}
-                <span className="mt-3 flex w-full items-center justify-center gap-1.5 border-t border-cp-hairline pt-2.5 text-[11px] font-semibold text-cp-accent">
+                <span className="mt-3 flex w-full items-center justify-center gap-1.5 border-t border-cp-hairline pt-2.5 text-cp-11 font-semibold text-cp-accent">
                     <FileText size={13} aria-hidden="true" />
                     Tap to see Grade breakdown
                 </span>
@@ -111,11 +111,11 @@ function GradeHero({ fac, delta, onOpen }: {
     if (isNew) {
         return (
             <div className="flex w-full flex-col items-center rounded-cp-card border border-cp-hairline bg-cp-surface-2 px-4 py-4 text-center">
-                <span className="flex h-[58px] w-[58px] items-center justify-center rounded-full text-[13px] font-bold text-white" style={{ background: 'var(--cp-new)' }}>
+                <span className="flex h-[58px] w-[58px] items-center justify-center rounded-full text-cp-13 font-bold text-white" style={{ background: 'var(--cp-new)' }}>
                     NEW
                 </span>
-                <span className="mt-2 text-[14px] font-bold">Permitted</span>
-                <span className="mt-1 text-[11.5px] text-cp-ink-2">
+                <span className="mt-2 text-cp-14 font-bold">Permitted</span>
+                <span className="mt-1 text-cp-11.5 text-cp-ink-2">
                     Cleared to open; grade pending its first broad inspection.
                 </span>
             </div>
@@ -123,13 +123,13 @@ function GradeHero({ fac, delta, onOpen }: {
     }
     return (
         <div className="flex w-full flex-col items-center rounded-cp-card border border-cp-hairline bg-cp-surface-2 px-4 py-4 text-center">
-            <span className="flex h-[58px] w-[58px] items-center justify-center rounded-full bg-cp-grade-none text-[26px] font-bold text-white">
+            <span className="flex h-[58px] w-[58px] items-center justify-center rounded-full bg-cp-grade-none text-cp-26 font-bold text-white">
                 –
             </span>
-            <span className="mt-2 rounded-cp-pill border border-cp-hairline bg-cp-surface-3 px-2 py-1 text-[10.5px] font-semibold text-cp-ink-2">
+            <span className="mt-2 rounded-cp-pill border border-cp-hairline bg-cp-surface-3 px-2 py-1 text-cp-10.5 font-semibold text-cp-ink-2">
                 no grade yet
             </span>
-            <span className="mt-1.5 text-[11.5px] text-cp-ink-2">
+            <span className="mt-1.5 text-cp-11.5 text-cp-ink-2">
                 No broad inspection (20+ items) captured yet, so no grade — the
                 inspections below stand on their own.
             </span>
@@ -168,8 +168,8 @@ export function DetailPanel({ row, lite, state, onClose, onAbout }: {
             <header className="border-b border-cp-hairline px-4 pt-4 pb-3">
                 <div className="flex items-start gap-3">
                     <div className="min-w-0 flex-1">
-                        <h2 className="text-[16px] leading-tight font-bold">{fac.name ?? row.name}</h2>
-                        <p className="mt-0.5 text-[12px] text-cp-ink-2">
+                        <h2 className="text-cp-16 leading-tight font-bold">{fac.name ?? row.name}</h2>
+                        <p className="mt-0.5 text-cp-12 text-cp-ink-2">
                             {[row.address, row.address2, row.city, row.zip].filter(Boolean).join(' · ')}
                         </p>
                     </div>
@@ -182,7 +182,7 @@ export function DetailPanel({ row, lite, state, onClose, onAbout }: {
                                 ? "Open this facility's official Fairfax County Health Department record"
                                 : "Find this facility's official record at the Fairfax County Health Department")
                             : "Open this facility's official VDH record"}
-                        className="inline-flex flex-none items-center gap-1.5 self-center rounded-cp-control border border-cp-accent px-2.5 py-1.5 text-[12px] font-semibold text-cp-accent hover:bg-cp-surface-3"
+                        className="inline-flex flex-none items-center gap-1.5 self-center rounded-cp-control border border-cp-accent px-2.5 py-1.5 text-cp-12 font-semibold text-cp-accent hover:bg-cp-surface-3"
                     >
                         Source
                         <ExternalLink size={13} aria-hidden="true" />
@@ -194,11 +194,11 @@ export function DetailPanel({ row, lite, state, onClose, onAbout }: {
                     </button>
                 </div>
                 <div className="mt-2.5 flex flex-wrap items-center gap-x-3.5 gap-y-1.5">
-                    <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-cp-ink-2">
+                    <span className="inline-flex items-center gap-1.5 text-cp-12 font-semibold text-cp-ink-2">
                         <KindIcon f={fac} />
                         {(fac.permit_type as string) || (row.is_restaurant ? 'Restaurant' : 'Food facility')}
                     </span>
-                    <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-cp-ink-2">
+                    <span className="inline-flex items-center gap-1.5 text-cp-12 font-semibold text-cp-ink-2">
                         <span
                             className="h-[7px] w-[7px] rounded-full"
                             style={{ background: active ? 'var(--cp-grade-a)' : 'var(--cp-closed)' }}
@@ -207,14 +207,14 @@ export function DetailPanel({ row, lite, state, onClose, onAbout }: {
                         {(fac.status as string) || (active ? 'Permitted' : 'Closed')}
                     </span>
                     <span
-                        className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-cp-ink-2"
+                        className="inline-flex items-center gap-1.5 text-cp-12 font-semibold text-cp-ink-2"
                         title={`Inspection records published by the ${dept.name}`}
                     >
                         <Landmark size={13} aria-hidden="true" className="text-cp-ink-3" />
                         {dept.name}
                     </span>
                     {approx && (
-                        <span className="rounded-cp-pill border border-cp-hairline bg-cp-surface-2 px-2 py-1 text-[10.5px] font-semibold" style={{ color: 'var(--cp-grade-c)' }}>
+                        <span className="rounded-cp-pill border border-cp-hairline bg-cp-surface-2 px-2 py-1 text-cp-10.5 font-semibold" style={{ color: 'var(--cp-grade-c)' }}>
                             ≈ {approx}
                         </span>
                     )}
@@ -228,31 +228,31 @@ export function DetailPanel({ row, lite, state, onClose, onAbout }: {
                             href={permitUrl(row)}
                             target="_blank"
                             rel="noopener"
-                            className="inline-flex items-center gap-1.5 rounded-cp-control bg-cp-accent-solid px-3 py-2 text-[12.5px] font-semibold text-cp-accent-ink"
+                            className="inline-flex items-center gap-1.5 rounded-cp-control bg-cp-accent-solid px-3 py-2 text-cp-12.5 font-semibold text-cp-accent-ink"
                         >
                             View inspections {dept.handoff}
                             <ExternalLink size={13} aria-hidden="true" />
                         </a>
-                        <p className="mt-2.5 text-[12px] text-cp-ink-3">
+                        <p className="mt-2.5 text-cp-12 text-cp-ink-3">
                             Inspection reports live on the official {fairfax ? 'Fairfax County Health Department site' : 'VDH portal'} — this map is a finder.
                         </p>
                     </div>
                 ) : state.status === 'loading' ? (
-                    <p className="px-4 py-4 text-[12.5px] text-cp-ink-3">Loading {row.name}…</p>
+                    <p className="px-4 py-4 text-cp-12.5 text-cp-ink-3">Loading {row.name}…</p>
                 ) : !detail ? (
-                    <p className="px-4 py-4 text-[12.5px] text-cp-ink-3">
+                    <p className="px-4 py-4 text-cp-12.5 text-cp-ink-3">
                         Failed to load: {(state.status === 'ready' && state.detail.reason) || 'unknown'}
                     </p>
                 ) : (
                     <>
                         {typeof fac.status_onpage === 'string' && fac.status
                             && fac.status_onpage.toLowerCase() !== (fac.status as string).toLowerCase() && (
-                            <p className="px-4 pt-2.5 text-[11.5px]" style={{ color: 'var(--cp-grade-c)' }} title="The inspection page reports a different status than the permit roster">
+                            <p className="px-4 pt-2.5 text-cp-11.5" style={{ color: 'var(--cp-grade-c)' }} title="The inspection page reports a different status than the permit roster">
                                 ⚠ inspection page says: {fac.status_onpage}
                             </p>
                         )}
                         {Array.isArray(fac.merged_from) && fac.merged_from.length > 0 && (
-                            <p className="px-4 pt-2.5 text-[11.5px] text-cp-ink-3" title="Same address, near-identical name — a re-issued permit. History below spans all permits.">
+                            <p className="px-4 pt-2.5 text-cp-11.5 text-cp-ink-3" title="Same address, near-identical name — a re-issued permit. History below spans all permits.">
                                 Includes earlier permit{fac.merged_from.length === 1 ? '' : 's'}:{' '}
                                 {(fac.merged_from as Array<{ name?: string; permit_id?: string }>).map((m, i) => (
                                     <span key={i}>
@@ -273,7 +273,7 @@ export function DetailPanel({ row, lite, state, onClose, onAbout }: {
                             {inspections.length || isNew ? (
                                 <GradeHero fac={fac} delta={delta} onOpen={() => setReceiptOpen(true)} />
                             ) : (
-                                <p className="text-[12.5px] text-cp-ink-3">No inspection detail available yet.</p>
+                                <p className="text-cp-12.5 text-cp-ink-3">No inspection detail available yet.</p>
                             )}
                         </div>
                         {!isNew && (
@@ -283,7 +283,7 @@ export function DetailPanel({ row, lite, state, onClose, onAbout }: {
                         )}
                         {inspections.length > 0 && (
                             <div className="px-2.5 pt-2.5 pb-4">
-                                <h3 className="px-2 py-1.5 text-[10.5px] font-semibold tracking-[.07em] text-cp-ink-3 uppercase">
+                                <h3 className="px-2 py-1.5 text-cp-10.5 font-semibold tracking-[.07em] text-cp-ink-3 uppercase">
                                     Inspection history · {inspections.length} visit{inspections.length === 1 ? '' : 's'}
                                 </h3>
                                 {inspections.map((insp, i) => (

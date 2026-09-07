@@ -73,7 +73,7 @@ function Pbadge({ kind, children }: { kind: 'official' | 'archived' | 'derived';
     const border = kind === 'archived' ? 'var(--cp-hairline)' : color
     return (
         <span
-            className="inline-flex items-center gap-1.5 rounded-cp-pill border px-2 py-1 text-[10.5px] font-semibold whitespace-nowrap"
+            className="inline-flex items-center gap-1.5 rounded-cp-pill border px-2 py-1 text-cp-10.5 font-semibold whitespace-nowrap"
             style={{ color, borderColor: border }}
         >
             <Icon size={12} aria-hidden="true" />
@@ -94,11 +94,11 @@ function SecHead({ no, kicker, title, sub, badge, titleId }: {
 }) {
     return (
         <div className="mb-3.5 flex items-start gap-3.5">
-            <span className="pt-0.5 text-[20px] font-bold text-cp-ink-3 opacity-60">{no}</span>
+            <span className="pt-0.5 text-cp-20 font-bold text-cp-ink-3 opacity-60">{no}</span>
             <div className="min-w-0">
-                {kicker && <div className="text-[10.5px] font-semibold tracking-[.07em] text-cp-accent uppercase">{kicker}</div>}
-                <h2 id={titleId} tabIndex={titleId ? -1 : undefined} className="text-[17px] font-bold outline-none">{title}</h2>
-                {sub && <div className="mt-1 text-[12.5px] leading-normal text-cp-ink-3">{sub}</div>}
+                {kicker && <div className="text-cp-10.5 font-semibold tracking-[.07em] text-cp-accent uppercase">{kicker}</div>}
+                <h2 id={titleId} tabIndex={titleId ? -1 : undefined} className="text-cp-17 font-bold outline-none">{title}</h2>
+                {sub && <div className="mt-1 text-cp-12.5 leading-normal text-cp-ink-3">{sub}</div>}
             </div>
             {badge && <span className="ml-auto flex-none">{badge}</span>}
         </div>
@@ -116,7 +116,7 @@ function Card({ children, id }: { children: React.ReactNode; id?: string }) {
 function Board({ title, small, children }: { title: string; small?: string; children: React.ReactNode }) {
     return (
         <div className="my-2.5 rounded-[8px] border border-cp-hairline bg-cp-surface-2 px-3.5 py-3">
-            <p className="mb-2 text-[12px] font-bold">
+            <p className="mb-2 text-cp-12 font-bold">
                 {title} {small && <small className="font-normal text-cp-ink-3">· {small}</small>}
             </p>
             {children}
@@ -148,11 +148,11 @@ function WeightRow({ when, small, solid, hollow, amount, grp }: {
 }) {
     return (
         <div className="flex flex-wrap items-center gap-2.5 py-1">
-            <span className="w-[170px] flex-none text-[12px] text-cp-ink-2">
+            <span className="w-[170px] flex-none text-cp-12 text-cp-ink-2">
                 {when} {small && <small className="text-cp-ink-3">{small}</small>}
             </span>
             <Blocks solid={solid} hollow={hollow} grp={grp} />
-            <span className="ml-auto text-[14px] font-bold tabular-nums">{amount}</span>
+            <span className="ml-auto text-cp-14 font-bold tabular-nums">{amount}</span>
         </div>
     )
 }
@@ -165,7 +165,7 @@ function RLine({ label, small, value, tone, blocks }: {
     blocks?: React.ReactNode
 }) {
     return (
-        <div className="flex items-baseline gap-2.5 border-b border-dashed border-cp-hairline py-1.5 text-[12px] text-cp-ink-2">
+        <div className="flex items-baseline gap-2.5 border-b border-dashed border-cp-hairline py-1.5 text-cp-12 text-cp-ink-2">
             <span>{label} {small && <small className="text-cp-ink-3">{small}</small>}</span>
             {blocks}
             <b
@@ -181,9 +181,9 @@ function RLine({ label, small, value, tone, blocks }: {
 function ScopeCard({ big, title, small, edge }: { big: string; title: string; small: string; edge: string }) {
     return (
         <article className="rounded-[6px] border border-cp-hairline bg-cp-surface-2 px-3 py-2.5" style={{ borderLeft: `3px solid ${edge}` }}>
-            <div className="mb-1 text-[15px] font-bold tabular-nums">{big}</div>
-            <strong className="block text-[12px]">{title}</strong>
-            <small className="mt-0.5 block text-[11px] leading-snug text-cp-ink-3">{small}</small>
+            <div className="mb-1 text-cp-15 font-bold tabular-nums">{big}</div>
+            <strong className="block text-cp-12">{title}</strong>
+            <small className="mt-0.5 block text-cp-11 leading-snug text-cp-ink-3">{small}</small>
         </article>
     )
 }
@@ -191,7 +191,7 @@ function ScopeCard({ big, title, small, edge }: { big: string; title: string; sm
 function Disclosure({ summary, children }: { summary: string; children: React.ReactNode }) {
     return (
         <details className="mt-2.5 rounded-[8px] border border-cp-hairline bg-cp-surface-2">
-            <summary className="cursor-pointer list-none px-3 py-2.5 text-[12px] font-semibold text-cp-ink-2 [&::-webkit-details-marker]:hidden">
+            <summary className="cursor-pointer list-none px-3 py-2.5 text-cp-12 font-semibold text-cp-ink-2 [&::-webkit-details-marker]:hidden">
                 {summary}
             </summary>
             <div className="border-t border-cp-hairline px-3 py-2.5">{children}</div>
@@ -202,10 +202,10 @@ function Disclosure({ summary, children }: { summary: string; children: React.Re
 function LiveCard({ k, v, small }: { k: string; v: string; small?: string }) {
     return (
         <div className="rounded-[8px] border border-cp-hairline bg-cp-surface-2 px-3 py-2.5">
-            <div className="mb-0.5 text-[9.5px] tracking-[.06em] text-cp-ink-3 uppercase">{k}</div>
-            <div className="text-[14px] font-bold tabular-nums">
+            <div className="mb-0.5 text-cp-9.5 tracking-[.06em] text-cp-ink-3 uppercase">{k}</div>
+            <div className="text-cp-14 font-bold tabular-nums">
                 {v}
-                {small && <small className="ml-1 text-[11px] font-normal text-cp-ink-3">{small}</small>}
+                {small && <small className="ml-1 text-cp-11 font-normal text-cp-ink-3">{small}</small>}
             </div>
         </div>
     )
@@ -250,11 +250,11 @@ export function AboutView({ loaded, unavailable, forceLite, ack, onSwitchToBasic
         <main className="mx-auto max-w-[52rem] px-4 pt-2 pb-7">
             {/* hero */}
             <Card>
-                <h1 className="mt-1 mb-1.5 text-[22px] leading-tight font-bold">
+                <h1 className="mt-1 mb-1.5 text-cp-22 leading-tight font-bold">
                     CleanPlateVA: an unofficial archive and grading of Virginia's health-inspected
                     food-serving facilities
                 </h1>
-                <p className="max-w-[44rem] text-[13.5px] leading-normal text-cp-ink-2">
+                <p className="max-w-[44rem] text-cp-13.5 leading-normal text-cp-ink-2">
                     CleanPlateVA is an independent presentation of archived food establishment
                     inspection records published by the Virginia Department of Health through
                     MyHealthDepartment and by the Fairfax County Health Department.
@@ -295,20 +295,20 @@ export function AboutView({ loaded, unavailable, forceLite, ack, onSwitchToBasic
                 />
 
                 <Board title="Deduction per violation" small="each block is one point off the score">
-                    <div className="text-[11px] font-semibold text-cp-ink-2">Risk-factor violation</div>
-                    <div className="mb-1 text-[11px] text-cp-ink-3">
+                    <div className="text-cp-11 font-semibold text-cp-ink-2">Risk-factor violation</div>
+                    <div className="mb-1 text-cp-11 text-cp-ink-3">
                         Form items 1–29, the practices most tied to foodborne illness: temperatures,
                         cooking, hygiene, approved sources, contamination.
                     </div>
                     <WeightRow when="First time flagged" solid={6} amount="−6" />
                     <WeightRow when="Detected repeat" small="6 × 1.5" solid={6} hollow={3} amount="−9" />
-                    <div className="mt-2 text-[11px] font-semibold text-cp-ink-2">Good-retail-practice violation</div>
-                    <div className="mb-1 text-[11px] text-cp-ink-3">
+                    <div className="mt-2 text-cp-11 font-semibold text-cp-ink-2">Good-retail-practice violation</div>
+                    <div className="mb-1 text-cp-11 text-cp-ink-3">
                         Form items 30+, operational upkeep: cleaning, labeling, equipment, maintenance.
                     </div>
                     <WeightRow when="First time flagged" solid={2} amount="−2" grp />
                     <WeightRow when="Detected repeat" small="2 × 1.5" solid={2} hollow={1} amount="−3" grp />
-                    <p className="mt-2 text-[11.5px] leading-normal text-cp-ink-3">
+                    <p className="mt-2 text-cp-11.5 leading-normal text-cp-ink-3">
                         A risk-factor violation costs three times a good-retail-practice one; a
                         detected repeat costs half again (hollow blocks); a violation corrected on
                         site while the inspector watched earns 25% of its deduction back. Scores
@@ -318,16 +318,16 @@ export function AboutView({ loaded, unavailable, forceLite, ack, onSwitchToBasic
 
                 <div className="my-3 grid gap-3 sm:grid-cols-[1.4fr_1fr]">
                     <div className="rounded-[8px] border border-cp-hairline bg-cp-bg px-3.5 py-3">
-                        <p className="mb-2 text-[11.5px] font-bold">Worked example</p>
+                        <p className="mb-2 text-cp-11.5 font-bold">Worked example</p>
                         <RLine label="Every report starts at" value="100" />
                         <RLine label="1 risk-factor violation" value="−6" tone="neg" blocks={<Blocks solid={6} />} />
                         <RLine label="1 risk-factor violation, repeat" small="6 × 1.5" value="−9" tone="neg" blocks={<Blocks solid={6} hollow={3} />} />
                         <RLine label="2 good-retail-practice violations, corrected on site" small="2 × 2 × 0.75" value="−3" tone="neg" blocks={<Blocks solid={3} grp />} />
-                        <div className="flex pt-2 text-[13px] font-bold">
+                        <div className="flex pt-2 text-cp-13 font-bold">
                             <span>Inspection score</span>
                             <b className="ml-auto tabular-nums">82</b>
                         </div>
-                        <p className="mt-2 text-[11px] leading-normal text-cp-ink-3">
+                        <p className="mt-2 text-cp-11 leading-normal text-cp-ink-3">
                             This inspection assessed 24 distinct code items (categorized as
                             a <em>broad</em> inspection) so its 82 score will anchor the facility
                             grade below.
@@ -341,20 +341,20 @@ export function AboutView({ loaded, unavailable, forceLite, ack, onSwitchToBasic
                             aria-label="Score ring at 82 of 100"
                         >
                             <div className="flex h-[66px] w-[66px] flex-col items-center justify-center rounded-full bg-cp-surface-2">
-                                <strong className="text-[22px] tabular-nums">82</strong>
-                                <span className="text-[10px] text-cp-ink-3">/ 100</span>
+                                <strong className="text-cp-22 tabular-nums">82</strong>
+                                <span className="text-cp-10 text-cp-ink-3">/ 100</span>
                             </div>
                         </div>
                         <div
-                            className="rounded-cp-pill border border-cp-hairline px-2.5 py-1 text-[11px] font-semibold text-cp-ink-2"
+                            className="rounded-cp-pill border border-cp-hairline px-2.5 py-1 text-cp-11 font-semibold text-cp-ink-2"
                             title="An inspection has no letter; a facility whose latest broad grade is 82 bands to B"
                         >
                             as a facility grade → B
                         </div>
-                        <div className="flex gap-1.5 text-[13px] font-semibold text-cp-ink-2 tabular-nums" aria-label="100 minus 15 risk-factor points minus 3 good-retail-practice points equals an inspection score of 82">
+                        <div className="flex gap-1.5 text-cp-13 font-semibold text-cp-ink-2 tabular-nums" aria-label="100 minus 15 risk-factor points minus 3 good-retail-practice points equals an inspection score of 82">
                             <span>100</span><b>−</b><span>15</span><b>−</b><span>3</span><b>=</b><strong className="text-cp-ink">82</strong>
                         </div>
-                        <small className="text-center text-[10.5px] text-cp-ink-3">
+                        <small className="text-center text-cp-10.5 text-cp-ink-3">
                             Start − risk-factor deductions − good-retail-practice deductions.
                         </small>
                     </div>
@@ -369,23 +369,23 @@ export function AboutView({ loaded, unavailable, forceLite, ack, onSwitchToBasic
                 </Board>
 
                 <Board title="From inspections to the facility grade">
-                    <p className="mb-2 text-[11.5px] leading-normal text-cp-ink-3">
+                    <p className="mb-2 text-cp-11.5 leading-normal text-cp-ink-3">
                         Grades are anchored on the most recent broad score, then adjusted based on
                         subsequent follow-ups. If follow-ups reflect corrections, the grade could
                         improve. If it shows new or repeated violations, the grade could suffer
                         further penalties.
                     </p>
                     <div className="mt-3 mb-1" aria-label="Grade thresholds: F below 60, D 60 to 69, C 70 to 79, B 80 to 89, A 90 to 100">
-                        <div className="mb-1 text-[11px] font-bold tabular-nums" style={{ marginLeft: 'calc(83% - 24px)' }}>
+                        <div className="mb-1 text-cp-11 font-bold tabular-nums" style={{ marginLeft: 'calc(83% - 24px)' }}>
                             83 · B
                             <span className="mt-0.5 ml-[18px] block h-2 w-0.5 bg-cp-ink" aria-hidden="true" />
                         </div>
                         <div className="flex h-[30px] overflow-hidden rounded-[5px] text-white">
-                            <span className="flex flex-[60] flex-col items-center justify-center text-[11px] leading-tight font-bold" style={{ background: 'var(--cp-grade-f)' }}>F<small className="text-[8.5px] font-semibold opacity-90">0–59</small></span>
-                            <span className="flex flex-[10] flex-col items-center justify-center text-[11px] leading-tight font-bold" style={{ background: 'var(--cp-grade-d)' }}>D<small className="text-[8.5px] font-semibold opacity-90">60–69</small></span>
-                            <span className="flex flex-[10] flex-col items-center justify-center text-[11px] leading-tight font-bold" style={{ background: 'var(--cp-grade-c)' }}>C<small className="text-[8.5px] font-semibold opacity-90">70–79</small></span>
-                            <span className="flex flex-[10] flex-col items-center justify-center text-[11px] leading-tight font-bold" style={{ background: 'var(--cp-grade-b)' }}>B<small className="text-[8.5px] font-semibold opacity-90">80–89</small></span>
-                            <span className="flex flex-[10] flex-col items-center justify-center text-[11px] leading-tight font-bold" style={{ background: 'var(--cp-grade-a)' }}>A<small className="text-[8.5px] font-semibold opacity-90">90–100</small></span>
+                            <span className="flex flex-[60] flex-col items-center justify-center text-cp-11 leading-tight font-bold" style={{ background: 'var(--cp-grade-f)' }}>F<small className="text-cp-8.5 font-semibold opacity-90">0–59</small></span>
+                            <span className="flex flex-[10] flex-col items-center justify-center text-cp-11 leading-tight font-bold" style={{ background: 'var(--cp-grade-d)' }}>D<small className="text-cp-8.5 font-semibold opacity-90">60–69</small></span>
+                            <span className="flex flex-[10] flex-col items-center justify-center text-cp-11 leading-tight font-bold" style={{ background: 'var(--cp-grade-c)' }}>C<small className="text-cp-8.5 font-semibold opacity-90">70–79</small></span>
+                            <span className="flex flex-[10] flex-col items-center justify-center text-cp-11 leading-tight font-bold" style={{ background: 'var(--cp-grade-b)' }}>B<small className="text-cp-8.5 font-semibold opacity-90">80–89</small></span>
+                            <span className="flex flex-[10] flex-col items-center justify-center text-cp-11 leading-tight font-bold" style={{ background: 'var(--cp-grade-a)' }}>A<small className="text-cp-8.5 font-semibold opacity-90">90–100</small></span>
                         </div>
                     </div>
                     <div className="mt-2.5 grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label="Grade adjustment rules">
@@ -395,16 +395,16 @@ export function AboutView({ loaded, unavailable, forceLite, ack, onSwitchToBasic
                         <ScopeCard big="−6/−2" title="New finding" small="Docks at normal category weight" edge="var(--cp-grade-d)" />
                     </div>
                     <div className="mt-3 rounded-[8px] border border-cp-hairline bg-cp-bg px-3.5 py-3">
-                        <p className="mb-2 text-[11.5px] font-bold">Worked example; a broad inspection scoring 70, then one follow-up</p>
+                        <p className="mb-2 text-cp-11.5 font-bold">Worked example; a broad inspection scoring 70, then one follow-up</p>
                         <RLine label="Broad inspection score" value="70" />
                         <RLine label="2 risk-factor violations verified fixed" small="65% of their 12 points returned" value="+7.8" tone="pos" />
                         <RLine label="6 good-retail-practice violations verified fixed" small="65% of their 12 points returned" value="+7.8" tone="pos" />
                         <RLine label="1 risk-factor item still out" small="deduction grows 6 → 9" value="−3" tone="neg" />
-                        <div className="flex pt-2 text-[13px] font-bold">
+                        <div className="flex pt-2 text-cp-13 font-bold">
                             <span>Facility grade</span>
                             <b className="ml-auto tabular-nums">83 · B</b>
                         </div>
-                        <p className="mt-2 text-[11px] leading-normal text-cp-ink-3">
+                        <p className="mt-2 text-cp-11 leading-normal text-cp-ink-3">
                             A 70 broad inspection + a mostly-good follow-up (9/10 violations
                             corrected) → a B 83 facility grade
                         </p>
@@ -412,13 +412,13 @@ export function AboutView({ loaded, unavailable, forceLite, ack, onSwitchToBasic
                 </Board>
 
                 <Disclosure summary="Exact scoring edge cases">
-                    <div className="space-y-2 text-[12px] text-cp-ink-2">
-                        <p><strong className="block text-[11.5px] text-cp-ink">Repeat source</strong>A structured <em>Repeat</em> flag from the inspecting department or the word “repeat” in the observation makes that violation 1.5×.</p>
-                        <p><strong className="block text-[11.5px] text-cp-ink">Missing item number</strong>Defaults to the lower good-retail-practice deduction of 2 points.</p>
-                        <p><strong className="block text-[11.5px] text-cp-ink">Corrected on site</strong>Deducts 75% of its weight — the structured checklist’s COS marking (every OUT row for the item) earns 25% back. The credit is provisional: a later re-check that finds the item OUT again revokes it to the full deduction. It never erases the recorded violation or softens red-flag ranking.</p>
-                        <p><strong className="block text-[11.5px] text-cp-ink">Follow-up reports</strong>Checklist breadth—not the word “follow-up”—decides their role. A broad report publishes a score; focused and scope-unknown reports publish null. Their per-item IN/OUT verdicts can still adjust the facility grade above, joined on the form item number.</p>
-                        <p><strong className="block text-[11.5px] text-cp-ink">Grade without follow-ups</strong>Identical to the latest broad score, banded to a letter. Items never re-checked keep their full deduction; undated or same-day reports never adjust.</p>
-                        <p><strong className="block text-[11.5px] text-cp-ink">Written-verdict follow-ups</strong>Some follow-ups publish no checklist at all — the inspector’s verdict lives only in the written comments (“all violations corrected”). Those comments are adjudicated into a machine verdict by a separate, audited step — never parsed loosely at scoring time — and then adjust the grade exactly like a re-check of the items the broad inspection docked: “all corrected” restores like a full re-checked-IN clear, “not corrected” charges the verified-repeat ×1.5. Hedged or ambiguous comments (“corrected or are continuing to be implemented”) grant nothing until reviewed. A written verdict can restore or re-charge existing deductions, never add new ones, and a later structured re-check always outranks an earlier comment.</p>
+                    <div className="space-y-2 text-cp-12 text-cp-ink-2">
+                        <p><strong className="block text-cp-11.5 text-cp-ink">Repeat source</strong>A structured <em>Repeat</em> flag from the inspecting department or the word “repeat” in the observation makes that violation 1.5×.</p>
+                        <p><strong className="block text-cp-11.5 text-cp-ink">Missing item number</strong>Defaults to the lower good-retail-practice deduction of 2 points.</p>
+                        <p><strong className="block text-cp-11.5 text-cp-ink">Corrected on site</strong>Deducts 75% of its weight — the structured checklist’s COS marking (every OUT row for the item) earns 25% back. The credit is provisional: a later re-check that finds the item OUT again revokes it to the full deduction. It never erases the recorded violation or softens red-flag ranking.</p>
+                        <p><strong className="block text-cp-11.5 text-cp-ink">Follow-up reports</strong>Checklist breadth—not the word “follow-up”—decides their role. A broad report publishes a score; focused and scope-unknown reports publish null. Their per-item IN/OUT verdicts can still adjust the facility grade above, joined on the form item number.</p>
+                        <p><strong className="block text-cp-11.5 text-cp-ink">Grade without follow-ups</strong>Identical to the latest broad score, banded to a letter. Items never re-checked keep their full deduction; undated or same-day reports never adjust.</p>
+                        <p><strong className="block text-cp-11.5 text-cp-ink">Written-verdict follow-ups</strong>Some follow-ups publish no checklist at all — the inspector’s verdict lives only in the written comments (“all violations corrected”). Those comments are adjudicated into a machine verdict by a separate, audited step — never parsed loosely at scoring time — and then adjust the grade exactly like a re-check of the items the broad inspection docked: “all corrected” restores like a full re-checked-IN clear, “not corrected” charges the verified-repeat ×1.5. Hedged or ambiguous comments (“corrected or are continuing to be implemented”) grant nothing until reviewed. A written verdict can restore or re-charge existing deductions, never add new ones, and a later structured re-check always outranks an earlier comment.</p>
                     </div>
                 </Disclosure>
             </Card>
@@ -441,18 +441,18 @@ export function AboutView({ loaded, unavailable, forceLite, ack, onSwitchToBasic
                         { t: 'Published contracts', p: 'Basic data such as links and coordinates live in GitHub while the full archive JSON lives in R2 and is only served once the terms have been acknowledged.', codes: ['static basic map', 'acknowledged full', 'full → basic fallback'] },
                     ].map((step, i) => (
                         <li key={step.t} className="grid grid-cols-[30px_1fr] gap-x-3 gap-y-1 rounded-[8px] border border-cp-hairline bg-cp-surface-2 px-3 py-2.5">
-                            <span className="row-span-3 flex h-[26px] w-[26px] items-center justify-center rounded-full bg-cp-accent-solid text-[12px] font-bold text-cp-accent-ink">{i + 1}</span>
-                            <h3 className="text-[12.5px] font-bold">{step.t}</h3>
-                            <p className="col-start-2 text-[12px] leading-normal text-cp-ink-2">{step.p}</p>
+                            <span className="row-span-3 flex h-[26px] w-[26px] items-center justify-center rounded-full bg-cp-accent-solid text-cp-12 font-bold text-cp-accent-ink">{i + 1}</span>
+                            <h3 className="text-cp-12.5 font-bold">{step.t}</h3>
+                            <p className="col-start-2 text-cp-12 leading-normal text-cp-ink-2">{step.p}</p>
                             <div className="col-start-2 flex flex-wrap gap-1.5">
                                 {step.codes.map((c) => (
-                                    <code key={c} className="rounded-[4px] border border-cp-hairline bg-cp-bg px-1.5 py-1 font-mono text-[10.5px] font-semibold text-cp-ink-2">{c}</code>
+                                    <code key={c} className="rounded-[4px] border border-cp-hairline bg-cp-bg px-1.5 py-1 font-mono text-cp-10.5 font-semibold text-cp-ink-2">{c}</code>
                                 ))}
                             </div>
                         </li>
                     ))}
                 </ol>
-                <div className="mt-2 flex items-center gap-2 text-[11.5px] text-cp-ink-3">
+                <div className="mt-2 flex items-center gap-2 text-cp-11.5 text-cp-ink-3">
                     <Link2 size={13} aria-hidden="true" />
                     Source identifiers stay attached through the path. Views link back to the
                     publishing department’s record where one is available.
@@ -468,8 +468,8 @@ export function AboutView({ loaded, unavailable, forceLite, ack, onSwitchToBasic
                 <div className="grid gap-2.5 sm:grid-cols-2">
                     <article className="rounded-[8px] border border-cp-hairline bg-cp-surface-2 px-3.5 py-3" style={{ borderTop: '3px solid var(--cp-accent)' }}>
                         <Pbadge kind="official">Official health department record</Pbadge>
-                        <h3 className="mt-2 mb-1.5 text-[13px] font-bold">Archived and reorganized</h3>
-                        <ul className="list-disc pl-4 text-[12px] leading-normal text-cp-ink-2">
+                        <h3 className="mt-2 mb-1.5 text-cp-13 font-bold">Archived and reorganized</h3>
+                        <ul className="list-disc pl-4 text-cp-12 leading-normal text-cp-ink-2">
                             <li>Facility name, address, permit type, and status</li>
                             <li>Permit and inspection GUIDs</li>
                             <li>Inspection date, type, and purpose</li>
@@ -480,8 +480,8 @@ export function AboutView({ loaded, unavailable, forceLite, ack, onSwitchToBasic
                     </article>
                     <article className="rounded-[8px] border border-cp-hairline bg-cp-surface-2 px-3.5 py-3" style={{ borderTop: '3px solid var(--cp-grade-c)' }}>
                         <Pbadge kind="derived">CleanPlateVA-derived</Pbadge>
-                        <h3 className="mt-2 mb-1.5 text-[13px] font-bold">Computed or enriched</h3>
-                        <ul className="list-disc pl-4 text-[12px] leading-normal text-cp-ink-2">
+                        <h3 className="mt-2 mb-1.5 text-cp-13 font-bold">Computed or enriched</h3>
+                        <ul className="list-disc pl-4 text-cp-12 leading-normal text-cp-ink-2">
                             <li>Inspection score: raw 0–100 formula on each broad report</li>
                             <li>Facility grades: score + A–F letter, latest broad ± follow-up re-checks</li>
                             <li>Breadth-derived score trend, red flags, and open-repeat count</li>
@@ -495,17 +495,17 @@ export function AboutView({ loaded, unavailable, forceLite, ack, onSwitchToBasic
                     <article className="flex gap-3 rounded-[8px] border border-cp-hairline bg-cp-surface-2 px-3.5 py-3">
                         <span className="flex h-[34px] w-[34px] flex-none items-center justify-center rounded-[8px] border border-cp-hairline bg-cp-bg text-cp-ink-2"><MapPin size={16} aria-hidden="true" /></span>
                         <div>
-                            <div className="text-[10.5px] font-semibold tracking-[.07em] text-cp-accent uppercase">Basic map</div>
-                            <h3 className="mt-0.5 mb-1 text-[13px] font-bold">Identity, location, source handoff</h3>
-                            <p className="text-[12px] leading-normal text-cp-ink-2">Snapshot markers are recorded as active at time of archive. Names, addresses, geocoded coordinates, restaurant classification, approximation and mobile-unit flags, permit IDs, and the source route are extracted to the best of our ability in the archival process. Status can age; when in doubt, refer to the public records posted by the respective authorities.</p>
+                            <div className="text-cp-10.5 font-semibold tracking-[.07em] text-cp-accent uppercase">Basic map</div>
+                            <h3 className="mt-0.5 mb-1 text-cp-13 font-bold">Identity, location, source handoff</h3>
+                            <p className="text-cp-12 leading-normal text-cp-ink-2">Snapshot markers are recorded as active at time of archive. Names, addresses, geocoded coordinates, restaurant classification, approximation and mobile-unit flags, permit IDs, and the source route are extracted to the best of our ability in the archival process. Status can age; when in doubt, refer to the public records posted by the respective authorities.</p>
                         </div>
                     </article>
                     <article className="flex gap-3 rounded-[8px] border border-cp-hairline bg-cp-surface-2 px-3.5 py-3">
                         <span className="flex h-[34px] w-[34px] flex-none items-center justify-center rounded-[8px] border border-cp-accent bg-cp-bg text-cp-accent"><ClipboardCheck size={16} aria-hidden="true" /></span>
                         <div>
-                            <div className="text-[10.5px] font-semibold tracking-[.07em] text-cp-accent uppercase">Inspection grades</div>
-                            <h3 className="mt-0.5 mb-1 text-[13px] font-bold">Reports plus CleanPlateVA's proprietary derived signals</h3>
-                            <p className="text-[12px] leading-normal text-cp-ink-2">Inspection histories, citations, observations, checklists, temperatures, comments, status, lineage, and CleanPlateVA-calculated metrics, loaded after the visitor acknowledges the Terms of Use and Data Acknowledgment (§05). If that data cannot be loaded, the basic map remains.</p>
+                            <div className="text-cp-10.5 font-semibold tracking-[.07em] text-cp-accent uppercase">Inspection grades</div>
+                            <h3 className="mt-0.5 mb-1 text-cp-13 font-bold">Reports plus CleanPlateVA's proprietary derived signals</h3>
+                            <p className="text-cp-12 leading-normal text-cp-ink-2">Inspection histories, citations, observations, checklists, temperatures, comments, status, lineage, and CleanPlateVA-calculated metrics, loaded after the visitor acknowledges the Terms of Use and Data Acknowledgment (§05). If that data cannot be loaded, the basic map remains.</p>
                         </div>
                     </article>
                 </div>
@@ -529,21 +529,21 @@ export function AboutView({ loaded, unavailable, forceLite, ack, onSwitchToBasic
                         ['The source record remains the source of truth', 'Scores and summaries are comparison tools, not safety or illness predictions. If our presentation and the source disagree, the official record of the publishing health department is authoritative.'],
                     ].map(([h, p]) => (
                         <article key={h} className="rounded-[8px] border border-cp-hairline bg-cp-surface-2 px-3 py-2.5">
-                            <h3 className="mb-1 text-[12px] font-bold">{h}</h3>
-                            <p className="text-[11.5px] leading-normal text-cp-ink-2">{p}</p>
+                            <h3 className="mb-1 text-cp-12 font-bold">{h}</h3>
+                            <p className="text-cp-11.5 leading-normal text-cp-ink-2">{p}</p>
                         </article>
                     ))}
                 </div>
                 <div className="mt-2.5 flex flex-wrap items-center gap-3 rounded-[8px] border border-cp-accent bg-cp-surface-2 px-3.5 py-3">
                     <div className="min-w-0 flex-1">
-                        <h3 className="text-[12.5px] font-bold">Verify at the source</h3>
-                        <p className="text-[11.5px] leading-normal text-cp-ink-2">Facility rows and report cards expose links to the publishing health department’s record where available. Compare the observation, citation, corrective action, and checklist markings yourself.</p>
+                        <h3 className="text-cp-12.5 font-bold">Verify at the source</h3>
+                        <p className="text-cp-11.5 leading-normal text-cp-ink-2">Facility rows and report cards expose links to the publishing health department’s record where available. Compare the observation, citation, corrective action, and checklist markings yourself.</p>
                     </div>
                     <a
                         href={PORTAL_URL}
                         target="_blank"
                         rel="noopener"
-                        className="inline-flex flex-none items-center gap-1.5 rounded-cp-control border border-cp-accent px-2.5 py-1.5 text-[12px] font-semibold text-cp-accent hover:bg-cp-surface-3"
+                        className="inline-flex flex-none items-center gap-1.5 rounded-cp-control border border-cp-accent px-2.5 py-1.5 text-cp-12 font-semibold text-cp-accent hover:bg-cp-surface-3"
                     >
                         Open VDH portal
                         <ExternalLink size={13} aria-hidden="true" />
@@ -552,7 +552,7 @@ export function AboutView({ loaded, unavailable, forceLite, ack, onSwitchToBasic
                         href={FAIRFAX_RECORDS_URL}
                         target="_blank"
                         rel="noopener"
-                        className="inline-flex flex-none items-center gap-1.5 rounded-cp-control border border-cp-accent px-2.5 py-1.5 text-[12px] font-semibold text-cp-accent hover:bg-cp-surface-3"
+                        className="inline-flex flex-none items-center gap-1.5 rounded-cp-control border border-cp-accent px-2.5 py-1.5 text-cp-12 font-semibold text-cp-accent hover:bg-cp-surface-3"
                     >
                         Open Fairfax County reports
                         <ExternalLink size={13} aria-hidden="true" />
@@ -576,12 +576,12 @@ export function AboutView({ loaded, unavailable, forceLite, ack, onSwitchToBasic
                 {/* Deliberately OUTSIDE #aboutTermsBody: the ack dialog clones
                     that element and brings its own buttons (C2). */}
                 <div className="mt-3 flex flex-wrap items-center gap-3 rounded-[8px] border border-cp-hairline bg-cp-surface-2 px-3.5 py-3">
-                    <p className="m-0 min-w-[260px] flex-1 text-[12.5px] leading-normal text-cp-ink-2">{status.text}</p>
+                    <p className="m-0 min-w-[260px] flex-1 text-cp-12.5 leading-normal text-cp-ink-2">{status.text}</p>
                     {status.action && (
                         <button
                             type="button"
                             onClick={status.action.tone === 'danger' ? onSwitchToBasic : onReviewTerms}
-                            className="flex-none rounded-cp-control border px-2.5 py-1.5 text-[12px] font-semibold hover:bg-cp-surface-3"
+                            className="flex-none rounded-cp-control border px-2.5 py-1.5 text-cp-12 font-semibold hover:bg-cp-surface-3"
                             style={{
                                 color: status.action.tone === 'danger' ? 'var(--cp-danger)' : 'var(--cp-accent)',
                                 borderColor: status.action.tone === 'danger' ? 'var(--cp-danger)' : 'var(--cp-accent)',
