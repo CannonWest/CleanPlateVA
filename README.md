@@ -56,9 +56,14 @@ The client is a React + TypeScript app under [`app/`](app/), built by Vite
 (design ref [`docs/frontend-redesign.md`](docs/frontend-redesign.md)).
 `app/main.tsx` boots it; `app/data/client.ts` loads the manifest-led tiers;
 `app/App.tsx` owns the views (`MapView`, `ListView`, `AboutView`) over the
-router hook (`app/useAppRouter.ts`, on the pure `app/router.ts`) and the
-acknowledgement gate (`app/ack.ts`, `app/AckDialog.tsx`). The suites under
-`tests/vitest/` and beside the modules import them directly.
+router hook (`app/useAppRouter.ts`, on the pure `app/router.ts`), the
+acknowledgement gate (`app/ack.ts`, `app/AckDialog.tsx`), and the visitor's
+presentation choices — theme (`app/theme.ts`, light / dark / system),
+"Group nearby places" (`app/clusters.ts`) and text size (`app/settings.ts`)
+— set in the settings dialog (`app/SettingsDialog.tsx`, Radix primitives),
+which opens once on a first map view and from the Settings button under
+the band on the map. The suites under `tests/vitest/` and beside the
+modules import them directly.
 
 ### Routes
 

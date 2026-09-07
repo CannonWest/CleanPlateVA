@@ -13,7 +13,7 @@ const PORTAL_URL = `${PORTAL_BASE}/${AGGREGATE_TENANT}`
 
 export function TermsBody() {
     return (
-        <div className="[&_a]:text-cp-accent [&_a:hover]:underline [&_h3]:mt-3 [&_h3]:mb-1.5 [&_h3]:text-[12.5px] [&_h3]:font-bold [&_h3:first-child]:mt-0 [&_li]:mb-1 [&_li]:text-[12.5px] [&_li]:leading-normal [&_li]:text-cp-ink-2 [&_p]:mb-2 [&_p]:text-[12.5px] [&_p]:leading-normal [&_p]:text-cp-ink-2 [&_ul]:mb-2 [&_ul]:list-disc [&_ul]:pl-4.5">
+        <div className="[&_a]:text-cp-accent [&_a:hover]:underline [&_h3]:mt-3 [&_h3]:mb-1.5 [&_h3]:text-cp-12.5 [&_h3]:font-bold [&_h3:first-child]:mt-0 [&_li]:mb-1 [&_li]:text-cp-12.5 [&_li]:leading-normal [&_li]:text-cp-ink-2 [&_p]:mb-2 [&_p]:text-cp-12.5 [&_p]:leading-normal [&_p]:text-cp-ink-2 [&_ul]:mb-2 [&_ul]:list-disc [&_ul]:pl-4.5">
             <h3>Inspection Records and Source Data</h3>
             <p>CleanPlateVA collects, organizes, and presents publicly available food establishment inspection records published by two agencies: the Virginia Department of Health, through <a href={PORTAL_URL} target="_blank" rel="noopener">MyHealthDepartment</a>, for localities served by VDH health districts; and the Fairfax County Health Department, through its <a href={FAIRFAX_RECORDS_URL} target="_blank" rel="noopener">Food Establishment Inspection Reports</a> system, for the Fairfax localities it serves.</p>
             <p>CleanPlateVA is an independent service and is not affiliated with, operated by, or endorsed by the Virginia Department of Health, MyHealthDepartment, or the Fairfax County Health Department.</p>

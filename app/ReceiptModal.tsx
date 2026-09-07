@@ -20,7 +20,7 @@ function CatChip({ category, points }: { category: string; points: boolean }) {
     const rf = category === 'risk_factor'
     return (
         <span
-            className="rounded-[4px] border px-1.5 py-[3px] text-[10.5px] font-semibold"
+            className="rounded-[4px] border px-1.5 py-[3px] text-cp-10.5 font-semibold"
             style={{
                 color: rf ? 'var(--cp-grade-d)' : 'var(--cp-ink-2)',
                 borderColor: rf ? 'var(--cp-grade-d)' : 'var(--cp-hairline)',
@@ -42,7 +42,7 @@ function Chip({ text, title, className, style }: {
 }) {
     return (
         <span
-            className={`rounded-[4px] px-1.5 py-[3px] text-[10.5px] font-semibold ${className ?? ''}`}
+            className={`rounded-[4px] px-1.5 py-[3px] text-cp-10.5 font-semibold ${className ?? ''}`}
             style={style}
             title={title}
         >
@@ -76,7 +76,7 @@ function JourneyRow({ row, delta }: { row: ReceiptJourneyRow; delta: React.React
     return (
         <ItemShell rf={row.category === 'risk_factor'}>
             <div className="flex flex-wrap items-baseline gap-1.5">
-                <span className="text-[11px] font-bold text-cp-ink-3 tabular-nums">#{row.item}</span>
+                <span className="text-cp-11 font-bold text-cp-ink-3 tabular-nums">#{row.item}</span>
                 <CatChip category={row.category} points={false} />
                 {row.count > 1 && (
                     <Chip
@@ -117,11 +117,11 @@ function JourneyRow({ row, delta }: { row: ReceiptJourneyRow; delta: React.React
             {texts.length > 1 ? (
                 <ul className="mt-1 list-disc pl-4">
                     {texts.map((t, i) => (
-                        <li key={i} className="text-[12.5px]">{t}</li>
+                        <li key={i} className="text-cp-12.5">{t}</li>
                     ))}
                 </ul>
             ) : texts.length === 1 ? (
-                <div className="mt-1 text-[12.5px]">{texts[0]}</div>
+                <div className="mt-1 text-cp-12.5">{texts[0]}</div>
             ) : null}
         </ItemShell>
     )
@@ -129,7 +129,7 @@ function JourneyRow({ row, delta }: { row: ReceiptJourneyRow; delta: React.React
 
 function Delta({ kind, value }: { kind: 'pos' | 'neg' | 'mut'; value: string }) {
     const color = kind === 'pos' ? 'var(--cp-grade-a)' : kind === 'neg' ? 'var(--cp-danger)' : 'var(--cp-ink-3)'
-    return <span className="text-[12px] font-bold tabular-nums" style={{ color }}>{value}</span>
+    return <span className="text-cp-12 font-bold tabular-nums" style={{ color }}>{value}</span>
 }
 
 const JOURNEY_GROUPS: Array<{
@@ -215,10 +215,10 @@ export function ReceiptModal({ receipt, name, onClose, onAbout, fairfax = false 
             >
                 <div className="flex items-center gap-3 border-b border-cp-hairline px-4 py-3">
                     <div className="min-w-0 flex-1">
-                        <div className="text-[10.5px] font-semibold tracking-[.07em] text-cp-ink-3 uppercase">
+                        <div className="text-cp-10.5 font-semibold tracking-[.07em] text-cp-ink-3 uppercase">
                             How this grade was computed
                         </div>
-                        <h2 id="cpReceiptTitle" className="truncate text-[15px] font-bold">{name}</h2>
+                        <h2 id="cpReceiptTitle" className="truncate text-cp-15 font-bold">{name}</h2>
                     </div>
                     <span
                         className="flex h-10 w-10 flex-none flex-col items-center justify-center rounded-full text-white"
@@ -226,8 +226,8 @@ export function ReceiptModal({ receipt, name, onClose, onAbout, fairfax = false 
                         role="img"
                         aria-label={`Grade ${r.grade.letter}, score ${r.grade.score} of 100`}
                     >
-                        <span className="text-[10px] leading-none font-bold">{r.grade.letter}</span>
-                        <span className="text-[13px] leading-tight font-bold tabular-nums">{r.grade.score}</span>
+                        <span className="text-cp-10 leading-none font-bold">{r.grade.letter}</span>
+                        <span className="text-cp-13 leading-tight font-bold tabular-nums">{r.grade.score}</span>
                     </span>
                     <button type="button" aria-label="Close" onClick={onClose} className="flex-none text-cp-ink-3 hover:text-cp-ink">
                         <X size={17} aria-hidden="true" />
@@ -238,9 +238,9 @@ export function ReceiptModal({ receipt, name, onClose, onAbout, fairfax = false 
                     {/* section 1: the broad anchor */}
                     <section className="mb-3 rounded-[8px] border border-cp-hairline bg-cp-surface-2 p-2.5">
                         <div className="flex items-center justify-between gap-2">
-                            <span className="text-[12.5px] font-semibold">Broad inspection — {fmtDate(b.date)}</span>
+                            <span className="text-cp-12.5 font-semibold">Broad inspection — {fmtDate(b.date)}</span>
                             <span
-                                className="rounded-[6px] px-2 py-1 text-[12px] font-bold text-white tabular-nums"
+                                className="rounded-[6px] px-2 py-1 text-cp-12 font-bold text-white tabular-nums"
                                 style={{ background: gradeColor(gradeForScore(b.score)) }}
                                 title="This inspection's score — the grade's base"
                             >
@@ -259,12 +259,12 @@ export function ReceiptModal({ receipt, name, onClose, onAbout, fairfax = false 
                             </div>
                         )}
                         {!b.found ? (
-                            <p className="mt-1.5 text-[12px] text-cp-ink-2">
+                            <p className="mt-1.5 text-cp-12 text-cp-ink-2">
                                 The anchoring broad inspection isn't in the shipped history, so the
                                 per-item breakdown is unavailable — the published totals below still stand.
                             </p>
                         ) : !b.items.length && !b.itemless ? (
-                            <p className="mt-1.5 text-[12px] text-cp-ink-2">
+                            <p className="mt-1.5 text-cp-12 text-cp-ink-2">
                                 No violations recorded: a clean 100-point inspection.
                             </p>
                         ) : (
@@ -272,19 +272,19 @@ export function ReceiptModal({ receipt, name, onClose, onAbout, fairfax = false 
                                 {b.items.map((it, i) => (
                                     <ItemShell key={i} rf={it.category === 'risk_factor'}>
                                         <div className="flex flex-wrap items-baseline gap-1.5">
-                                            <span className="text-[11px] font-bold text-cp-ink-3 tabular-nums">#{it.item}</span>
+                                            <span className="text-cp-11 font-bold text-cp-ink-3 tabular-nums">#{it.item}</span>
                                             <CatChip category={it.category} points />
                                             {it.repeat && <Chip text="repeat ×1.5" style={REPEAT_CHIP} title="The inspector badged THIS finding a repeat — 1.5× its weight" />}
                                             {it.cos && <Chip text="fixed on site ×0.75" style={COS_CHIP} title="This finding was corrected while the inspector watched — docks 75% of its weight, provisionally" />}
                                             {it.points != null && (
-                                                <span className="ml-auto text-[12px] font-bold text-cp-danger tabular-nums">−{fmt1(it.points)}</span>
+                                                <span className="ml-auto text-cp-12 font-bold text-cp-danger tabular-nums">−{fmt1(it.points)}</span>
                                             )}
                                         </div>
-                                        {it.text && <div className="mt-1 text-[12.5px]">{it.text}</div>}
+                                        {it.text && <div className="mt-1 text-cp-12.5">{it.text}</div>}
                                     </ItemShell>
                                 ))}
                                 {b.itemless && (
-                                    <p className="mt-1.5 text-[12px] text-cp-ink-2">
+                                    <p className="mt-1.5 text-cp-12 text-cp-ink-2">
                                         {b.itemless.count} observation{b.itemless.count === 1 ? '' : 's'} without
                                         a form item number — dock{b.itemless.count === 1 ? 's' : ''} at face value
                                         {b.itemless.points != null ? ` (−${fmt1(b.itemless.points)})` : ''} and can't
@@ -298,11 +298,11 @@ export function ReceiptModal({ receipt, name, onClose, onAbout, fairfax = false 
                     {/* section 2: follow-ups and their effects */}
                     {r.adjusted && (
                         <section className="mb-3 rounded-[8px] border border-cp-hairline bg-cp-surface-2 p-2.5">
-                            <div className="text-[12.5px] font-semibold">
+                            <div className="text-cp-12.5 font-semibold">
                                 Since then — {r.followups.length} re-check{r.followups.length === 1 ? '' : 's'}
                             </div>
                             {r.followups.map((v, i) => (
-                                <div key={i} className="mt-1.5 flex flex-wrap items-center gap-2 text-[12px]">
+                                <div key={i} className="mt-1.5 flex flex-wrap items-center gap-2 text-cp-12">
                                     <span className="text-cp-ink-3 tabular-nums">{fmtDateNum(v.date)}</span>
                                     <Chip text={v.label} style={NARR_CHIP} title={v.detail} />
                                     <span className="text-cp-ink-3">
@@ -310,12 +310,12 @@ export function ReceiptModal({ receipt, name, onClose, onAbout, fairfax = false 
                                     </span>
                                 </div>
                             ))}
-                            <p className="mt-2 text-[11.5px] text-cp-ink-3">
+                            <p className="mt-2 text-cp-11.5 text-cp-ink-3">
                                 For each item the broad visit docked, the newest re-check governs:
                             </p>
                             {JOURNEY_GROUPS.filter(({ bucket }) => r.journeys[bucket].length).map(({ bucket, title, sub, delta }) => (
                                 <div key={bucket} className="mt-2">
-                                    <div className="text-[12px] font-semibold">
+                                    <div className="text-cp-12 font-semibold">
                                         {title} <small className="font-normal text-cp-ink-3">{sub}</small>
                                     </div>
                                     {r.journeys[bucket].map((row, i) => (
@@ -328,7 +328,7 @@ export function ReceiptModal({ receipt, name, onClose, onAbout, fairfax = false 
 
                     {/* section 3: the ledger */}
                     {r.adjusted && (
-                        <section className="mb-3 rounded-[8px] border border-cp-hairline bg-cp-surface-2 p-2.5 text-[12.5px]">
+                        <section className="mb-3 rounded-[8px] border border-cp-hairline bg-cp-surface-2 p-2.5 text-cp-12.5">
                             <div className="flex justify-between py-0.5"><span>Base broad score</span><b className="tabular-nums">{r.ledger.baseScore}</b></div>
                             <div className="flex justify-between py-0.5">
                                 <span>Restored by verified fixes</span>
@@ -345,7 +345,7 @@ export function ReceiptModal({ receipt, name, onClose, onAbout, fairfax = false 
                                 </span>
                             </div>
                             {!r.ledger.exact && (
-                                <p className="mt-1.5 text-[11px] text-cp-ink-3">
+                                <p className="mt-1.5 text-cp-11 text-cp-ink-3">
                                     Components are shown to one decimal; the score itself rounds once,
                                     at the end (halves up), so the lines may not visibly sum.
                                 </p>
@@ -353,7 +353,7 @@ export function ReceiptModal({ receipt, name, onClose, onAbout, fairfax = false 
                         </section>
                     )}
 
-                    <p className="pb-1 text-[11px] text-cp-ink-3">
+                    <p className="pb-1 text-cp-11 text-cp-ink-3">
                         {fairfax && (
                             <>
                                 Fairfax County grades are anchored on the most recent full inspection.

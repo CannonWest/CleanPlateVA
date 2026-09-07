@@ -73,10 +73,20 @@ export const VA_BOUNDS: [[number, number], [number, number]] =
     [[-83.7, 36.5], [-75.2, 39.5]]
 export const VA_FIT = { padding: 20 }
 
-// The visitor's persisted theme, 'dark' | 'light'; unset reads as LIGHT — the
-// visitor default since 2026-09-06 (Cannon's call, C10 amended; the CSS base
-// stays the dark design, D-CR-STYLE-1 — app/theme.ts).
+// The visitor's persisted theme, 'dark' | 'light' | 'system'; unset (and
+// anything else) reads as SYSTEM — the device's own appearance, the visitor
+// default since the settings dialog (2026-09-06, Cannon's call; light was
+// the default earlier that day, dark before it). The CSS base stays the dark
+// design (D-CR-STYLE-1) — app/theme.ts resolves the choice to the class.
 export const THEME_KEY = 'cleanplateva.theme'
+// The visitor's persisted text size (the settings dialog, 2026-09-06): the
+// body size in CSS px as an integer string, '12'..'20'; unset (and anything
+// else) reads as 14, the size the design was ratified at — app/settings.ts.
+export const TEXT_SIZE_KEY = 'cleanplateva.textSize'
+// '1' once the settings dialog has opened on its own — it does so on a
+// visitor's first map view, after the acknowledgement; the button under the
+// band re-opens it any later time (app/settings.ts).
+export const SETTINGS_SEEN_KEY = 'cleanplateva.settingsSeen'
 // The visitor's persisted clustering choice (CRP-M6): '1' groups nearby
 // places into proximity clusters, '0' (and unset — the shipped default,
 // Cannon's call 2026-09-05) draws every place. A presentation preference
