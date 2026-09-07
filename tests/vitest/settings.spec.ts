@@ -13,11 +13,12 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { afterEach, expect, test } from 'vitest'
 import {
-    applyTextSize, persistSettingsSeen, persistTextSize, storedSettingsSeen, storedTextSize,
+    applyTextSize, persistSettingsHintDismissed, persistSettingsSeen, persistTextSize,
+    storedSettingsHintDismissed, storedSettingsSeen, storedTextSize,
     TEXT_SCALE_PROPERTY, TEXT_SIZE_DEFAULT, TEXT_SIZE_MAX, TEXT_SIZE_MIN, TEXT_SIZE_STEP, textScale,
     validTextSize,
 } from '../../app/settings'
-import { SETTINGS_SEEN_KEY, TEXT_SIZE_KEY } from '../../app/constants'
+import { SETTINGS_HINT_KEY, SETTINGS_SEEN_KEY, TEXT_SIZE_KEY } from '../../app/constants'
 
 function memoryStorage(initial: Record<string, string> = {}) {
     const map = new Map(Object.entries(initial))
@@ -78,6 +79,8 @@ test('a throwing storage is the default, not an error (private mode)', () => {
     expect(() => persistTextSize(16, throwing)).not.toThrow()
     expect(storedSettingsSeen(throwing)).toBe(false)
     expect(() => persistSettingsSeen(throwing)).not.toThrow()
+    expect(storedSettingsHintDismissed(throwing)).toBe(false)
+    expect(() => persistSettingsHintDismissed(throwing)).not.toThrow()
 })
 
 test('the scale on <html> is the ratio to 14, and the default clears it', () => {
@@ -88,6 +91,19 @@ test('the scale on <html> is the ratio to 14, and the default clears it', () => 
     expect(root.style.getPropertyValue(TEXT_SCALE_PROPERTY)).toBe(String(12 / 14))
     applyTextSize(14, root)
     expect(root.style.getPropertyValue(TEXT_SCALE_PROPERTY)).toBe('')
+})
+
+test('the hint flag: unset until the visitor closes it (or opens Settings), then 1 — its own key', () => {
+    const storage = memoryStorage()
+    expect(storedSettingsHintDismissed(storage)).toBe(false)
+    expect(storedSettingsHintDismissed(memoryStorage({ [SETTINGS_HINT_KEY]: 'yes' }))).toBe(false)
+    persistSettingsHintDismissed(storage)
+    expect(storage.map.get(SETTINGS_HINT_KEY)).toBe('1')
+    expect(storedSettingsHintDismissed(storage)).toBe(true)
+    expect(SETTINGS_HINT_KEY).toBe('cleanplateva.settingsHintDismissed')
+    // Independent of the dialog's own flag: the hint outlives that opening.
+    expect(SETTINGS_HINT_KEY).not.toBe(SETTINGS_SEEN_KEY)
+    expect(storedSettingsSeen(storage)).toBe(false)
 })
 
 test('the seen flag: unset until the dialog has opened on its own, then 1', () => {
