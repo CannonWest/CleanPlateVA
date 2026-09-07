@@ -20,7 +20,8 @@ import { persistClusters, storedClusters } from './clusters'
 import { applyPaletteClass, persistPalette, storedPalette } from './palette'
 import type { GradePalette } from './constants'
 import {
-    applyTextSize, persistSettingsSeen, persistTextSize, storedSettingsSeen, storedTextSize,
+    applyTextSize, persistSettingsHintDismissed, persistSettingsSeen, persistTextSize,
+    storedSettingsHintDismissed, storedSettingsSeen, storedTextSize,
 } from './settings'
 import { useAppRouter } from './useAppRouter'
 import { AckDialog } from './AckDialog'
@@ -29,6 +30,7 @@ import type { DetailState } from './DetailPanel'
 import { MapView } from './MapView'
 import { SettingsButton } from './SettingsButton'
 import { SettingsDialog } from './SettingsDialog'
+import { SettingsHint } from './SettingsHint'
 import { Toolbar } from './Toolbar'
 import type { AckState } from './ack'
 import type { LoadedRoster, RosterRow } from './data/types'
@@ -167,6 +169,19 @@ function Shell({ forceLite, ack }: {
         setSettingsOpen(true)
     }, [blocking, state.view])
 
+    // The hint under the pill (2026-09-07): where the choices live, for
+    // after that one self-opening closes. It outlives the dialog rather
+    // than racing it — rendered behind the scrim on a first visit, still
+    // there when the scrim goes — and stands on every map view until the
+    // visitor closes it OR opens Settings from the pill, which answers the
+    // same question. Nothing times it out.
+    const [hintDismissed, setHintDismissed] = useState(storedSettingsHintDismissed)
+    const dismissHint = () => {
+        if (hintDismissed) return
+        setHintDismissed(true)
+        persistSettingsHintDismissed()
+    }
+
     // The full roster the counts measure against: loaded actives + the
     // lazily-merged closed rows (they stay once loaded; the predicate
     // hides them again when the toggle goes off).
@@ -304,7 +319,13 @@ function Shell({ forceLite, ack }: {
                         shown={filtered.length}
                         total={all.length}
                     />
-                    <SettingsButton onClick={() => setSettingsOpen(true)} />
+                    <SettingsButton
+                        onClick={() => {
+                            dismissHint()
+                            setSettingsOpen(true)
+                        }}
+                    />
+                    {!hintDismissed && <SettingsHint onDismiss={dismissHint} />}
                 </div>
             )}
 

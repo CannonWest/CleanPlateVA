@@ -120,6 +120,12 @@ export const TEXT_SIZE_KEY = 'cleanplateva.textSize'
 // visitor's first map view, after the acknowledgement; the button under the
 // band re-opens it any later time (app/settings.ts).
 export const SETTINGS_SEEN_KEY = 'cleanplateva.settingsSeen'
+// '1' once the visitor has closed the hint that points at the Settings pill
+// (2026-09-07) — or opened Settings themselves, which is the same news. It
+// outlives the dialog's one self-opening on purpose: the dialog says what
+// the choices ARE, the hint says where they live afterwards. Unset, the
+// hint stands on every map view (app/settings.ts).
+export const SETTINGS_HINT_KEY = 'cleanplateva.settingsHintDismissed'
 // The visitor's persisted clustering choice (CRP-M6): '1' groups nearby
 // places into proximity clusters, '0' (and unset — the shipped default,
 // Cannon's call 2026-09-05) draws every place. A presentation preference
