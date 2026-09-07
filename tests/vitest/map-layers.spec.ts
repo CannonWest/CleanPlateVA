@@ -10,10 +10,12 @@
 import { createExpression } from '@maplibre/maplibre-gl-style-spec'
 import { expect, test } from 'vitest'
 import {
+    AERIAL_ATTRIBUTION, AERIAL_MAX_ZOOM, AERIAL_TILE_SIZE, AERIAL_TILES,
     CLOSED_COLOR, CLOSED_OPACITY, CLUSTER_MAX_ZOOM, CLUSTER_PIXEL_RADIUS, DARK_MAJOR_ROAD_LABEL_COLOR,
     DARK_MAJOR_ROAD_LABEL_LAYER, DECLINE_RING, DECLINE_RINGS, DECLINE_RING_WIDTH, GRADE_PALETTES,
-    LITE_MARKER_COLOR, LYR_CLUSTERS, LYR_POINTS, LYR_STACK_COUNT, LYR_STACKS, MARKER_RING,
-    MARKER_RING_WIDTH, NEW_COLORS, POINT_OPACITY, SRC, STACK_COUNT_ZOOM, STACK_INK, STACK_SURFACE,
+    LITE_MARKER_COLOR, LYR_AERIAL, LYR_CLUSTERS, LYR_POINTS, LYR_STACK_COUNT, LYR_STACKS, MARKER_RING,
+    MARKER_RING_WIDTH, NEW_COLORS, POINT_OPACITY, SRC, SRC_AERIAL, STACK_COUNT_ZOOM, STACK_INK,
+    STACK_SURFACE,
 } from '../../app/constants'
 import { donutIconExpr, donutId } from '../../app/donut'
 import { pointRadiusAt, stackRadiusAt } from '../../app/mapHit'
@@ -21,7 +23,8 @@ import { BUCKET_KEYS, buildMapData } from '../../app/mapData'
 import type { Buckets } from '../../app/mapData'
 import {
     CLUSTER_COUNT_TEXT, CLUSTER_FILTER, HIT_LAYERS, POINT_FILTER, STACK_FILTER,
-    applyPalette, fixDarkRoadLabels, installDataLayers, pointFillExpr, pointOpacityExpr, pointRadiusExpr,
+    applyBasemap, applyPalette, fixDarkRoadLabels, installDataLayers, labelBlockStart,
+    pointFillExpr, pointOpacityExpr, pointRadiusExpr,
     ringColorExpr, ringWidthExpr, stackRadiusExpr,
 } from '../../app/mapLayers'
 import type { LayerHost } from '../../app/mapLayers'
@@ -29,27 +32,78 @@ import type { LayerHost } from '../../app/mapLayers'
 type Layer = { id: string; type: string; source?: string; filter?: unknown; minzoom?: number;
     layout?: Record<string, unknown>; paint?: Record<string, unknown> }
 
-/** A map that only remembers what it was asked to do. */
-function recorder(state: { hasSource?: boolean; images?: string[]; layers?: string[] } = {}) {
+/** A map that only remembers what it was asked to do.
+ *
+ *  `hasSource` answers for every id (the marker install asks about one);
+ *  `sources` answers per id, for the basemap tests, which need the aerial
+ *  source present while the markers' is not. `styleLayers` is what
+ *  `getStyle()` reports — the basemap insertion point is read from it. */
+function recorder(state: {
+    hasSource?: boolean; images?: string[]; layers?: string[]
+    sources?: string[]; styleLayers?: Array<{ id: string; type: string }>
+} = {}) {
     const calls = {
         addSource: [] as Array<[string, Record<string, unknown>]>,
         addLayer: [] as Layer[],
+        /** Every addLayer's `before` argument, in order — where a layer was
+         *  INSERTED, which is the whole contract for the aerial. */
+        before: [] as Array<string | undefined>,
         removeImage: [] as string[],
+        removeLayer: [] as string[],
+        removeSource: [] as string[],
         setPaint: [] as Array<[string, string, unknown]>,
         setLayout: [] as Array<[string, string, unknown]>,
     }
     const host = {
-        getSource: () => (state.hasSource ? {} : undefined),
+        getSource: (id: string) => (state.sources
+            ? (state.sources.includes(id) ? {} : undefined)
+            : (state.hasSource ? {} : undefined)),
         addSource: (id: string, spec: Record<string, unknown>) => { calls.addSource.push([id, spec]) },
-        addLayer: (spec: Layer) => { calls.addLayer.push(spec) },
+        addLayer: (spec: Layer, before?: string) => {
+            calls.addLayer.push(spec)
+            calls.before.push(before)
+        },
         listImages: () => state.images ?? [],
         removeImage: (id: string) => { calls.removeImage.push(id) },
         getLayer: (id: string) => ((state.layers ?? []).includes(id) ? {} : undefined),
+        getStyle: () => ({ layers: state.styleLayers ?? [] }),
+        removeLayer: (id: string) => { calls.removeLayer.push(id) },
+        removeSource: (id: string) => { calls.removeSource.push(id) },
         setPaintProperty: (id: string, name: string, value: unknown) => { calls.setPaint.push([id, name, value]) },
         setLayoutProperty: (id: string, name: string, value: unknown) => { calls.setLayout.push([id, name, value]) },
     } as unknown as LayerHost
     return { host, calls }
 }
+
+/** dark-matter's shape: every fill and line, THEN every label. Its first
+ *  symbol layer is also where its drawing ends. */
+const DARK_MATTER_LAYERS = [
+    { id: 'background', type: 'background' },
+    { id: 'landcover', type: 'fill' },
+    { id: 'water', type: 'fill' },
+    { id: 'road_minor', type: 'line' },
+    { id: 'boundary_country_inner', type: 'line' },
+    { id: 'waterway_label', type: 'symbol' },
+    { id: 'place_city', type: 'symbol' },
+]
+
+/** Positron's shape, and the reason the seam is not "the first symbol
+ *  layer": `waterway_label` sits at index 13 of the real style with 53 more
+ *  DRAWN layers after it. A rule that stops at the first symbol puts the
+ *  photograph under most of the cartography — measured live 2026-09-07,
+ *  and it looked like a white map with imagery in the gaps. */
+const POSITRON_LAYERS = [
+    { id: 'background', type: 'background' },
+    { id: 'landcover', type: 'fill' },
+    { id: 'waterway_label', type: 'symbol' },
+    { id: 'road_minor', type: 'line' },
+    { id: 'building', type: 'fill' },
+    { id: 'boundary_country_inner', type: 'line' },
+    { id: 'watername_ocean', type: 'symbol' },
+    { id: 'place_city', type: 'symbol' },
+]
+
+const CARTO_LAYERS = DARK_MATTER_LAYERS
 
 const DATA = buildMapData([], false)
 const ZERO: Buckets = { nA: 0, nB: 0, nC: 0, nD: 0, nF: 0, nNew: 0, nNone: 0, nClosed: 0 }
@@ -294,4 +348,143 @@ test('the dark-matter road-label fix touches one layer, only when dark, only whe
     const missing = recorder({ layers: [] })
     fixDarkRoadLabels(missing.host, true)
     expect(missing.calls.setPaint).toEqual([])
+})
+
+// ── the aerial basemap (2026-09-07) ────────────────────────────────────
+// The choice is one raster layer INSIDE the basemap, and these pin the two
+// things that make that true: where it is inserted, and that flipping it
+// touches nothing else.
+
+test('the drawn map adds nothing at all — the shipped default is the absence of a layer', () => {
+    const { host, calls } = recorder({ styleLayers: CARTO_LAYERS })
+    applyBasemap(host, 'map')
+    expect(calls.addSource).toHaveLength(0)
+    expect(calls.addLayer).toHaveLength(0)
+    expect(calls.removeLayer).toHaveLength(0)
+    expect(calls.removeSource).toHaveLength(0)
+})
+
+test('the aerial is a raster source on the VBMP tile scheme, capped at the zoom that has tiles', () => {
+    const { host, calls } = recorder({ styleLayers: CARTO_LAYERS })
+    applyBasemap(host, 'aerial')
+    expect(calls.addSource).toHaveLength(1)
+    const [id, spec] = calls.addSource[0]!
+    expect(id).toBe(SRC_AERIAL)
+    expect(spec).toMatchObject({
+        type: 'raster',
+        tiles: [AERIAL_TILES],
+        tileSize: AERIAL_TILE_SIZE,
+        // The service's LODs claim 23; tiles 404 past 19 (measured
+        // 2026-09-07), so the source declares what exists and MapLibre
+        // overzooms the rest instead of painting holes.
+        maxzoom: AERIAL_MAX_ZOOM,
+        attribution: AERIAL_ATTRIBUTION,
+    })
+    // XYZ, and the row/col order ArcGIS serves — a transposed template
+    // returns tiles from the wrong hemisphere rather than an error.
+    expect(AERIAL_TILES).toContain('/tile/{z}/{y}/{x}')
+    // The credit rides the SOURCE, so it appears exactly while the imagery
+    // is on the map and leaves with it.
+    expect(AERIAL_ATTRIBUTION).toContain('VGIN')
+})
+
+test('the aerial goes under the basemap\'s LABEL BLOCK — the photo replaces the drawn ground, the labels stay', () => {
+    const { host, calls } = recorder({ styleLayers: DARK_MATTER_LAYERS })
+    applyBasemap(host, 'aerial')
+    expect(calls.addLayer).toHaveLength(1)
+    expect(calls.addLayer[0]).toMatchObject({ id: LYR_AERIAL, type: 'raster', source: SRC_AERIAL })
+    expect(calls.before[0]).toBe('waterway_label')
+})
+
+test('the seam is the last DRAWN layer, not the first symbol one — positron writes before it finishes drawing', () => {
+    // The bug this pins, measured live 2026-09-07: positron's first symbol
+    // layer is `waterway_label` at index 13, with 53 drawn layers after it.
+    // Inserting there left the photograph under the roads, the buildings
+    // and the boundaries — a white map with imagery showing through.
+    expect(labelBlockStart(recorder({ styleLayers: POSITRON_LAYERS }).host)).toBe('watername_ocean')
+    expect(labelBlockStart(recorder({ styleLayers: DARK_MATTER_LAYERS }).host)).toBe('waterway_label')
+
+    const { host, calls } = recorder({ styleLayers: POSITRON_LAYERS })
+    applyBasemap(host, 'aerial')
+    expect(calls.before[0]).toBe('watername_ocean')
+    // Everything the basemap DRAWS is under the photo; only its text is over.
+    const ids = POSITRON_LAYERS.map((l) => l.id)
+    const at = ids.indexOf(calls.before[0]!)
+    for (const layer of POSITRON_LAYERS) {
+        if (layer.type === 'symbol') continue
+        expect(ids.indexOf(layer.id)).toBeLessThan(at)
+    }
+})
+
+test('our own layers are not the basemap: a live flip never slides the aerial over the markers', () => {
+    // The flip a visitor makes: the markers are already installed. The dots
+    // are CIRCLES — non-symbol — so counting them would push the seam to the
+    // very top of the style and put the photograph over the map.
+    for (const style of [DARK_MATTER_LAYERS, POSITRON_LAYERS]) {
+        const { host, calls } = recorder({
+            styleLayers: [...style,
+                { id: LYR_CLUSTERS, type: 'symbol' },
+                { id: LYR_POINTS, type: 'circle' },
+                { id: LYR_STACKS, type: 'circle' },
+                { id: LYR_STACK_COUNT, type: 'symbol' }],
+            layers: [LYR_CLUSTERS],
+        })
+        applyBasemap(host, 'aerial')
+        const before = calls.before[0]!
+        expect(style.map((l) => l.id)).toContain(before)
+        // Strictly below every marker layer.
+        const ids = [...style.map((l) => l.id), LYR_CLUSTERS, LYR_POINTS, LYR_STACKS, LYR_STACK_COUNT]
+        expect(ids.indexOf(before)).toBeLessThan(ids.indexOf(LYR_CLUSTERS))
+    }
+})
+
+test('a basemap that draws to the end puts the aerial under the bottom-most marker layer, never over it', () => {
+    const { host, calls } = recorder({
+        styleLayers: [{ id: 'background', type: 'background' }, { id: LYR_CLUSTERS, type: 'symbol' }],
+        layers: [LYR_CLUSTERS],
+    })
+    applyBasemap(host, 'aerial')
+    expect(labelBlockStart(host)).toBeNull()
+    expect(calls.before[0]).toBe(LYR_CLUSTERS)
+})
+
+test('applyBasemap is idempotent — the source\'s presence IS the state', () => {
+    const { host, calls } = recorder({ sources: [SRC_AERIAL], styleLayers: CARTO_LAYERS })
+    applyBasemap(host, 'aerial')
+    expect(calls.addSource).toHaveLength(0)
+    expect(calls.addLayer).toHaveLength(0)
+})
+
+test('back to the drawn map drops the layer and then its source, in that order', () => {
+    const { host, calls } = recorder({
+        sources: [SRC_AERIAL], layers: [LYR_AERIAL], styleLayers: CARTO_LAYERS,
+    })
+    applyBasemap(host, 'map')
+    expect(calls.removeLayer).toEqual([LYR_AERIAL])
+    expect(calls.removeSource).toEqual([SRC_AERIAL])
+    expect(calls.addLayer).toHaveLength(0)
+})
+
+test('a style that lost the layer but kept the source still cleans up', () => {
+    const { host, calls } = recorder({ sources: [SRC_AERIAL], layers: [], styleLayers: CARTO_LAYERS })
+    applyBasemap(host, 'map')
+    expect(calls.removeLayer).toEqual([])
+    expect(calls.removeSource).toEqual([SRC_AERIAL])
+})
+
+test('the basemap never touches the markers: no paint, no layout, no images, no data', () => {
+    for (const choice of ['map', 'aerial'] as const) {
+        const { host, calls } = recorder({
+            sources: choice === 'map' ? [SRC_AERIAL] : [], layers: [LYR_AERIAL, LYR_CLUSTERS, LYR_POINTS],
+            styleLayers: CARTO_LAYERS,
+        })
+        applyBasemap(host, choice)
+        expect(calls.setPaint).toHaveLength(0)
+        expect(calls.setLayout).toHaveLength(0)
+        expect(calls.removeImage).toHaveLength(0)
+        // Whatever it added or removed was the aerial's own, nothing else.
+        expect(calls.addSource.map(([id]) => id)).not.toContain(SRC)
+        expect(calls.removeLayer.filter((id) => id !== LYR_AERIAL)).toEqual([])
+        expect(calls.removeSource.filter((id) => id !== SRC_AERIAL)).toEqual([])
+    }
 })

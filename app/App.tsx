@@ -16,6 +16,8 @@ import {
     applyThemeClass, DARK_SCHEME_QUERY, persistTheme, resolveDark, storedTheme, systemPrefersDark,
 } from './theme'
 import type { ThemeChoice } from './theme'
+import { persistBasemap, storedBasemap } from './basemap'
+import type { Basemap } from './basemap'
 import { persistClusters, storedClusters } from './clusters'
 import { applyPaletteClass, persistPalette, storedPalette } from './palette'
 import type { GradePalette } from './constants'
@@ -150,6 +152,16 @@ function Shell({ forceLite, ack }: {
         setClusters(next)
     }
 
+    // The basemap (basemap.ts): the same kind of preference, but its control
+    // is the map's own layers button rather than the settings dialog —
+    // a basemap is what the map is DRAWN ON, and the visitor flips it while
+    // looking at a place (LayersControl's header carries the reasoning).
+    const [basemap, setBasemap] = useState<Basemap>(storedBasemap)
+    const onBasemap = (next: Basemap) => {
+        persistBasemap(next)
+        setBasemap(next)
+    }
+
     // The text size (settings.ts): the body size in px, reflected on <html>
     // as the scale every text size in the stylesheet multiplies by.
     const [textSize, setTextSize] = useState(storedTextSize)
@@ -235,6 +247,8 @@ function Shell({ forceLite, ack }: {
                 dark={dark}
                 clusters={clusters}
                 palette={palette}
+                basemap={basemap}
+                onBasemap={onBasemap}
                 onSelect={(pid) => actions.select(pid)}
                 locateReady={!blocking && !arrivedAtPlace}
                 selected={selected}
@@ -368,7 +382,21 @@ function Shell({ forceLite, ack }: {
                 // the chip to a second line rather than running under the
                 // expanded control. Only the chip takes the pointer, so the
                 // map beside it still drags.
-                <div className="pointer-events-none fixed bottom-2.5 left-3 z-10 flex flex-col items-start gap-1.5 sm:right-[360px] max-sm:right-[54px] max-sm:bottom-[38px] [&>*]:pointer-events-auto">
+                //
+                // The AERIAL widens that strip (2026-09-07): the imagery's
+                // credit joins CARTO's and OpenStreetMap's on the same line,
+                // and at 1024-1200px the chip ran over its first word
+                // (measured). The stop moves out to 440px for exactly as
+                // long as the imagery is on the map — a wider stop always
+                // would squeeze the chip into a tall column on the narrow
+                // side of `sm` for no reason. (Whole class strings,
+                // whitespace-delimited: Tailwind's scanner drops one glued
+                // to a `${`.)
+                <div
+                    className={`pointer-events-none fixed bottom-2.5 left-3 z-10 flex flex-col items-start gap-1.5 max-sm:right-[54px] max-sm:bottom-[38px] [&>*]:pointer-events-auto ${
+                        basemap === 'aerial' ? 'sm:right-[440px]' : 'sm:right-[360px]'
+                    }`}
+                >
                     <Attribution snapshot={snapshot} onTerms={showTerms} />
                 </div>
             )}

@@ -8,6 +8,11 @@
  *
  * Bottom to top:
  *
+ *   · vbmp-imagery       raster   the aerial, when chosen — NOT on top of
+ *                                 the basemap but INSIDE it, under CARTO's
+ *                                 first label layer (applyBasemap), so the
+ *                                 photograph replaces the drawn ground and
+ *                                 the theme's labels still ride over it
  *   · food-clusters      symbol   the CRP-M6 donut + count, under everything
  *   · food-points        circle   grade fill; ring white, or declining red
  *   · food-stacks        circle   neutral count bubbles, above lone dots
@@ -20,15 +25,17 @@
 
 import type * as maplibregl from 'maplibre-gl'
 import {
+    AERIAL_ATTRIBUTION, AERIAL_MAX_ZOOM, AERIAL_TILE_SIZE, AERIAL_TILES,
     CLOSED_OPACITY, CLUSTER_COUNT_TEXT_SIZE, CLUSTER_MAX_ZOOM, CLUSTER_PIXEL_RADIUS,
     DARK_MAJOR_ROAD_LABEL_COLOR, DARK_MAJOR_ROAD_LABEL_LAYER,
     DECLINE_RINGS, DECLINE_RING_WIDTH,
-    LITE_MARKER_COLOR, LYR_CLUSTERS,
+    LITE_MARKER_COLOR, LYR_AERIAL, LYR_CLUSTERS,
     LYR_POINTS, LYR_STACK_COUNT, LYR_STACKS, MARKER_RING, MARKER_RING_WIDTH,
-    POINT_OPACITY, POINT_RADIUS_FULL, POINT_RADIUS_STOPS, SRC, STACK_COUNT_ZOOM,
+    POINT_OPACITY, POINT_RADIUS_FULL, POINT_RADIUS_STOPS, SRC, SRC_AERIAL, STACK_COUNT_ZOOM,
     STACK_INK, STACK_RADII, STACK_STEPS, STACK_SURFACE,
 } from './constants'
 import type { GradePalette } from './constants'
+import type { Basemap } from './basemap'
 import { bucketFills, donutIconExpr, staleDonutIds } from './donut'
 import { BUCKET_KEYS, clusterProperties } from './mapData'
 import type { MapData } from './mapData'
@@ -39,7 +46,8 @@ type ExpressionSpec = maplibregl.ExpressionSpecification
  *  it; a spec passes a recorder. */
 export type LayerHost = Pick<maplibregl.Map,
     'getSource' | 'addSource' | 'addLayer' | 'listImages' | 'removeImage'
-    | 'getLayer' | 'setPaintProperty' | 'setLayoutProperty'>
+    | 'getLayer' | 'setPaintProperty' | 'setLayoutProperty'
+    | 'getStyle' | 'removeLayer' | 'removeSource'>
 
 /** The layers the pointer resolves against, in one padded query — every
  *  mark type at once, so a stack beside a dot beside a bubble all compete
@@ -139,6 +147,94 @@ export function applyPalette(map: LayerHost, dark: boolean, palette: GradePalett
         map.setLayoutProperty(LYR_CLUSTERS, 'icon-image', donutIconExpr(theme, palette) as ExpressionSpec)
     }
     for (const id of staleDonutIds(map.listImages(), theme, palette)) map.removeImage(id)
+}
+
+/** Our own layer ids — everything this module adds. `firstLabelLayer` skips
+ *  them: the cluster donuts are a symbol layer too, and the aerial must
+ *  never slide under the markers. */
+const OURS = new Set<string>([LYR_AERIAL, LYR_CLUSTERS, LYR_POINTS, LYR_STACKS, LYR_STACK_COUNT])
+
+/** Where the basemap stops DRAWING and starts WRITING — the layer the
+ *  aerial goes under, so the photograph replaces the drawn ground while
+ *  every label, in the visitor's theme and wearing its own halo, still
+ *  rides on top ("aerial with labels", and no second style to keep in step
+ *  with the theme).
+ *
+ *  The seam is the layer after the LAST non-symbol one, not the first
+ *  symbol one — the two are not the same, and assuming they were shipped a
+ *  bug that only dark-matter hid (caught live, 2026-09-07). dark-matter
+ *  paints all 66 of its fills and lines and then all its text, so its first
+ *  symbol IS the seam; positron puts `waterway_label` at index 13 and then
+ *  draws 53 more layers of roads, buildings and boundaries over it, so
+ *  inserting at ITS first symbol left the photograph under most of the
+ *  cartography — a white map with imagery showing through the gaps. Both
+ *  styles end their drawing at `boundary_country_inner`; this finds that
+ *  edge without naming it.
+ *
+ *  The cost of taking the seam this late is that a label written BEFORE the
+ *  basemap finishes drawing goes under the photo too. Measured: positron
+ *  loses exactly one of its 27 label layers that way (`waterway_label` —
+ *  river and stream names, which the photograph shows anyway) and
+ *  dark-matter loses none. Every place, road, POI and house-number label
+ *  rides over the imagery in both. Pinned in tests/e2e/aerial.spec.ts, so a
+ *  CARTO restyle that swallowed more would fail rather than degrade.
+ *
+ *  Our own layers are skipped: the markers are circles (non-symbol) and the
+ *  cluster donuts are symbols, so counting them would move the seam to the
+ *  top of the style and slide the aerial over the dots.
+ *
+ *  Null when the basemap draws all the way to the end (no labels at all, or
+ *  a style still loading): the caller falls back to the markers. */
+export function labelBlockStart(map: LayerHost): string | null {
+    let layers: Array<{ id: string; type: string }>
+    try {
+        layers = map.getStyle()?.layers ?? []
+    } catch {
+        return null // no style yet
+    }
+    const basemap = layers.filter((layer) => !OURS.has(layer.id))
+    let lastDrawn = -1
+    for (let i = 0; i < basemap.length; i += 1) {
+        if (basemap[i]!.type !== 'symbol') lastDrawn = i
+    }
+    return basemap[lastDrawn + 1]?.id ?? null
+}
+
+/** Put the visitor's basemap choice on the CURRENT style: 'aerial' adds the
+ *  VBMP raster under the style's labels, 'map' takes it off again. Called
+ *  on every style.load (a theme swap drops it with everything else) and
+ *  whenever the layers control changes the choice — the same function both
+ *  times, so there is one code path and no "install vs. update" pair to
+ *  drift. Idempotent: the source's presence is the state.
+ *
+ *  The markers do not move. They are added after this on a fresh style, and
+ *  on a live one the raster is inserted BELOW a label layer that is itself
+ *  below them — so a flip never restacks the dots, and nothing about the
+ *  hit test, the palette or the clustering knows this ran. */
+export function applyBasemap(map: LayerHost, basemap: Basemap): void {
+    const on = !!map.getSource(SRC_AERIAL)
+    if (basemap === 'aerial') {
+        if (on) return
+        map.addSource(SRC_AERIAL, {
+            type: 'raster',
+            tiles: [AERIAL_TILES],
+            tileSize: AERIAL_TILE_SIZE,
+            maxzoom: AERIAL_MAX_ZOOM,
+            attribution: AERIAL_ATTRIBUTION,
+        })
+        // Under the basemap's labels; failing that (a style that draws to
+        // the end) under the bottom-most marker layer, which is the one
+        // thing this must never cover. Only a style with neither leaves it
+        // on top, and then there is nothing above it to hide.
+        const before = labelBlockStart(map)
+            ?? (map.getLayer(LYR_CLUSTERS) ? LYR_CLUSTERS : null)
+        map.addLayer({ id: LYR_AERIAL, type: 'raster', source: SRC_AERIAL },
+            before ?? undefined)
+        return
+    }
+    if (!on) return
+    if (map.getLayer(LYR_AERIAL)) map.removeLayer(LYR_AERIAL)
+    map.removeSource(SRC_AERIAL)
 }
 
 /** Add source + the marker layers to the CURRENT style. Idempotent per

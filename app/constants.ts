@@ -93,6 +93,40 @@ export const CLOSED_OPACITY = 0.42
 export const STYLE_LIGHT = 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json'
 export const STYLE_DARK = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json'
 
+// ── the aerial basemap (VBMP orthoimagery) ─────────────────────────────
+// The visitor's basemap choice (the layers control): 'map' is the CARTO
+// style above — the shipped default, and what a first-time visitor sees —
+// and 'aerial' lays the Commonwealth's own orthoimagery under the style's
+// LABELS (mapLayers installBasemap). Never a second style: one raster
+// layer, inserted under the first symbol layer, so the theme keeps owning
+// the labels and every marker rule stands unchanged.
+//
+// VGIN publishes the mosaic of the most recent collection (Spring 2022 /
+// 2023 / 2025, whichever a place last had) as a cached ArcGIS tile service:
+// EPSG:3857, 256px, `/tile/{z}/{y}/{x}` — ArcGIS's row/col IS the XYZ
+// scheme — JPEG, `Cache-Control: max-age=86400`, and CORS reflecting any
+// origin (measured 2026-09-07). It is free of charge and public by the
+// program's own terms; a tile weighs 12-23 KB from z9 to z19.
+export const AERIAL_TILES =
+    'https://vginmaps.vdem.virginia.gov/arcgis/rest/services/VBMP_Imagery/MostRecentImagery_WGS/MapServer/tile/{z}/{y}/{x}'
+// The service's LODs claim 23, but tiles 404 past 19 (measured): declare
+// what exists and let MapLibre overzoom the rest, or the map paints holes
+// where the visitor zooms furthest in.
+export const AERIAL_MAX_ZOOM = 19
+// 256px tiles — the service's own, and half CARTO's 512: MapLibre reads the
+// size off the source, so the two schemes coexist without touching a zoom
+// constant anywhere else (CLUSTER_MAX_ZOOM and SELECT_ZOOM stay CARTO's).
+export const AERIAL_TILE_SIZE = 256
+// Collected by MapLibre's own attribution control while the source is on
+// the map, and gone with it — the imagery is credited exactly when it is
+// drawn. Deliberately SHORT: this rides the one-line attribution strip that
+// the footer chip shares, and every character widens it (measured
+// 2026-09-07 — a longer form ran under the chip at desktop widths and lost
+// its own first word). The full formal credit is the terms document's row
+// (TermsBody), which names the program, the agency and the department.
+export const AERIAL_ATTRIBUTION =
+    'Imagery © <a href="https://vgin.vdem.virginia.gov/pages/orthoimagery" target="_blank" rel="noopener">VGIN</a>'
+
 // dark-matter ships its trunk/motorway road labels at 1.7:1 against its own
 // background (CARTO defect, one layer); #d8d8d8 measures 13.5:1. See the old
 // constants.js for the full measurement note.
@@ -137,12 +171,21 @@ export const SETTINGS_HINT_KEY = 'cleanplateva.settingsHintDismissed'
 // at, not how it is drawn).
 export const CLUSTERS_KEY = 'cleanplateva.clusters'
 
+// The visitor's basemap, 'map' | 'aerial'; unset (and anything else) reads
+// as 'map' — the CARTO style, the shipped default. A presentation choice
+// like the theme and the palette: per visitor, never in the URL (C6).
+export const BASEMAP_KEY = 'cleanplateva.basemap'
+
 // MapLibre source + layer ids (data layers re-added on every style swap).
 export const SRC = 'food-facilities'
 export const LYR_CLUSTERS = 'food-clusters'
 export const LYR_POINTS = 'food-points'
 export const LYR_STACKS = 'food-stacks'
 export const LYR_STACK_COUNT = 'food-stack-count'
+// The aerial raster rides its own source + layer, added and removed as the
+// choice changes — under the style's labels, never under the markers.
+export const SRC_AERIAL = 'vbmp-imagery'
+export const LYR_AERIAL = 'vbmp-imagery'
 
 // ── marker geometry (§6.2 grammar) ─────────────────────────────────────
 // Dots grow with zoom to the ratified mockup's 21px marker (≈ radius

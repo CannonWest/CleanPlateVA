@@ -40,8 +40,16 @@
  * the interactive stack popover), and geolocate + the patient auto-locate
  * + the coverage note are `useGeolocate`. What stays here is the island
  * itself: the map's lifecycle, the pointer rules, the effects that answer
- * data / switch / theme / palette changes, and the one that releases the
- * auto-locate once the page is ready for it.
+ * data / switch / theme / palette / basemap changes, and the one that
+ * releases the auto-locate once the page is ready for it.
+ *
+ * The basemap choice (2026-09-07, Cannon's ask): the layers control in the
+ * bottom-right lane swaps the drawn CARTO ground for the Commonwealth's own
+ * VBMP aerial photography, which goes UNDER the style's first label layer
+ * (mapLayers applyBasemap) rather than over the whole basemap — so the
+ * theme keeps owning the labels, one raster layer is the entire change, and
+ * every marker rule, hit target and palette stays exactly where it was. The
+ * control is a MapLibre IControl whose element React fills through a portal.
  *
  * Ported from the old `map.js`: the dark-matter road-label contrast fix,
  * fadeDuration 0 (symbol counts must move with their bubbles), geolocate +
@@ -49,6 +57,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import * as maplibregl from 'maplibre-gl'
 import { X } from 'lucide-react'
 import 'maplibre-gl/dist/maplibre-gl.css'
@@ -61,21 +70,33 @@ import { buildMapData } from './mapData'
 import type { MapData } from './mapData'
 import { selectionCamera } from './mapCamera'
 import { hitSlop, markRadius, pickMark, popoverSurvivesZoom } from './mapHit'
-import { HIT_LAYERS, applyPalette, fixDarkRoadLabels, installDataLayers } from './mapLayers'
+import {
+    HIT_LAYERS, applyBasemap, applyPalette, fixDarkRoadLabels, installDataLayers,
+} from './mapLayers'
 import { useGeolocate } from './useGeolocate'
 import { useMapPopup } from './useMapPopup'
 import { HoverCard } from './HoverCard'
+import { LayersControl } from './LayersControl'
 import { StackPopover } from './StackPopover'
+import type { Basemap } from './basemap'
 import type { GradePalette } from './constants'
 import { coordsOf } from './data/presentation'
 import type { RosterRow } from './data/types'
 
-export function MapView({ facilities, lite, dark, clusters, palette, onSelect, locateReady, selected }: {
+export function MapView({
+    facilities, lite, dark, clusters, palette, basemap, onBasemap,
+    onSelect, locateReady, selected,
+}: {
     facilities: RosterRow[]
     lite: boolean
     dark: boolean
     /** "Group nearby places" — production's proximity clusters (CRP-M6). */
     clusters: boolean
+    /** What the map is drawn on: the theme's CARTO style, or the VBMP
+     *  aerial under that style's labels (mapLayers applyBasemap). */
+    basemap: Basemap
+    /** The layers control picked a basemap (App persists it). */
+    onBasemap: (basemap: Basemap) => void
     /** The visitor's grade palette (the settings dialog): the dots' fills,
      *  the declining ring and the donut arcs paint in it. */
     palette: GradePalette
@@ -99,7 +120,13 @@ export function MapView({ facilities, lite, dark, clusters, palette, onSelect, l
     const clustersRef = useRef(clusters)
     const paletteRef = useRef(palette)
     paletteRef.current = palette
+    const basemapRef = useRef(basemap)
+    basemapRef.current = basemap
     const [failed, setFailed] = useState(false)
+    // The layers control's element, once MapLibre has placed it in the
+    // bottom-right lane — React renders into it through a portal.
+    const [layersHost, setLayersHost] = useState<HTMLElement | null>(null)
+    const [layersOpen, setLayersOpen] = useState(false)
 
     const data = useMemo(() => buildMapData(facilities, lite), [facilities, lite])
     const dataRef = useRef<MapData>(data)
@@ -186,10 +213,25 @@ export function MapView({ facilities, lite, dark, clusters, palette, onSelect, l
         // right sheet (M2) opens above these on the z axis, not over them.
         map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right')
         geolocate.install(map)
+        // The layers control goes in LAST, and that is what puts it ON TOP:
+        // MapLibre PREPENDS into a bottom corner (so a corner grows upward
+        // from the map's edge), where a top corner appends. Added first it
+        // sat under the zoom buttons — measured 2026-09-07. Stacking it this
+        // way needs no offset of its own to keep in step with theirs. Its
+        // element is only a container; React renders the control into it
+        // (LayersControl, through the portal below).
+        const layers = document.createElement('div')
+        layers.className = 'maplibregl-ctrl'
+        map.addControl({ onAdd: () => layers, onRemove: () => {} }, 'bottom-right')
+        setLayersHost(layers)
 
         // Fires on the initial style AND after every setStyle (theme swap) —
         // custom sources/layers/images don't survive a swap.
         map.on('style.load', () => {
+            // The aerial first: it belongs INSIDE the basemap (under its
+            // first label layer), and installing it before the markers keeps
+            // that search away from our own symbol layers entirely.
+            applyBasemap(map, basemapRef.current)
             installDataLayers(map, dataRef.current, styleDarkRef.current, clustersRef.current, paletteRef.current)
             fixDarkRoadLabels(map, styleDarkRef.current)
         })
@@ -397,6 +439,7 @@ export function MapView({ facilities, lite, dark, clusters, palette, onSelect, l
             hover.dispose()
             stack.dispose()
             geolocate.dispose()
+            setLayersHost(null)
             mapRef.current = null
             ;(window as unknown as { __cpMap?: maplibregl.Map }).__cpMap = undefined
             map.remove()
@@ -463,6 +506,18 @@ export function MapView({ facilities, lite, dark, clusters, palette, onSelect, l
         map.easeTo(move)
     }, [selected])
 
+    // The basemap (the layers control): add or drop the aerial raster on
+    // the live style — one layer, inserted under the style's first label
+    // layer, so the markers never restack and nothing is rebuilt. Before
+    // the style exists only the ref moves; style.load applies it. A theme
+    // swap needs nothing here either: it tears the style down and
+    // style.load re-applies this from the same ref.
+    useEffect(() => {
+        const map = mapRef.current
+        if (!map || !map.isStyleLoaded()) return
+        applyBasemap(map, basemap)
+    }, [basemap])
+
     // Theme swap: setStyle tears everything down; style.load reinstalls.
     useEffect(() => {
         const map = mapRef.current
@@ -491,6 +546,15 @@ export function MapView({ facilities, lite, dark, clusters, palette, onSelect, l
     return (
         <div className="absolute inset-0">
             <div ref={container} className="h-full w-full" aria-label="map" />
+            {layersHost && createPortal(
+                <LayersControl
+                    basemap={basemap}
+                    open={layersOpen}
+                    onOpenChange={setLayersOpen}
+                    onBasemap={onBasemap}
+                />,
+                layersHost,
+            )}
             {failed && (
                 <p className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-cp-12.5 text-cp-ink-3">
                     The map could not start (WebGL unavailable).
