@@ -177,6 +177,39 @@ There is no cross-system distributed transaction, but each tier changes through
 one atomic pointer (the R2 manifest or the Git commit), and completed phases are
 not repeated on resume.
 
+### /admin — the About page's edit surface
+
+`/admin` renders the About document (`app/AboutView.tsx`) as an edit surface:
+click an element to pick it, rewrite its own words, or mark it deleted. No
+link anywhere on the site points at it.
+
+It sits behind a Cloudflare Access application (**CleanPlateVA admin**,
+`b421f71e-d025-48d2-96be-c64620d8dbbb`) covering **both**
+`cleanplateva.com/admin` and `www.cleanplateva.com/admin` — the `www` host is
+listed deliberately, because it is outside a bare apex-scoped application and
+would otherwise serve the path unauthenticated. One-time PIN, 24 h session,
+one email policy. Access matches the `/admin` segment, so `/admin/*` redirects
+and `/administrator` does not; the editor itself renders at `/admin` alone,
+which makes the gate strictly wider than the surface.
+
+**Nothing here publishes.** There is no write path, no token and no Worker
+route: edits are ops in this device's `localStorage` (`app/admin/ops.ts`) and
+leave only as exported text, which is then folded into `AboutView.tsx` as an
+ordinary change. `/about` is identical for every visitor while a draft exists,
+including in the same browser. Two consequences worth knowing:
+
+- The editor is its own lazy chunk (~9 kB) that a visitor never downloads —
+  `main.tsx` branches on the path before the app mounts, so the entry chunk,
+  the three public views and their URL grammar are untouched.
+- A delete **hides**, never removes. React owns those nodes, and a removed
+  sibling would shift every later element's index and silently re-point every
+  other op. "Hide deleted" in the header shows the page as it would read.
+
+Paths are child-index chains, stable for as long as `AboutView.tsx` is — a
+session and the handoff that follows it. Every op therefore also records the
+element's tag, class and text as they were, so the export names what to change
+even if the path has gone stale.
+
 ### Shared finder contract
 
 `cleanplateva.finder-manifest.v4` points to 16 deterministic
