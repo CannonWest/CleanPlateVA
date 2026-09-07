@@ -6,11 +6,19 @@
  *   · The control: high accuracy, a 6 s timeout so a MANUAL press stays
  *     snappy, maximumAge 15 s so it can reuse the fix auto-locate acquired,
  *     trackUserLocation, landing at neighborhood radius (maxZoom 13 on
- *     CARTO's 512px tiles). Bottom-right, beside the nav control.
- *   · Auto-locate: unsolicited and best-effort — its OWN request with a
- *     patient 20 s timeout (the permission prompt's decision time counts
- *     against it), silent on every failure; on success the control takes
- *     over, `trigger()` retried briefly until the control is ready.
+ *     CARTO's 512px tiles). Bottom-right, beside the nav control. Installing
+ *     it asks the browser for NOTHING — a permission prompt is the
+ *     auto-locate's to raise, and only when the page says so.
+ *   · Auto-locate (`autoLocate`, its own call since 2026-09-07 — it fired
+ *     from `install` before, i.e. on mount, which for a first-time visitor
+ *     is UNDER the terms dialog: two consent asks at once, one unasked-for,
+ *     and Chrome's permission embargo counts the dismissals): unsolicited
+ *     and best-effort — its OWN request with a patient 20 s timeout (the
+ *     permission prompt's decision time counts against it), silent on every
+ *     failure; on success the control takes over, `trigger()` retried
+ *     briefly until the control is ready. Once per mount: a second call is
+ *     a no-op. MapView releases it the first time the page is ready
+ *     (`locateReady`: the acknowledgement answered, or never asked).
  *   · The coverage note: a fix outside the padded bounding box of the loaded
  *     facilities says so and offers "Back to Virginia"; a failed fix says
  *     to check location access. Both dismissible.
@@ -68,9 +76,12 @@ export interface Geolocate {
     /** The coverage / failure note to show, if any. */
     note: CoverageNote | null
     dismissNote(): void
-    /** Create + attach the control and kick the auto-locate. Once, from the
-     *  mount effect, after the nav control (both sit bottom-right). */
+    /** Create + attach the control. Once, from the mount effect, after the
+     *  nav control (both sit bottom-right). Asks the browser for nothing. */
     install(map: maplibregl.Map): void
+    /** The unsolicited auto-locate — the one call here that can raise the
+     *  browser's location prompt. Once per mount; later calls are no-ops. */
+    autoLocate(): void
     /** "Back to Virginia": drop the follow lock if held, fit the state,
      *  clear the note. */
     backToVirginia(map: maplibregl.Map | null): void
@@ -87,6 +98,7 @@ export function useGeolocate(facilitiesRef: RefObject<readonly RosterRow[]>): Ge
     // mount effect, so its identity must not move across renders.
     const api = useRef<Omit<Geolocate, 'note'> | null>(null)
     if (!api.current) {
+        let asked = false // the auto-locate runs once per mount
         api.current = {
             following: followingRef,
             dismissNote: () => setNote(null),
@@ -112,11 +124,14 @@ export function useGeolocate(facilitiesRef: RefObject<readonly RosterRow[]>): Ge
                 geolocate.on('trackuserlocationend', () => { followingRef.current = false })
                 geolocate.on('userlocationlostfocus', () => { followingRef.current = false })
                 map.addControl(geolocate, 'bottom-right')
-
-                // Auto-locate: unsolicited and best-effort — its own PATIENT
-                // request (the permission prompt's decision time counts
-                // against the timeout), silent on every failure; on success
-                // the control takes over.
+            },
+            autoLocate() {
+                if (asked) return
+                asked = true
+                // Unsolicited and best-effort — its own PATIENT request (the
+                // permission prompt's decision time counts against the
+                // timeout), silent on every failure; on success the control
+                // takes over.
                 void (async () => {
                     try {
                         const perm = await navigator.permissions.query({ name: 'geolocation' })

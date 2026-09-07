@@ -380,6 +380,9 @@ the full tier, "Decline and Use Basic Map" the basic map. The answer is
 remembered under `localStorage['cleanplateva.ack.v1']` (clear it, or bump
 `ACK_VERSION` in `app/ack.ts`, to be asked again); About §06 re-opens the
 dialog. Append `?tier=lite` to force the basic map with no terms asked.
+The map's unsolicited auto-locate waits for the answer, so the browser's
+location prompt never appears under the terms dialog; it fires once, the
+first time the page is ready, and silently — "Find me" is the visible way.
 
 `npm test` runs the Vitest suite — the component and contract suites, the
 committed-artifact tripwire (`lite-roster-contract`), the retired-vocabulary
