@@ -154,12 +154,16 @@ export function revertOps(root: Element, ops: EditOp[]): void {
 }
 
 /** Add `op`, replacing any existing op of the same kind on the same
- *  element. A re-edit of the same text keeps the ORIGINAL `from`, so the
- *  export always reads from the shipped JSX rather than from a draft. */
+ *  element. A re-edit of the same text keeps the ORIGINAL `from` AND the
+ *  original `note`: the export must describe the shipped JSX, never a
+ *  draft. (The first real export, 2026-09-07, carried 14 notes that
+ *  described an intermediate draft because only `from` was kept — the
+ *  paths and `from` were right, so nothing was lost, but the reader's
+ *  anchor was wrong.) */
 export function withOp(ops: EditOp[], op: EditOp): EditOp[] {
     const prior = ops.find((o) => o.path === op.path && o.kind === op.kind)
     const next = prior && op.kind === 'text' && prior.kind === 'text'
-        ? { ...op, from: prior.from }
+        ? { ...op, from: prior.from, note: prior.note }
         : op
     return [...ops.filter((o) => !(o.path === op.path && o.kind === op.kind)), next]
 }

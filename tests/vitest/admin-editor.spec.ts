@@ -146,11 +146,15 @@ describe('applying a draft', () => {
 describe('the op list', () => {
     const note = { tag: 'h2', className: '', text: 'x' }
 
-    test('re-editing the same text keeps the ORIGINAL from — the export reads from the JSX', () => {
-        let ops = withOp([], { kind: 'text', path: '1/0', from: 'Original', to: 'First', note })
-        ops = withOp(ops, { kind: 'text', path: '1/0', from: 'First', to: 'Second', note })
+    test('re-editing the same text keeps the ORIGINAL from AND note — the export describes the JSX, not a draft', () => {
+        // The second edit's note was captured with the first edit already
+        // applied, so it describes a draft; the export must keep the first.
+        const shipped = { tag: 'h2', className: '', text: 'Original' }
+        const draft = { tag: 'h2', className: '', text: 'First' }
+        let ops = withOp([], { kind: 'text', path: '1/0', from: 'Original', to: 'First', note: shipped })
+        ops = withOp(ops, { kind: 'text', path: '1/0', from: 'First', to: 'Second', note: draft })
         expect(ops).toHaveLength(1)
-        expect(ops[0]).toMatchObject({ from: 'Original', to: 'Second' })
+        expect(ops[0]).toMatchObject({ from: 'Original', to: 'Second', note: shipped })
     })
 
     test('a delete and a text edit on one element coexist; withoutPath clears both', () => {
