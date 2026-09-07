@@ -1,27 +1,26 @@
 /**
- * The About view (§6.4, CRVb-M1) — the full methodology & provenance
- * document at content parity with the live page, restyled to the ratified
- * mockup: the hero with the three-badge provenance legend + four live
- * cards; §01 score anatomy (weight board, BOTH worked receipts, scope
- * cards, the grade-scale bar in the ramp, adjustment cards, edge-cases
- * disclosure); §02 signals (+ the red-flag weight disclosure); §03
- * pipeline; §04 lineage + tiers + the current-access live card; §05
- * limits (all eight) + Verify-at-the-source in the external grammar;
- * §06 Terms — the verbatim single-source body (Cannon's words, real
- * hrefs; the ack dialog clones THIS element) + the status panel OUTSIDE
- * the cloned body, owning the one tier switch (C2).
+ * The About view (§6.4, CRVb-M1) — the methodology & provenance document
+ * in the ratified mockup's structure: the hero (title, the disclaimer
+ * paragraph, four live cards); §01 score anatomy (weight board, BOTH
+ * worked receipts, scope cards, the grade-scale bar in the ramp,
+ * adjustment cards, edge-cases disclosure); §02 pipeline; §03 lineage +
+ * tiers; §04 limits (all eight) + Verify-at-the-source in the external
+ * grammar; §05 Terms — the verbatim single-source body (Cannon's words,
+ * real hrefs; the ack dialog clones THIS element) + the status panel
+ * OUTSIDE the cloned body, owning the one tier switch (C2).
  *
- * Copy parity rule: prose is the LIVE page's, verbatim; structure and
- * chrome are the mockup's (the ratified visual direction). Two deliberate
- * mockup-side wins over live copy: §03 step 6's channel chips say "basic
- * map", never "lite" (C8), and the hero's card set is the ratified four
- * (Current access moved to §04).
+ * Copy rule: the prose is Cannon's, verbatim — the 2026-09-07 pass through
+ * the /admin editor reframed the page around CleanPlateVA's own
+ * grading system, dropped the provenance badges, the section kickers, the
+ * signals section (the old §02, so the numbers moved up one) and the
+ * current-access card, and rewrote most paragraphs. Structure and chrome
+ * are the mockup's. §02 step 6's channel chips say "basic map", never
+ * "lite" (C8).
  */
 
 import { useEffect } from 'react'
 import {
-    Archive, ArrowRight, Building2, Calculator, ClipboardCheck, ExternalLink,
-    Link2, MapPin,
+    Archive, Building2, Calculator, ClipboardCheck, ExternalLink, Link2, MapPin,
 } from 'lucide-react'
 import { AGGREGATE_TENANT, FAIRFAX_RECORDS_URL, PORTAL_BASE } from './constants'
 import { fmtDate } from './data/presentation'
@@ -38,24 +37,7 @@ export interface AckView {
     persisted: boolean
 }
 
-/** Why the basic map is what loaded, in the terms' vocabulary. */
-export function basicMapReason(forceLite: boolean, ack: AckView): string {
-    if (forceLite) return 'Forced by ?tier=lite; no terms asked'
-    if (ack.agreed) return 'Terms acknowledged; inspection data unavailable, basic map shown'
-    if (ack.decided) {
-        return ack.persisted ? 'Terms declined on this device' : 'Terms declined for this visit'
-    }
-    return 'Terms not yet acknowledged'
-}
-
-/** The §04 current-access card. */
-export function accessCard(lite: boolean, forceLite: boolean, ack: AckView): { label: string; detail: string } {
-    return lite
-        ? { label: 'Basic map', detail: basicMapReason(forceLite, ack) }
-        : { label: 'Inspection grades', detail: 'Terms acknowledged on this device' }
-}
-
-/** The §06 status panel: which tier this device is on and the single
+/** The §05 status panel: which tier this device is on and the single
  *  switch to the other. `?tier=lite` states the override and offers
  *  nothing to press (ack.js `_syncTermsStatus`, verbatim states). */
 export function termsStatus(forceLite: boolean, ack: AckView): {
@@ -102,7 +84,9 @@ function Pbadge({ kind, children }: { kind: 'official' | 'archived' | 'derived';
 
 function SecHead({ no, kicker, title, sub, badge, titleId }: {
     no: string
-    kicker: string
+    /** The uppercase line over the title. Most sections dropped theirs in
+     *  the 2026-09-07 pass; §01 and §05 keep one. */
+    kicker?: string
     title: string
     sub?: React.ReactNode
     badge?: React.ReactNode
@@ -112,7 +96,7 @@ function SecHead({ no, kicker, title, sub, badge, titleId }: {
         <div className="mb-3.5 flex items-start gap-3.5">
             <span className="pt-0.5 text-[20px] font-bold text-cp-ink-3 opacity-60">{no}</span>
             <div className="min-w-0">
-                <div className="text-[10.5px] font-semibold tracking-[.07em] text-cp-accent uppercase">{kicker}</div>
+                {kicker && <div className="text-[10.5px] font-semibold tracking-[.07em] text-cp-accent uppercase">{kicker}</div>}
                 <h2 id={titleId} tabIndex={titleId ? -1 : undefined} className="text-[17px] font-bold outline-none">{title}</h2>
                 {sub && <div className="mt-1 text-[12.5px] leading-normal text-cp-ink-3">{sub}</div>}
             </div>
@@ -215,9 +199,9 @@ function Disclosure({ summary, children }: { summary: string; children: React.Re
     )
 }
 
-function LiveCard({ k, v, small, wide }: { k: string; v: string; small?: string; wide?: boolean }) {
+function LiveCard({ k, v, small }: { k: string; v: string; small?: string }) {
     return (
-        <div className={`rounded-[8px] border border-cp-hairline bg-cp-surface-2 px-3 py-2.5 ${wide ? 'col-span-full' : ''}`}>
+        <div className="rounded-[8px] border border-cp-hairline bg-cp-surface-2 px-3 py-2.5">
             <div className="mb-0.5 text-[9.5px] tracking-[.06em] text-cp-ink-3 uppercase">{k}</div>
             <div className="text-[14px] font-bold tabular-nums">
                 {v}
@@ -229,16 +213,15 @@ function LiveCard({ k, v, small, wide }: { k: string; v: string; small?: string;
 
 // ── the view ────────────────────────────────────────────────────────────
 
-export function AboutView({ loaded, unavailable, lite, forceLite, ack, onSwitchToBasic, onReviewTerms, scrollToTerms, onTermsShown }: {
+export function AboutView({ loaded, unavailable, forceLite, ack, onSwitchToBasic, onReviewTerms, scrollToTerms, onTermsShown }: {
     loaded: LoadedRoster | null
     unavailable: boolean
-    lite: boolean
     forceLite: boolean
     ack: AckView
     onSwitchToBasic: () => void
     onReviewTerms: () => void
     /** A cold-loaded /about#aboutTerms or the footer's terms link: bring
-     *  §06 into view with its heading focused, once. */
+     *  §05 into view with its heading focused, once. */
     scrollToTerms: boolean
     onTermsShown: () => void
 }) {
@@ -261,45 +244,41 @@ export function AboutView({ loaded, unavailable, lite, forceLite, ack, onSwitchT
     const places = counts?.active ?? counts?.total
     const zips = Object.keys(counts?.by_zip || {}).filter((z) => z !== '?').length
     const fetchedAt = typeof loaded?.fetched_at === 'string' ? loaded.fetched_at.slice(0, 10) : null
-    const access = accessCard(lite, forceLite, ack)
     const status = termsStatus(forceLite, ack)
 
     return (
         <main className="mx-auto max-w-[52rem] px-4 pt-2 pb-7">
             {/* hero */}
             <Card>
-                <div className="mb-3 flex flex-wrap gap-1.5" aria-label="Provenance legend">
-                    <Pbadge kind="official">Official source</Pbadge>
-                    <Pbadge kind="archived">Archived snapshot</Pbadge>
-                    <Pbadge kind="derived">CleanPlateVA-derived</Pbadge>
-                </div>
-                <div className="text-[10.5px] font-semibold tracking-[.07em] text-cp-accent uppercase">
-                    Methodology &amp; provenance
-                </div>
                 <h1 className="mt-1 mb-1.5 text-[22px] leading-tight font-bold">
-                    Every marker has a source ID. Every score has math.
+                    CleanPlateVA: an unofficial archive and grading of Virginia's health-inspected
+                    food-serving facilities
                 </h1>
                 <p className="max-w-[44rem] text-[13.5px] leading-normal text-cp-ink-2">
                     CleanPlateVA is an independent presentation of archived food establishment
                     inspection records published by the Virginia Department of Health through
-                    MyHealthDepartment and by the Fairfax County Health Department. It is not
-                    affiliated with or endorsed by VDH, MyHealthDepartment, or the Fairfax County
-                    Health Department. The publishing health department remains the authority. We
-                    do not inspect facilities or issue official grades.
+                    MyHealthDepartment and by the Fairfax County Health Department.
+                    <br />
+                    <strong>The Virginia Department of Health and Fairfax County Health Department do not issue grades on inspection reports, therefore any grade presented here is derived from CleanPlateVA's proprietary grading system based on risk factor, corrections, and repeats</strong>.
+                    CleanPlateVA is not affiliated with or endorsed by VDH, MyHealthDepartment, or
+                    the Fairfax County Health Department. All permits and inspections are linked
+                    in a given facility's details when clicked.
+                    <br />
+                    <strong>CleanPlateVA does not inspect facilities or issue official grades. This site is for reference use only, please defer to respective health inspection authorities for questions on specific facilities or inspections.</strong>
                 </p>
                 <div className="mt-3.5 grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label="Current dataset status">
                     {unavailable ? (
                         <>
-                            <LiveCard k="Archive snapshot" v="Unavailable" />
+                            <LiveCard k="Last snapshot" v="Unavailable" />
                             <LiveCard k="Newest report held" v="Unavailable" />
-                            <LiveCard k="Places" v="Unavailable" />
+                            <LiveCard k="Facilities" v="Unavailable" />
                             <LiveCard k="Coverage" v="Unavailable" />
                         </>
                     ) : (
                         <>
-                            <LiveCard k="Archive snapshot" v={fetchedAt ? fmtDate(fetchedAt) : 'Loading…'} small="export time, not a live query" />
-                            <LiveCard k="Newest report held" v={loaded?.freshness?.newest_report ? fmtDate(loaded.freshness.newest_report) : 'Loading…'} small="not equal freshness everywhere" />
-                            <LiveCard k="Places" v={places != null ? places.toLocaleString() : 'Loading…'} small="active permits" />
+                            <LiveCard k="Last snapshot" v={fetchedAt ? fmtDate(fetchedAt) : 'Loading…'} />
+                            <LiveCard k="Newest report held" v={loaded?.freshness?.newest_report ? fmtDate(loaded.freshness.newest_report) : 'Loading…'} />
+                            <LiveCard k="Facilities" v={places != null ? places.toLocaleString() : 'Loading…'} small="active permits" />
                             <LiveCard k="Coverage" v={loaded ? String(zips) : 'Loading…'} small={zips === 1 ? 'covered ZIP' : 'covered ZIPs'} />
                         </>
                     )}
@@ -311,37 +290,35 @@ export function AboutView({ loaded, unavailable, lite, forceLite, ack, onSwitchT
                 <SecHead
                     no="01"
                     kicker="Score anatomy"
-                    title="Start at 100. Every violation subtracts."
-                    sub={<>The portal publishes no usable numeric score. Our 0–100 formula runs on every report to give each <strong className="text-cp-ink-2">inspection a score</strong> — no letter. The A–F <strong className="text-cp-ink-2">letter belongs to the facility</strong>, not any single visit: a score bands to a grade only once it anchors a facility (see <em>the facility grade</em>, below).</>}
-                    badge={<Pbadge kind="derived">Computed here</Pbadge>}
+                    title="All facilities start at 100, with violations subtracting"
+                    sub={<><strong className="text-cp-ink-2">Virginia health inspection authorities do not provides grades or scores for facilities on their respective online portals</strong>. CleanPlateVA's 0–100 formula runs on every report to provide a simple at-a-glance reference for those interested. A–F grades are assigned to a facility, based primarily on their most recent broad-scoped inspection and any subsequent follow-ups</>}
                 />
 
                 <Board title="Deduction per violation" small="each block is one point off the score">
                     <div className="text-[11px] font-semibold text-cp-ink-2">Risk-factor violation</div>
                     <div className="mb-1 text-[11px] text-cp-ink-3">
-                        Form items 1–29 — the practices most tied to foodborne illness: temperatures,
+                        Form items 1–29, the practices most tied to foodborne illness: temperatures,
                         cooking, hygiene, approved sources, contamination.
                     </div>
                     <WeightRow when="First time flagged" solid={6} amount="−6" />
                     <WeightRow when="Detected repeat" small="6 × 1.5" solid={6} hollow={3} amount="−9" />
                     <div className="mt-2 text-[11px] font-semibold text-cp-ink-2">Good-retail-practice violation</div>
                     <div className="mb-1 text-[11px] text-cp-ink-3">
-                        Form items 30+ — operational upkeep: cleaning, labeling, equipment, maintenance.
+                        Form items 30+, operational upkeep: cleaning, labeling, equipment, maintenance.
                     </div>
                     <WeightRow when="First time flagged" solid={2} amount="−2" grp />
                     <WeightRow when="Detected repeat" small="2 × 1.5" solid={2} hollow={1} amount="−3" grp />
                     <p className="mt-2 text-[11.5px] leading-normal text-cp-ink-3">
                         A risk-factor violation costs three times a good-retail-practice one; a
                         detected repeat costs half again (hollow blocks); a violation corrected on
-                        site while the inspector watched earns 25% of its deduction back. The math
-                        runs exact and rounds once at the end — halves round up, toward the better
-                        score — then floors at 0.
+                        site while the inspector watched earns 25% of its deduction back. Scores
+                        round up and floor at 0.
                     </p>
                 </Board>
 
                 <div className="my-3 grid gap-3 sm:grid-cols-[1.4fr_1fr]">
                     <div className="rounded-[8px] border border-cp-hairline bg-cp-bg px-3.5 py-3">
-                        <p className="mb-2 text-[11.5px] font-bold">Worked example — one routine inspection</p>
+                        <p className="mb-2 text-[11.5px] font-bold">Worked example</p>
                         <RLine label="Every report starts at" value="100" />
                         <RLine label="1 risk-factor violation" value="−6" tone="neg" blocks={<Blocks solid={6} />} />
                         <RLine label="1 risk-factor violation, repeat" small="6 × 1.5" value="−9" tone="neg" blocks={<Blocks solid={6} hollow={3} />} />
@@ -351,8 +328,9 @@ export function AboutView({ loaded, unavailable, lite, forceLite, ack, onSwitchT
                             <b className="ml-auto tabular-nums">82</b>
                         </div>
                         <p className="mt-2 text-[11px] leading-normal text-cp-ink-3">
-                            This inspection assessed 24 distinct code items — broad — so its 82 can
-                            anchor the facility grade below.
+                            This inspection assessed 24 distinct code items (categorized as
+                            a <em>broad</em> inspection) so its 82 score will anchor the facility
+                            grade below.
                         </p>
                     </div>
                     <div className="flex flex-col items-center justify-center gap-2 rounded-[8px] border border-cp-hairline bg-cp-surface-2 p-4">
@@ -382,22 +360,20 @@ export function AboutView({ loaded, unavailable, lite, forceLite, ack, onSwitchT
                     </div>
                 </div>
 
-                <Board title="Which inspections anchor the grade?" small="breadth decides — distinct numbered items on the report; duplicate rows count once. IN/OUT separately drives compliance">
+                <Board title="Which inspections anchor the grade?" small="Inspection breadth. This refers to the distinct numbered items assigned IN/OUT on the report.">
                     <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                         <ScopeCard big="20+" title="Broad" small="Anchors the facility grade + connected trend" edge="var(--cp-grade-a)" />
-                        <ScopeCard big="1–19" title="Focused" small="Re-checks that adjust the grade; OUT/addressed ratio is compliance-colored" edge="var(--cp-grade-c)" />
-                        <ScopeCard big="0 / no checklist" title="Unknown" small="No grade or trend claim" edge="var(--cp-ink-3)" />
+                        <ScopeCard big="1–19" title="Focused" small="Follow-ups that adjust the grade" edge="var(--cp-grade-c)" />
+                        <ScopeCard big="0 / no checklist" title="Unknown" small="No grade or score effect" edge="var(--cp-ink-3)" />
                     </div>
                 </Board>
 
-                <Board title="From inspections to the facility grade" small="latest broad score, adjusted by what re-checks verified, then banded">
+                <Board title="From inspections to the facility grade">
                     <p className="mb-2 text-[11.5px] leading-normal text-cp-ink-3">
-                        Marker color, the A–F filters, and the hover headline show the <em>grade</em> —
-                        a <strong className="text-cp-ink-2">score and a letter</strong>. It is the latest broad
-                        inspection's score, adjusted by what focused re-checks verified afterward
-                        item by item, then banded. No follow-up since the broad inspection → the
-                        grade is that score, exactly. The next broad inspection resets it.
-                        (Inspections themselves stay letterless.)
+                        Grades are anchored on the most recent broad score, then adjusted based on
+                        subsequent follow-ups. If follow-ups reflect corrections, the grade could
+                        improve. If it shows new or repeated violations, the grade could suffer
+                        further penalties.
                     </p>
                     <div className="mt-3 mb-1" aria-label="Grade thresholds: F below 60, D 60 to 69, C 70 to 79, B 80 to 89, A 90 to 100">
                         <div className="mb-1 text-[11px] font-bold tabular-nums" style={{ marginLeft: 'calc(83% - 24px)' }}>
@@ -419,7 +395,7 @@ export function AboutView({ loaded, unavailable, lite, forceLite, ack, onSwitchT
                         <ScopeCard big="−6/−2" title="New finding" small="Docks at normal category weight" edge="var(--cp-grade-d)" />
                     </div>
                     <div className="mt-3 rounded-[8px] border border-cp-hairline bg-cp-bg px-3.5 py-3">
-                        <p className="mb-2 text-[11.5px] font-bold">Worked example — a broad inspection scoring 70, then one follow-up</p>
+                        <p className="mb-2 text-[11.5px] font-bold">Worked example; a broad inspection scoring 70, then one follow-up</p>
                         <RLine label="Broad inspection score" value="70" />
                         <RLine label="2 risk-factor violations verified fixed" small="65% of their 12 points returned" value="+7.8" tone="pos" />
                         <RLine label="6 good-retail-practice violations verified fixed" small="65% of their 12 points returned" value="+7.8" tone="pos" />
@@ -429,10 +405,8 @@ export function AboutView({ loaded, unavailable, lite, forceLite, ack, onSwitchT
                             <b className="ml-auto tabular-nums">83 · B</b>
                         </div>
                         <p className="mt-2 text-[11px] leading-normal text-cp-ink-3">
-                            A 70 broad inspection → a B 83 facility grade — visibly better, but not
-                            laundered: the calibration keeps a fully-cleared F 0 inside D at best, and
-                            no follow-up alone reaches A from D or F. Re-earning the letter takes the
-                            next broad inspection.
+                            A 70 broad inspection + a mostly-good follow-up (9/10 violations
+                            corrected) → a B 83 facility grade
                         </p>
                     </div>
                 </Board>
@@ -449,81 +423,22 @@ export function AboutView({ loaded, unavailable, lite, forceLite, ack, onSwitchT
                 </Disclosure>
             </Card>
 
-            {/* 02 — signals */}
+            {/* 02 — pipeline (the signals section that stood here was dropped
+                in the 2026-09-07 pass; every section number below moved up one) */}
             <Card>
                 <SecHead
                     no="02"
-                    kicker="Not the same measurement"
-                    title="What the other signals mean"
-                    sub="Each answers a different question. None is an official health department rating."
-                />
-                <div className="grid gap-2.5 sm:grid-cols-2">
-                    <article className="relative rounded-[8px] border border-cp-hairline bg-cp-surface-2 px-3.5 py-3">
-                        <span className="absolute top-2.5 right-2.5"><Pbadge kind="derived">Derived</Pbadge></span>
-                        <h3 className="mt-1 mb-1.5 text-[13px] font-bold">Checklist compliance</h3>
-                        <div className="mb-2 flex items-center gap-2 rounded-[6px] border border-cp-hairline bg-cp-bg px-2.5 py-2 text-[12px] font-semibold tabular-nums"><b>IN</b> ÷ <b>(IN + OUT)</b></div>
-                        <p className="text-[12px] leading-normal text-cp-ink-2">Only applicable checklist rows count. N/A, not observed, and the non-scoring item-99 sentinel are excluded.</p>
-                    </article>
-                    <article className="relative rounded-[8px] border border-cp-hairline bg-cp-surface-2 px-3.5 py-3">
-                        <span className="absolute top-2.5 right-2.5"><Pbadge kind="derived">Derived</Pbadge></span>
-                        <h3 className="mt-1 mb-1.5 text-[13px] font-bold">Trend</h3>
-                        <div className="mb-2 flex flex-wrap items-center gap-2 rounded-[6px] border border-cp-hairline bg-cp-bg px-2.5 py-2 text-[12px] font-semibold tabular-nums" aria-label="Broad score 86 connected to broad score 72; a focused re-check that left 3 of 3 items out plots as an unconnected diamond at its compliance">
-                            <span>86</span>→<span className="inline-flex items-center gap-1"><i className="inline-block h-[9px] w-[9px] rotate-45" style={{ background: 'var(--cp-grade-d)' }} aria-hidden="true" />3/3</span>→<span>72</span><b style={{ color: 'var(--cp-grade-d)' }}>▼</b>
-                        </div>
-                        <p className="text-[12px] leading-normal text-cp-ink-2">Only broad assessments join the connected line. A focused re-check plots as an unconnected diamond at the share of its re-examined items in compliance, labeled with that OUT ratio. Its report score is null: a number subtracting only the handful of items the visit examined could look deceptively high even when every one failed. Direction is not a forecast.</p>
-                    </article>
-                    <article className="relative rounded-[8px] border border-cp-hairline bg-cp-surface-2 px-3.5 py-3">
-                        <span className="absolute top-2.5 right-2.5"><Pbadge kind="derived">Heuristic</Pbadge></span>
-                        <h3 className="mt-1 mb-1.5 text-[13px] font-bold">Biggest red flags</h3>
-                        <div className="mb-2 flex flex-wrap gap-1.5 rounded-[6px] border border-cp-hairline bg-cp-bg px-2.5 py-2 text-[12px] font-semibold"><span>Risk factor</span>·<span>Repeat</span>·<span>Keyword weight</span></div>
-                        <p className="text-[12px] leading-normal text-cp-ink-2">Up to five observations ranked by category, repeat status, and the documented keyword groups below. Empty means none crossed the heuristic, not “safe.”</p>
-                    </article>
-                    <article className="relative rounded-[8px] border border-cp-hairline bg-cp-surface-2 px-3.5 py-3">
-                        <span className="absolute top-2.5 right-2.5"><Pbadge kind="derived">Derived</Pbadge></span>
-                        <h3 className="mt-1 mb-1.5 text-[13px] font-bold">Open repeats</h3>
-                        <div className="mb-2 flex items-center gap-2 rounded-[6px] border border-cp-hairline bg-cp-bg px-2.5 py-2 text-[12px] font-semibold"><b>OUT</b> + <b>Repeat</b> − <b>COS</b></div>
-                        <p className="text-[12px] leading-normal text-cp-ink-2">Latest checklist rows simultaneously marked out and repeat, excluding rows marked corrected on site.</p>
-                    </article>
-                </div>
-                <Disclosure summary="Exact red-flag ranking weights">
-                    <div className="flex flex-wrap gap-1.5" aria-label="Base ranking weights">
-                        {['+10 risk-factor item', '+3 detected repeat', 'Top 5 ranks above 1'].map((t) => (
-                            <span key={t} className="rounded-[5px] border border-cp-hairline bg-cp-bg px-2 py-1.5 text-[11px] font-semibold text-cp-ink-2">{t}</span>
-                        ))}
-                    </div>
-                    <div className="mt-2 flex flex-wrap gap-1.5" aria-label="Keyword ranking groups">
-                        {[
-                            '+8 sewage/wastewater · rodents/pests · vomit/diarrhea/ill employee',
-                            '+6 no handwashing/bare hand · raw food over cooked food · no hot water',
-                            '+5 cross-contamination · mold/slime',
-                            '+4 holding temperature · cooling/cook temperature',
-                            '+3 hand sink · date marking · sanitizer · expired food',
-                            '+1 dirty/buildup/grease/debris/soiled',
-                        ].map((t) => (
-                            <span key={t} className="rounded-[5px] border border-cp-hairline bg-cp-bg px-2 py-1.5 text-[11px] font-semibold text-cp-ink-2">{t}</span>
-                        ))}
-                    </div>
-                    <p className="mt-2 text-[11px] text-cp-ink-3">Matching groups accumulate. Ties retain source order; displayed observation text is capped at 180 characters. This rank selects what to show—it does not change the 0–100 score.</p>
-                </Disclosure>
-            </Card>
-
-            {/* 03 — pipeline */}
-            <Card>
-                <SecHead
-                    no="03"
-                    kicker="Source to screen"
                     title="How an inspection report becomes this website"
-                    sub="The browser reads a prepared snapshot. It never scrapes a source while you wait."
-                    badge={<Pbadge kind="archived">Snapshot pipeline</Pbadge>}
+                    sub="Users see a prepared snapshot of archived permits and inspections."
                 />
                 <ol className="grid gap-2">
                     {[
-                        { t: 'Official sources', p: 'MyHealthDepartment provides VDH’s search roster, permit-history pages, and individual inspection reports. Fairfax County’s public GIS service provides the county’s roster with locations and an inspection index; each of its reports is a PDF in the county’s PLUS system.', codes: ['permitID', 'inspectionID', '12VAC5-421', 'RECORDID', 'INSPECTIONID', 'FDA Food Code'] },
-                        { t: 'Archive a snapshot', p: 'A polite, resumable collector stores roster JSON and compressed permit/report pages by covered ZIP.', codes: ['raw HTML', 'roster JSON', 'collected time'] },
+                        { t: 'Official sources', p: 'MyHealthDepartment provides VDH’s search roster, permit-history pages, and individual inspection reports. Fairfax County Health Department provides the county’s roster with locations, permits, and inspection reports as PDFs through the county’s PLUS system.', codes: ['permitID', 'inspectionID', '12VAC5-421', 'RECORDID', 'INSPECTIONID', 'FDA Food Code'] },
+                        { t: 'Archival process', p: 'A collector stores roster JSON and compressed permit/report pages.', codes: ['raw HTML', 'roster JSON', 'collected time'] },
                         { t: 'Parse & preserve IDs', p: 'We extract identity, history, observations, citations, corrective actions, checklist rows, temperatures, and comments.', codes: ['fac:<permitID>', 'insp:<inspectionID>'] },
-                        { t: 'Derive & store', p: 'Addresses are geocoded; rules compute metrics; idempotent CouchDB projections retain each permit and inspection separately.', codes: ['geocode', 'computed fields', 'content hash'] },
-                        { t: 'Merge & whitelist', p: 'At export, likely re-permits are presentation-merged. Explicit field lists shape the shared finder, the grade overlay, the closed supplement, and per-facility history records while retaining lineage.', codes: ['lineage', 'finder + overlay + closed shards', 'facility history'] },
-                        { t: 'Publish two contracts', p: 'Small manifests name each prepared snapshot. Data objects publish first and the manifest flips last; the full archive JSON lives in R2 and is served once the terms have been acknowledged.', codes: ['static basic map', 'acknowledged full', 'full → basic fallback'] },
+                        { t: 'Derive & store', p: 'Geo-locations are determined through public and opensource data. Determinative rules compute scores and grades', codes: ['geocode', 'computed fields', 'content hash'] },
+                        { t: 'Merge & whitelist', p: 'At export, likely re-permits are presentation-merged. Per-facility history records clean up the user experience while the back-end retains lineage.', codes: ['lineage', 'finder + overlay + closed shards', 'facility history'] },
+                        { t: 'Published contracts', p: 'Basic data such as links and coordinates live in GitHub while the full archive JSON lives in R2 and is only served once the terms have been acknowledged.', codes: ['static basic map', 'acknowledged full', 'full → basic fallback'] },
                     ].map((step, i) => (
                         <li key={step.t} className="grid grid-cols-[30px_1fr] gap-x-3 gap-y-1 rounded-[8px] border border-cp-hairline bg-cp-surface-2 px-3 py-2.5">
                             <span className="row-span-3 flex h-[26px] w-[26px] items-center justify-center rounded-full bg-cp-accent-solid text-[12px] font-bold text-cp-accent-ink">{i + 1}</span>
@@ -544,13 +459,11 @@ export function AboutView({ loaded, unavailable, lite, forceLite, ack, onSwitchT
                 </div>
             </Card>
 
-            {/* 04 — lineage + tiers */}
+            {/* 03 — lineage + tiers */}
             <Card>
                 <SecHead
-                    no="04"
-                    kicker="Field-level boundary"
-                    title="What is official, and what is ours"
-                    sub="Color is not the contract. Every group is labeled in words."
+                    no="03"
+                    title="What's official, and what's CleanPlateVA"
                 />
                 <div className="grid gap-2.5 sm:grid-cols-2">
                     <article className="rounded-[8px] border border-cp-hairline bg-cp-surface-2 px-3.5 py-3" style={{ borderTop: '3px solid var(--cp-accent)' }}>
@@ -569,11 +482,10 @@ export function AboutView({ loaded, unavailable, lite, forceLite, ack, onSwitchT
                         <Pbadge kind="derived">CleanPlateVA-derived</Pbadge>
                         <h3 className="mt-2 mb-1.5 text-[13px] font-bold">Computed or enriched</h3>
                         <ul className="list-disc pl-4 text-[12px] leading-normal text-cp-ink-2">
-                            <li>Inspection score: raw 0–100 formula on each report (no letter)</li>
-                            <li>Facility grade: score + A–F letter, latest broad ± follow-up re-checks</li>
-                            <li>Checklist compliance percentage</li>
-                            <li>Broad-only score trend, red flags, and open-repeat count</li>
-                            <li>Map coordinates and approximate-location flag</li>
+                            <li>Inspection score: raw 0–100 formula on each broad report</li>
+                            <li>Facility grades: score + A–F letter, latest broad ± follow-up re-checks</li>
+                            <li>Breadth-derived score trend, red flags, and open-repeat count</li>
+                            <li>Public/open-source derived map coordinates and approximate-locations</li>
                             <li>“Restaurants only” classification</li>
                             <li>Presentation merge of likely predecessor permits</li>
                         </ul>
@@ -585,46 +497,36 @@ export function AboutView({ loaded, unavailable, lite, forceLite, ack, onSwitchT
                         <div>
                             <div className="text-[10.5px] font-semibold tracking-[.07em] text-cp-accent uppercase">Basic map</div>
                             <h3 className="mt-0.5 mb-1 text-[13px] font-bold">Identity, location, source handoff</h3>
-                            <p className="text-[12px] leading-normal text-cp-ink-2">Snapshot markers recorded as active at export time, names, addresses, geocoded coordinates, restaurant classification, approximation and mobile-unit flags, permit IDs, and the source route needed for the handoff. Status can age; presence is not proof a facility is currently open or permitted. No report dates, scores, grades, or inspection content.</p>
+                            <p className="text-[12px] leading-normal text-cp-ink-2">Snapshot markers are recorded as active at time of archive. Names, addresses, geocoded coordinates, restaurant classification, approximation and mobile-unit flags, permit IDs, and the source route are extracted to the best of our ability in the archival process. Status can age; when in doubt, refer to the public records posted by the respective authorities.</p>
                         </div>
                     </article>
-                    <div className="flex items-center justify-center gap-2 text-[11px] font-semibold text-cp-ink-3">
-                        <span>Terms acknowledged</span>
-                        <ArrowRight size={13} aria-hidden="true" />
-                        <span>inspection grades load; otherwise the basic map remains</span>
-                    </div>
                     <article className="flex gap-3 rounded-[8px] border border-cp-hairline bg-cp-surface-2 px-3.5 py-3">
                         <span className="flex h-[34px] w-[34px] flex-none items-center justify-center rounded-[8px] border border-cp-accent bg-cp-bg text-cp-accent"><ClipboardCheck size={16} aria-hidden="true" /></span>
                         <div>
                             <div className="text-[10.5px] font-semibold tracking-[.07em] text-cp-accent uppercase">Inspection grades</div>
-                            <h3 className="mt-0.5 mb-1 text-[13px] font-bold">Reports plus derived signals</h3>
-                            <p className="text-[12px] leading-normal text-cp-ink-2">Inspection histories, citations, observations, checklists, temperatures, comments, status, lineage, and CleanPlateVA-calculated metrics, loaded after the visitor acknowledges the Terms of Use and Data Acknowledgment (§06). If that data cannot be loaded, the basic map remains.</p>
+                            <h3 className="mt-0.5 mb-1 text-[13px] font-bold">Reports plus CleanPlateVA's proprietary derived signals</h3>
+                            <p className="text-[12px] leading-normal text-cp-ink-2">Inspection histories, citations, observations, checklists, temperatures, comments, status, lineage, and CleanPlateVA-calculated metrics, loaded after the visitor acknowledges the Terms of Use and Data Acknowledgment (§05). If that data cannot be loaded, the basic map remains.</p>
                         </div>
                     </article>
                 </div>
-                <div className="mt-2.5 grid">
-                    <LiveCard k="Current access" v={access.label} small={`· ${access.detail}`} wide />
-                </div>
             </Card>
 
-            {/* 05 — limits */}
+            {/* 04 — limits */}
             <Card>
                 <SecHead
-                    no="05"
-                    kicker="Limits & verification"
-                    title="What this view cannot promise"
-                    sub="Transparency includes the edges, not just the happy path."
+                    no="04"
+                    title="Limitations"
                 />
                 <div className="grid gap-2 sm:grid-cols-2">
                     {[
                         ['Selected coverage', 'Coverage is the ZIP count shown above. Absence from this map does not mean absence from the source records; a place may sit outside the covered ZIPs.'],
-                        ['Snapshot, not live', 'Collection and publication can lag. “Newest report” is one maximum date, not proof that every covered area is equally current.'],
+                        ['Snapshot, not live', 'Collection and publication can lag. “Newest report” is one maximum date.'],
                         ['Permit status can age', 'An incremental scan can retain the last known “active” state after a facility stops receiving inspections. A full resweep reconciles closures; a marker is not operating-status proof.'],
-                        ['Source retention', 'Both source systems typically expose about two years of history. Missing report pages remain missing or unscored; this is an archive of what was collected, not a complete lifetime record.'],
-                        ['Geocoded locations', 'Pins come from address lookups through VGIN, the U.S. Census Bureau, and OpenStreetMap/Nominatim, refined against Overture Maps and Foursquare OS Places, with a ZIP-centroid fallback—not VDH coordinates. Fairfax County establishments are placed at the point locations the county publishes with its records. Some pins are manually placed after review. Where an address is a room or space number rather than a street address, as at an airport or on a campus, the pin is placed at the venue the establishment belongs to, derived from other permits at that venue whose addresses resolved. Some unbadged pins are street-level or interpolated, not rooftop; venue-level and centroid pins are labeled approximate.'],
-                        ['Presentation heuristics', '“Restaurants only” uses permit-type/name patterns. History merging uses shared location/address plus name similarity. Either can misclassify, combine, or miss a match; retained permit IDs are the audit trail.'],
-                        ['Focused is not facility-wide', 'A focused follow-up stays visible as the latest event and adjusts the facility grade item by item, but it never replaces the broad inspection that anchors it. Its own score is null; the OUT/addressed result describes that targeted visit. When comments enumerate corrected items omitted from the structured rows, both channels count once and the structured row governs any conflict.'],
-                        ['The source record wins conflicts', 'Scores and summaries are comparison tools, not safety or illness predictions. If our presentation and the source disagree, the official record of the publishing health department is authoritative.'],
+                        ['Source retention', 'Both source systems typically expose about two years of history. Missing report pages remain missing or unscored; this is an archive of what was collected to the best of our ability and does not reflect entire inspection histories.'],
+                        ['Geocoded locations', 'Pins come from address lookups through VGIN, Fairfax County Health Department, the U.S. Census Bureau, OpenStreetMap/Nominatim, Overture Maps and Foursquare OS Places. Some pins are manually placed after review. Pins are separated to the best of our ability, but where geo-location data overlaps, as often occurs at airports, malls, or on a campus, pins are “stacked” together to be browsed as a group.'],
+                        ['Presentation decisions', '“Restaurants only” uses permit-type/name patterns. History merging uses shared location/address plus name similarity. Either can misclassify, combine, or miss a match; retained permit IDs are the audit trail.'],
+                        ['Inspection breadth is a determinative CleanPlateVA heuristic', 'A “focused” follow-up (as determined by the number of items listed as inspected at the source) adjusts the facility grade item by item, but never replaces the broad inspection that anchors it for grading purposes. These are determinative rules for CleanPlateVA’s proprietary grading system and do not reflect the judgement or values of the Virginia Department of Health or Fairfax County Health Department.'],
+                        ['The source record remains the source of truth', 'Scores and summaries are comparison tools, not safety or illness predictions. If our presentation and the source disagree, the official record of the publishing health department is authoritative.'],
                     ].map(([h, p]) => (
                         <article key={h} className="rounded-[8px] border border-cp-hairline bg-cp-surface-2 px-3 py-2.5">
                             <h3 className="mb-1 text-[12px] font-bold">{h}</h3>
@@ -658,10 +560,10 @@ export function AboutView({ loaded, unavailable, lite, forceLite, ack, onSwitchT
                 </div>
             </Card>
 
-            {/* 06 — terms (the ONE source; the ack dialog clones #aboutTermsBody) */}
+            {/* 05 — terms (the ONE source; the ack dialog clones #aboutTermsBody) */}
             <Card id="aboutTerms">
                 <SecHead
-                    no="06"
+                    no="05"
                     kicker="Terms & attribution"
                     title="Terms of Use and Data Acknowledgment"
                     titleId="aboutTermsTitle"

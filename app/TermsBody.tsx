@@ -1,7 +1,7 @@
 /**
  * The Terms of Use and Data Acknowledgment — the ONE source (C2). Cannon's
  * words verbatim (approved 2026-08-17; typographic quotes intact), with
- * the real attribution hrefs (D-ACK-2 rides here). About §06 mounts this
+ * the real attribution hrefs (D-ACK-2 rides here). About §05 mounts this
  * inside `#aboutTermsBody`; the acknowledgement dialog mounts the SAME
  * component in its scroll box — one module, two mounts, so the page and
  * the dialog cannot drift (the React form of the old DOM clone).

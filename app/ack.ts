@@ -6,7 +6,7 @@
  * client's gate (`isAcknowledged`) and the app, so an unpersisted decision
  * (Escape on the first-load dialog) still governs this page load.
  *
- * The DIALOG — blocking first load, the About §06 clone, the two buttons —
+ * The DIALOG — blocking first load, the About §05 clone, the two buttons —
  * is chrome and is rebuilt by CRV to the §6.1 acceptance spec; nothing of it
  * lives here.
  */
