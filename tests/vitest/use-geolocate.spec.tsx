@@ -240,6 +240,14 @@ test('the follow lock tracks the control both ways, and Back to Virginia drops i
     act(() => { latest?.backToVirginia(map) })
     expect(control.triggered).toBe(1)          // not following: no trigger
     expect(calls.fitBounds).toHaveLength(2)
+
+    // release() alone: the lock-drop without the fit (a selection's camera).
+    geo.release()
+    expect(control.triggered).toBe(1)          // not following: nothing to drop
+    control.emit('trackuserlocationstart')
+    geo.release()
+    expect(control.triggered).toBe(2)
+    expect(calls.fitBounds).toHaveLength(2)    // no fit
 })
 
 test('the imperative half keeps its identity across renders; dispose forgets the control', async () => {
@@ -251,6 +259,7 @@ test('the imperative half keeps its identity across renders; dispose forgets the
     expect(latest).not.toBeNull()
     expect(latest?.install).toBe(geo.install)
     expect(latest?.backToVirginia).toBe(geo.backToVirginia)
+    expect(latest?.release).toBe(geo.release)
     expect(latest?.following).toBe(geo.following)
     control.emit('trackuserlocationstart')
     geo.dispose()

@@ -77,6 +77,12 @@ function Shell({ forceLite, ack }: {
 
     const [state, actions] = useAppRouter(mode)
 
+    // Arrived at a PLACE (`?permit=` on the URL at boot): the auto-locate
+    // stands down for this page load — the visitor came for the place, and
+    // a fix flying the camera to their own location would take it away
+    // (mapCamera.ts). A later click is not an arrival.
+    const [arrivedAtPlace] = useState(() => !!state.permit)
+
     // A cold-loaded /about#aboutTerms (the footer link's target): captured
     // before the router's boot effect normalizes the hash away.
     const [termsIntent, setTermsIntent] = useState(
@@ -230,7 +236,8 @@ function Shell({ forceLite, ack }: {
                 clusters={clusters}
                 palette={palette}
                 onSelect={(pid) => actions.select(pid)}
-                locateReady={!blocking}
+                locateReady={!blocking && !arrivedAtPlace}
+                selected={selected}
             />
 
             {blocking ? (

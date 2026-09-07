@@ -82,6 +82,11 @@ export interface Geolocate {
     /** The unsolicited auto-locate — the one call here that can raise the
      *  browser's location prompt. Once per mount; later calls are no-ops. */
     autoLocate(): void
+    /** Drop the follow lock if held — before any camera move the visitor
+     *  did not make with the control (Back to Virginia; a selection's
+     *  camera, mapCamera.ts), or the next fix pulls the camera straight
+     *  back. A no-op when not following. */
+    release(): void
     /** "Back to Virginia": drop the follow lock if held, fit the state,
      *  clear the note. */
     backToVirginia(map: maplibregl.Map | null): void
@@ -150,10 +155,13 @@ export function useGeolocate(facilitiesRef: RefObject<readonly RosterRow[]>): Ge
                     )
                 })()
             },
-            backToVirginia(map) {
+            release() {
                 // A zoom-changing move does NOT drop the control's follow
                 // lock — switch it off first.
                 if (followingRef.current) controlRef.current?.trigger()
+            },
+            backToVirginia(map) {
+                api.current?.release()
                 map?.fitBounds(VA_BOUNDS, VA_FIT)
                 setNote(null)
             },
