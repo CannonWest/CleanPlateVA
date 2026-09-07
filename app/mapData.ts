@@ -40,9 +40,10 @@
  */
 
 import type { Feature, FeatureCollection, Point } from 'geojson'
-import { CLOSED_COLOR, LITE_MARKER_COLOR, NEW_COLOR } from './constants'
+import { CLOSED_COLOR, LITE_MARKER_COLOR, NEW_COLORS } from './constants'
+import type { GradePalette } from './constants'
 import {
-    coordsOf, facilityPresentation, gradeColor, isActivePermit, isNewlyPermitted,
+    coordsOf, facilityPresentation, gradeHex, isActivePermit, isNewlyPermitted,
 } from './data/presentation'
 import type { RosterRow } from './data/types'
 
@@ -128,8 +129,11 @@ export interface MapData {
     stacks: StackIndex
 }
 
-/** A lone dot's paint (the cluster inputs are spread in by the builder). */
-function pointPaint(f: RosterRow, lite: boolean): Omit<PointProps, keyof ClusterInputs> {
+/** A lone dot's paint (the cluster inputs are spread in by the builder).
+ *  The fill is HEX — MapLibre paint reads a feature property, never a CSS
+ *  custom property — so the palette is baked here (gradeHex), and a palette
+ *  change rebuilds the data (MapView's useMemo) and re-sets the source. */
+function pointPaint(f: RosterRow, lite: boolean, palette: GradePalette): Omit<PointProps, keyof ClusterInputs> {
     const pid = String(f.permit_id)
     if (lite) {
         // The finder view: every marker a uniform neutral — the basic map
@@ -146,16 +150,18 @@ function pointPaint(f: RosterRow, lite: boolean): Omit<PointProps, keyof Cluster
         return {
             kind: 'point',
             pid,
-            fill: isNewlyPermitted(f) ? NEW_COLOR : gradeColor(null),
+            fill: isNewlyPermitted(f) ? NEW_COLORS[palette] : gradeHex(null, palette),
             opacity: 0.88,
             declining: false,
         }
     }
-    return { kind: 'point', pid, fill: gradeColor(letter), opacity: 0.88, declining: view.declining }
+    return { kind: 'point', pid, fill: gradeHex(letter, palette), opacity: 0.88, declining: view.declining }
 }
 
-/** Build the source data for the current filtered roster + tier. */
-export function buildMapData(filtered: RosterRow[], lite: boolean): MapData {
+/** Build the source data for the current filtered roster + tier, in the
+ *  visitor's grade palette (the buckets are palette-free: they count what
+ *  the dots ARE; the donut paints them in the palette it is asked for). */
+export function buildMapData(filtered: RosterRow[], lite: boolean, palette: GradePalette = 'standard'): MapData {
     const groups: StackIndex = new Map()
     const at = new Map<string, [number, number]>()
     for (const f of filtered) {
@@ -179,7 +185,7 @@ export function buildMapData(filtered: RosterRow[], lite: boolean): MapData {
             type: 'Feature',
             geometry: { type: 'Point', coordinates },
             properties: members.length === 1
-                ? { ...pointPaint(first, lite), ...clusterInputs([first], lite) }
+                ? { ...pointPaint(first, lite, palette), ...clusterInputs([first], lite) }
                 : { kind: 'stack', skey: key, ...clusterInputs(members, lite) },
         })
     }

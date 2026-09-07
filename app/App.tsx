@@ -17,6 +17,8 @@ import {
 } from './theme'
 import type { ThemeChoice } from './theme'
 import { persistClusters, storedClusters } from './clusters'
+import { applyPaletteClass, persistPalette, storedPalette } from './palette'
+import type { GradePalette } from './constants'
 import {
     applyTextSize, persistSettingsSeen, persistTextSize, storedSettingsSeen, storedTextSize,
 } from './settings'
@@ -120,6 +122,18 @@ function Shell({ forceLite, ack }: {
         persistTheme(next)
     }
 
+    // The grade palette (palette.ts): the class on <html> re-points the
+    // grade tokens for every DOM surface; the map takes the palette by name
+    // for its paint and the donut canvas.
+    const [palette, setPalette] = useState<GradePalette>(storedPalette)
+    useEffect(() => {
+        applyPaletteClass(palette)
+    }, [palette])
+    const onPalette = (next: GradePalette) => {
+        setPalette(next)
+        persistPalette(next)
+    }
+
     // "Group nearby places" (CRP-M6): a presentation preference like the
     // theme — persisted per visitor, never in the URL or AppState (C6).
     const [clusters, setClusters] = useState(storedClusters)
@@ -199,6 +213,7 @@ function Shell({ forceLite, ack }: {
                 lite={lite}
                 dark={dark}
                 clusters={clusters}
+                palette={palette}
                 onSelect={(pid) => actions.select(pid)}
             />
 
@@ -342,9 +357,11 @@ function Shell({ forceLite, ack }: {
                 open={settingsOpen && !blocking}
                 onOpenChange={setSettingsOpen}
                 theme={theme}
+                palette={palette}
                 clusters={clusters}
                 textSize={textSize}
                 onTheme={onTheme}
+                onPalette={onPalette}
                 onClusters={onClusters}
                 onTextSize={onTextSize}
             />

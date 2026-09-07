@@ -2,7 +2,7 @@
  * The cluster donut (CRP-M6, Cannon's form) — the pure half of the bubble
  * the map draws when "Group nearby places" is on. A cluster is a RING whose
  * arcs are the grade breakdown of the places it hides, in the very fills
- * the dots use (A–F on the ramp, NEW blue, unscored gray, closed dimmed),
+ * the dots use (A–F on the ramp, NEW, unscored gray, closed dimmed),
  * around a hole in the stacks' own surface that carries the count — so a
  * bubble reads as a neutral count bubble wearing the ring of the dots
  * beneath it, one vocabulary with the neutral stacks (neutral disc + white
@@ -10,25 +10,30 @@
  * (P6), so its donut is one neutral arc in the basic map's own marker gray.
  *
  * MapLibre draws the ring as a symbol-layer IMAGE whose id ENCODES what to
- * draw — theme · size step · the eight bucket sums — and the map's
- * missing-image resolver parses the id and paints it on a canvas the first
- * time the style asks for it (MapView). The theme rides in the id so a
- * stale image can never survive a style swap (setStyle drops every image;
- * the resolver simply regenerates on the new style). Since 2026-09-06 every
- * color a donut paints is theme-invariant — the ramp always was, the hole
- * joined it — so the two themes' images are identical and the theme segment
- * is pure cache identity: a swap still evicts and repaints, at the measured
- * 0.23 ms a ring, which is not worth a codec change to avoid. The id codec
- * and the arc geometry live here, pure and pinned; the canvas painter is
- * verified live (jsdom has no canvas).
+ * draw — theme · grade palette · size step · the eight bucket sums — and
+ * the map's missing-image resolver parses the id and paints it on a canvas
+ * the first time the style asks for it (MapView). The theme rides in the id
+ * so a stale image can never survive a style swap (setStyle drops every
+ * image; the resolver simply regenerates on the new style); since
+ * 2026-09-06 every color a donut paints is theme-invariant, so the theme
+ * segment is pure cache identity (a swap still evicts and repaints, at the
+ * measured 0.23 ms a ring). The PALETTE segment is real identity: the
+ * visitor's color-blind ramp (constants.ts GRADE_PALETTES) changes every
+ * arc's fill, and the canvas cannot read the CSS tokens the DOM follows, so
+ * the palette is named in the id and the painter takes the hex from the
+ * table by that name; a palette switch re-points the layer's icon-image
+ * expression and evicts the other palette's images (mapLayers
+ * applyPalette). The id codec and the arc geometry live here, pure and
+ * pinned; the canvas painter is verified live (jsdom has no canvas).
  */
 
 import {
     CLOSED_COLOR, CLUSTER_RADII, CLUSTER_STEPS, DONUT_CLOSED_ALPHA,
     DONUT_PIXEL_RATIO, DONUT_RING_WIDTHS, DONUT_SEPARATOR, LITE_MARKER_COLOR,
-    NEW_COLOR, STACK_SURFACE,
+    NEW_COLORS, STACK_SURFACE,
 } from './constants'
-import { gradeColor } from './data/presentation'
+import type { GradePalette } from './constants'
+import { gradeHex } from './data/presentation'
 import { BUCKET_KEYS, emptyBuckets } from './mapData'
 import type { BucketKey, Buckets } from './mapData'
 
@@ -36,28 +41,33 @@ export type Theme = 'dark' | 'light'
 
 export const DONUT_ID_PREFIX = 'donut'
 
+const PALETTES: readonly GradePalette[] = ['standard', 'colorblind']
+
 export interface DonutSpec {
     theme: Theme
+    palette: GradePalette
     /** Outer radius in CSS px — one of CLUSTER_RADII. */
     size: number
     buckets: Buckets
 }
 
-/** The fill each bucket's arc wears — the dots' own. */
-export const BUCKET_FILLS: Record<BucketKey, string> = {
-    nA: gradeColor('A'),
-    nB: gradeColor('B'),
-    nC: gradeColor('C'),
-    nD: gradeColor('D'),
-    nF: gradeColor('F'),
-    nNew: NEW_COLOR,
-    nNone: gradeColor(null),
-    nClosed: CLOSED_COLOR,
+/** The fill each bucket's arc wears — the dots' own, in the given palette. */
+export function bucketFills(palette: GradePalette): Record<BucketKey, string> {
+    return {
+        nA: gradeHex('A', palette),
+        nB: gradeHex('B', palette),
+        nC: gradeHex('C', palette),
+        nD: gradeHex('D', palette),
+        nF: gradeHex('F', palette),
+        nNew: NEW_COLORS[palette],
+        nNone: gradeHex(null, palette),
+        nClosed: CLOSED_COLOR,
+    }
 }
 
-/** `donut:<theme>:<outer radius>:<nA-nB-nC-nD-nF-nNew-nNone-nClosed>` */
-export function donutId(theme: Theme, size: number, buckets: Buckets): string {
-    return `${DONUT_ID_PREFIX}:${theme}:${size}:${BUCKET_KEYS.map((key) => buckets[key]).join('-')}`
+/** `donut:<theme>:<palette>:<outer radius>:<nA-nB-nC-nD-nF-nNew-nNone-nClosed>` */
+export function donutId(theme: Theme, size: number, buckets: Buckets, palette: GradePalette = 'standard'): string {
+    return `${DONUT_ID_PREFIX}:${theme}:${palette}:${size}:${BUCKET_KEYS.map((key) => buckets[key]).join('-')}`
 }
 
 const COUNT = /^\d+$/
@@ -66,9 +76,10 @@ const COUNT = /^\d+$/
  *  resolver is asked about EVERY missing image, including the basemap's. */
 export function parseDonutId(id: string): DonutSpec | null {
     const parts = id.split(':')
-    if (parts.length !== 4 || parts[0] !== DONUT_ID_PREFIX) return null
-    const [, theme, sizeText, tuple] = parts
+    if (parts.length !== 5 || parts[0] !== DONUT_ID_PREFIX) return null
+    const [, theme, palette, sizeText, tuple] = parts
     if (theme !== 'dark' && theme !== 'light') return null
+    if (palette !== 'standard' && palette !== 'colorblind') return null
     const size = Number(sizeText)
     if (!(CLUSTER_RADII as readonly number[]).includes(size)) return null
     const counts = (tuple ?? '').split('-')
@@ -79,18 +90,21 @@ export function parseDonutId(id: string): DonutSpec | null {
         if (!COUNT.test(text)) return null
         buckets[key] = Number(text)
     }
-    return { theme, size, buckets }
+    return { theme, palette, size, buckets }
 }
 
-/** The donut ids painted for any OTHER theme. A theme swap DIFFS the style
- *  in place (6.6.0 `setState` keeps the image manager and fires
+/** The donut ids painted for any OTHER theme or palette. A theme swap DIFFS
+ *  the style in place (6.6.0 `setState` keeps the image manager and fires
  *  `style.load` after), so the outgoing theme's donuts would otherwise
- *  linger in the atlas for the session; the reinstall evicts them and the
- *  resolver repaints this theme's on demand. */
-export function staleDonutIds(ids: readonly string[], theme: Theme): string[] {
-    const keep = `${DONUT_ID_PREFIX}:${theme}:`
+ *  linger in the atlas for the session; a palette switch changes no style
+ *  at all. Either way the (re)install evicts what does not match and the
+ *  resolver repaints the current pair on demand. */
+export function staleDonutIds(ids: readonly string[], theme: Theme, palette: GradePalette = 'standard'): string[] {
+    const keep = `${DONUT_ID_PREFIX}:${theme}:${palette}:`
     return ids.filter((id) => id.startsWith(`${DONUT_ID_PREFIX}:`) && !id.startsWith(keep))
 }
+
+export { PALETTES as DONUT_PALETTES }
 
 export interface Arc {
     /** Turns clockwise from 12 o'clock, 0..1. */
@@ -105,9 +119,10 @@ export interface Arc {
  *  full turn — every place in the count gets an arc, so the ring always
  *  totals the number in the hole. All-zero buckets (the basic map) → ONE
  *  neutral arc. */
-export function donutArcs(buckets: Buckets): Arc[] {
+export function donutArcs(buckets: Buckets, palette: GradePalette = 'standard'): Arc[] {
     const total = BUCKET_KEYS.reduce((n, key) => n + buckets[key], 0)
     if (total <= 0) return [{ start: 0, end: 1, fill: LITE_MARKER_COLOR, alpha: 1, bucket: 'lite' }]
+    const fills = bucketFills(palette)
     const arcs: Arc[] = []
     let at = 0
     for (const key of BUCKET_KEYS) {
@@ -117,7 +132,7 @@ export function donutArcs(buckets: Buckets): Arc[] {
         arcs.push({
             start: at,
             end,
-            fill: BUCKET_FILLS[key],
+            fill: fills[key],
             alpha: key === 'nClosed' ? DONUT_CLOSED_ALPHA : 1,
             bucket: key,
         })
@@ -138,11 +153,11 @@ export function donutRingWidth(size: number): number {
  *  from a cluster feature's summed properties. The size step is the same
  *  `step` the hit test mirrors (mapHit clusterRadiusOf). Returned untyped —
  *  the caller casts to MapLibre's ExpressionSpecification. */
-export function donutIconExpr(theme: Theme): unknown[] {
+export function donutIconExpr(theme: Theme, palette: GradePalette = 'standard'): unknown[] {
     const size = ['step', ['get', 'sum'],
         CLUSTER_RADII[0], CLUSTER_STEPS[0], CLUSTER_RADII[1],
         CLUSTER_STEPS[1], CLUSTER_RADII[2]]
-    const expr: unknown[] = ['concat', `${DONUT_ID_PREFIX}:${theme}:`, ['to-string', size], ':']
+    const expr: unknown[] = ['concat', `${DONUT_ID_PREFIX}:${theme}:${palette}:`, ['to-string', size], ':']
     BUCKET_KEYS.forEach((key, i) => {
         if (i) expr.push('-')
         expr.push(['to-string', ['get', key]])
@@ -181,8 +196,9 @@ function scratchContext(doc: Document): CanvasRenderingContext2D | null {
  *  there is no 2D canvas (headless runners). */
 export function paintDonut(spec: DonutSpec, doc: Document = document): ImageData | null {
     // `theme` rides in the spec for the image id alone — no color here
-    // reads it any more (the hole is theme-invariant with the stacks).
-    const { size, buckets } = spec
+    // reads it any more (the hole is theme-invariant with the stacks); the
+    // palette picks every arc's fill.
+    const { size, buckets, palette } = spec
     const ratio = DONUT_PIXEL_RATIO
     const margin = MARGIN
     const side = (size + margin) * 2 * ratio
@@ -195,7 +211,7 @@ export function paintDonut(spec: DonutSpec, doc: Document = document): ImageData
     const c = size + margin
     const inner = size - donutRingWidth(size)
     const rad = (turn: number) => turn * TAU - Math.PI / 2 // 12 o'clock, clockwise
-    const arcs = donutArcs(buckets)
+    const arcs = donutArcs(buckets, palette)
 
     for (const arc of arcs) {
         ctx.beginPath()

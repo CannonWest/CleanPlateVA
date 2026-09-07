@@ -30,7 +30,6 @@
  *     hover-only readout and the below-floor beside-the-mark side label.
  */
 
-import { GRADE_COLORS } from './constants'
 import {
     focusedOutcomePresentation, gradeColor, gradeForScore,
     narrativeVerdictPresentation,
@@ -39,14 +38,16 @@ import type { ScopeEvent, ScopeSeries } from './data/presentation'
 
 export const TREND_REST_FLOOR = 55
 
-/** The old outcome tones spoken in the ratified ramp. */
+/** The old outcome tones spoken in the ramp — as the grade TOKENS, so the
+ *  instrument's SVG follows the visitor's palette like every other surface
+ *  (presentation attributes take a `var()`). */
 export const TONE_COLORS: Record<string, string> = {
-    clear: GRADE_COLORS.A ?? '#2f9e44',
-    good: GRADE_COLORS.B ?? '#94be1b',
-    watch: GRADE_COLORS.C ?? '#f59f00',
-    warning: GRADE_COLORS.D ?? '#e8590c',
-    severe: GRADE_COLORS.F ?? '#a61e1e',
-    unknown: GRADE_COLORS.none ?? '#868e96',
+    clear: gradeColor('A'),
+    good: gradeColor('B'),
+    watch: gradeColor('C'),
+    warning: gradeColor('D'),
+    severe: gradeColor('F'),
+    unknown: gradeColor(null),
 }
 
 export type TrendVariant = 'panel' | 'card'

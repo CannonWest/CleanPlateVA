@@ -24,7 +24,9 @@
  * place of #174's mean-grade sums.)
  */
 import { expect, test } from 'vitest'
-import { GRADE_COLORS, CLOSED_COLOR, LITE_MARKER_COLOR, NEW_COLOR } from '../../app/constants'
+import {
+    GRADE_COLORS, GRADE_PALETTES, CLOSED_COLOR, LITE_MARKER_COLOR, NEW_COLOR, NEW_COLORS,
+} from '../../app/constants'
 import { BUCKET_KEYS, buildMapData, clusterProperties, stackKey } from '../../app/mapData'
 import type { Buckets, ClusterInputs, PointProps, StackProps } from '../../app/mapData'
 import type { OverlayRow, RosterRow } from '../../app/data/types'
@@ -200,4 +202,29 @@ test('rows without coordinates draw nothing', () => {
     const nowhere = row({ lat: Number.NaN, lon: Number.NaN })
     const data = buildMapData([nowhere], false)
     expect(data.geojson.features).toHaveLength(0)
+})
+
+test('the color-blind palette re-fills the graded dots and NEW; the grays, closed and the buckets stand', () => {
+    const graded = row({ o: { grade_score: 93 } })
+    const newly = row({ o: { grade_score: null, new: 1 } })
+    const unscored = row({ o: { grade_score: null, new: 0 } })
+    const closed = row({ status: 'Business Closed', o: { grade_score: 88 } })
+    const data = buildMapData([graded, newly, unscored, closed], false, 'colorblind')
+    expect(props(data, graded.permit_id).fill).toBe(GRADE_PALETTES.colorblind.A)   // deep blue, not green
+    expect(props(data, graded.permit_id).fill).toBe('#045a8d')
+    expect(props(data, newly.permit_id).fill).toBe(NEW_COLORS.colorblind)          // NEW leaves blue: A and B are blues here
+    expect(props(data, newly.permit_id).fill).not.toBe(NEW_COLOR)
+    expect(props(data, unscored.permit_id).fill).toBe(GRADE_PALETTES.colorblind.none)
+    expect(props(data, unscored.permit_id).fill).toBe(GRADE_COLORS.none)          // the same gray in both
+    expect(props(data, closed.permit_id).fill).toBe(CLOSED_COLOR)
+    // The buckets count what the dots ARE, whichever palette paints them.
+    expect(props(data, graded.permit_id).nA).toBe(1)
+    expect(props(data, newly.permit_id).nNew).toBe(1)
+    // The bare call is the standard ramp — the pre-2026-09-06 call sites.
+    const standard = buildMapData([graded], false)
+    expect(props(standard, graded.permit_id).fill).toBe(GRADE_COLORS.A)
+    // Every fill the map is handed is hex: MapLibre paint cannot read a CSS token.
+    for (const f of data.geojson.features) {
+        if (f.properties.kind === 'point') expect(f.properties.fill).toMatch(/^#[0-9a-f]{6}$/)
+    }
 })
