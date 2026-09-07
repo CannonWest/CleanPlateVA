@@ -39,7 +39,10 @@ export const FAIRFAX_EXPERIENCE_SOURCE = 'dataSource_5-17e77d67cec-layer-3'
 // Grade palette — data color, not chrome (chrome themes via the Tailwind
 // tokens). The RATIFIED ramp (design ref §6.0, CRD-M1 2026-08-29): only F
 // moved from the live site (#e03131 → #a61e1e, fixing the D↔F normal-vision
-// failure); the letter always rides the color.
+// failure). The letter rides the color everywhere a grade is NAMED — chip,
+// hover card, panel, list row — but no longer on the map dots (Cannon's
+// call 2026-09-06; §6.0 amended): the dot is color + ring alone, and the
+// letter is one hover away.
 export const GRADE_COLORS: Record<string, string> = {
     A: '#2f9e44',
     B: '#94be1b',
@@ -85,20 +88,18 @@ export const CLUSTERS_KEY = 'cleanplateva.clusters'
 export const SRC = 'food-facilities'
 export const LYR_CLUSTERS = 'food-clusters'
 export const LYR_POINTS = 'food-points'
-export const LYR_POINT_LETTERS = 'food-point-letters'
 export const LYR_STACKS = 'food-stacks'
 export const LYR_STACK_COUNT = 'food-stack-count'
 
 // ── marker geometry (§6.2 grammar) ─────────────────────────────────────
-// Dots grow with zoom; past LETTER_ZOOM they are large enough to carry
-// their grade letter (the ratified mockup's 21px marker ≈ radius 10.5).
-// [zoom, radius] pairs feed the circle layer's one linear interpolate
-// expression (the stack bubbles ride the same curve, scaled).
-export const POINT_RADIUS_FULL = 10.5 // the z14, letter-carrying dot
+// Dots grow with zoom to the ratified mockup's 21px marker (≈ radius
+// 10.5). [zoom, radius] pairs feed the circle layer's one linear
+// interpolate expression (the stack bubbles ride the same curve, scaled).
+// The dots carried their grade letter past a z13.5 gate until 2026-09-06
+// (Cannon's call) — the curve is unchanged, the glyphs are gone.
+export const POINT_RADIUS_FULL = 10.5 // the z14 dot
 export const POINT_RADIUS_STOPS: ReadonlyArray<readonly [number, number]> =
     [[5, 3.5], [9, 4.5], [12, 6], [14, POINT_RADIUS_FULL]]
-export const LETTER_ZOOM = 13.5
-export const LETTER_TEXT_SIZE = 11
 
 // Pointer forgiveness (ported): events resolve against a slop-padded box —
 // nobody should have to land on a small dot exactly.
@@ -165,7 +166,7 @@ export const MARKER_RING_WIDTH = 1.5
 // The declining ring (CRP-M2, Cannon's pick 2026-09-05; retires the CRP-M1
 // ↓ suffix and its image machinery): a dot whose bake says declining wears
 // this ring in place of the theme's white one, at every zoom the dot is
-// drawn — no letter gate. Production's form (markers.js has worn a heavier
+// drawn — it never had the letters' zoom gate, and outlives them. Production's form (markers.js has worn a heavier
 // red ring on declining dots since the old client) with the color moved
 // off the ramp: production rings in GRADE_COLORS.F, which is invisible on
 // an F fill (1.00:1 — the one pair that matters most). #e03131 is

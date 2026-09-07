@@ -24,7 +24,7 @@ test('the hit radii mirror the layer expressions', () => {
     expect(pointRadiusAt(18)).toBe(10.5)      // clamped above the last
     expect(pointRadiusAt(10.5)).toBeCloseTo(5.25, 5) // linear between stops
 
-    expect(stackRadiusAt(14, 5)).toBe(11)     // full size at the letter zoom
+    expect(stackRadiusAt(14, 5)).toBe(11)     // full size at the top of the curve
     expect(stackRadiusAt(14, 12)).toBe(13)
     expect(stackRadiusAt(14, 60)).toBe(15)
     expect(stackRadiusAt(5, 5)).toBeCloseTo(11 * (3.5 / 10.5), 5) // rides the dots' curve

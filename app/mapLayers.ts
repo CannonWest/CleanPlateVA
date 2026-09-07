@@ -10,7 +10,6 @@
  *
  *   · food-clusters      symbol   the CRP-M6 donut + count, under everything
  *   · food-points        circle   grade fill; ring white, or declining red
- *   · food-point-letters symbol   the letter past LETTER_ZOOM
  *   · food-stacks        circle   neutral count bubbles, above lone dots
  *   · food-stack-count   symbol   the count, past STACK_COUNT_ZOOM
  *
@@ -24,7 +23,7 @@ import {
     CLUSTER_COUNT_TEXT_SIZE, CLUSTER_MAX_ZOOM, CLUSTER_PIXEL_RADIUS,
     DARK_MAJOR_ROAD_LABEL_COLOR, DARK_MAJOR_ROAD_LABEL_LAYER,
     DECLINE_RING, DECLINE_RING_WIDTH,
-    LETTER_TEXT_SIZE, LETTER_ZOOM, LYR_CLUSTERS, LYR_POINT_LETTERS,
+    LYR_CLUSTERS,
     LYR_POINTS, LYR_STACK_COUNT, LYR_STACKS, MARKER_RING, MARKER_RING_WIDTH,
     POINT_RADIUS_FULL, POINT_RADIUS_STOPS, SRC, STACK_COUNT_ZOOM,
     STACK_INK, STACK_RADII, STACK_STEPS, STACK_SURFACE,
@@ -169,21 +168,6 @@ export function installDataLayers(map: LayerHost, data: MapData, dark: boolean, 
             'circle-stroke-color': ringColorExpr(theme),
             'circle-stroke-width': ringWidthExpr(),
         },
-    })
-    map.addLayer({
-        id: LYR_POINT_LETTERS,
-        type: 'symbol',
-        source: SRC,
-        minzoom: LETTER_ZOOM,
-        filter: ['all', POINT_FILTER, ['!=', ['get', 'letter'], '']] as unknown as ExpressionSpec,
-        layout: {
-            'text-field': ['get', 'letter'],
-            'text-font': ['Montserrat Regular'],
-            'text-size': LETTER_TEXT_SIZE,
-            'text-allow-overlap': true,
-            'text-ignore-placement': true,
-        },
-        paint: { 'text-color': '#ffffff' },
     })
     // Stacks sit above the lone dots: a point standing for N places
     // outranks its neighbours. Bubbles ride the dots' zoom curve (the old
