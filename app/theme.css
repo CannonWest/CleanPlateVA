@@ -104,6 +104,25 @@
     --cp-marker-ring: rgba(255, 255, 255, .95);
 }
 
+/* The color-blind friendly grade ramp (the settings dialog, 2026-09-06,
+   Cannon's palette): blue → gold → orange → umber, a diverging scale in
+   place of the green → red one, hooked by a class on <html> beside the
+   theme class (app/palette.ts; index.html applies it pre-paint). The grades
+   are mode-invariant, so one block serves both themes. NEW leaves blue for
+   near-black here — this ramp's A and B are blues, and blue was NEW's alone
+   only because the standard ramp has none. The hex values mirror
+   constants.ts GRADE_PALETTES / NEW_COLORS, which carry them to the map's
+   paint and the donut canvas (neither can read a custom property) — a
+   value change belongs in both places. */
+.palette-colorblind {
+    --cp-grade-a: #045a8d;
+    --cp-grade-b: #5aa9d6;
+    --cp-grade-c: #f4c245;
+    --cp-grade-d: #f08c3c;
+    --cp-grade-f: #9c4a0c;
+    --cp-new: #212529;
+}
+
 /* Tailwind vocabulary, 1:1 with the --cp-* names so utilities are greppable
    back to tokens.css / the style tile: bg-cp-surface-1, text-cp-ink-2,
    border-cp-hairline, bg-cp-grade-a, rounded-cp-card, shadow-cp … */

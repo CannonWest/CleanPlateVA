@@ -36,24 +36,51 @@ export const FAIRFAX_RECORDS_URL = 'https://www.fairfaxcounty.gov/health/food/in
 export const FAIRFAX_EXPERIENCE_URL = 'https://experience.arcgis.com/experience/0e687ef56da44ef287d20ced8cc85a3f/page/Main-Page'
 export const FAIRFAX_EXPERIENCE_SOURCE = 'dataSource_5-17e77d67cec-layer-3'
 
-// Grade palette — data color, not chrome (chrome themes via the Tailwind
-// tokens). The RATIFIED ramp (design ref §6.0, CRD-M1 2026-08-29): only F
-// moved from the live site (#e03131 → #a61e1e, fixing the D↔F normal-vision
-// failure). The letter rides the color everywhere a grade is NAMED — chip,
-// hover card, panel, list row — but no longer on the map dots (Cannon's
-// call 2026-09-06; §6.0 amended): the dot is color + ring alone, and the
-// letter is one hover away.
-export const GRADE_COLORS: Record<string, string> = {
-    A: '#2f9e44',
-    B: '#94be1b',
-    C: '#f59f00',
-    D: '#e8590c',
-    F: '#a61e1e',
-    none: '#868e96',
+// Grade palettes — data color, not chrome (chrome themes via the Tailwind
+// tokens). `standard` is the RATIFIED ramp (design ref §6.0, CRD-M1
+// 2026-08-29): only F moved from the live site (#e03131 → #a61e1e, fixing
+// the D↔F normal-vision failure). `colorblind` is the visitor's alternative
+// since 2026-09-06 (Cannon's palette, the settings dialog): a blue → gold →
+// orange → umber diverging scale in place of green → red. The visitor's
+// choice is a class on <html> (palette.ts) that re-points the --cp-grade-*
+// tokens for every DOM surface (theme.css mirrors these hex values — keep
+// the two in step); the map's paint and the donut canvas cannot read a
+// custom property and take the hex from here by palette name. The letter
+// rides the color everywhere a grade is NAMED — chip, hover card, panel,
+// list row — but no longer on the map dots (Cannon's call 2026-09-06; §6.0
+// amended): the dot is color + ring alone, and the letter is one hover away.
+export type GradePalette = 'standard' | 'colorblind'
+export const GRADE_PALETTES: Record<GradePalette, Readonly<Record<string, string>>> = {
+    standard: {
+        A: '#2f9e44',
+        B: '#94be1b',
+        C: '#f59f00',
+        D: '#e8590c',
+        F: '#a61e1e',
+        none: '#868e96',
+    },
+    colorblind: {
+        A: '#045a8d',
+        B: '#5aa9d6',
+        C: '#f4c245',
+        D: '#f08c3c',
+        F: '#9c4a0c',
+        none: '#868e96',
+    },
 }
+/** The ratified ramp by its old name — the standard palette. */
+export const GRADE_COLORS: Record<string, string> = GRADE_PALETTES.standard
 
-// Newly permitted: cleared to open, grade still to come. Blue is NEW's alone.
-export const NEW_COLOR = '#1c7ed6'
+// Newly permitted: cleared to open, grade still to come. Blue is NEW's alone
+// on the standard ramp, which has no blue of its own; the color-blind ramp's
+// A and B ARE blues, so there NEW is near-black (Open Color gray-9) — the one
+// hue family the ramp leaves untouched that still reads against every fill
+// and against the grays (unscored / closed), by luminance rather than hue.
+export const NEW_COLORS: Record<GradePalette, string> = {
+    standard: '#1c7ed6',
+    colorblind: '#212529',
+}
+export const NEW_COLOR = NEW_COLORS.standard
 
 export const LITE_MARKER_COLOR = '#8d939c' // basic map: uniform, judgment-free
 export const CLOSED_COLOR = '#9aa0a6'      // not a live permit
@@ -79,6 +106,12 @@ export const VA_FIT = { padding: 20 }
 // the default earlier that day, dark before it). The CSS base stays the dark
 // design (D-CR-STYLE-1) — app/theme.ts resolves the choice to the class.
 export const THEME_KEY = 'cleanplateva.theme'
+// The visitor's persisted grade palette (the settings dialog, 2026-09-06):
+// 'colorblind' for the blue → umber ramp; unset (and anything else) reads as
+// 'standard'. The class is the DOM-side hook on <html> that re-points the
+// --cp-grade-* tokens (theme.css) — app/palette.ts.
+export const PALETTE_KEY = 'cleanplateva.gradePalette'
+export const PALETTE_CLASS = 'palette-colorblind'
 // The visitor's persisted text size (the settings dialog, 2026-09-06): the
 // body size in CSS px as an integer string, '12'..'20'; unset (and anything
 // else) reads as 14, the size the design was ratified at — app/settings.ts.
@@ -187,7 +220,15 @@ export const MARKER_RING_WIDTH = 1.5
 // the warm fills, and 3 outgrows a z5 dot (radius 3.5). The hit test never
 // measured stroke (mapHit.ts sizes the fill), so the extra pixel rides
 // inside the slop.
-export const DECLINE_RING = '#e03131'
+export const DECLINE_RINGS: Record<GradePalette, string> = {
+    standard: '#e03131',
+    // Red on the color-blind ramp's umber F is 1.4:1 and on its orange D a
+    // hue-only difference the mode exists to avoid, so there the declining
+    // dot trades the white ring for a near-black one: the cue is "no bright
+    // halo" — luminance, which every kind of color vision keeps.
+    colorblind: '#212529',
+}
+export const DECLINE_RING = DECLINE_RINGS.standard
 export const DECLINE_RING_WIDTH = 2.5
 
 // Highest form item that counts as a foodborne-illness risk factor

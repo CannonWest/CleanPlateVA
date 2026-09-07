@@ -16,10 +16,11 @@
  *     dots).
  *
  * Declining (CRP-M2, Cannon's pick 2026-09-05, replacing the CRP-M1 ↓
- * suffix): the dot's ring turns red (constants.ts DECLINE_RING) at every
- * zoom the dot is drawn — a paint expression on the one circle layer, no
- * extra layer, no images. Production's form, with the color moved off the
- * ramp so a declining F still reads.
+ * suffix): the dot's ring turns red (constants.ts DECLINE_RINGS — near-
+ * black on the color-blind ramp, whose umber F would swallow the red) at
+ * every zoom the dot is drawn — a paint expression on the one circle
+ * layer, no extra layer, no images. Production's form, with the color
+ * moved off the ramp so a declining F still reads.
  *
  * Proximity clusters as a VISITOR SWITCH (CRP-M6, 2026-09-05; the cutover
  * deletes the old client, so production's look survives as a choice):
@@ -58,19 +59,23 @@ import { paintDonut, parseDonutId } from './donut'
 import { buildMapData } from './mapData'
 import type { MapData } from './mapData'
 import { hitSlop, markRadius, pickMark, popoverSurvivesZoom } from './mapHit'
-import { HIT_LAYERS, fixDarkRoadLabels, installDataLayers } from './mapLayers'
+import { HIT_LAYERS, applyPalette, fixDarkRoadLabels, installDataLayers } from './mapLayers'
 import { useGeolocate } from './useGeolocate'
 import { useMapPopup } from './useMapPopup'
 import { HoverCard } from './HoverCard'
 import { StackPopover } from './StackPopover'
+import type { GradePalette } from './constants'
 import type { RosterRow } from './data/types'
 
-export function MapView({ facilities, lite, dark, clusters, onSelect }: {
+export function MapView({ facilities, lite, dark, clusters, palette, onSelect }: {
     facilities: RosterRow[]
     lite: boolean
     dark: boolean
     /** "Group nearby places" — production's proximity clusters (CRP-M6). */
     clusters: boolean
+    /** The visitor's grade palette (the settings dialog): the dots' fills,
+     *  the declining ring and the donut arcs paint in it. */
+    palette: GradePalette
     /** A facility was clicked (a lone dot, or a stack member picked). */
     onSelect: (permitId: string) => void
 }) {
@@ -78,9 +83,11 @@ export function MapView({ facilities, lite, dark, clusters, onSelect }: {
     const mapRef = useRef<maplibregl.Map | null>(null)
     const styleDarkRef = useRef(dark)
     const clustersRef = useRef(clusters)
+    const paletteRef = useRef(palette)
+    paletteRef.current = palette
     const [failed, setFailed] = useState(false)
 
-    const data = useMemo(() => buildMapData(facilities, lite), [facilities, lite])
+    const data = useMemo(() => buildMapData(facilities, lite, palette), [facilities, lite, palette])
     const dataRef = useRef<MapData>(data)
     dataRef.current = data
     const darkRef = useRef(dark)
@@ -160,7 +167,7 @@ export function MapView({ facilities, lite, dark, clusters, onSelect }: {
         // Fires on the initial style AND after every setStyle (theme swap) —
         // custom sources/layers/images don't survive a swap.
         map.on('style.load', () => {
-            installDataLayers(map, dataRef.current, styleDarkRef.current, clustersRef.current)
+            installDataLayers(map, dataRef.current, styleDarkRef.current, clustersRef.current, paletteRef.current)
             fixDarkRoadLabels(map, styleDarkRef.current)
         })
 
@@ -406,6 +413,19 @@ export function MapView({ facilities, lite, dark, clusters, onSelect }: {
         styleDarkRef.current = dark
         map.setStyle(dark ? STYLE_DARK : STYLE_LIGHT)
     }, [dark])
+
+    // The grade palette (the settings dialog): the dots' fills are baked
+    // into the data, so the rebuild above re-sets the source; the declining
+    // ring and the donut ids are layer properties, re-pointed in place with
+    // the other palette's donuts evicted (mapLayers applyPalette). Before
+    // the layers exist only the ref moves; style.load installs with it.
+    useEffect(() => {
+        const map = mapRef.current
+        if (!map || !map.getSource(SRC)) return
+        hover.hide()
+        stack.hide()
+        applyPalette(map, styleDarkRef.current, palette)
+    }, [palette])
 
     const note = geolocate.note
     return (

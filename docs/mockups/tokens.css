@@ -41,6 +41,13 @@
   --cp-closed: #9aa0a6;
   --cp-lite: #8d939c;
 
+  /* The color-blind friendly ramp (the settings dialog, 2026-09-06, Cannon's
+     palette): blue → gold → orange → umber under `.palette-colorblind` on
+     <html>; NEW leaves blue for near-black there (A and B are blues). The
+     live values are app/theme.css + constants.ts GRADE_PALETTES.
+       --cp-grade-a: #045a8d;  --cp-grade-b: #5aa9d6;  --cp-grade-c: #f4c245;
+       --cp-grade-d: #f08c3c;  --cp-grade-f: #9c4a0c;  --cp-new: #212529; */
+
   --cp-r-control: 6px;
   --cp-r-card: 10px;
   --cp-r-pill: 999px;

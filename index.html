@@ -29,26 +29,33 @@
     <link rel="apple-touch-icon" href="./apple-touch-icon.png">
     <title>CleanPlateVA — archived Virginia health inspection finder</title>
     <script>
-    // Apply the stored theme and text size before first paint to avoid a
-    // flash. The theme is three-way (2026-09-06): 'dark' and 'light' are
-    // the visitor's own words; anything else — the default — follows the
-    // device's appearance. The class goes on whenever the RESOLVED theme is
-    // light; the key and the rule match app/theme.ts (storedTheme +
-    // resolveDark). The text size is the body size in px, honored when it
-    // is an integer in 12..20 and applied as its ratio to the ratified 14
-    // (app/settings.ts validTextSize + applyTextSize). Pinned by
-    // tests/vitest/theme.spec.ts and settings.spec.ts, which run this script.
+    // Apply the stored theme, grade palette and text size before first paint
+    // to avoid a flash. The theme is three-way (2026-09-06): 'dark' and
+    // 'light' are the visitor's own words; anything else — the default —
+    // follows the device's appearance. The class goes on whenever the
+    // RESOLVED theme is light; the key and the rule match app/theme.ts
+    // (storedTheme + resolveDark). The palette class goes on for the one
+    // stored word 'colorblind' (app/palette.ts storedPalette). The text size
+    // is the body size in px, honored when it is an integer in 12..20 and
+    // applied as its ratio to the ratified 14 (app/settings.ts validTextSize
+    // + applyTextSize). Pinned by tests/vitest/theme.spec.ts, palette.spec.ts
+    // and settings.spec.ts, which run this script.
     (function () {
         var theme = null;
+        var palette = null;
         var size = null;
         try {
             theme = localStorage.getItem('cleanplateva.theme');
+            palette = localStorage.getItem('cleanplateva.gradePalette');
             size = localStorage.getItem('cleanplateva.textSize');
         } catch (e) { /* private mode: the defaults stand */ }
         var dark = theme === 'dark' || (theme !== 'light'
             && !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches));
         if (!dark) {
             document.documentElement.classList.add('theme-light');
+        }
+        if (palette === 'colorblind') {
+            document.documentElement.classList.add('palette-colorblind');
         }
         var px = Number(size);
         if (size !== null && Number.isInteger(px) && px >= 12 && px <= 20 && px !== 14) {
