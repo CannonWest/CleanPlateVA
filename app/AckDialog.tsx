@@ -1,7 +1,7 @@
 /**
  * The acknowledgement dialog (§6.1, CRVb-M2) — the ratified anatomy: the
  * title alone (no kicker, no lede), the terms as ONE verbatim document
- * (the shared TermsBody — the same component About §06 mounts, C2) in an
+ * (the shared TermsBody — the same component About §05 mounts, C2) in an
  * inset, recessed scroll box with a PERSISTENT scrollbar, and the two
  * decision buttons centered — Decline left (filled red) / Agree right
  * (filled blue), the shipped labels. Filled for the dialog's fork;
@@ -11,7 +11,7 @@
  * third choice — no ✕, backdrop clicks ignored, Escape = decline for
  * THIS page load only (unpersisted; the next load asks again). Zero data
  * requests until answered (C2/C3 — the provider defers the boot).
- * Re-opened (from About §06's declined-side action): an ordinary dialog
+ * Re-opened (from About §05's declined-side action): an ordinary dialog
  * over the current view — ✕, backdrop, and Escape just close it.
  *
  * Mobile (<sm): a bottom sheet with stacked full-width actions, Agree on

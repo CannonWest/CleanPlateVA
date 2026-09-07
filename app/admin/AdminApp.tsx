@@ -36,8 +36,8 @@ export function AdminApp() {
     const ack = useMemo(() => createAckState(window.localStorage), [])
     // The editor always renders the acknowledged document — the fullest
     // version of the page, and the one whose copy is worth editing. The
-    // tier-dependent cards (§04's current access, §06's status panel) are
-    // derived live state, not copy, so nothing editable is hidden by this.
+    // one tier-dependent piece (§05's status panel) is derived live state,
+    // not copy, so nothing editable is hidden by this.
     const api = useMemo(() => createFoodApi({ isAcknowledged: () => true }), [])
     return (
         <DataProvider api={api} ack={ack} forceLite={false}>
@@ -284,7 +284,6 @@ function AdminShell() {
                     <AboutView
                         loaded={loaded}
                         unavailable={roster.status === 'ready' && !loaded}
-                        lite={false}
                         forceLite={false}
                         ack={{ agreed: true, decided: true, persisted: true }}
                         onSwitchToBasic={() => { /* inert in the editor */ }}

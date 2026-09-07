@@ -79,7 +79,7 @@ function Shell({ forceLite, ack }: {
 
     // The acknowledgement (§6.1): BLOCKING on an undecided first load (the
     // provider is already withholding every fetch, C2); re-openable from
-    // About §06's declined-side action any later time.
+    // About §05's declined-side action any later time.
     const blocking = !forceLite && roster.status === 'awaiting-ack'
     const [termsOpen, setTermsOpen] = useState(false)
     const decide = (value: string, persist = true) => {
@@ -195,7 +195,6 @@ function Shell({ forceLite, ack }: {
                         <AboutView
                             loaded={loaded}
                             unavailable={unavailable}
-                            lite={lite}
                             forceLite={forceLite}
                             ack={{ agreed: ack.agreed, decided: ack.decided, persisted: ack.persisted }}
                             onSwitchToBasic={() => {
