@@ -1,15 +1,24 @@
 # Push to main deploys production (Cloudflare Workers Builds), so the PR
 # check is the last gate before a change is live.
 #
-# One runner since CRC (design ref docs/frontend-redesign.md §7, §9.1):
-# Vitest referees the app, the contract tripwires under tests/vitest/ —
-# including lite-roster-contract.spec.ts, which validates the COMMITTED
-# public/data/finder/*.json + manifest.json and is the tripwire for a stale
-# export overwriting the public payload with an older shape, and the
-# retired-vocabulary scan — and, after the build step, dist-contract.spec.ts
-# pins the build output (publisher files byte-identical in dist/, the old
-# client absent — C5). The build step mirrors the Workers Builds command
-# (npm ci && npx vite build) so the deploy pipeline is proven on every PR.
+# One runner since CRC (design ref docs/frontend-redesign.md §7, §9.1), three
+# referees in order:
+#
+#   1. the build — mirrors the Workers Builds command (npm ci && npx vite
+#      build), so the deploy pipeline is proven on every PR;
+#   2. Vitest — the app and the contract tripwires under tests/vitest/,
+#      including lite-roster-contract.spec.ts, which validates the COMMITTED
+#      public/data/finder/*.json + manifest.json and is the tripwire for a
+#      stale export overwriting the public payload with an older shape, the
+#      retired-vocabulary scan, and dist-contract.spec.ts, which pins the
+#      build output (publisher files byte-identical in dist/, the old client
+#      absent, the maplibre worker pair beside the main chunk — C5);
+#   3. the e2e smoke — Playwright over `vite preview` of THAT dist/ in a real
+#      Chromium (software GL): the map paints, in both themes and grouped
+#      (tests/e2e/map-paints.spec.ts). Every Vitest map spec runs against a
+#      fake; this is the one that asks the running map. Its report (traces,
+#      screenshots) is uploaded only when it fails.
+
 name: tests
 
 on:
@@ -29,3 +38,14 @@ jobs:
       - run: npm ci
       - run: npx vite build
       - run: npx vitest run
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright test
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+          if-no-files-found: ignore

@@ -22,3 +22,7 @@ public/data-full/
 # built by Workers Builds on deploy (design ref §3); it is never committed.
 node_modules/
 dist/
+
+# The e2e smoke (tests/e2e/, Playwright): traces, screenshots, the HTML report.
+test-results/
+playwright-report/
