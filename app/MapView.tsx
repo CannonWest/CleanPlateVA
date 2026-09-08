@@ -578,7 +578,10 @@ export function MapView({
     }, [palette])
 
     return (
-        <div className="absolute inset-0">
+        // `cp-map-editing` lifts the bottom-right control lane over the edit
+        // mode's drawer (theme.css; OQ-F, 2026-09-08): the drawer stops above
+        // the lane, and the layers list — which opens upward — draws over it.
+        <div className={editing ? 'absolute inset-0 cp-map-editing' : 'absolute inset-0'}>
             <div ref={container} className="h-full w-full" aria-label="map" />
             {layersHost && createPortal(
                 <LayersControl

@@ -253,6 +253,15 @@ function Shell({ forceLite, ack }: {
         })
     }
     const exitEdit = () => setEditing(null)
+    // A Submit that meets Access's redirect (§6.6): the session is gone —
+    // the flag goes, the mode closes, the control stays for this page load
+    // with the sign-in line beside it. The draft is kept (mapDraft.ts).
+    const sessionLost = useCallback(() => {
+        clearSession(window.localStorage)
+        setAdminSession(null)
+        setEditNote('Sign in at /admin to continue.')
+        setEditing(null)
+    }, [])
     // A mode belongs to its view: leaving the view leaves the mode.
     useEffect(() => {
         if (editing && editing !== state.view) setEditing(null)
@@ -353,9 +362,12 @@ function Shell({ forceLite, ack }: {
                         snapshotId={loaded?.snapshot_id ?? null}
                         dark={dark}
                         coarse={coarse}
+                        basemap={basemap}
+                        lite={lite}
                         getDetail={getDetail}
                         bindRowDrag={bindRowDrag}
                         onExit={exitEdit}
+                        onSessionLost={sessionLost}
                     />
                 </Suspense>
             )}
