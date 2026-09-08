@@ -145,9 +145,9 @@ describe.skipIf(!built)('dist/ splits what changes from what does not (CRP-M5)',
     // The admin's two chunks (CPE-M1) ride the same rule as the documents:
     // the session page and the About edit mode load on demand, so a visitor's
     // page never fetches a byte of either (design ref §6.6).
-    const LAZY = ['ListView', 'AboutView', 'ReceiptModal', 'AdminApp', 'AboutEditor']
+    const LAZY = ['ListView', 'AboutView', 'ReceiptModal', 'AdminApp', 'AboutEditor', 'MapEditor']
 
-    test('List, About, the report-card modal, the session page and the About editor load on demand', () => {
+    test('List, About, the report-card modal, the session page and the two editors load on demand', () => {
         for (const name of LAZY) {
             expect(assets().some((file) => new RegExp(`^${name}-.*\\.js$`).test(file)),
                 `no lazy chunk for ${name} in ${assets().join(', ')}`).toBe(true)

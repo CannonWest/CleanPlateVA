@@ -1,0 +1,229 @@
+/**
+ * The map edit mode, end to end on the production build (design ref §6.6,
+ * CPE-M2) — with REAL mouse events, the one way a drag on a MapLibre canvas
+ * can be proven (the RFE lesson: synthetic events bypass the map's own
+ * arming). A device holding the session flag sees the Edit pill beside
+ * Settings; the mode's banner and drawer appear; a dot dragged away becomes
+ * an orange pin tethered to where the record stands; a pin dropped back on
+ * its dot is discarded; the draft survives a reload; a row dragged out of a
+ * stack's popover becomes a pin; a ZIP-centroid place drags as a site fix
+ * with its badge. A visitor's map shows no pill and makes no /admin request.
+ *
+ * The places are read from the committed public/data/ finder shards at
+ * test time (content-addressed; the roster moves with every publish). The
+ * session route is Playwright's stub — `vite preview` runs no Worker — and
+ * the Full tier's detail is absent here, so every pin reports its detail
+ * unavailable (D-CPE-3): the drag does not depend on it.
+ */
+import { readdirSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { expect, test } from '@playwright/test'
+import type { Page } from '@playwright/test'
+import { ACK_AGREED, ACK_KEY } from '../../app/ack'
+import { ADMIN_SESSION_KEY, MAP_DRAFT_KEY, SETTINGS_HINT_KEY, SETTINGS_SEEN_KEY } from '../../app/constants'
+import { SELECT_ZOOM } from '../../app/mapCamera'
+import { stackKey } from '../../app/mapData'
+
+interface FinderRow { permit_id: string; name: string; lat: number; lon: number; loc: number; mobile: boolean }
+interface MapHandle {
+    loaded(): boolean
+    isMoving(): boolean
+    getZoom(): number
+    project(lngLat: [number, number]): { x: number; y: number }
+    querySourceFeatures(source: string): unknown[]
+}
+type WithHandle = { __cpMap?: MapHandle }
+
+const EMAIL = 'operator@example.test'
+
+function roster(): FinderRow[] {
+    const dir = join(import.meta.dirname, '..', '..', 'public', 'data', 'finder')
+    const rows: FinderRow[] = []
+    for (const name of readdirSync(dir).filter((n) => n.endsWith('.json')).sort()) {
+        rows.push(...(JSON.parse(readFileSync(join(dir, name), 'utf8')) as { facilities: FinderRow[] }).facilities)
+    }
+    return rows
+}
+
+/** The roster grouped by 6-dp point. Mobile units are left out: they are
+ *  hidden by the visitor's default flag, which the mode respects (OQ-E). */
+function groups() {
+    const rows = roster().filter((r) => r.lat != null && r.lon != null && !r.mobile)
+    const byPoint = new Map<string, FinderRow[]>()
+    for (const r of rows) {
+        const key = stackKey(r.lat, r.lon)
+        byPoint.set(key, [...(byPoint.get(key) ?? []), r])
+    }
+    return byPoint
+}
+
+function lonePlace(loc: (value: number) => boolean): FinderRow {
+    for (const members of groups().values()) {
+        if (members.length === 1 && loc(members[0]!.loc)) return members[0]!
+    }
+    throw new Error('no such lone place in the committed roster')
+}
+
+function smallStack(): FinderRow[] {
+    for (const members of groups().values()) {
+        if (members.length >= 2 && members.length <= 6 && members.every((m) => m.loc !== 2)) return members
+    }
+    throw new Error('no small stack in the committed roster')
+}
+
+async function seed(page: Page, extra: Record<string, string> = {}) {
+    await page.addInitScript((entries) => {
+        for (const [key, value] of entries) window.localStorage.setItem(key, value)
+    }, Object.entries({ [SETTINGS_SEEN_KEY]: '1', [SETTINGS_HINT_KEY]: '1', [ACK_KEY]: ACK_AGREED, ...extra }))
+}
+
+const session = () => JSON.stringify({ email: EMAIL, exp: Math.floor(Date.now() / 1000) + 3600 })
+
+async function stubSession(page: Page) {
+    await page.route('**/admin/api/session', (route) => route.fulfill({
+        status: 200,
+        contentType: 'application/json; charset=utf-8',
+        body: JSON.stringify({ ok: true, email: EMAIL, exp: Math.floor(Date.now() / 1000) + 3600 }),
+    }))
+}
+
+/** Open the map on a place and wait for the deep link's ease to land. */
+async function openOn(page: Page, place: FinderRow) {
+    await page.goto(`/?permit=${encodeURIComponent(place.permit_id)}`)
+    await page.waitForFunction(
+        (floor) => {
+            const map = (window as unknown as WithHandle).__cpMap
+            return !!map && map.loaded() && !map.isMoving() && map.getZoom() >= floor
+        },
+        SELECT_ZOOM,
+        { timeout: 60_000, polling: 250 },
+    )
+    // The deep link opened the place's panel; the mode closes it on entry
+    // anyway, but a clean start makes the assertions below unambiguous.
+    await page.getByLabel(`${place.name} details`).getByRole('button', { name: 'Close' }).click()
+    await expect(page).not.toHaveURL(/permit=/)
+}
+
+async function enterEdit(page: Page) {
+    await page.getByRole('button', { name: 'Edit', exact: true }).click()
+    await expect(page.getByRole('note').filter({ hasText: 'Edit mode.' })).toBeVisible()
+    await expect(page.getByRole('complementary', { name: 'Proposed pins' })).toBeVisible()
+}
+
+function screenPoint(page: Page, place: FinderRow) {
+    return page.evaluate(
+        (p) => (window as unknown as WithHandle).__cpMap!.project(p), [place.lon, place.lat] as [number, number])
+}
+
+async function drag(page: Page, from: { x: number; y: number }, dx: number, dy: number) {
+    await page.mouse.move(from.x, from.y)
+    await page.mouse.down()
+    await page.mouse.move(from.x + dx / 2, from.y + dy / 2, { steps: 6 })
+    await page.mouse.move(from.x + dx, from.y + dy, { steps: 6 })
+    await page.mouse.up()
+}
+
+const pinCount = (page: Page) => page.locator('[data-cp-pin-count]')
+
+function proposalFeatures(page: Page) {
+    return page.evaluate(() => (window as unknown as WithHandle).__cpMap!.querySourceFeatures('cp-proposals').length)
+}
+
+test('a visitor: no Edit pill on the map, and not one request under /admin', async ({ page }) => {
+    const seen: string[] = []
+    page.on('request', (request) => {
+        const url = new URL(request.url())
+        if (url.pathname.startsWith('/admin')) seen.push(url.pathname)
+    })
+    await seed(page)
+    await page.goto('/')
+    await expect(page.getByRole('button', { name: 'Settings' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Edit', exact: true })).toHaveCount(0)
+    await page.waitForLoadState('networkidle')
+    expect(seen).toEqual([])
+})
+
+test('drag a dot: the pin and its tether appear, the drawer names it, the draft survives a reload, Undo clears it', async ({ page }) => {
+    const place = lonePlace((loc) => loc !== 2)
+    await seed(page, { [ADMIN_SESSION_KEY]: session() })
+    await stubSession(page)
+    await openOn(page, place)
+    await enterEdit(page)
+    await expect(pinCount(page)).toHaveText('0')
+
+    const at = await screenPoint(page, place)
+    await drag(page, at, 90, 60)
+
+    await expect(pinCount(page)).toHaveText('1')
+    const item = page.locator(`[data-cp-pin="${place.permit_id}"]`)
+    await expect(item).toContainText(place.name)
+    await expect(item).toContainText('Refinement')
+    const moved = await item.locator('[data-cp-pin-moved]').textContent()
+    expect(Number.parseFloat(moved ?? '0')).toBeGreaterThan(0)
+    // The record never moved: the source holds the pin AND its tether.
+    expect(await proposalFeatures(page)).toBeGreaterThanOrEqual(2)
+    // The dot is still where it was — a second gesture from the same spot
+    // picks the place up again rather than a second one.
+    await expect(page.getByRole('button', { name: 'Reset all' })).toBeEnabled()
+
+    // The draft survives a reload (OQ-B), and the mode is re-entered.
+    await page.reload()
+    await page.waitForFunction(() => !!(window as unknown as WithHandle).__cpMap?.loaded(), null, { timeout: 60_000 })
+    await enterEdit(page)
+    await expect(pinCount(page)).toHaveText('1')
+    await expect(page.locator(`[data-cp-pin="${place.permit_id}"]`)).toContainText(place.name)
+
+    await page.getByRole('button', { name: `Undo the pin for ${place.name}` }).click()
+    await expect(pinCount(page)).toHaveText('0')
+    expect(await page.evaluate((key) => window.localStorage.getItem(key), MAP_DRAFT_KEY)).toBeNull()
+})
+
+test('a pin dropped back on its dot is discarded, and a click on a dot opens no panel', async ({ page }) => {
+    const place = lonePlace((loc) => loc !== 2)
+    await seed(page, { [ADMIN_SESSION_KEY]: session() })
+    await stubSession(page)
+    await openOn(page, place)
+    await enterEdit(page)
+    const at = await screenPoint(page, place)
+    await drag(page, at, 3, 2)
+    await expect(pinCount(page)).toHaveText('0')
+    await page.mouse.click(at.x, at.y)
+    await expect(page).not.toHaveURL(/permit=/)
+    await expect(pinCount(page)).toHaveText('0')
+})
+
+test('drag a row out of a stack\'s popover: the member becomes a pin tethered to the stack, the popover stays', async ({ page }) => {
+    const members = smallStack()
+    const member = members[0]!
+    await seed(page, { [ADMIN_SESSION_KEY]: session() })
+    await stubSession(page)
+    await openOn(page, member)
+    await enterEdit(page)
+
+    const at = await screenPoint(page, member)
+    await page.mouse.click(at.x, at.y)
+    const popover = page.locator('.maplibregl-popup.cp-pop')
+    await expect(popover).toContainText(`${members.length} places at this point`)
+    const rowButton = popover.getByRole('button', { name: member.name })
+    const box = await rowButton.boundingBox()
+    if (!box) throw new Error('no row box')
+    await drag(page, { x: box.x + box.width / 2, y: box.y + box.height / 2 }, 160, 110)
+
+    await expect(pinCount(page)).toHaveText('1')
+    await expect(page.locator(`[data-cp-pin="${member.permit_id}"]`)).toContainText(member.name)
+    await expect(popover).toBeVisible()
+    expect(await proposalFeatures(page)).toBeGreaterThanOrEqual(2)
+})
+
+test('a ZIP-centroid place drags as a site fix and says what it moves', async ({ page }) => {
+    const place = lonePlace((loc) => loc === 2)
+    await seed(page, { [ADMIN_SESSION_KEY]: session() })
+    await stubSession(page)
+    await openOn(page, place)
+    await enterEdit(page)
+    const at = await screenPoint(page, place)
+    await drag(page, at, 100, 40)
+    const item = page.locator(`[data-cp-pin="${place.permit_id}"]`)
+    await expect(item).toContainText('Site fix')
+    await expect(item).toContainText(/Moves \d+ permits? at /)
+})
