@@ -23,6 +23,14 @@
  * That is why every op also carries a `note` — the tag, class and text as
  * they were when the edit was made — so the export names the element in
  * terms a reader can find in the JSX even if the path has gone stale.
+ *
+ * Since CPE-M1 (2026-09-08) the paths are anchored on AboutView's OWN root
+ * — the `<main>` it renders — not on the editor's host element. Under the
+ * first editor (/admin, #208) every path began `0/` because the host's
+ * first child WAS that root; now the editor wraps the live document
+ * wherever it is mounted, so the anchor had to be the document itself. The
+ * storage key moved with it (v1 → v2): a v1 draft's paths are one level
+ * deep and would mis-apply.
  */
 
 export interface EditNote {
@@ -39,8 +47,9 @@ export type EditOp =
  *  admin stylesheet is what actually hides it. No About element uses it. */
 export const HIDDEN_ATTR = 'data-cp-admin-hidden'
 
-/** Versioned per device — bump to abandon a draft shape. */
-export const STORAGE_KEY = 'cleanplateva.admin.about.v1'
+/** Versioned per device — bump to abandon a draft shape. v2 (CPE-M1): the
+ *  paths anchor on AboutView's root, one level up from v1's. */
+export const STORAGE_KEY = 'cleanplateva.admin.about.v2'
 
 const NOTE_TEXT_MAX = 140
 
@@ -230,6 +239,7 @@ export function exportText(ops: EditOp[], now: Date = new Date()): string {
     const lines: string[] = [
         `CleanPlateVA About — ${ops.length} edit${ops.length === 1 ? '' : 's'} drafted ${stamp}`,
         'Target: app/AboutView.tsx. Drafted on one device; nothing is published.',
+        'Paths are child-index chains from the document root — the <main> AboutView renders.',
         '',
     ]
 

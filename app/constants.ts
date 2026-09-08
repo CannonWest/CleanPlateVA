@@ -124,8 +124,13 @@ export const AERIAL_TILE_SIZE = 256
 // 2026-09-07 — a longer form ran under the chip at desktop widths and lost
 // its own first word). The full formal credit is the terms document's row
 // (TermsBody), which names the program, the agency and the department.
+// The program by name — VGIN's condition for public use (Gerard Bernhardt,
+// VBMP program manager, 2026-09-08: "with proper credit to the Virginia Base
+// Mapping Program"), with the network that holds the copyright after it.
+// Longer than the first cut's "© VGIN"; the footer lane's aerial-on stop is
+// sized to it (App.tsx) and the e2e lane test measures the two apart.
 export const AERIAL_ATTRIBUTION =
-    'Imagery © <a href="https://vgin.vdem.virginia.gov/pages/orthoimagery" target="_blank" rel="noopener">VGIN</a>'
+    'Imagery © <a href="https://vgin.vdem.virginia.gov/pages/orthoimagery" target="_blank" rel="noopener">Virginia Base Mapping Program</a> (VGIN)'
 
 // dark-matter ships its trunk/motorway road labels at 1.7:1 against its own
 // background (CARTO defect, one layer); #d8d8d8 measures 13.5:1. See the old
@@ -175,6 +180,19 @@ export const CLUSTERS_KEY = 'cleanplateva.clusters'
 // as 'map' — the CARTO style, the shipped default. A presentation choice
 // like the theme and the palette: per visitor, never in the URL (C6).
 export const BASEMAP_KEY = 'cleanplateva.basemap'
+
+/** The admin's device flag (CPE-M1, design ref §6.6): written by the
+ *  session page at /admin once the Worker has verified the Access token;
+ *  read by the public views to render their Edit controls. Its presence is
+ *  what lets a signed-in device see the controls without ever probing on a
+ *  visitor's behalf — a device without it renders nothing and asks nothing.
+ *  The JSON `{ email, exp }`, `exp` the token's own expiry in unix seconds. */
+export const ADMIN_SESSION_KEY = 'cleanplateva.admin.session'
+
+/** The map edit mode's draft (CPE-M2, design ref §6.6): the proposal pins
+ *  this device has dragged and not yet submitted, per device, surviving a
+ *  reload (OQ-B). Versioned like the About draft — bump to abandon a shape. */
+export const MAP_DRAFT_KEY = 'cleanplateva.admin.map.v1'
 
 // MapLibre source + layer ids (data layers re-added on every style swap).
 export const SRC = 'food-facilities'

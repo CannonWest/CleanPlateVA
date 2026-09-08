@@ -142,8 +142,13 @@ describe.skipIf(!built)('dist/ splits what changes from what does not (CRP-M5)',
         expect(entry.length).toBeLessThan(400_000)
     })
 
-    test('List, About and the report-card modal load on demand', () => {
-        for (const name of ['ListView', 'AboutView', 'ReceiptModal']) {
+    // The admin's two chunks (CPE-M1) ride the same rule as the documents:
+    // the session page and the About edit mode load on demand, so a visitor's
+    // page never fetches a byte of either (design ref §6.6).
+    const LAZY = ['ListView', 'AboutView', 'ReceiptModal', 'AdminApp', 'AboutEditor', 'MapEditor']
+
+    test('List, About, the report-card modal, the session page and the two editors load on demand', () => {
+        for (const name of LAZY) {
             expect(assets().some((file) => new RegExp(`^${name}-.*\\.js$`).test(file)),
                 `no lazy chunk for ${name} in ${assets().join(', ')}`).toBe(true)
         }
@@ -153,7 +158,7 @@ describe.skipIf(!built)('dist/ splits what changes from what does not (CRP-M5)',
         const html = readFileSync(resolve(DIST, 'index.html'), 'utf8')
         expect(html).toMatch(/modulepreload[^>]*assets\/maplibre-/)
         expect(html).toMatch(/modulepreload[^>]*assets\/react-/)
-        for (const name of ['ListView', 'AboutView', 'ReceiptModal']) expect(html).not.toContain(`${name}-`)
+        for (const name of LAZY) expect(html).not.toContain(`${name}-`)
     })
 })
 

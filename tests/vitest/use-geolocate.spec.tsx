@@ -1,19 +1,22 @@
 // @vitest-environment jsdom
 /**
- * Geolocate + the coverage note (CRP-M3): the pure coverage math, and the
- * hook's wiring against a recording GeolocateControl — the ratified control
- * options, bottom-right placement, the note for a fix outside the mapped
- * area and for a failed fix, the follow lock's two-way tracking, and "Back
- * to Virginia" dropping the lock before it fits the state. And the
- * auto-locate's timing (2026-09-07): install asks the browser for nothing;
- * `autoLocate` is the one request, once.
+ * Geolocate (CRP-M3): the hook's wiring against a recording GeolocateControl
+ * — the ratified control options, bottom-right placement, and the follow
+ * lock's two-way tracking. And the auto-locate's timing (2026-09-07):
+ * install asks the browser for nothing; `autoLocate` is the one request,
+ * once.
+ *
+ * The note UI was deleted 2026-09-08 (Cannon's call): no message for a fix
+ * outside the mapped area, no way back offered, no message for a failed
+ * fix, no coverage math. The specs that pinned them are gone, and one that
+ * pins their ABSENCE takes their place — a hook that quietly regrew a
+ * `geolocate` or `error` listener, or that moved the camera on its own, is
+ * a red test.
  */
-import { act, StrictMode, useEffect, useRef } from 'react'
+import { act, StrictMode, useEffect } from 'react'
 import { createRoot } from 'react-dom/client'
 import type { Root } from 'react-dom/client'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
-import { VA_BOUNDS, VA_FIT } from '../../app/constants'
-import type { RosterRow } from '../../app/data/types'
 
 class FakeGeolocateControl {
     static instances: FakeGeolocateControl[] = []
@@ -36,9 +39,7 @@ class FakeGeolocateControl {
 
 vi.mock('maplibre-gl', () => ({ GeolocateControl: FakeGeolocateControl }))
 
-const {
-    COVERAGE_PAD, LOCATION_FAILED_NOTE, OUTSIDE_COVERAGE_NOTE, coverageBounds, useGeolocate, withinCoverage,
-} = await import('../../app/useGeolocate')
+const { useGeolocate } = await import('../../app/useGeolocate')
 type Geolocate = ReturnType<typeof useGeolocate>
 
 declare global {
@@ -47,56 +48,33 @@ declare global {
 }
 globalThis.IS_REACT_ACT_ENVIRONMENT = true
 
-let seq = 0
-function row(lat: number | null, lon: number | null): RosterRow {
-    seq += 1
-    return {
-        permit_id: `P-${seq}`, name: `Place ${seq}`, address: '1 Main St', address2: null,
-        city: 'Richmond', zip: '23220', tenant: 'richmond', is_restaurant: true, mobile: false,
-        pt: 1, lat, lon, loc: 0,
-    } as unknown as RosterRow
-}
-
-// Richmond → Norfolk-ish: n 37.6 / s 36.8 / e -76.2 / w -77.5
-const ROWS = [row(37.6, -77.5), row(36.8, -76.2), row(37.2, -76.9), row(null, null)]
-
-test('coverageBounds is the box of the LOCATED rows; nothing located → null', () => {
-    expect(coverageBounds(ROWS)).toEqual({ n: 37.6, s: 36.8, e: -76.2, w: -77.5 })
-    expect(coverageBounds([])).toBeNull()
-    expect(coverageBounds([row(null, null), row(null, -77)])).toBeNull()
-})
-
-test('withinCoverage pads the box ~20 km and says nothing when nothing is located yet', () => {
-    expect(COVERAGE_PAD).toBe(0.2)
-    expect(withinCoverage(ROWS, 37.2, -76.9)).toBe(true)                  // inside
-    expect(withinCoverage(ROWS, 37.6 + 0.19, -77.5 - 0.19)).toBe(true)    // in the pad
-    expect(withinCoverage(ROWS, 37.6 + 0.21, -76.9)).toBe(false)          // north of the pad
-    expect(withinCoverage(ROWS, 37.2, -76.2 + 0.21)).toBe(false)          // east of the pad
-    expect(withinCoverage(ROWS, 40.7, -74.0)).toBe(false)                 // New York
-    expect(withinCoverage([], 40.7, -74.0)).toBe(true)                    // nothing loaded: say nothing
-})
-
 // ── the hook ────────────────────────────────────────────────────────────
 
 let host: HTMLDivElement
 let root: Root | null = null
 let latest: Geolocate | null = null
 
-function Probe({ rows }: { rows: readonly RosterRow[] }) {
-    const ref = useRef(rows)
-    ref.current = rows
-    const geo = useGeolocate(ref)
+/** `tick` exists to force a re-render: the hook holds no state of its own
+ *  since the note went, so nothing it does can re-render the tree. */
+function Probe({ tick = 0 }: { tick?: number }) {
+    const geo = useGeolocate()
     useEffect(() => { latest = geo })
-    return <i>{geo.note?.text ?? ''}</i>
+    return <i>{tick}</i>
 }
 
-async function mount(rows: readonly RosterRow[] = ROWS) {
+async function mount() {
     root = createRoot(host)
     await act(async () => {
-        root?.render(<StrictMode><Probe rows={rows} /></StrictMode>)
+        root?.render(<StrictMode><Probe /></StrictMode>)
     })
     if (!latest) throw new Error('hook never rendered')
     return latest
+}
+
+async function rerender(tick: number) {
+    await act(async () => {
+        root?.render(<StrictMode><Probe tick={tick} /></StrictMode>)
+    })
 }
 
 function fakeMap() {
@@ -189,32 +167,33 @@ test('install: the ratified control, bottom-right, once', async () => {
         fitBoundsOptions: { maxZoom: 13 },
     })
     expect(calls.addControl).toEqual([[control, 'bottom-right']])
-    expect(geo.note).toBeNull()
 })
 
-test('a fix outside the mapped area raises the coverage note with the way back; one inside clears it', async () => {
+test('the hook is SILENT: it listens for the follow lock and nothing else, and never moves the camera itself', async () => {
     const geo = await mount()
-    const { map } = fakeMap()
+    const { map, calls } = fakeMap()
     act(() => { geo.install(map) })
     const control = FakeGeolocateControl.instances[0]!
-    act(() => { control.emit('geolocate', { coords: { latitude: 40.7, longitude: -74.0 } }) })
-    expect(latest?.note).toEqual({ text: OUTSIDE_COVERAGE_NOTE, back: true })
-    expect(host.textContent).toContain("you're outside it")
-    act(() => { control.emit('geolocate', { coords: { latitude: 37.2, longitude: -76.9 } }) })
-    expect(latest?.note).toBeNull()
+
+    // The note UI is gone: a fix and a failure are both unlistened-for.
+    expect([...control.handlers.keys()].sort()).toEqual([
+        'trackuserlocationend', 'trackuserlocationstart', 'userlocationfocus', 'userlocationlostfocus',
+    ])
+    expect(control.handlers.has('geolocate')).toBe(false)
+    expect(control.handlers.has('error')).toBe(false)
+
+    // Emitting them anyway is inert — nothing renders, nothing throws.
+    act(() => {
+        control.emit('geolocate', { coords: { latitude: 40.7, longitude: -74.0 } })  // New York
+        control.emit('error')
+    })
+    expect(host.textContent).toBe('0')
+
+    // The camera is the caller's; the hook fits nothing on its own.
+    expect(calls.fitBounds).toEqual([])
 })
 
-test('a failed fix says to check location access, with no way back offered', async () => {
-    const geo = await mount()
-    const { map } = fakeMap()
-    act(() => { geo.install(map) })
-    act(() => { FakeGeolocateControl.instances[0]!.emit('error') })
-    expect(latest?.note).toEqual({ text: LOCATION_FAILED_NOTE, back: false })
-    act(() => { latest?.dismissNote() })
-    expect(latest?.note).toBeNull()
-})
-
-test('the follow lock tracks the control both ways, and Back to Virginia drops it before fitting the state', async () => {
+test('the follow lock tracks the control both ways; release drops it without moving the camera', async () => {
     const geo = await mount()
     const { map, calls } = fakeMap()
     act(() => { geo.install(map) })
@@ -226,28 +205,17 @@ test('the follow lock tracks the control both ways, and Back to Virginia drops i
     expect(geo.following.current).toBe(false)
     control.emit('userlocationfocus')
     expect(geo.following.current).toBe(true)
-    act(() => { control.emit('geolocate', { coords: { latitude: 40.7, longitude: -74.0 } }) })
-    expect(latest?.note?.back).toBe(true)
 
-    act(() => { latest?.backToVirginia(map) })
-    // Following → trigger() first (switching the lock off), then the fit.
+    // Following → trigger() switches the lock off. No fit: a zoom-changing
+    // move is the caller's to make (mapCamera.ts).
+    geo.release()
     expect(control.triggered).toBe(1)
-    expect(calls.fitBounds).toEqual([[VA_BOUNDS, VA_FIT]])
-    expect(latest?.note).toBeNull()
+    expect(calls.fitBounds).toEqual([])
 
     control.emit('trackuserlocationend')
     expect(geo.following.current).toBe(false)
-    act(() => { latest?.backToVirginia(map) })
-    expect(control.triggered).toBe(1)          // not following: no trigger
-    expect(calls.fitBounds).toHaveLength(2)
-
-    // release() alone: the lock-drop without the fit (a selection's camera).
     geo.release()
     expect(control.triggered).toBe(1)          // not following: nothing to drop
-    control.emit('trackuserlocationstart')
-    geo.release()
-    expect(control.triggered).toBe(2)
-    expect(calls.fitBounds).toHaveLength(2)    // no fit
 })
 
 test('the imperative half keeps its identity across renders; dispose forgets the control', async () => {
@@ -255,14 +223,15 @@ test('the imperative half keeps its identity across renders; dispose forgets the
     const { map } = fakeMap()
     act(() => { geo.install(map) })
     const control = FakeGeolocateControl.instances[0]!
-    act(() => { control.emit('error') })         // a re-render
+    await rerender(1)
     expect(latest).not.toBeNull()
+    expect(latest).toBe(geo)                     // no state left: the object itself is stable
     expect(latest?.install).toBe(geo.install)
-    expect(latest?.backToVirginia).toBe(geo.backToVirginia)
     expect(latest?.release).toBe(geo.release)
     expect(latest?.following).toBe(geo.following)
+
     control.emit('trackuserlocationstart')
     geo.dispose()
-    act(() => { latest?.backToVirginia(map) })
-    expect(control.triggered).toBe(0)           // the control is forgotten; the fit still happens
+    latest?.release()
+    expect(control.triggered).toBe(0)            // the control is forgotten
 })

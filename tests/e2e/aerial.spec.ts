@@ -211,9 +211,13 @@ test('a theme swap keeps the aerial: style.load re-applies it on the new style',
 // attribution strip, and the footer chip shares that lane — its stop was
 // measured (App.tsx, `sm:right-[360px]`) against the strip's width WITHOUT
 // an imagery credit. With the aerial on, the first cut's longer credit ran
-// under the chip at 1024-1200px and lost its own opening word. The fix is
-// a shorter credit plus a wider stop while the imagery is on; this is what
-// says the two never touch, at the widths where they nearly did.
+// under the chip at 1024-1200px and lost its own opening word; a shorter
+// credit plus a wider stop (440px) answered that, and then VGIN's condition
+// for public use — the program by name (2026-09-08) — made the strip 598px,
+// which that stop overlapped by 168px. Now the chip LIFTS one row above the
+// strip while the imagery is on (App.tsx), so the clearance is vertical and
+// no width of credit reaches it; the predicate below accepts either axis.
+// This is what says the two never touch, at the widths where they did.
 for (const width of [1024, 1200, 1440]) {
     test(`at ${width}px the imagery credit and the footer chip share the lane without overlapping`, async ({ page }) => {
         await page.setViewportSize({ width, height: 800 })

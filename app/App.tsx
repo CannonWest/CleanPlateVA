@@ -6,7 +6,7 @@
  * ack dialog until CRV-b builds it (briefing: restyle minimally, don't
  * build the dialog here).
  */
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ACK_DECLINED, createAckState, forceLiteFromSearch } from './ack'
 import { createFoodApi } from './data/client'
 import { DataProvider, useRoster } from './data/provider'
@@ -27,6 +27,11 @@ import {
 } from './settings'
 import { useAppRouter } from './useAppRouter'
 import { AckDialog } from './AckDialog'
+import { EditButton } from './admin/EditButton'
+import { clearSession, persistSession, probeSession, storedSession } from './admin/session'
+import type { AdminSession } from './admin/session'
+import type * as maplibregl from 'maplibre-gl'
+import type { RowDragHandler } from './StackPopover'
 import { DetailPanel } from './DetailPanel'
 import type { DetailState } from './DetailPanel'
 import { MapView } from './MapView'
@@ -45,6 +50,15 @@ import type { LoadedRoster, RosterRow } from './data/types'
 // the request budget (C3) is untouched: zero Worker requests either way.
 const AboutView = lazy(() => import('./AboutView').then((m) => ({ default: m.AboutView })))
 const ListView = lazy(() => import('./ListView').then((m) => ({ default: m.ListView })))
+// The About edit mode (CPE-M1, §6.6): its own lazy chunk, fetched the first
+// time a signed-in device enters it — a visitor's page never loads it.
+const AboutEditor = lazy(() => import('./admin/AboutEditor').then((m) => ({ default: m.AboutEditor })))
+// The map edit mode (CPE-M2, §6.6): the same rule — its own chunk, fetched
+// the first time a signed-in device enters it.
+const MapEditor = lazy(() => import('./admin/MapEditor').then((m) => ({ default: m.MapEditor })))
+
+/** A mode belongs to the view it was entered on. */
+type EditMode = 'about' | 'map' | null
 
 export function App() {
     const forceLite = useMemo(() => forceLiteFromSearch(window.location.search), [])
@@ -200,6 +214,58 @@ function Shell({ forceLite, ack }: {
         persistSettingsHintDismissed()
     }
 
+    // The admin's edit modes (CPE-M1, §6.6). The device flag decides whether
+    // the Edit control renders at all — a visitor's device carries none, so
+    // a visitor's page renders no control and never probes. An Edit click
+    // confirms the session with ONE probe (app/admin/session.ts): Access's
+    // redirect means signed out (the flag is cleared, the sign-in line
+    // shows), the Worker's identity means the mode opens. Edit mode needs
+    // the acknowledged tier: the document worth editing is the full one.
+    const [adminSession, setAdminSession] = useState<AdminSession | null>(() => storedSession(window.localStorage))
+    const [editing, setEditing] = useState<EditMode>(null)
+    const [probing, setProbing] = useState(false)
+    const [editNote, setEditNote] = useState<string | null>(null)
+    const enterEdit = () => {
+        if (probing) return
+        if (!ack.agreed) {
+            setEditNote('Edit mode needs the acknowledged tier. Agree to the terms first.')
+            return
+        }
+        const target: EditMode = state.view === 'map' ? 'map' : 'about'
+        setProbing(true)
+        void probeSession().then((result) => {
+            setProbing(false)
+            if (result.state === 'signed-in') {
+                persistSession(window.localStorage, result.session)
+                setAdminSession(result.session)
+                setEditNote(null)
+                // The map mode owns the right side and the pointer: an open
+                // panel closes so its sheet and the pins drawer never overlap.
+                if (target === 'map' && state.permit) actions.closePanel()
+                setEditing(target)
+            } else if (result.state === 'signed-out') {
+                clearSession(window.localStorage)
+                setAdminSession(null)
+                setEditNote('Sign in at /admin to continue.')
+            } else {
+                setEditNote(`Session verification is unavailable (${result.reason}).`)
+            }
+        })
+    }
+    const exitEdit = () => setEditing(null)
+    // A mode belongs to its view: leaving the view leaves the mode.
+    useEffect(() => {
+        if (editing && editing !== state.view) setEditing(null)
+    }, [state.view, editing])
+    // The map edit mode's wiring: the live map (MapView hands it over) and
+    // the popover row press handler (MapEditor hands it back) — both null
+    // outside the mode. A fine pointer is what the drag is designed for.
+    const [mapInstance, setMapInstance] = useState<maplibregl.Map | null>(null)
+    const [rowDrag, setRowDrag] = useState<RowDragHandler | null>(null)
+    const bindRowDrag = useCallback((handler: RowDragHandler | null) => setRowDrag(() => handler), [])
+    const coarse = useMemo(() => typeof window.matchMedia === 'function'
+        && window.matchMedia('(pointer: coarse)').matches, [])
+
     // The full roster the counts measure against: loaded actives + the
     // lazily-merged closed rows (they stay once loaded; the predicate
     // hides them again when the toggle goes off).
@@ -239,20 +305,60 @@ function Shell({ forceLite, ack }: {
         return () => { alive = false }
     }, [selected, lite, getDetail])
 
+    // The About document, rendered once here so the edit mode can wrap the
+    // SAME element it would otherwise show — live data, live tier.
+    const about = (
+        <AboutView
+            loaded={loaded}
+            unavailable={unavailable}
+            forceLite={forceLite}
+            ack={{ agreed: ack.agreed, decided: ack.decided, persisted: ack.persisted }}
+            onSwitchToBasic={() => {
+                // A downgrade needs no acknowledgement (ack.js).
+                ack.set(ACK_DECLINED)
+                reload()
+            }}
+            onReviewTerms={() => setTermsOpen(true)}
+            scrollToTerms={termsIntent}
+            onTermsShown={() => setTermsIntent(false)}
+        />
+    )
+
     return (
         <div className="relative h-dvh w-full overflow-hidden bg-cp-bg">
             <MapView
                 facilities={filtered}
                 lite={lite}
                 dark={dark}
-                clusters={clusters}
+                // Clusters are forced off for the edit mode (a cluster cannot
+                // be dragged); the visitor's own switch is untouched and
+                // comes back on exit.
+                clusters={editing === 'map' ? false : clusters}
                 palette={palette}
                 basemap={basemap}
                 onBasemap={onBasemap}
                 onSelect={(pid) => actions.select(pid)}
                 locateReady={!blocking && !arrivedAtPlace}
                 selected={selected}
+                editing={editing === 'map'}
+                onMapReady={setMapInstance}
+                rowDrag={editing === 'map' ? rowDrag : null}
             />
+
+            {editing === 'map' && !blocking && (
+                <Suspense fallback={null}>
+                    <MapEditor
+                        map={mapInstance}
+                        rows={filtered}
+                        snapshotId={loaded?.snapshot_id ?? null}
+                        dark={dark}
+                        coarse={coarse}
+                        getDetail={getDetail}
+                        bindRowDrag={bindRowDrag}
+                        onExit={exitEdit}
+                    />
+                </Suspense>
+            )}
 
             {blocking ? (
                 <GhostShell />
@@ -292,20 +398,33 @@ function Shell({ forceLite, ack }: {
                             onPick={(pid) => actions.select(pid)}
                         />
                     ) : (
-                        <AboutView
-                            loaded={loaded}
-                            unavailable={unavailable}
-                            forceLite={forceLite}
-                            ack={{ agreed: ack.agreed, decided: ack.decided, persisted: ack.persisted }}
-                            onSwitchToBasic={() => {
-                                // A downgrade needs no acknowledgement (ack.js).
-                                ack.set(ACK_DECLINED)
-                                reload()
-                            }}
-                            onReviewTerms={() => setTermsOpen(true)}
-                            scrollToTerms={termsIntent}
-                            onTermsShown={() => setTermsIntent(false)}
-                        />
+                        <>
+                            {(adminSession || editNote) && (
+                                // The admin's Edit control at the document's head
+                                // (§6.6): only a device holding the session flag
+                                // renders it. The note beside it is the probe's
+                                // answer when the mode did not open — and once a
+                                // note is up the row stays for this page load even
+                                // after a signed-out probe cleared the flag, so the
+                                // click that was just made has a visible answer;
+                                // the next load renders nothing, as for a visitor.
+                                <div className="mx-auto flex max-w-[52rem] flex-wrap items-center gap-3 px-4 pt-3">
+                                    <EditButton
+                                        editing={editing === 'about'}
+                                        busy={probing}
+                                        onClick={editing === 'about' ? exitEdit : enterEdit}
+                                    />
+                                    {editNote && (
+                                        <span className="text-cp-12.5 text-cp-ink-3" role="status">{editNote}</span>
+                                    )}
+                                </div>
+                            )}
+                            {editing === 'about' ? (
+                                <Suspense fallback={null}>
+                                    <AboutEditor onExit={exitEdit}>{about}</AboutEditor>
+                                </Suspense>
+                            ) : about}
+                        </>
                     )}
                     </Suspense>
                     <Attribution inline snapshot={snapshot} onTerms={showTerms} />
@@ -341,12 +460,31 @@ function Shell({ forceLite, ack }: {
                         shown={filtered.length}
                         total={all.length}
                     />
-                    <SettingsButton
-                        onClick={() => {
-                            dismissHint()
-                            setSettingsOpen(true)
-                        }}
-                    />
+                    {/* The Settings pill, and — for a device holding the
+                        session flag — the admin's Edit pill to its right
+                        (§6.6, OQ-A; CPE-M2). One row, so the hint below
+                        keeps pointing at the gear. The row is pointer-
+                        transparent between the pills; the pills take it. */}
+                    <div className="pointer-events-none flex flex-wrap items-start gap-2.5 [&>*]:pointer-events-auto">
+                        <SettingsButton
+                            onClick={() => {
+                                dismissHint()
+                                setSettingsOpen(true)
+                            }}
+                        />
+                        {(adminSession || editNote) && (
+                            <EditButton
+                                editing={editing === 'map'}
+                                busy={probing}
+                                onClick={editing === 'map' ? exitEdit : enterEdit}
+                            />
+                        )}
+                        {editNote && !editing && (
+                            <span role="status" className="self-center rounded-cp-pill bg-cp-surface-1/95 px-2.5 py-1 text-cp-12.5 text-cp-ink-3 shadow-cp">
+                                {editNote}
+                            </span>
+                        )}
+                    </div>
                     {!hintDismissed && <SettingsHint onDismiss={dismissHint} />}
                 </div>
             )}
@@ -383,18 +521,25 @@ function Shell({ forceLite, ack }: {
                 // expanded control. Only the chip takes the pointer, so the
                 // map beside it still drags.
                 //
-                // The AERIAL widens that strip (2026-09-07): the imagery's
-                // credit joins CARTO's and OpenStreetMap's on the same line,
-                // and at 1024-1200px the chip ran over its first word
-                // (measured). The stop moves out to 440px for exactly as
-                // long as the imagery is on the map — a wider stop always
-                // would squeeze the chip into a tall column on the narrow
-                // side of `sm` for no reason. (Whole class strings,
+                // The AERIAL widens that strip: the imagery's credit joins
+                // CARTO's and OpenStreetMap's on the same line. A first cut
+                // (2026-09-07) met it with a wider stop, 440px, sized to a
+                // short "© VGIN"; VGIN's condition for public use is the
+                // program by name (2026-09-08), and the named credit makes
+                // the strip 598px (measured) — a 440 stop overlapped it by
+                // 168px at 1024 and 1200, and a stop wide enough to clear it
+                // would leave the chip 4px at the narrow end of `sm`. So
+                // while the imagery is on the map the chip LIFTS one row
+                // above the strip instead — the same row the sub-`sm` rule
+                // already puts it on — with the control lane as its only
+                // stop: no width of credit can reach it, at any width. The
+                // stop-on-the-line rule stands for the drawn map, whose
+                // strip it was measured against. (Whole class strings,
                 // whitespace-delimited: Tailwind's scanner drops one glued
                 // to a `${`.)
                 <div
                     className={`pointer-events-none fixed bottom-2.5 left-3 z-10 flex flex-col items-start gap-1.5 max-sm:right-[54px] max-sm:bottom-[38px] [&>*]:pointer-events-auto ${
-                        basemap === 'aerial' ? 'sm:right-[440px]' : 'sm:right-[360px]'
+                        basemap === 'aerial' ? 'sm:right-[54px] sm:bottom-[38px]' : 'sm:right-[360px]'
                     }`}
                 >
                     <Attribution snapshot={snapshot} onTerms={showTerms} />

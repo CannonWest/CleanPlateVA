@@ -385,6 +385,9 @@ test('the aerial is a raster source on the VBMP tile scheme, capped at the zoom 
     expect(AERIAL_TILES).toContain('/tile/{z}/{y}/{x}')
     // The credit rides the SOURCE, so it appears exactly while the imagery
     // is on the map and leaves with it.
+    // The program by name — VGIN's condition for public use (2026-09-08) —
+    // and the network that holds the copyright.
+    expect(AERIAL_ATTRIBUTION).toContain('Virginia Base Mapping Program')
     expect(AERIAL_ATTRIBUTION).toContain('VGIN')
 })
 
@@ -487,4 +490,58 @@ test('the basemap never touches the markers: no paint, no layout, no images, no 
         expect(calls.removeLayer.filter((id) => id !== LYR_AERIAL)).toEqual([])
         expect(calls.removeSource.filter((id) => id !== SRC_AERIAL)).toEqual([])
     }
+})
+
+// ── the seam on a style strangers have added to (2026-09-08) ────────────
+// Found merging the aerial over CPE-M2: the edit mode installs proposal
+// tethers (a LINE layer) and pins (CIRCLES) above the markers — layers this
+// module does not own. A live flip that re-scanned the style took the pins
+// for the basemap's last drawn layer and put the photograph over the dots.
+// The fix is the `seam` MapView measures on the pristine style at style.load
+// and hands back on every flip.
+
+const EDIT_MODE_LAYERS = [
+    ...DARK_MATTER_LAYERS,
+    { id: LYR_CLUSTERS, type: 'symbol' }, { id: LYR_POINTS, type: 'circle' },
+    { id: LYR_STACKS, type: 'circle' }, { id: LYR_STACK_COUNT, type: 'symbol' },
+    // The edit mode's layers, in its own install order (mapEditController;
+    // the ids are app/admin/mapDraft.ts's, written out so this spec never
+    // imports the admin chunk).
+    { id: 'cp-proposal-tethers', type: 'line' },
+    { id: 'cp-proposal-pins', type: 'circle' },
+    { id: 'cp-proposal-badges', type: 'symbol' },
+]
+
+test('a live flip in edit mode: the seam measured on the pristine style keeps the aerial under the markers', () => {
+    // What MapView does at style.load, before anything is added.
+    const pristine = recorder({ styleLayers: DARK_MATTER_LAYERS })
+    const seam = labelBlockStart(pristine.host)
+    expect(seam).toBe('waterway_label')
+    // The visitor flips later, on a style that now carries the markers and
+    // the edit mode's layers above them.
+    const live = recorder({ styleLayers: EDIT_MODE_LAYERS, layers: EDIT_MODE_LAYERS.map((l) => l.id) })
+    applyBasemap(live.host, 'aerial', seam)
+    expect(live.calls.before[0]).toBe('waterway_label')
+})
+
+test('why the seam is handed over: a re-scan of that style takes the pins for the basemap and lands above the dots', () => {
+    const live = recorder({ styleLayers: EDIT_MODE_LAYERS, layers: EDIT_MODE_LAYERS.map((l) => l.id) })
+    // The scan alone, as the first cut did it: the last non-symbol layer it
+    // can see is the pins, so it names the badges above them — above the
+    // markers. This is the defect, kept as a test so the reason survives.
+    expect(labelBlockStart(live.host)).toBe('cp-proposal-badges')
+    applyBasemap(live.host, 'aerial', null)
+    expect(live.calls.before[0]).toBe('cp-proposal-badges')
+})
+
+test('a measured seam the style no longer has falls back to the scan, then to the markers', () => {
+    const restyled = recorder({ styleLayers: POSITRON_LAYERS, layers: [] })
+    applyBasemap(restyled.host, 'aerial', 'a_layer_carto_renamed')
+    expect(restyled.calls.before[0]).toBe(labelBlockStart(restyled.host))
+    const bare = recorder({
+        styleLayers: [{ id: 'background', type: 'background' }, { id: LYR_CLUSTERS, type: 'symbol' }],
+        layers: [LYR_CLUSTERS],
+    })
+    applyBasemap(bare.host, 'aerial', 'gone')
+    expect(bare.calls.before[0]).toBe(LYR_CLUSTERS)
 })

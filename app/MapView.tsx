@@ -38,28 +38,29 @@
  * recording host and cross-checked with mapHit's radii), the two popups
  * ride one `useMapPopup` controller each (the display-only hover card and
  * the interactive stack popover), and geolocate + the patient auto-locate
- * + the coverage note are `useGeolocate`. What stays here is the island
- * itself: the map's lifecycle, the pointer rules, the effects that answer
- * data / switch / theme / palette / basemap changes, and the one that
- * releases the auto-locate once the page is ready for it.
+ * are `useGeolocate`. What stays here is the island itself: the map's
+ * lifecycle, the pointer rules, the effects that answer data / switch /
+ * theme / palette / basemap changes, and the one that releases the
+ * auto-locate once the page is ready for it.
  *
- * The basemap choice (2026-09-07, Cannon's ask): the layers control in the
- * bottom-right lane swaps the drawn CARTO ground for the Commonwealth's own
- * VBMP aerial photography, which goes UNDER the style's first label layer
- * (mapLayers applyBasemap) rather than over the whole basemap — so the
- * theme keeps owning the labels, one raster layer is the entire change, and
- * every marker rule, hit target and palette stays exactly where it was. The
- * control is a MapLibre IControl whose element React fills through a portal.
+ * The basemap choice (2026-09-07, Cannon's ask; public use confirmed by
+ * VGIN 2026-09-08): the layers control in the bottom-right lane swaps the
+ * drawn CARTO ground for the Commonwealth's own VBMP aerial photography,
+ * which goes UNDER the style's label block (mapLayers applyBasemap) rather
+ * than over the whole basemap — so the theme keeps owning the labels, one
+ * raster layer is the entire change, and every marker rule, hit target and
+ * palette stays exactly where it was. The control is a MapLibre IControl
+ * whose element React fills through a portal.
  *
  * Ported from the old `map.js`: the dark-matter road-label contrast fix,
- * fadeDuration 0 (symbol counts must move with their bubbles), geolocate +
- * patient auto-locate, and the out-of-coverage note.
+ * fadeDuration 0 (symbol counts must move with their bubbles), and geolocate
+ * + patient auto-locate. The out-of-coverage note it also carried over was
+ * deleted 2026-09-08.
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import * as maplibregl from 'maplibre-gl'
-import { X } from 'lucide-react'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import {
     DONUT_PIXEL_RATIO, LYR_CLUSTERS, LYR_POINTS, LYR_STACKS, SRC,
@@ -71,13 +72,14 @@ import type { MapData } from './mapData'
 import { selectionCamera } from './mapCamera'
 import { hitSlop, markRadius, pickMark, popoverSurvivesZoom } from './mapHit'
 import {
-    HIT_LAYERS, applyBasemap, applyPalette, fixDarkRoadLabels, installDataLayers,
+    HIT_LAYERS, applyBasemap, applyPalette, fixDarkRoadLabels, installDataLayers, labelBlockStart,
 } from './mapLayers'
 import { useGeolocate } from './useGeolocate'
 import { useMapPopup } from './useMapPopup'
 import { HoverCard } from './HoverCard'
 import { LayersControl } from './LayersControl'
 import { StackPopover } from './StackPopover'
+import type { RowDragHandler } from './StackPopover'
 import type { Basemap } from './basemap'
 import type { GradePalette } from './constants'
 import { coordsOf } from './data/presentation'
@@ -86,6 +88,7 @@ import type { RosterRow } from './data/types'
 export function MapView({
     facilities, lite, dark, clusters, palette, basemap, onBasemap,
     onSelect, locateReady, selected,
+    editing = false, onMapReady = null, rowDrag = null,
 }: {
     facilities: RosterRow[]
     lite: boolean
@@ -113,15 +116,35 @@ export function MapView({
      *  Back/Forward — brings the place into view (mapCamera.ts); the map's
      *  own picks never move the camera. */
     selected: RosterRow | null
+    /** The admin's map edit mode is on (CPE-M2, §6.6): a dot click opens no
+     *  panel and a popover row click picks nothing — the mode owns the
+     *  pointer; the popover still opens, its rows are drag handles. */
+    editing?: boolean
+    /** The live map, for the edit mode's controller — handed over once at
+     *  mount, null again at unmount. */
+    onMapReady?: ((map: maplibregl.Map | null) => void) | null
+    /** The edit mode's row press handler for the stack popover. */
+    rowDrag?: RowDragHandler | null
 }) {
     const container = useRef<HTMLDivElement>(null)
     const mapRef = useRef<maplibregl.Map | null>(null)
+    const editingRef = useRef(editing)
+    editingRef.current = editing
+    const rowDragRef = useRef(rowDrag)
+    rowDragRef.current = rowDrag
+    const onMapReadyRef = useRef(onMapReady)
+    onMapReadyRef.current = onMapReady
     const styleDarkRef = useRef(dark)
     const clustersRef = useRef(clusters)
     const paletteRef = useRef(palette)
     paletteRef.current = palette
     const basemapRef = useRef(basemap)
     basemapRef.current = basemap
+    // The basemap's label-block seam, measured on each PRISTINE style at
+    // style.load and handed to every later flip (mapLayers applyBasemap):
+    // a live style carries the markers and, in edit mode, the proposal
+    // layers above them, and a re-scan would take those for the basemap.
+    const seamRef = useRef<string | null>(null)
     const [failed, setFailed] = useState(false)
     // The layers control's element, once MapLibre has placed it in the
     // bottom-right lane — React renders into it through a portal.
@@ -133,8 +156,6 @@ export function MapView({
     dataRef.current = data
     const darkRef = useRef(dark)
     darkRef.current = dark
-    const facilitiesRef = useRef<readonly RosterRow[]>(facilities)
-    facilitiesRef.current = facilities
     const byPid = useMemo(
         () => new Map(facilities.map((f) => [String(f.permit_id), f])),
         [facilities],
@@ -160,8 +181,8 @@ export function MapView({
     const hover = useMapPopup({ className: 'cp-tip', offset: 14, maxWidth: '380px' })
     // The stack member popover (M2): its own INTERACTIVE popup.
     const stack = useMapPopup({ className: 'cp-pop', offset: 16, maxWidth: '288px' })
-    // "Find me" + follow + the patient auto-locate + the coverage note.
-    const geolocate = useGeolocate(facilitiesRef)
+    // "Find me" + follow + the patient auto-locate. Silent on every fix.
+    const geolocate = useGeolocate()
 
     useEffect(() => {
         if (!container.current || mapRef.current) return
@@ -193,6 +214,7 @@ export function MapView({
         // hence not DEV-gated. A client-side object; nothing about the
         // visitor rides on it.
         ;(window as unknown as { __cpMap?: maplibregl.Map }).__cpMap = map
+        onMapReadyRef.current?.(map)
 
         // The donut images (CRP-M6): painted the first time the style asks
         // for an id, on the CURRENT style — setStyle drops every image and
@@ -228,10 +250,13 @@ export function MapView({
         // Fires on the initial style AND after every setStyle (theme swap) —
         // custom sources/layers/images don't survive a swap.
         map.on('style.load', () => {
-            // The aerial first: it belongs INSIDE the basemap (under its
-            // first label layer), and installing it before the markers keeps
-            // that search away from our own symbol layers entirely.
-            applyBasemap(map, basemapRef.current)
+            // The seam first, on the bare style — the one moment nothing
+            // but the basemap is on it — then the aerial under it, then the
+            // markers: it belongs INSIDE the basemap (under its label
+            // block), and the measurement here is what every later flip
+            // uses, so a style strangers have added to is never re-scanned.
+            seamRef.current = labelBlockStart(map)
+            applyBasemap(map, basemapRef.current, seamRef.current)
             installDataLayers(map, dataRef.current, styleDarkRef.current, clustersRef.current, paletteRef.current)
             fixDarkRoadLabels(map, styleDarkRef.current)
         })
@@ -286,10 +311,15 @@ export function MapView({
                     members={members}
                     lite={liteRef.current}
                     onPick={(pid) => {
+                        // In edit mode a row is a drag handle, not a pick.
+                        if (editingRef.current) return
                         stack.hide()
                         ownPick.current = pid
                         onSelectRef.current(pid)
                     }}
+                    onRowPointerDown={editingRef.current
+                        ? (pid, event) => rowDragRef.current?.(pid, event)
+                        : null}
                 />
             ))
         }
@@ -337,6 +367,9 @@ export function MapView({
                 return
             }
             stack.hide()
+            // In edit mode a dot is a drag handle (mapEditController.ts):
+            // the mode owns the pointer, and a click opens no panel.
+            if (editingRef.current) return
             if (props.pid && byPidRef.current.has(String(props.pid))) {
                 hover.hide() // the panel takes over
                 ownPick.current = String(props.pid)
@@ -442,6 +475,7 @@ export function MapView({
             setLayersHost(null)
             mapRef.current = null
             ;(window as unknown as { __cpMap?: maplibregl.Map }).__cpMap = undefined
+            onMapReadyRef.current?.(null)
             map.remove()
         }
     }, [])
@@ -507,15 +541,16 @@ export function MapView({
     }, [selected])
 
     // The basemap (the layers control): add or drop the aerial raster on
-    // the live style — one layer, inserted under the style's first label
-    // layer, so the markers never restack and nothing is rebuilt. Before
-    // the style exists only the ref moves; style.load applies it. A theme
-    // swap needs nothing here either: it tears the style down and
-    // style.load re-applies this from the same ref.
+    // the live style — one layer, inserted under the style's label block
+    // at the seam style.load measured, so the markers (and the edit mode's
+    // layers above them) never restack and nothing is rebuilt. Before the
+    // style exists only the ref moves; style.load applies it. A theme swap
+    // needs nothing here either: it tears the style down and style.load
+    // re-measures and re-applies this from the same refs.
     useEffect(() => {
         const map = mapRef.current
         if (!map || !map.isStyleLoaded()) return
-        applyBasemap(map, basemap)
+        applyBasemap(map, basemap, seamRef.current)
     }, [basemap])
 
     // Theme swap: setStyle tears everything down; style.load reinstalls.
@@ -542,7 +577,6 @@ export function MapView({
         applyPalette(map, styleDarkRef.current, palette)
     }, [palette])
 
-    const note = geolocate.note
     return (
         <div className="absolute inset-0">
             <div ref={container} className="h-full w-full" aria-label="map" />
@@ -559,28 +593,6 @@ export function MapView({
                 <p className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-cp-12.5 text-cp-ink-3">
                     The map could not start (WebGL unavailable).
                 </p>
-            )}
-            {note && (
-                <div className="absolute top-16 left-1/2 z-10 flex max-w-sm -translate-x-1/2 items-center gap-3 rounded-cp-card border border-cp-hairline bg-cp-surface-1/95 px-3 py-2 text-cp-12.5 shadow-cp">
-                    <span>{note.text}</span>
-                    {note.back && (
-                        <button
-                            type="button"
-                            className="shrink-0 font-semibold text-cp-accent"
-                            onClick={() => geolocate.backToVirginia(mapRef.current)}
-                        >
-                            Back to Virginia
-                        </button>
-                    )}
-                    <button
-                        type="button"
-                        className="shrink-0 text-cp-ink-3"
-                        aria-label="Dismiss"
-                        onClick={() => geolocate.dismissNote()}
-                    >
-                        <X size={14} aria-hidden="true" />
-                    </button>
-                </div>
             )}
         </div>
     )

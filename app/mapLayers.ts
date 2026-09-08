@@ -9,10 +9,10 @@
  * Bottom to top:
  *
  *   · vbmp-imagery       raster   the aerial, when chosen — NOT on top of
- *                                 the basemap but INSIDE it, under CARTO's
- *                                 first label layer (applyBasemap), so the
- *                                 photograph replaces the drawn ground and
- *                                 the theme's labels still ride over it
+ *                                 the basemap but INSIDE it, under the
+ *                                 style's label block (applyBasemap), so
+ *                                 the photograph replaces the drawn ground
+ *                                 and the theme's labels still ride over it
  *   · food-clusters      symbol   the CRP-M6 donut + count, under everything
  *   · food-points        circle   grade fill; ring white, or declining red
  *   · food-stacks        circle   neutral count bubbles, above lone dots
@@ -149,9 +149,11 @@ export function applyPalette(map: LayerHost, dark: boolean, palette: GradePalett
     for (const id of staleDonutIds(map.listImages(), theme, palette)) map.removeImage(id)
 }
 
-/** Our own layer ids — everything this module adds. `firstLabelLayer` skips
+/** Our own layer ids — everything this module adds. `labelBlockStart` skips
  *  them: the cluster donuts are a symbol layer too, and the aerial must
- *  never slide under the markers. */
+ *  never slide under the markers. Layers OTHER modules add (the edit mode's
+ *  tethers, pins and badges) are not listed here and must not need to be —
+ *  see the `seam` argument of applyBasemap. */
 const OURS = new Set<string>([LYR_AERIAL, LYR_CLUSTERS, LYR_POINTS, LYR_STACKS, LYR_STACK_COUNT])
 
 /** Where the basemap stops DRAWING and starts WRITING — the layer the
@@ -210,8 +212,20 @@ export function labelBlockStart(map: LayerHost): string | null {
  *  The markers do not move. They are added after this on a fresh style, and
  *  on a live one the raster is inserted BELOW a label layer that is itself
  *  below them — so a flip never restacks the dots, and nothing about the
- *  hit test, the palette or the clustering knows this ran. */
-export function applyBasemap(map: LayerHost, basemap: Basemap): void {
+ *  hit test, the palette or the clustering knows this ran.
+ *
+ *  `seam` is the label block's first layer as MEASURED on the pristine
+ *  style — MapView takes `labelBlockStart` at style.load, before anything
+ *  is added, and hands it back on every flip. A live style is not pristine:
+ *  by the time a visitor flips, the markers are on it and, in the admin's
+ *  edit mode, so are the proposal tethers (a line layer) and pins (circles)
+ *  ABOVE the markers — layers this module does not own and should not have
+ *  to enumerate. Re-scanning that style would take the pins for the
+ *  basemap's last drawn layer and put the photograph over the dots (found
+ *  merging over CPE-M2, 2026-09-08; pinned in map-layers.spec.ts). The
+ *  measured seam is used while that layer still exists; a style without it
+ *  (or a caller without one) falls back to the scan. */
+export function applyBasemap(map: LayerHost, basemap: Basemap, seam: string | null = null): void {
     const on = !!map.getSource(SRC_AERIAL)
     if (basemap === 'aerial') {
         if (on) return
@@ -222,11 +236,13 @@ export function applyBasemap(map: LayerHost, basemap: Basemap): void {
             maxzoom: AERIAL_MAX_ZOOM,
             attribution: AERIAL_ATTRIBUTION,
         })
-        // Under the basemap's labels; failing that (a style that draws to
-        // the end) under the bottom-most marker layer, which is the one
-        // thing this must never cover. Only a style with neither leaves it
-        // on top, and then there is nothing above it to hide.
-        const before = labelBlockStart(map)
+        // The seam measured on the pristine style, while it still stands;
+        // else the scan; failing that (a style that draws to the end) the
+        // bottom-most marker layer, which is the one thing this must never
+        // cover. Only a style with none of those leaves it on top, and then
+        // there is nothing above it to hide.
+        const before = (seam && map.getLayer(seam) ? seam : null)
+            ?? labelBlockStart(map)
             ?? (map.getLayer(LYR_CLUSTERS) ? LYR_CLUSTERS : null)
         map.addLayer({ id: LYR_AERIAL, type: 'raster', source: SRC_AERIAL },
             before ?? undefined)

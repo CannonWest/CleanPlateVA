@@ -36,7 +36,10 @@ const RETIRED: { re: RegExp; why: string }[] = [
     { re: /cleanplateva\.[a-z-]+\.v3/, why: 'Contract V4 is the only published contract (D-DATA-8 closed 2026-08-18)' },
 
     // --- CPF: the Access era ---
-    { re: /Cf-Access-Jwt-Assertion/, why: 'the tier boundary is the acknowledgement, not Access (CPF-M2)' },
+    // The Access header's NAME left this list 2026-09-08 (CPE-M1, D-CPE-1): the
+    // header is live again as the identity check on /admin/api/* — one
+    // operator's route, never a tier boundary. The full channel still reads
+    // no header (worker-cache-contract.spec.ts pins that directly).
     { re: /data-full\/signin/, why: 'the signin route was removed from the Worker (CPF-M2)' },
     { re: /signInBtn/, why: 'replaced by #ackTermsBtn (CPF-M1)' },
     { re: /cp-signin-label/, why: 'replaced by .cp-ack-label (CPF-M1)' },
@@ -92,6 +95,12 @@ const RETIRED: { re: RegExp; why: string }[] = [
     // --- post-CR (2026-09-06): the grade letters left the map ---
     { re: /food-point-letters|LYR_POINT_LETTERS/, why: "the letters layer is deleted; the dot is grade color + ring alone (Cannon's call 2026-09-06)" },
     { re: /LETTER_ZOOM|LETTER_TEXT_SIZE/, why: "the letters' zoom gate and text size went with the layer that read them" },
+
+    // --- 2026-09-08: the geolocate note UI (Cannon's call) ---
+    { re: /OUTSIDE_COVERAGE_NOTE|LOCATION_FAILED_NOTE/, why: 'geolocate is silent both ways; both note strings are deleted' },
+    { re: /coverageBounds|withinCoverage|COVERAGE_PAD/, why: 'the padded roster bounding box went with the note that was measured against it' },
+    { re: /backToVirginia|Back to Virginia/, why: 'the note card carried the only way back; the camera belongs to mapCamera.ts' },
+    { re: /dismissNote/, why: 'there is no note left to dismiss' },
 ]
 
 const SCAN_DIRS = ['docs', 'src', 'public', 'tests', 'app']
