@@ -66,11 +66,15 @@ import { useGeolocate } from './useGeolocate'
 import { useMapPopup } from './useMapPopup'
 import { HoverCard } from './HoverCard'
 import { StackPopover } from './StackPopover'
+import type { RowDragHandler } from './StackPopover'
 import type { GradePalette } from './constants'
 import { coordsOf } from './data/presentation'
 import type { RosterRow } from './data/types'
 
-export function MapView({ facilities, lite, dark, clusters, palette, onSelect, locateReady, selected }: {
+export function MapView({
+    facilities, lite, dark, clusters, palette, onSelect, locateReady, selected,
+    editing = false, onMapReady = null, rowDrag = null,
+}: {
     facilities: RosterRow[]
     lite: boolean
     dark: boolean
@@ -92,9 +96,24 @@ export function MapView({ facilities, lite, dark, clusters, palette, onSelect, l
      *  Back/Forward — brings the place into view (mapCamera.ts); the map's
      *  own picks never move the camera. */
     selected: RosterRow | null
+    /** The admin's map edit mode is on (CPE-M2, §6.6): a dot click opens no
+     *  panel and a popover row click picks nothing — the mode owns the
+     *  pointer; the popover still opens, its rows are drag handles. */
+    editing?: boolean
+    /** The live map, for the edit mode's controller — handed over once at
+     *  mount, null again at unmount. */
+    onMapReady?: ((map: maplibregl.Map | null) => void) | null
+    /** The edit mode's row press handler for the stack popover. */
+    rowDrag?: RowDragHandler | null
 }) {
     const container = useRef<HTMLDivElement>(null)
     const mapRef = useRef<maplibregl.Map | null>(null)
+    const editingRef = useRef(editing)
+    editingRef.current = editing
+    const rowDragRef = useRef(rowDrag)
+    rowDragRef.current = rowDrag
+    const onMapReadyRef = useRef(onMapReady)
+    onMapReadyRef.current = onMapReady
     const styleDarkRef = useRef(dark)
     const clustersRef = useRef(clusters)
     const paletteRef = useRef(palette)
@@ -166,6 +185,7 @@ export function MapView({ facilities, lite, dark, clusters, palette, onSelect, l
         // hence not DEV-gated. A client-side object; nothing about the
         // visitor rides on it.
         ;(window as unknown as { __cpMap?: maplibregl.Map }).__cpMap = map
+        onMapReadyRef.current?.(map)
 
         // The donut images (CRP-M6): painted the first time the style asks
         // for an id, on the CURRENT style — setStyle drops every image and
@@ -244,10 +264,15 @@ export function MapView({ facilities, lite, dark, clusters, palette, onSelect, l
                     members={members}
                     lite={liteRef.current}
                     onPick={(pid) => {
+                        // In edit mode a row is a drag handle, not a pick.
+                        if (editingRef.current) return
                         stack.hide()
                         ownPick.current = pid
                         onSelectRef.current(pid)
                     }}
+                    onRowPointerDown={editingRef.current
+                        ? (pid, event) => rowDragRef.current?.(pid, event)
+                        : null}
                 />
             ))
         }
@@ -295,6 +320,9 @@ export function MapView({ facilities, lite, dark, clusters, palette, onSelect, l
                 return
             }
             stack.hide()
+            // In edit mode a dot is a drag handle (mapEditController.ts):
+            // the mode owns the pointer, and a click opens no panel.
+            if (editingRef.current) return
             if (props.pid && byPidRef.current.has(String(props.pid))) {
                 hover.hide() // the panel takes over
                 ownPick.current = String(props.pid)
@@ -399,6 +427,7 @@ export function MapView({ facilities, lite, dark, clusters, palette, onSelect, l
             geolocate.dispose()
             mapRef.current = null
             ;(window as unknown as { __cpMap?: maplibregl.Map }).__cpMap = undefined
+            onMapReadyRef.current?.(null)
             map.remove()
         }
     }, [])

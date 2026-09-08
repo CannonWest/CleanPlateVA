@@ -145,6 +145,11 @@ export const CLUSTERS_KEY = 'cleanplateva.clusters'
  *  The JSON `{ email, exp }`, `exp` the token's own expiry in unix seconds. */
 export const ADMIN_SESSION_KEY = 'cleanplateva.admin.session'
 
+/** The map edit mode's draft (CPE-M2, design ref §6.6): the proposal pins
+ *  this device has dragged and not yet submitted, per device, surviving a
+ *  reload (OQ-B). Versioned like the About draft — bump to abandon a shape. */
+export const MAP_DRAFT_KEY = 'cleanplateva.admin.map.v1'
+
 // MapLibre source + layer ids (data layers re-added on every style swap).
 export const SRC = 'food-facilities'
 export const LYR_CLUSTERS = 'food-clusters'

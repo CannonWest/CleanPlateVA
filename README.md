@@ -242,8 +242,17 @@ things worth knowing:
   they were, so the export names what to change even if the path has gone
   stale.
 
-The map's edit mode — drag a place to propose a manual pin — follows at
-CPE-M2/M3.
+**The map's edit mode** (`app/admin/MapEditor.tsx` + `mapEditController.ts`
++ `mapDraft.ts`, CPE-M2) enters from the Edit pill beside Settings: drag a
+dot — or a row out of a stack's list — and an orange pin appears where it
+was dropped, tethered to where the record stands; the record never moves.
+A place on a ZIP centroid drags as a SITE fix that moves every permit at
+its address; anything else is a refinement of that one permit. Pins live in
+this device's `localStorage` (`cleanplateva.admin.map.v1`) with a note each,
+survive a reload, and can be undone or reset. Nothing is published:
+**Submit** — the content-addressed draft in its own R2 bucket, pulled and
+composed into the manual-pin contracts on Cannon's machine — follows at
+CPE-M3/M4.
 
 ### Shared finder contract
 

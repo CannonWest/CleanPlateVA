@@ -6,7 +6,7 @@
  * ack dialog until CRV-b builds it (briefing: restyle minimally, don't
  * build the dialog here).
  */
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ACK_DECLINED, createAckState, forceLiteFromSearch } from './ack'
 import { createFoodApi } from './data/client'
 import { DataProvider, useRoster } from './data/provider'
@@ -28,6 +28,8 @@ import { AckDialog } from './AckDialog'
 import { EditButton } from './admin/EditButton'
 import { clearSession, persistSession, probeSession, storedSession } from './admin/session'
 import type { AdminSession } from './admin/session'
+import type * as maplibregl from 'maplibre-gl'
+import type { RowDragHandler } from './StackPopover'
 import { DetailPanel } from './DetailPanel'
 import type { DetailState } from './DetailPanel'
 import { MapView } from './MapView'
@@ -49,6 +51,12 @@ const ListView = lazy(() => import('./ListView').then((m) => ({ default: m.ListV
 // The About edit mode (CPE-M1, §6.6): its own lazy chunk, fetched the first
 // time a signed-in device enters it — a visitor's page never loads it.
 const AboutEditor = lazy(() => import('./admin/AboutEditor').then((m) => ({ default: m.AboutEditor })))
+// The map edit mode (CPE-M2, §6.6): the same rule — its own chunk, fetched
+// the first time a signed-in device enters it.
+const MapEditor = lazy(() => import('./admin/MapEditor').then((m) => ({ default: m.MapEditor })))
+
+/** A mode belongs to the view it was entered on. */
+type EditMode = 'about' | 'map' | null
 
 export function App() {
     const forceLite = useMemo(() => forceLiteFromSearch(window.location.search), [])
@@ -202,7 +210,7 @@ function Shell({ forceLite, ack }: {
     // shows), the Worker's identity means the mode opens. Edit mode needs
     // the acknowledged tier: the document worth editing is the full one.
     const [adminSession, setAdminSession] = useState<AdminSession | null>(() => storedSession(window.localStorage))
-    const [editing, setEditing] = useState(false)
+    const [editing, setEditing] = useState<EditMode>(null)
     const [probing, setProbing] = useState(false)
     const [editNote, setEditNote] = useState<string | null>(null)
     const enterEdit = () => {
@@ -211,6 +219,7 @@ function Shell({ forceLite, ack }: {
             setEditNote('Edit mode needs the acknowledged tier. Agree to the terms first.')
             return
         }
+        const target: EditMode = state.view === 'map' ? 'map' : 'about'
         setProbing(true)
         void probeSession().then((result) => {
             setProbing(false)
@@ -218,7 +227,10 @@ function Shell({ forceLite, ack }: {
                 persistSession(window.localStorage, result.session)
                 setAdminSession(result.session)
                 setEditNote(null)
-                setEditing(true)
+                // The map mode owns the right side and the pointer: an open
+                // panel closes so its sheet and the pins drawer never overlap.
+                if (target === 'map' && state.permit) actions.closePanel()
+                setEditing(target)
             } else if (result.state === 'signed-out') {
                 clearSession(window.localStorage)
                 setAdminSession(null)
@@ -228,11 +240,19 @@ function Shell({ forceLite, ack }: {
             }
         })
     }
-    const exitEdit = () => setEditing(false)
-    // A mode belongs to its view: leaving About leaves the mode.
+    const exitEdit = () => setEditing(null)
+    // A mode belongs to its view: leaving the view leaves the mode.
     useEffect(() => {
-        if (state.view !== 'about' && editing) setEditing(false)
+        if (editing && editing !== state.view) setEditing(null)
     }, [state.view, editing])
+    // The map edit mode's wiring: the live map (MapView hands it over) and
+    // the popover row press handler (MapEditor hands it back) — both null
+    // outside the mode. A fine pointer is what the drag is designed for.
+    const [mapInstance, setMapInstance] = useState<maplibregl.Map | null>(null)
+    const [rowDrag, setRowDrag] = useState<RowDragHandler | null>(null)
+    const bindRowDrag = useCallback((handler: RowDragHandler | null) => setRowDrag(() => handler), [])
+    const coarse = useMemo(() => typeof window.matchMedia === 'function'
+        && window.matchMedia('(pointer: coarse)').matches, [])
 
     // The full roster the counts measure against: loaded actives + the
     // lazily-merged closed rows (they stay once loaded; the predicate
@@ -298,12 +318,33 @@ function Shell({ forceLite, ack }: {
                 facilities={filtered}
                 lite={lite}
                 dark={dark}
-                clusters={clusters}
+                // Clusters are forced off for the edit mode (a cluster cannot
+                // be dragged); the visitor's own switch is untouched and
+                // comes back on exit.
+                clusters={editing === 'map' ? false : clusters}
                 palette={palette}
                 onSelect={(pid) => actions.select(pid)}
                 locateReady={!blocking && !arrivedAtPlace}
                 selected={selected}
+                editing={editing === 'map'}
+                onMapReady={setMapInstance}
+                rowDrag={editing === 'map' ? rowDrag : null}
             />
+
+            {editing === 'map' && !blocking && (
+                <Suspense fallback={null}>
+                    <MapEditor
+                        map={mapInstance}
+                        rows={filtered}
+                        snapshotId={loaded?.snapshot_id ?? null}
+                        dark={dark}
+                        coarse={coarse}
+                        getDetail={getDetail}
+                        bindRowDrag={bindRowDrag}
+                        onExit={exitEdit}
+                    />
+                </Suspense>
+            )}
 
             {blocking ? (
                 <GhostShell />
@@ -355,16 +396,16 @@ function Shell({ forceLite, ack }: {
                                 // the next load renders nothing, as for a visitor.
                                 <div className="mx-auto flex max-w-[52rem] flex-wrap items-center gap-3 px-4 pt-3">
                                     <EditButton
-                                        editing={editing}
+                                        editing={editing === 'about'}
                                         busy={probing}
-                                        onClick={editing ? exitEdit : enterEdit}
+                                        onClick={editing === 'about' ? exitEdit : enterEdit}
                                     />
                                     {editNote && (
                                         <span className="text-cp-12.5 text-cp-ink-3" role="status">{editNote}</span>
                                     )}
                                 </div>
                             )}
-                            {editing ? (
+                            {editing === 'about' ? (
                                 <Suspense fallback={null}>
                                     <AboutEditor onExit={exitEdit}>{about}</AboutEditor>
                                 </Suspense>
@@ -405,12 +446,31 @@ function Shell({ forceLite, ack }: {
                         shown={filtered.length}
                         total={all.length}
                     />
-                    <SettingsButton
-                        onClick={() => {
-                            dismissHint()
-                            setSettingsOpen(true)
-                        }}
-                    />
+                    {/* The Settings pill, and — for a device holding the
+                        session flag — the admin's Edit pill to its right
+                        (§6.6, OQ-A; CPE-M2). One row, so the hint below
+                        keeps pointing at the gear. The row is pointer-
+                        transparent between the pills; the pills take it. */}
+                    <div className="pointer-events-none flex flex-wrap items-start gap-2.5 [&>*]:pointer-events-auto">
+                        <SettingsButton
+                            onClick={() => {
+                                dismissHint()
+                                setSettingsOpen(true)
+                            }}
+                        />
+                        {(adminSession || editNote) && (
+                            <EditButton
+                                editing={editing === 'map'}
+                                busy={probing}
+                                onClick={editing === 'map' ? exitEdit : enterEdit}
+                            />
+                        )}
+                        {editNote && !editing && (
+                            <span role="status" className="self-center rounded-cp-pill bg-cp-surface-1/95 px-2.5 py-1 text-cp-12.5 text-cp-ink-3 shadow-cp">
+                                {editNote}
+                            </span>
+                        )}
+                    </div>
                     {!hintDismissed && <SettingsHint onDismiss={dismissHint} />}
                 </div>
             )}

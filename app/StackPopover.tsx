@@ -46,10 +46,16 @@ function MemberChip({ f, lite }: { f: RosterRow; lite: boolean }) {
     )
 }
 
-export function StackPopover({ members, lite, onPick }: {
+/** The admin's row drag (CPE-M2, §6.6): a press on a member row, handed to
+ *  the map edit controller, which turns it into a pin once the pointer has
+ *  travelled — a plain click stays a click. Null outside edit mode. */
+export type RowDragHandler = (permitId: string, event: React.PointerEvent<HTMLButtonElement>) => void
+
+export function StackPopover({ members, lite, onPick, onRowPointerDown = null }: {
     members: RosterRow[]
     lite: boolean
     onPick: (permitId: string) => void
+    onRowPointerDown?: RowDragHandler | null
 }) {
     const sorted = [...members].sort((a, b) => a.name.localeCompare(b.name))
     return (
@@ -63,7 +69,11 @@ export function StackPopover({ members, lite, onPick }: {
                         key={String(f.permit_id)}
                         type="button"
                         onClick={() => onPick(String(f.permit_id))}
-                        className="flex w-full items-center gap-2 rounded-cp-control px-1.5 py-1.5 text-left hover:bg-cp-surface-2"
+                        onPointerDown={onRowPointerDown
+                            ? (event) => onRowPointerDown(String(f.permit_id), event)
+                            : undefined}
+                        className={`flex w-full items-center gap-2 rounded-cp-control px-1.5 py-1.5 text-left hover:bg-cp-surface-2${
+                            onRowPointerDown ? ' cursor-grab touch-none select-none' : ''}`}
                     >
                         <MemberChip f={f} lite={lite} />
                         <span className="min-w-0">
