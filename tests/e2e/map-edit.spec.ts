@@ -20,7 +20,10 @@ import { join } from 'node:path'
 import { expect, test } from '@playwright/test'
 import type { Page } from '@playwright/test'
 import { ACK_AGREED, ACK_KEY } from '../../app/ack'
-import { ADMIN_SESSION_KEY, MAP_DRAFT_KEY, SETTINGS_HINT_KEY, SETTINGS_SEEN_KEY } from '../../app/constants'
+import { LYR_PROPOSAL_PINS, LYR_PROPOSAL_TETHERS } from '../../app/admin/mapDraft'
+import {
+    ADMIN_SESSION_KEY, LYR_AERIAL, LYR_POINTS, MAP_DRAFT_KEY, SETTINGS_HINT_KEY, SETTINGS_SEEN_KEY,
+} from '../../app/constants'
 import { SELECT_ZOOM } from '../../app/mapCamera'
 import { stackKey } from '../../app/mapData'
 
@@ -226,4 +229,61 @@ test('a ZIP-centroid place drags as a site fix and says what it moves', async ({
     const item = page.locator(`[data-cp-pin="${place.permit_id}"]`)
     await expect(item).toContainText('Site fix')
     await expect(item).toContainText(/Moves \d+ permits? at /)
+})
+
+// ── the aerial basemap inside edit mode (2026-09-08) ─────────────────────
+// Found merging the aerial (#220) over this mode: the mode's tether (line)
+// and pin (circle) layers sit above the markers, and a flip that re-scanned
+// the style for "the last drawn layer" took the pins for the basemap and put
+// the photograph over the dots. MapView now measures the seam on the pristine
+// style at style.load and hands it to every flip (map-layers.spec.ts pins the
+// rule); this is the same thing on the production build with the real mode.
+
+test('flipping to the aerial in edit mode keeps the photo under the dots AND under the proposal layers', async ({ page }) => {
+    await seed(page, { [ADMIN_SESSION_KEY]: session() })
+    await stubSession(page)
+    await openOn(page, lonePlace((v) => v !== 2))
+    await enterEdit(page)
+    const ids = { aerial: LYR_AERIAL, points: LYR_POINTS, tethers: LYR_PROPOSAL_TETHERS, pins: LYR_PROPOSAL_PINS }
+    const order = () => page.evaluate((ids) => {
+        const map = (window as unknown as { __cpMap?: { getStyle(): { layers: Array<{ id: string }> } } }).__cpMap
+        if (!map) throw new Error('no map handle')
+        const layers = map.getStyle().layers.map((l) => l.id)
+        return {
+            aerial: layers.indexOf(ids.aerial), points: layers.indexOf(ids.points),
+            tethers: layers.indexOf(ids.tethers), pins: layers.indexOf(ids.pins),
+        }
+    }, ids)
+    const before = await order()
+    // The shape the first cut got wrong: the mode's layers ABOVE the markers.
+    expect(before.tethers).toBeGreaterThan(before.points)
+    expect(before.pins).toBeGreaterThan(before.points)
+    expect(before.aerial).toBe(-1)
+
+    // By keyboard, deliberately: the mode's drawer (`fixed top-3 right-3
+    // bottom-3`) covers the whole bottom-right control lane, so the layers
+    // button — and Find me and the zoom buttons beside it, a CPE-M2 fact
+    // that predates the aerial — is pointer-unreachable in edit mode
+    // (Playwright: the aside "intercepts pointer events"). Reported with
+    // this PR, not decided here. Focus + Enter is the path a pointer cannot
+    // take, and a real one: the control is a button, the entries are radios.
+    const layers = page.getByRole('button', { name: 'Basemap', exact: true })
+    await layers.focus()
+    await page.keyboard.press('Enter')
+    const aerialEntry = page.getByRole('radio', { name: /Aerial/ })
+    await aerialEntry.focus()
+    await page.keyboard.press('Enter')
+    await page.waitForFunction(
+        (id) => !!(window as unknown as { __cpMap?: { getLayer(id: string): unknown } }).__cpMap?.getLayer(id),
+        LYR_AERIAL,
+        { timeout: 60_000 },
+    )
+    const after = await order()
+    expect(after.aerial).toBeGreaterThan(-1)
+    expect(after.aerial).toBeLessThan(after.points)
+    expect(after.aerial).toBeLessThan(after.tethers)
+    expect(after.aerial).toBeLessThan(after.pins)
+    // The mode is still on, its layers still above the markers, untouched.
+    expect(after.tethers).toBeGreaterThan(after.points)
+    await expect(page.getByRole('note').filter({ hasText: 'Edit mode.' })).toBeVisible()
 })
