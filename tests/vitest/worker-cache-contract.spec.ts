@@ -46,14 +46,23 @@ test('the mutable manifest revalidates quickly — publicly, with no Access head
     assert.equal(response.headers.get('X-Cache'), 'MISS')
 })
 
-test('the retired Access check and sign-in route are gone from the worker (design ref §14.1)', async () => {
-    assert.doesNotMatch(source, /Cf-Access-Jwt-Assertion/)  // retired-ok: asserts the retired Access header is gone
+test('the full channel reads no Access header; the sign-in route and the private cache-control stay gone (design ref §14.1, D-CPE-1)', async () => {
+    // The header's NAME is live again since CPE-M1 (2026-09-08) — as the
+    // identity check on /admin/api/*, defined beside that route and nowhere
+    // else. The full channel's code must not mention it: the tier boundary is
+    // the acknowledgement, not Access, and a bogus header on the channel
+    // changes nothing.
+    const fullChannel = source.slice(source.indexOf('async function serveFullData'), source.indexOf('// ── the admin API'))
+    assert.ok(fullChannel.length > 0, 'the full channel and the admin API are separate sections')
+    assert.doesNotMatch(fullChannel, /Cf-Access|ACCESS_HEADER|accessIdentity/)
     assert.doesNotMatch(source, /signin/)
     assert.doesNotMatch(source, /private, max-age/)  // retired-ok: asserts the retired private cache-control is gone
     // A request without any Access header is served, not 403'd.
     noCache()
     const response = await worker.fetch(request('facility/P-1.json'), env, ctx())
     assert.equal(response.status, 200)
+    const bogus = await worker.fetch(request('facility/P-1.json', { headers: { 'Cf-Access-Jwt-Assertion': 'nonsense' } }), env, ctx())
+    assert.equal(bogus.status, 200, 'the channel ignores the header entirely')
     // And the old sign-in path is just a (harmless) object key like any other.
     const signin = await worker.fetch(request('signin'), {
         ...env, DATA_FULL: { get: async () => null },
@@ -61,21 +70,28 @@ test('the retired Access check and sign-in route are gone from the worker (desig
     assert.equal(signin.status, 404)
 })
 
-test('only the full channel invokes the worker; the public channel is static (CPH-M3)', () => {
+test('exactly two prefixes invoke the worker — the full channel and the admin API; the public channel is static (CPH-M3, CPE-M1)', () => {
     // In array form, run_worker_first is THE set of paths that invoke the
     // worker; anything else is answered by the assets layer, SPA fallback
     // included. The full channel needs the worker because /data-full/* is
     // not a static asset at all — without this entry the SPA fallback
     // answers index.html and the full tier silently degrades to the basic
-    // map (production regression 2026-08-16, found via the www host).
+    // map (production regression 2026-08-16, found via the www host). The
+    // admin API (CPE-M1, 2026-09-08) is the edit modes' server side — one
+    // operator's traffic, inside the Access application's /admin prefix.
     // /data/* is deliberately NOT listed (design ref §9, D-TRANSPORT-4): on
     // Workers Free every worker invocation is a metered request, and the
     // committed public channel is plain static assets whose cache-control
-    // rides in public/_headers.
+    // rides in public/_headers. /admin itself is not listed either: the
+    // session page is the SPA shell, an asset like any view path.
     const list = wrangler.match(/"run_worker_first"\s*:\s*\[([^\]]*)\]/)
     assert.ok(list, 'run_worker_first must be an explicit array')
     const patterns = [...list[1]!.matchAll(/"([^"]+)"/g)].map((m) => m[1])
-    assert.deepEqual(patterns, ['/data-full/*'])
+    assert.deepEqual(patterns, ['/data-full/*', '/admin/api/*'])
+    // The application's identifiers the admin API verifies against ride as
+    // vars — configuration, so a test can point the check at its own keys.
+    assert.match(wrangler, /"ACCESS_TEAM_DOMAIN"\s*:\s*"https:\/\/cannonwest\.cloudflareaccess\.com"/)
+    assert.match(wrangler, /"ACCESS_AUD"\s*:\s*"[0-9a-f]{64}"/)
 })
 
 test('the public channel cache-control lives in public/_headers, not the worker — one rule per committed shard, by name', () => {
@@ -134,7 +150,9 @@ test('the worker passes anything that is not /data-full/* to the assets layer un
             },
         },
     }
-    const paths = ['/data/manifest.json', '/data/finder/0f-123456abcdef.json', '/', '/list', '/assets/index-0a1b2c3d.js']
+    // `/admin` is in the list on purpose: the session page is the shell, an
+    // asset — only `/admin/api/*` is the worker's (worker-admin-session.spec.ts).
+    const paths = ['/data/manifest.json', '/data/finder/0f-123456abcdef.json', '/', '/list', '/admin', '/assets/index-0a1b2c3d.js']
     for (const path of paths) {
         const response = await worker.fetch(new Request(`https://cleanplateva.test${path}`), passthrough, ctx())
         assert.equal(response.status, 200, path)

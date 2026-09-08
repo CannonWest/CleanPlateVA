@@ -36,7 +36,10 @@ const RETIRED: { re: RegExp; why: string }[] = [
     { re: /cleanplateva\.[a-z-]+\.v3/, why: 'Contract V4 is the only published contract (D-DATA-8 closed 2026-08-18)' },
 
     // --- CPF: the Access era ---
-    { re: /Cf-Access-Jwt-Assertion/, why: 'the tier boundary is the acknowledgement, not Access (CPF-M2)' },
+    // The Access header's NAME left this list 2026-09-08 (CPE-M1, D-CPE-1): the
+    // header is live again as the identity check on /admin/api/* — one
+    // operator's route, never a tier boundary. The full channel still reads
+    // no header (worker-cache-contract.spec.ts pins that directly).
     { re: /data-full\/signin/, why: 'the signin route was removed from the Worker (CPF-M2)' },
     { re: /signInBtn/, why: 'replaced by #ackTermsBtn (CPF-M1)' },
     { re: /cp-signin-label/, why: 'replaced by .cp-ack-label (CPF-M1)' },

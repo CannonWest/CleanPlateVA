@@ -25,6 +25,9 @@ import {
 } from './settings'
 import { useAppRouter } from './useAppRouter'
 import { AckDialog } from './AckDialog'
+import { EditButton } from './admin/EditButton'
+import { clearSession, persistSession, probeSession, storedSession } from './admin/session'
+import type { AdminSession } from './admin/session'
 import { DetailPanel } from './DetailPanel'
 import type { DetailState } from './DetailPanel'
 import { MapView } from './MapView'
@@ -43,6 +46,9 @@ import type { LoadedRoster, RosterRow } from './data/types'
 // the request budget (C3) is untouched: zero Worker requests either way.
 const AboutView = lazy(() => import('./AboutView').then((m) => ({ default: m.AboutView })))
 const ListView = lazy(() => import('./ListView').then((m) => ({ default: m.ListView })))
+// The About edit mode (CPE-M1, §6.6): its own lazy chunk, fetched the first
+// time a signed-in device enters it — a visitor's page never loads it.
+const AboutEditor = lazy(() => import('./admin/AboutEditor').then((m) => ({ default: m.AboutEditor })))
 
 export function App() {
     const forceLite = useMemo(() => forceLiteFromSearch(window.location.search), [])
@@ -188,6 +194,46 @@ function Shell({ forceLite, ack }: {
         persistSettingsHintDismissed()
     }
 
+    // The admin's edit modes (CPE-M1, §6.6). The device flag decides whether
+    // the Edit control renders at all — a visitor's device carries none, so
+    // a visitor's page renders no control and never probes. An Edit click
+    // confirms the session with ONE probe (app/admin/session.ts): Access's
+    // redirect means signed out (the flag is cleared, the sign-in line
+    // shows), the Worker's identity means the mode opens. Edit mode needs
+    // the acknowledged tier: the document worth editing is the full one.
+    const [adminSession, setAdminSession] = useState<AdminSession | null>(() => storedSession(window.localStorage))
+    const [editing, setEditing] = useState(false)
+    const [probing, setProbing] = useState(false)
+    const [editNote, setEditNote] = useState<string | null>(null)
+    const enterEdit = () => {
+        if (probing) return
+        if (!ack.agreed) {
+            setEditNote('Edit mode needs the acknowledged tier. Agree to the terms first.')
+            return
+        }
+        setProbing(true)
+        void probeSession().then((result) => {
+            setProbing(false)
+            if (result.state === 'signed-in') {
+                persistSession(window.localStorage, result.session)
+                setAdminSession(result.session)
+                setEditNote(null)
+                setEditing(true)
+            } else if (result.state === 'signed-out') {
+                clearSession(window.localStorage)
+                setAdminSession(null)
+                setEditNote('Sign in at /admin to continue.')
+            } else {
+                setEditNote(`Session verification is unavailable (${result.reason}).`)
+            }
+        })
+    }
+    const exitEdit = () => setEditing(false)
+    // A mode belongs to its view: leaving About leaves the mode.
+    useEffect(() => {
+        if (state.view !== 'about' && editing) setEditing(false)
+    }, [state.view, editing])
+
     // The full roster the counts measure against: loaded actives + the
     // lazily-merged closed rows (they stay once loaded; the predicate
     // hides them again when the toggle goes off).
@@ -226,6 +272,25 @@ function Shell({ forceLite, ack }: {
         })
         return () => { alive = false }
     }, [selected, lite, getDetail])
+
+    // The About document, rendered once here so the edit mode can wrap the
+    // SAME element it would otherwise show — live data, live tier.
+    const about = (
+        <AboutView
+            loaded={loaded}
+            unavailable={unavailable}
+            forceLite={forceLite}
+            ack={{ agreed: ack.agreed, decided: ack.decided, persisted: ack.persisted }}
+            onSwitchToBasic={() => {
+                // A downgrade needs no acknowledgement (ack.js).
+                ack.set(ACK_DECLINED)
+                reload()
+            }}
+            onReviewTerms={() => setTermsOpen(true)}
+            scrollToTerms={termsIntent}
+            onTermsShown={() => setTermsIntent(false)}
+        />
+    )
 
     return (
         <div className="relative h-dvh w-full overflow-hidden bg-cp-bg">
@@ -278,20 +343,33 @@ function Shell({ forceLite, ack }: {
                             onPick={(pid) => actions.select(pid)}
                         />
                     ) : (
-                        <AboutView
-                            loaded={loaded}
-                            unavailable={unavailable}
-                            forceLite={forceLite}
-                            ack={{ agreed: ack.agreed, decided: ack.decided, persisted: ack.persisted }}
-                            onSwitchToBasic={() => {
-                                // A downgrade needs no acknowledgement (ack.js).
-                                ack.set(ACK_DECLINED)
-                                reload()
-                            }}
-                            onReviewTerms={() => setTermsOpen(true)}
-                            scrollToTerms={termsIntent}
-                            onTermsShown={() => setTermsIntent(false)}
-                        />
+                        <>
+                            {(adminSession || editNote) && (
+                                // The admin's Edit control at the document's head
+                                // (§6.6): only a device holding the session flag
+                                // renders it. The note beside it is the probe's
+                                // answer when the mode did not open — and once a
+                                // note is up the row stays for this page load even
+                                // after a signed-out probe cleared the flag, so the
+                                // click that was just made has a visible answer;
+                                // the next load renders nothing, as for a visitor.
+                                <div className="mx-auto flex max-w-[52rem] flex-wrap items-center gap-3 px-4 pt-3">
+                                    <EditButton
+                                        editing={editing}
+                                        busy={probing}
+                                        onClick={editing ? exitEdit : enterEdit}
+                                    />
+                                    {editNote && (
+                                        <span className="text-cp-12.5 text-cp-ink-3" role="status">{editNote}</span>
+                                    )}
+                                </div>
+                            )}
+                            {editing ? (
+                                <Suspense fallback={null}>
+                                    <AboutEditor onExit={exitEdit}>{about}</AboutEditor>
+                                </Suspense>
+                            ) : about}
+                        </>
                     )}
                     </Suspense>
                     <Attribution inline snapshot={snapshot} onTerms={showTerms} />
