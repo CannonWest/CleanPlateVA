@@ -6,14 +6,16 @@ import { App } from './App'
 import { mountFromBaseURI } from './router'
 import { isAdminPath } from './admin/route'
 
-// /admin is the About page's edit surface — no link points at it, and the
-// path sits behind a Cloudflare Access application (apex + www). It is
-// branched HERE rather than added to the router's views on purpose: the
-// three public views, their URL grammar and their tests stay exactly as
-// they are, and the editor's code leaves the entry chunk entirely, so a
+// /admin is the administrator's session page (CPE-M1; the About editor it
+// was until then is the About view's own edit mode now) — no link points at
+// it, and the path sits behind a Cloudflare Access application (apex + www).
+// It is branched HERE rather than added to the router's views on purpose:
+// the three public views, their URL grammar and their tests stay exactly as
+// they are, and the page's code leaves the entry chunk entirely, so a
 // visitor never downloads it. An unknown path still normalizes to the Map
 // the way it always has (router.ts viewFromPath) — only this one segment
-// is claimed.
+// is claimed. (/admin/api/* never reaches this client on the host: it is
+// the Worker's — wrangler.jsonc run_worker_first.)
 const AdminApp = lazy(() => import('./admin/AdminApp').then((m) => ({ default: m.AdminApp })))
 
 const root = document.getElementById('root')

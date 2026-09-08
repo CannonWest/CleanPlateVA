@@ -48,7 +48,18 @@
         // Static assets deliberately stay on the fast path (no worker
         // invocation per file): a missing .js there surfaces immediately as
         // a console MIME error rather than a silent mis-parse.
-        "run_worker_first": ["/data-full/*"],
+        //   /admin/api/*  joined 2026-09-08 (CPE-M1, design ref
+        //            frontend-redesign.md §6.6): the edit modes' server side —
+        //            `session` now, `proposals` at M3. The path is inside the
+        //            Access application `CleanPlateVA admin` (both hosts, the
+        //            /admin prefix), so Access redirects an unauthenticated
+        //            request before the worker sees it; the worker then
+        //            verifies the token's signature (the second lock). One
+        //            operator's traffic — the visitor's request diet is
+        //            untouched. /admin itself (the session page) is NOT here:
+        //            it is the SPA shell, served by the assets layer through
+        //            Access like any other path.
+        "run_worker_first": ["/data-full/*", "/admin/api/*"],
         // Real per-view URLs (/list, /about — app/router.ts): any path
         // that is not an asset gets index.html and the client routes it
         // (unknown paths normalize to /). Assets and the /data-full/*
@@ -61,6 +72,17 @@
             "bucket_name": "cleanplateva-data"
         }
     ],
+    // The Access application the admin API verifies tokens against (CPE-M1):
+    // the team domain is the token's issuer and where its signing keys are
+    // published (`/cdn-cgi/access/certs`); the audience tag is the
+    // application's own (`CleanPlateVA admin`,
+    // b421f71e-d025-48d2-96be-c64620d8dbbb). Public identifiers, not secrets
+    // — the AUD rides in every Access login redirect — kept as vars so the
+    // worker's check is configuration and a test can point it at its own keys.
+    "vars": {
+        "ACCESS_TEAM_DOMAIN": "https://cannonwest.cloudflareaccess.com",
+        "ACCESS_AUD": "ceb3edb0a2a92bc1115a7569db031d6c27b1fd84d0f9d3b80f73e761bbb72360"
+    },
     "workers_dev": false,
     "preview_urls": false,
     "routes": [
