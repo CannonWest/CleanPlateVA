@@ -19,63 +19,28 @@
  *     briefly until the control is ready. Once per mount: a second call is
  *     a no-op. MapView releases it the first time the page is ready
  *     (`locateReady`: the acknowledgement answered, or never asked).
- *   · The coverage note: a fix outside the padded bounding box of the loaded
- *     facilities says so and offers "Back to Virginia"; a failed fix says
- *     to check location access. Both dismissible.
  *
- * The follow lock matters to two callers: MapView's settle re-fit must not
- * steal a camera a fix has claimed, and "Back to Virginia" must drop the
- * lock first — a zoom-changing move does NOT drop it on its own.
+ * The hook is SILENT about where the fix lands (2026-09-08, Cannon's call).
+ * The note UI it used to raise is deleted — the card under the band, the
+ * message for a fix outside the mapped area, the way back it offered, the
+ * message for a fix the browser never returned, and the padded roster
+ * bounding box the first of those was measured against. §14.1 of
+ * architecture-v4.md names every piece. A fix in Ohio and a fix that never
+ * arrives now read the same: the map holds its camera and says nothing.
+ * The hook no longer sees the roster, so it takes no arguments — and with
+ * the note went its only state, so nothing it does can re-render.
+ *
+ * The follow lock still matters to two callers: MapView's settle re-fit
+ * must not steal a camera a fix has claimed, and a camera move the visitor
+ * did not make with the control must drop the lock first — a zoom-changing
+ * move does NOT drop it on its own.
  */
 
-import { useRef, useState } from 'react'
+import { useRef } from 'react'
 import type { RefObject } from 'react'
 import * as maplibregl from 'maplibre-gl'
-import { VA_BOUNDS, VA_FIT } from './constants'
-import { coordsOf } from './data/presentation'
-import type { RosterRow } from './data/types'
-
-export interface CoverageNote {
-    text: string
-    /** Offer "Back to Virginia" (a fix outside the mapped area). */
-    back: boolean
-}
-
-export const OUTSIDE_COVERAGE_NOTE = "This map only covers Virginia, and you're outside it."
-export const LOCATION_FAILED_NOTE =
-    "We couldn't find your location. Check that location access is on for your browser."
-
-/** ~20 km of slack around the mapped area — near-edge users still see markers. */
-export const COVERAGE_PAD = 0.2
-
-export interface CoverageBounds { n: number; s: number; e: number; w: number }
-
-/** Bounding box of the located facilities — "the mapped area". Null when
- *  nothing is located yet. */
-export function coverageBounds(rows: readonly RosterRow[]): CoverageBounds | null {
-    let n = -90, s = 90, e = -180, w = 180
-    for (const f of rows) {
-        const c = coordsOf(f)
-        if (c.lat == null || c.lon == null) continue
-        n = Math.max(n, c.lat); s = Math.min(s, c.lat)
-        e = Math.max(e, c.lon); w = Math.min(w, c.lon)
-    }
-    return n < s ? null : { n, s, e, w }
-}
-
-/** Is the fix inside the padded mapped area? Nothing located yet → say
- *  nothing (true). */
-export function withinCoverage(rows: readonly RosterRow[], lat: number, lon: number): boolean {
-    const b = coverageBounds(rows)
-    if (!b) return true
-    return lat <= b.n + COVERAGE_PAD && lat >= b.s - COVERAGE_PAD
-        && lon <= b.e + COVERAGE_PAD && lon >= b.w - COVERAGE_PAD
-}
 
 export interface Geolocate {
-    /** The coverage / failure note to show, if any. */
-    note: CoverageNote | null
-    dismissNote(): void
     /** Create + attach the control. Once, from the mount effect, after the
      *  nav control (both sit bottom-right). Asks the browser for nothing. */
     install(map: maplibregl.Map): void
@@ -83,30 +48,25 @@ export interface Geolocate {
      *  browser's location prompt. Once per mount; later calls are no-ops. */
     autoLocate(): void
     /** Drop the follow lock if held — before any camera move the visitor
-     *  did not make with the control (Back to Virginia; a selection's
-     *  camera, mapCamera.ts), or the next fix pulls the camera straight
-     *  back. A no-op when not following. */
+     *  did not make with the control (a selection's camera, mapCamera.ts),
+     *  or the next fix pulls the camera straight back. A no-op when not
+     *  following. */
     release(): void
-    /** "Back to Virginia": drop the follow lock if held, fit the state,
-     *  clear the note. */
-    backToVirginia(map: maplibregl.Map | null): void
     /** Is the control following the visitor right now? */
     readonly following: RefObject<boolean>
     dispose(): void
 }
 
-export function useGeolocate(facilitiesRef: RefObject<readonly RosterRow[]>): Geolocate {
-    const [note, setNote] = useState<CoverageNote | null>(null)
+export function useGeolocate(): Geolocate {
     const controlRef = useRef<maplibregl.GeolocateControl | null>(null)
     const followingRef = useRef(false)
-    // The imperative half is built once: MapView captures it in a one-shot
-    // mount effect, so its identity must not move across renders.
-    const api = useRef<Omit<Geolocate, 'note'> | null>(null)
+    // Built once: MapView captures it in a one-shot mount effect, so its
+    // identity must not move across renders.
+    const api = useRef<Geolocate | null>(null)
     if (!api.current) {
         let asked = false // the auto-locate runs once per mount
         api.current = {
             following: followingRef,
-            dismissNote: () => setNote(null),
             install(map) {
                 // "Find me" + follow. The 6s timeout keeps a MANUAL press
                 // snappy; maximumAge lets the control reuse the fix
@@ -118,12 +78,8 @@ export function useGeolocate(facilitiesRef: RefObject<readonly RosterRow[]>): Ge
                     fitBoundsOptions: { maxZoom: 13 },
                 })
                 controlRef.current = geolocate
-                geolocate.on('geolocate', (pos) => {
-                    const { latitude, longitude } = pos.coords
-                    if (withinCoverage(facilitiesRef.current ?? [], latitude, longitude)) setNote(null)
-                    else setNote({ text: OUTSIDE_COVERAGE_NOTE, back: true })
-                })
-                geolocate.on('error', () => setNote({ text: LOCATION_FAILED_NOTE, back: false }))
+                // No 'geolocate' / 'error' listeners by design: the hook is
+                // silent both ways. Only the follow lock is tracked.
                 geolocate.on('trackuserlocationstart', () => { followingRef.current = true })
                 geolocate.on('userlocationfocus', () => { followingRef.current = true })
                 geolocate.on('trackuserlocationend', () => { followingRef.current = false })
@@ -160,15 +116,10 @@ export function useGeolocate(facilitiesRef: RefObject<readonly RosterRow[]>): Ge
                 // lock — switch it off first.
                 if (followingRef.current) controlRef.current?.trigger()
             },
-            backToVirginia(map) {
-                api.current?.release()
-                map?.fitBounds(VA_BOUNDS, VA_FIT)
-                setNote(null)
-            },
             dispose() {
                 controlRef.current = null
             },
         }
     }
-    return { note, ...api.current }
+    return api.current
 }

@@ -38,19 +38,19 @@
  * recording host and cross-checked with mapHit's radii), the two popups
  * ride one `useMapPopup` controller each (the display-only hover card and
  * the interactive stack popover), and geolocate + the patient auto-locate
- * + the coverage note are `useGeolocate`. What stays here is the island
- * itself: the map's lifecycle, the pointer rules, the effects that answer
- * data / switch / theme / palette changes, and the one that releases the
- * auto-locate once the page is ready for it.
+ * are `useGeolocate`. What stays here is the island itself: the map's
+ * lifecycle, the pointer rules, the effects that answer data / switch /
+ * theme / palette changes, and the one that releases the auto-locate once
+ * the page is ready for it.
  *
  * Ported from the old `map.js`: the dark-matter road-label contrast fix,
- * fadeDuration 0 (symbol counts must move with their bubbles), geolocate +
- * patient auto-locate, and the out-of-coverage note.
+ * fadeDuration 0 (symbol counts must move with their bubbles), and geolocate
+ * + patient auto-locate. The out-of-coverage note it also carried over was
+ * deleted 2026-09-08.
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import * as maplibregl from 'maplibre-gl'
-import { X } from 'lucide-react'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import {
     DONUT_PIXEL_RATIO, LYR_CLUSTERS, LYR_POINTS, LYR_STACKS, SRC,
@@ -125,8 +125,6 @@ export function MapView({
     dataRef.current = data
     const darkRef = useRef(dark)
     darkRef.current = dark
-    const facilitiesRef = useRef<readonly RosterRow[]>(facilities)
-    facilitiesRef.current = facilities
     const byPid = useMemo(
         () => new Map(facilities.map((f) => [String(f.permit_id), f])),
         [facilities],
@@ -152,8 +150,8 @@ export function MapView({
     const hover = useMapPopup({ className: 'cp-tip', offset: 14, maxWidth: '380px' })
     // The stack member popover (M2): its own INTERACTIVE popup.
     const stack = useMapPopup({ className: 'cp-pop', offset: 16, maxWidth: '288px' })
-    // "Find me" + follow + the patient auto-locate + the coverage note.
-    const geolocate = useGeolocate(facilitiesRef)
+    // "Find me" + follow + the patient auto-locate. Silent on every fix.
+    const geolocate = useGeolocate()
 
     useEffect(() => {
         if (!container.current || mapRef.current) return
@@ -516,7 +514,6 @@ export function MapView({
         applyPalette(map, styleDarkRef.current, palette)
     }, [palette])
 
-    const note = geolocate.note
     return (
         <div className="absolute inset-0">
             <div ref={container} className="h-full w-full" aria-label="map" />
@@ -524,28 +521,6 @@ export function MapView({
                 <p className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-cp-12.5 text-cp-ink-3">
                     The map could not start (WebGL unavailable).
                 </p>
-            )}
-            {note && (
-                <div className="absolute top-16 left-1/2 z-10 flex max-w-sm -translate-x-1/2 items-center gap-3 rounded-cp-card border border-cp-hairline bg-cp-surface-1/95 px-3 py-2 text-cp-12.5 shadow-cp">
-                    <span>{note.text}</span>
-                    {note.back && (
-                        <button
-                            type="button"
-                            className="shrink-0 font-semibold text-cp-accent"
-                            onClick={() => geolocate.backToVirginia(mapRef.current)}
-                        >
-                            Back to Virginia
-                        </button>
-                    )}
-                    <button
-                        type="button"
-                        className="shrink-0 text-cp-ink-3"
-                        aria-label="Dismiss"
-                        onClick={() => geolocate.dismissNote()}
-                    >
-                        <X size={14} aria-hidden="true" />
-                    </button>
-                </div>
             )}
         </div>
     )
