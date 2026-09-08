@@ -137,6 +137,14 @@ export const SETTINGS_HINT_KEY = 'cleanplateva.settingsHintDismissed'
 // at, not how it is drawn).
 export const CLUSTERS_KEY = 'cleanplateva.clusters'
 
+/** The admin's device flag (CPE-M1, design ref §6.6): written by the
+ *  session page at /admin once the Worker has verified the Access token;
+ *  read by the public views to render their Edit controls. Its presence is
+ *  what lets a signed-in device see the controls without ever probing on a
+ *  visitor's behalf — a device without it renders nothing and asks nothing.
+ *  The JSON `{ email, exp }`, `exp` the token's own expiry in unix seconds. */
+export const ADMIN_SESSION_KEY = 'cleanplateva.admin.session'
+
 // MapLibre source + layer ids (data layers re-added on every style swap).
 export const SRC = 'food-facilities'
 export const LYR_CLUSTERS = 'food-clusters'

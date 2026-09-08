@@ -114,10 +114,13 @@ back to R2 for that shard, the basic map reports "no data published yet".
 `run_worker_first` in [`wrangler.jsonc`](wrangler.jsonc) is, in its array
 form, *the* set of paths that invoke the worker at all — everything else,
 SPA fallback included, is answered by the assets layer without a Worker
-request. It names exactly one thing: `/data-full/*`, the R2-backed full
+request. It names exactly two things. `/data-full/*` is the R2-backed full
 channel, which is not a static asset and therefore *is* the shell under the
 fallback unless the worker runs first (measured 2026-08-16: with it absent
-the full tier silently degraded to the basic map). The public channel
+the full tier silently degraded to the basic map). `/admin/api/*` (since
+2026-09-08, CPE-M1) is the edit modes' server side — one operator's traffic,
+inside the Access application's `/admin` prefix; see the `/admin` section
+below. The public channel
 `/data/*` is static: its cache-control lives in
 [`public/_headers`](public/_headers) (the manifest revalidates in 60 s;
 content-addressed finder shards are immutable), and the client fetches the
@@ -183,38 +186,64 @@ There is no cross-system distributed transaction, but each tier changes through
 one atomic pointer (the R2 manifest or the Git commit), and completed phases are
 not repeated on resume.
 
-### /admin — the About page's edit surface
+### /admin — the session page, and the edit modes
 
-`/admin` renders the About document (`app/AboutView.tsx`) as an edit surface:
-click an element to pick it, rewrite its own words, or mark it deleted. No
-link anywhere on the site points at it.
-
+`/admin` is the administrator's session page (CPE-M1, 2026-09-08; design ref
+`docs/frontend-redesign.md` §6.6). No link anywhere on the site points at it.
 It sits behind a Cloudflare Access application (**CleanPlateVA admin**,
 `b421f71e-d025-48d2-96be-c64620d8dbbb`) covering **both**
 `cleanplateva.com/admin` and `www.cleanplateva.com/admin` — the `www` host is
 listed deliberately, because it is outside a bare apex-scoped application and
 would otherwise serve the path unauthenticated. One-time PIN, 24 h session,
 one email policy. Access matches the `/admin` segment, so `/admin/*` redirects
-and `/administrator` does not; the editor itself renders at `/admin` alone,
-which makes the gate strictly wider than the surface.
+and `/administrator` does not.
 
-**Nothing here publishes.** There is no write path, no token and no Worker
-route: edits are ops in this device's `localStorage` (`app/admin/ops.ts`) and
-leave only as exported text, which is then folded into `AboutView.tsx` as an
-ordinary change. `/about` is identical for every visitor while a draft exists,
-including in the same browser. Two consequences worth knowing:
+Two locks, then a flag:
 
-- The editor is its own lazy chunk (~9 kB) that a visitor never downloads —
-  `main.tsx` branches on the path before the app mounts, so the entry chunk,
-  the three public views and their URL grammar are untouched.
+- **Access** answers an unauthenticated request under `/admin` with its login
+  redirect before anything of this site runs — measured 2026-09-07 on both
+  hosts, for the page and for `/admin/api/*`.
+- **The Worker** (`src/worker.js`, `GET /admin/api/session`) verifies the
+  token Access forwards — RS256 signature against the team's published keys,
+  then issuer, audience and expiry — and answers the operator's email,
+  `no-store`. `/admin/api/*` is the second entry in `run_worker_first`; the
+  application's team domain and audience tag ride as `vars` in
+  `wrangler.jsonc`. An identity check on one operator's route — never a tier
+  boundary; the full channel still reads no header.
+- **The device flag** (`cleanplateva.admin.session`, `app/admin/session.ts`)
+  is what the session page writes on a verified answer. The public views
+  render their **Edit** controls only for a device holding it — a visitor's
+  device never does, so a visitor's page renders no control and sends no
+  request under `/admin` (pinned by the e2e smoke). An Edit click confirms
+  the session with ONE probe (`redirect: 'manual'`: Access's redirect reads
+  as signed out and clears the flag; the Worker's identity opens the mode).
+
+**About's edit mode** (`app/admin/AboutEditor.tsx` — the editor that was
+`/admin` until CPE-M1) mounts over the live document from the Edit control at
+its head: click an element to pick it, rewrite its own words, or mark it
+deleted; Exit edit takes it down. **Nothing here publishes.** Edits are ops in
+this device's `localStorage` (`app/admin/ops.ts`, key
+`cleanplateva.admin.about.v2`) and leave only as exported text, which is then
+folded into `AboutView.tsx` as an ordinary change. `/about` is identical for
+every visitor while a draft exists, including in the same browser. Three
+things worth knowing:
+
+- The session page and the editor are lazy chunks a visitor never downloads —
+  `main.tsx` branches on `/admin` before the app mounts, and the editor loads
+  the first time a signed-in device enters it; the entry chunk, the three
+  public views and their URL grammar are untouched.
 - A delete **hides**, never removes. React owns those nodes, and a removed
   sibling would shift every later element's index and silently re-point every
   other op. "Hide deleted" in the header shows the page as it would read.
+- Paths are child-index chains from AboutView's own root — the `<main>` it
+  renders (since CPE-M1; the first editor's began `0/` from its host) — stable
+  for as long as `AboutView.tsx` is: a session and the handoff that follows
+  it. Every op therefore also records the element's tag, class and text as
+  they were, so the export names what to change even if the path has gone
+  stale.
 
-Paths are child-index chains, stable for as long as `AboutView.tsx` is — a
-session and the handoff that follows it. Every op therefore also records the
-element's tag, class and text as they were, so the export names what to change
-even if the path has gone stale.
+The map's edit mode — drag a place to propose a manual pin — follows at
+CPE-M2/M3.
 
 ### Shared finder contract
 
