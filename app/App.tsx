@@ -455,13 +455,12 @@ function Shell({ forceLite, ack }: {
                 </div>
             ) : (
                 // The map view's top-left as ONE self-stacking column — the
-                // band, with the presentation pills hanging under it, one at
-                // each of its edges (Settings on the right stands where the
-                // theme switch did on the left until the settings dialog took
-                // the theme, 2026-09-06; Layers joined it on the left
-                // 2026-09-09) — so the pills never depend on the band's
-                // height, which wraps with the viewport and beside an open
-                // panel. The column is as wide as the band, capped at
+                // band, with LAYERS hanging under its left edge (2026-09-09,
+                // off the map's own control lane; the Settings pill stood
+                // there from 2026-09-06, where the theme switch had, and went
+                // to the bottom-left corner the day Layers arrived) — so the
+                // pill never depends on the band's height, which wraps with
+                // the viewport and beside an open panel. The column is as wide as the band, capped at
                 // the viewport's gutters and, beside an OPEN panel
                 // from `sm` up (the right sheet takes 400px + gutters), at
                 // what is left; below `sm` the panel is a full-screen sheet
@@ -477,9 +476,12 @@ function Shell({ forceLite, ack }: {
                 // edge falls at 928 and this column stretched to 1268, so
                 // the band's right end ran a third of its width underneath
                 // it — the query bar's counts since CPE-M2, unnoticed
-                // because nothing anyone needed was out there, and the
-                // SETTINGS pill from the moment the pair was pushed to the
-                // band's two ends. Below `sm` the drawer is a bottom sheet
+                // because nothing anyone needed was out there. Found the
+                // hour the SETTINGS pill spent at that end of the band; the
+                // pill has since gone to the bottom-left corner, which no
+                // drawer reaches from `sm` up, and the counts are reason
+                // enough to keep the cap. Below `sm` the drawer is a bottom
+                // sheet
                 // (MapEditor's max-sm rules) and the column keeps the
                 // width, exactly as for the panel. The two never combine:
                 // the mode opens no detail panel.
@@ -517,54 +519,36 @@ function Shell({ forceLite, ack }: {
                         shown={filtered.length}
                         total={all.length}
                     />
-                    {/* The two presentation controls, one row under the
-                        band, pushed to ITS TWO ENDS (Cannon's call
-                        2026-09-09): LAYERS at the left — it came off the
-                        map's bottom-right lane in the same pass — and
-                        SETTINGS at the right, the same pill in the same
-                        chrome, so the pair reads as a pair rather than as a
-                        queue. `justify-between` against the row's own width,
-                        which is the column's, which is the band's: the right
-                        pill sits under the band's right edge at every width
-                        without a measurement. The admin's Edit pill (§6.6,
-                        OQ-A; CPE-M2) and its note ride with Layers on the
-                        left, where they have always been — second and third
-                        pill from that edge. Both wrappers are pure layout:
-                        they inherit the column's transparency and claim
-                        nothing back, so the ~800px of map between the two
-                        pills drags. */}
-                    <div className="flex flex-wrap items-start justify-between gap-2.5">
-                        <div className="flex flex-wrap items-start gap-2.5">
-                            <LayersControl
-                                basemap={basemap}
-                                open={layersOpen}
-                                onOpenChange={setLayersOpen}
-                                onBasemap={onBasemap}
-                            />
-                            {(adminSession || editNote) && (
-                                <EditButton
-                                    editing={editing === 'map'}
-                                    busy={probing}
-                                    onClick={editing === 'map' ? exitEdit : enterEdit}
-                                />
-                            )}
-                            {editNote && !editing && (
-                                <span role="status" className="pointer-events-auto self-center rounded-cp-pill bg-cp-surface-1/95 px-2.5 py-1 text-cp-12.5 text-cp-ink-3 shadow-cp">
-                                    {editNote}
-                                </span>
-                            )}
-                        </div>
-                        <SettingsButton
-                            onClick={() => {
-                                dismissHint()
-                                setSettingsOpen(true)
-                            }}
+                    {/* Under the band: LAYERS, and — for a device holding
+                        the session flag — the admin's Edit pill and its note
+                        to its right (§6.6, OQ-A; CPE-M2). Settings stood at
+                        the band's OTHER end for one revision on 2026-09-09
+                        and went to the bottom-left corner the same day
+                        (Cannon's call); the hint went with it, because it is
+                        an arrow at the gear. The wrapper is pure layout: it
+                        inherits the column's transparency and claims nothing
+                        back, so the map drags everywhere the pills are
+                        not. */}
+                    <div className="flex flex-wrap items-start gap-2.5">
+                        <LayersControl
+                            basemap={basemap}
+                            open={layersOpen}
+                            onOpenChange={setLayersOpen}
+                            onBasemap={onBasemap}
                         />
+                        {(adminSession || editNote) && (
+                            <EditButton
+                                editing={editing === 'map'}
+                                busy={probing}
+                                onClick={editing === 'map' ? exitEdit : enterEdit}
+                            />
+                        )}
+                        {editNote && !editing && (
+                            <span role="status" className="pointer-events-auto self-center rounded-cp-pill bg-cp-surface-1/95 px-2.5 py-1 text-cp-12.5 text-cp-ink-3 shadow-cp">
+                                {editNote}
+                            </span>
+                        )}
                     </div>
-                    {/* The hint follows the gear to the right edge — it is
-                        an arrow at Settings, and pointing it at Layers would
-                        be a lie. */}
-                    {!hintDismissed && <SettingsHint onDismiss={dismissHint} />}
                 </div>
             )}
 
@@ -580,11 +564,23 @@ function Shell({ forceLite, ack }: {
             )}
 
             {state.view === 'map' && !blocking && (
-                // The bottom-left corner: the attribution chip in a
-                // pointer-transparent column box (the cluster switch stood
-                // over it until the settings dialog took it, 2026-09-06; the
-                // column idiom stays, so a control can return above the chip
-                // without re-deriving the rules below). Below `sm` the box
+                // The bottom-left corner: the SETTINGS pill over the
+                // attribution chip, in a pointer-transparent column box. The
+                // note this carried since 2026-09-06 said the column idiom
+                // was being kept "so a control can return above the chip
+                // without re-deriving the rules below" — this is that
+                // control returning (Cannon's call, 2026-09-09, the same day
+                // it went from the band's left edge to its right and then
+                // here). The cluster switch stood in this spot until the
+                // settings dialog swallowed it; the gear that opens that
+                // dialog now stands where it did. The hint rides ABOVE the
+                // pill with its tip pointing DOWN at the gear.
+                //
+                // The stops below were written for the chip and hold for the
+                // pill without a change, because they cap the box's WIDTH
+                // and the box is `items-start`: every child hugs the left
+                // gutter, and only the chip is ever wide enough to reach a
+                // stop. Below `sm` the box
                 // stops short of the map's bottom-right control lane, so the
                 // chip wraps beside the zoom and locate buttons instead of
                 // under them, and sits above the basemap's attribution strip:
@@ -597,8 +593,11 @@ function Shell({ forceLite, ack }: {
                 // not-huge desktop width reaches that corner too —
                 // `sm:right-[360px]` clears it with room to spare, wrapping
                 // the chip to a second line rather than running under the
-                // expanded control. Only the chip takes the pointer, so the
-                // map beside it still drags.
+                // expanded control. The box itself takes NO pointer and
+                // hands none down (the specificity trap that idiom used to
+                // carry is written up on the top column): the hint, the pill
+                // and the chip each claim `pointer-events-auto` for
+                // themselves, so the map beside them still drags.
                 //
                 // The AERIAL widens that strip: the imagery's credit joins
                 // CARTO's and OpenStreetMap's on the same line. A first cut
@@ -617,10 +616,17 @@ function Shell({ forceLite, ack }: {
                 // whitespace-delimited: Tailwind's scanner drops one glued
                 // to a `${`.)
                 <div
-                    className={`pointer-events-none fixed bottom-2.5 left-3 z-10 flex flex-col items-start gap-1.5 max-sm:right-[54px] max-sm:bottom-[38px] [&>*]:pointer-events-auto ${
+                    className={`pointer-events-none fixed bottom-2.5 left-3 z-10 flex flex-col items-start gap-1.5 max-sm:right-[54px] max-sm:bottom-[38px] ${
                         basemap === 'aerial' ? 'sm:right-[54px] sm:bottom-[38px]' : 'sm:right-[360px]'
                     }`}
                 >
+                    {!hintDismissed && <SettingsHint onDismiss={dismissHint} />}
+                    <SettingsButton
+                        onClick={() => {
+                            dismissHint()
+                            setSettingsOpen(true)
+                        }}
+                    />
                     <Attribution snapshot={snapshot} onTerms={showTerms} />
                 </div>
             )}
@@ -691,7 +697,7 @@ function Attribution({ inline = false, snapshot = null, onTerms }: {
         <footer
             className={inline
                 ? 'mx-4 mb-4 text-cp-10.5 text-cp-ink-3'
-                : 'rounded-[6px] bg-cp-scrim-2 px-2.5 py-1.5 text-cp-10.5 font-semibold text-[#cfd4d9] backdrop-blur-[4px]'}
+                : 'pointer-events-auto rounded-[6px] bg-cp-scrim-2 px-2.5 py-1.5 text-cp-10.5 font-semibold text-[#cfd4d9] backdrop-blur-[4px]'}
         >
             Inspection records: VDH and Fairfax County Health Department · archived snapshot
             {snapshot ? ` · ${fmtDate(snapshot)}` : ''} ·

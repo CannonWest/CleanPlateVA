@@ -233,7 +233,10 @@ for (const width of [1024, 1200, 1440]) {
             const strip = document.querySelector('.maplibregl-ctrl-attrib')
             const lane = [...document.querySelectorAll('div')].find((el) =>
                 el.className.includes('pointer-events-none') && el.className.includes('bottom-2.5'))
-            const chip = lane?.firstElementChild
+            // The chip by its TAG, not its position: since 2026-09-09 the
+            // Settings pill (and the hint above it) share this box, over the
+            // chip, so the first child is no longer the footer.
+            const chip = lane?.querySelector('footer')
             if (!strip || !chip) throw new Error('no attribution strip or footer chip')
             const shut = strip.getBoundingClientRect().width
             strip.classList.add('maplibregl-compact-show')

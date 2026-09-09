@@ -16,11 +16,13 @@
  * and the corner turned out to be the wrong home for it here: that lane is
  * MapLibre's, its buttons are the map's own instruments, and a control that
  * changes what the visitor is looking AT was reading as one more zoom
- * affordance. So it now MIRRORS the Settings pill under the band (App's top
- * column): Layers at the column's left edge, Settings at its right, the
- * same pill in the same chrome — the two presentation controls as a matched
- * pair, both in the band's vocabulary, both labelled with the word as well
- * as the glyph.
+ * affordance. So it is now a pill under the band's left edge (App's top
+ * column), in SettingsButton's chrome to the class — the site's two
+ * presentation controls reading as the same kind of thing, both labelled
+ * with the word as well as the glyph. They were briefly a mirrored PAIR at
+ * the band's two ends; Settings went down to the map's bottom-left corner
+ * the same day (Cannon's call), so they now hold opposite corners and the
+ * shared vocabulary is what ties them.
  *
  * The move also answers the thing Cannon asked for by name — that it not go
  * transparent under a click — and answers it at the cause. In the lane the

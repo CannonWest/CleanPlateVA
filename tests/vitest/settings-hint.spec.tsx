@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
 /**
- * The hint under the Settings pill (2026-09-07): a note, not a dialog — no
+ * The hint beside the Settings pill (2026-09-07): a note, not a dialog — no
  * focus to trap, one control, and it never dismisses itself (the App owns
  * and persists that). The words are the public copy; the tip is chrome and
- * hidden from the accessible name. Placement is App's (the map view's top
- * column, third under the pill) and is not pinned here.
+ * hidden from the accessible name. Placement is App's — since 2026-09-09 the
+ * map's bottom-left corner, above the pill and over the attribution chip —
+ * and is not pinned here.
  */
 import { act, StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
@@ -88,9 +89,16 @@ test('it does not whisper: a 2px accent outline the tip carries too, and text AB
     expect(note.className).toContain('text-cp-15') // 15 × the visitor's scale
     expect(note.className).toContain('font-medium')
     expect(note.className).toContain('text-cp-ink') // not the muted ink-2/ink-3
+    // The tip carries the card's outline at the card's weight — which two
+    // of its four edges is a matter of which way it points, and that has
+    // changed with every move of the pill (2026-09-09: up-and-left, then
+    // up-and-right, then down). So the contract is EXACTLY TWO 2px accent
+    // edges, adjacent ones — a rotated square shows two — not a named pair.
     const tip = note.querySelector('[aria-hidden="true"]:not(svg)')
-    expect(tip?.className).toContain('border-t-2')
-    expect(tip?.className).toContain('border-l-2')
+    const edges = ['t', 'r', 'b', 'l'].filter((side) => tip?.className.includes(`border-${side}-2`))
+    expect(edges).toHaveLength(2)
+    expect(edges.join('')).not.toBe('tb')
+    expect(edges.join('')).not.toBe('rl')
     expect(tip?.className).toContain('border-cp-accent')
     // Its fill is the card's own surface, so it covers the outline behind it.
     expect(tip?.className).toContain('bg-cp-surface-1')
