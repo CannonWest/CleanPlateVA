@@ -346,13 +346,18 @@ export function MapEditor({
 }
 
 /** Above `sm` the drawer stops short of the map's bottom-right control lane
- *  (the layers button, Find me, the zoom pair, the attribution — OQ-F,
- *  2026-09-08), so every control stays under the pointer in edit mode; the
- *  lane's own popover, which opens upward, draws OVER the drawer while it is
- *  open (theme.css, `.cp-map-editing`). Below `sm` the bottom sheet's 45vh
- *  already leaves the lane alone. The offset is the lane's measured height
- *  — 190 px, the same at 1024, 1280 and 1440 wide on the production build —
- *  plus the drawer's own 12 px gutter. */
+ *  (Find me, the zoom pair, the attribution — OQ-F, 2026-09-08), so every
+ *  control stays under the pointer in edit mode; the lane keeps the z-lift
+ *  that put it over the drawer's foot (theme.css, `.cp-map-editing`). Below
+ *  `sm` the bottom sheet's 45vh already leaves the lane alone. The offset is
+ *  the lane's measured height — 190 px, the same at 1024, 1280 and 1440 wide
+ *  on the production build — plus the drawer's own 12 px gutter. It was
+ *  measured with the LAYERS button in the lane and its upward-opening list
+ *  as the thing that had to clear the drawer; the button left for the band's
+ *  column on 2026-09-09, so the number is now more clearance than the lane
+ *  needs, and it is left alone rather than re-measured for a saving nobody
+ *  asked for. The drawer's OTHER side is App's: the top-left column takes a
+ *  width cap in this mode, the way it does beside an open detail panel. */
 export const DRAWER_BOTTOM = 'sm:bottom-[202px]'
 
 /** The drawer's navigation aid (2026-09-09): paste a decimal pair and the view

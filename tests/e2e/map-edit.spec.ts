@@ -236,6 +236,71 @@ test('a ZIP-centroid place drags as a site fix and says what it moves', async ({
     await expect(item).toContainText(/Moves \d+ permits? at /)
 })
 
+// ── the band's column against the drawer (2026-09-09) ─────────────────
+// D-CPE-5 stopped the drawer above the map's bottom-right control lane. The
+// TOP-left column is the other side it can reach, and the SETTINGS pill
+// moved into its path on 2026-09-09, when the presentation pair was pushed
+// to the band's two ends. Measured on the running site at 1280: the drawer's
+// left edge falls at 928 and the full-tier band reaches 1024, so the pill
+// sat behind it — as the query bar's own right end had been doing, unnoticed
+// since CPE-M2, because nothing out there was worth reaching. The column now
+// takes the same kind of cap an open detail panel gives it (340px + both
+// gutters + the panel cap's own 24px of air = 388).
+//
+// AT 900, deliberately. This build serves the basic map, whose band carries
+// no grade chips and is narrow enough at 1280 to clear the drawer on its own
+// — the case would pass without the cap and pin nothing. Below the width
+// where the band stops shrink-wrapping and takes the column's cap, it is the
+// CAP that decides where the band ends, which is the rule this states: at
+// any width from `sm` up, whatever the band is holding, the column stops
+// left of the drawer. (Below `sm` the drawer is a bottom sheet and the
+// column is not in its way at all.)
+
+test('in edit mode the drawer covers nothing in the band\'s column', async ({ page }) => {
+    await page.setViewportSize({ width: 900, height: 760 })
+    await seed(page, { [ADMIN_SESSION_KEY]: session() })
+    await stubSession(page)
+    await openOn(page, lonePlace((v) => v !== 2))
+    await enterEdit(page)
+
+    const boxes = await page.evaluate(() => {
+        const rect = (el: Element | null | undefined) => {
+            if (!el) return null
+            const r = el.getBoundingClientRect()
+            return { left: Math.round(r.left), right: Math.round(r.right) }
+        }
+        // The BAND, by the one thing only it holds, and its COLUMN from
+        // there. Both matter: the drawer carries a `header` and an "Exit
+        // edit" button of its own, so a document-wide query for either
+        // measures the drawer and says nothing about this column.
+        const band = document.querySelector('nav[aria-label="View"]')?.closest('header')
+        const column = band?.parentElement
+        const named = (word: string) => Array.from(column?.querySelectorAll('button') ?? [])
+            .find((b) => b.textContent?.trim() === word)
+        return {
+            drawer: rect(document.querySelector('aside')),
+            column: rect(column),
+            band: rect(band),
+            layers: rect(named('Layers')),
+            settings: rect(named('Settings')),
+            exit: rect(named('Exit edit')),
+        }
+    })
+
+    expect(boxes.drawer, 'the mode is on and its drawer is up').not.toBeNull()
+    expect(boxes.settings, 'Settings is rendered in edit mode').not.toBeNull()
+    // The drawer is the right column; everything the band owns stops short
+    // of it, the pill at the band's right edge included.
+    for (const [what, box] of Object.entries(boxes)) {
+        if (what === 'drawer' || !box) continue
+        expect(box.right, `${what} clears the drawer`).toBeLessThanOrEqual(boxes.drawer!.left)
+    }
+    // And the pointer agrees: the pill is the thing at its own centre.
+    const settings = page.getByRole('button', { name: 'Settings', exact: true })
+    await expect(settings).toBeVisible()
+    await settings.click({ trial: true, timeout: 5_000 })
+})
+
 // ── "Go to a coordinate" (the coordinate box, 2026-09-09) ───────────────────────────────────────
 // The navigation aid, on the real map: a decimal pair moves the CENTRE and
 // nothing else, and the mark is painted where the coordinate is. The zoom
@@ -336,19 +401,17 @@ test('flipping to the aerial in edit mode keeps the photo under the dots AND und
     expect(before.pins).toBeGreaterThan(before.points)
     expect(before.aerial).toBe(-1)
 
-    // By keyboard, deliberately: the mode's drawer (`fixed top-3 right-3
-    // bottom-3`) covers the whole bottom-right control lane, so the layers
-    // button — and Find me and the zoom buttons beside it, a CPE-M2 fact
-    // that predates the aerial — is pointer-unreachable in edit mode
-    // (Playwright: the aside "intercepts pointer events"). Reported with
-    // this PR, not decided here. Focus + Enter is the path a pointer cannot
-    // take, and a real one: the control is a button, the entries are radios.
-    const layers = page.getByRole('button', { name: 'Basemap', exact: true })
-    await layers.focus()
-    await page.keyboard.press('Enter')
-    const aerialEntry = page.getByRole('radio', { name: /Aerial/ })
-    await aerialEntry.focus()
-    await page.keyboard.press('Enter')
+    // By POINTER, which is the news: this flip was keyboard-only until
+    // 2026-09-09, because the control was a button in the map's bottom-right
+    // lane and the mode's drawer (`fixed top-3 right-3 bottom-3`) covered
+    // that lane whole (Playwright: the aside "intercepts pointer events").
+    // The Layers pill now lives under the band in the top-LEFT column, which
+    // no drawer has ever reached, so a click is the path — and a click
+    // landing is itself the pin that the move stuck. (Find me and the zoom
+    // pair are still down there; D-CPE-5's drawer stop is what keeps them
+    // reachable.)
+    await page.getByRole('button', { name: 'Layers', exact: true }).click()
+    await page.getByRole('radio', { name: /Aerial/ }).click()
     await page.waitForFunction(
         (id) => !!(window as unknown as { __cpMap?: { getLayer(id: string): unknown } }).__cpMap?.getLayer(id),
         LYR_AERIAL,

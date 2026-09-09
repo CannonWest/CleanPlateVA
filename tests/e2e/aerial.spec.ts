@@ -7,7 +7,7 @@
  *
  *   · a first-time visitor gets the drawn map — the aerial is the absence
  *     of a layer, not a layer set to invisible;
- *   · the layers control flips it, the browser really fetches a VBMP tile
+ *   · the Layers pill flips it, the browser really fetches a VBMP tile
  *     (200, from vginmaps.vdem.virginia.gov — a state ArcGIS server, live,
  *     so an outage there fails this suite exactly as a CARTO outage does);
  *   · **IN BOTH THEMES**, against the real style, every layer the basemap
@@ -106,7 +106,7 @@ test('a first-time visitor gets the drawn map: the aerial is not on the style at
     expect(present).toEqual({ layer: false, source: false })
 })
 
-test('the layers control flips to the aerial: VGIN serves tiles, and the markers never move', async ({ page }) => {
+test('the Layers pill flips to the aerial: VGIN serves tiles, and the markers never move', async ({ page }) => {
     await seed(page)
     await openPainted(page)
     const before = await stack(page, OWN_LAYERS)
@@ -118,7 +118,7 @@ test('the layers control flips to the aerial: VGIN serves tiles, and the markers
         (r) => r.url().includes(TILE_HOST) && r.status() === 200,
         { timeout: 60_000 },
     )
-    await page.getByRole('button', { name: 'Basemap', exact: true }).click()
+    await page.getByRole('button', { name: 'Layers', exact: true }).click()
     await page.getByRole('radio', { name: /Aerial/ }).click()
     const response = await tile
     expect(response.url()).toContain('/MapServer/tile/')
@@ -135,7 +135,7 @@ test('the layers control flips to the aerial: VGIN serves tiles, and the markers
 
     // The control collapsed on the pick, and reports the choice when reopened.
     await expect(page.getByRole('radiogroup', { name: 'Basemap' })).toHaveCount(0)
-    await page.getByRole('button', { name: 'Basemap', exact: true }).click()
+    await page.getByRole('button', { name: 'Layers', exact: true }).click()
     await expect(page.getByRole('radio', { name: /Aerial/ })).toHaveAttribute('aria-checked', 'true')
 })
 
@@ -267,7 +267,7 @@ test('back to the drawn map takes the layer and its credit off again', async ({ 
     await seed(page, { [BASEMAP_KEY]: 'aerial' })
     await openPainted(page)
     await waitForAerial(page)
-    await page.getByRole('button', { name: 'Basemap', exact: true }).click()
+    await page.getByRole('button', { name: 'Layers', exact: true }).click()
     await page.getByRole('radio', { name: /Map/ }).click()
     await page.waitForFunction(
         ([layer, source]) => {
