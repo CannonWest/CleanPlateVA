@@ -174,9 +174,11 @@ test('the band publishes its first line\'s bottom edge, and drops it on unmount'
     const root0 = document.documentElement
     expect(root0.style.getPropertyValue('--cp-band-line-1')).toBe('')
     await mount()
-    // jsdom lays nothing out, so the edge is 0 — the property being SET is
-    // the contract (the phone sheet reads it); the number is the e2e's.
-    expect(root0.style.getPropertyValue('--cp-band-line-1')).toBe('0px')
+    // jsdom lays nothing out, so the card measures 0 and the edge is the
+    // gutter alone. The property being SET, and being the gutter plus a
+    // HEIGHT rather than a rect that scrolls, is the contract the phone
+    // sheet reads; the real number is the e2e's.
+    expect(root0.style.getPropertyValue('--cp-band-line-1')).toBe('12px')
     await act(async () => {
         root?.unmount()
     })

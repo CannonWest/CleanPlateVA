@@ -507,11 +507,6 @@ function Shell({ forceLite, ack }: {
                     row={selected}
                     lite={lite}
                     state={detailState}
-                    // The map view is where the band is FIXED at the top of
-                    // the viewport, so it is the view where the phone sheet
-                    // has a first line to stop under; on the List and About
-                    // documents the band scrolls away with the records.
-                    underBand={state.view === 'map'}
                     onClose={() => actions.closePanel()}
                     onAbout={() => actions.setView('about')}
                 />

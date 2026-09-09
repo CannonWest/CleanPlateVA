@@ -9,12 +9,13 @@
  * identity + official-VDH hand-off. Plus the stack member popover
  * (Cannon's M1-boundary call).
  *
- * The PHONE sheet has two stops (2026-09-09): under the map band's first
- * line (`underBand`, the map view — it stops at `--cp-band-line-1`, which
- * Toolbar measures) or at the top of the screen (the List and About
- * documents, whose band scrolls away with the records). jsdom carries no
- * media queries, so what is pinned here is which rule the panel ASKS for;
- * `tests/e2e/band-lines.spec.ts` measures where the sheet actually lands.
+ * The PHONE sheet stops under the band's first line on EVERY view
+ * (2026-09-09) — `--cp-band-line-1`, which Toolbar measures as the gutter
+ * plus the identity card's height, so it means the same thing on the map's
+ * fixed band and at the head of a List scrolled a thousand rows. jsdom
+ * carries no media queries, so what is pinned here is which rule the panel
+ * ASKS for; `tests/e2e/band-lines.spec.ts` measures where the sheet
+ * actually lands, on the map and on a scrolled List.
  */
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
@@ -120,7 +121,6 @@ test('the full panel: header, fact line, tappable hero → report-card modal, tr
             row={row()}
             lite={false}
             state={{ status: 'ready', detail: detail() }}
-            underBand
             onClose={() => {}}
             onAbout={() => {}}
         />,
@@ -176,7 +176,6 @@ test('the basic map keeps the identity + official hand-off (P6/C8)', async () =>
             row={row()}
             lite
             state={{ status: 'loading' }}
-            underBand
             onClose={() => {}}
             onAbout={() => {}}
         />,
@@ -235,7 +234,6 @@ test('a Fairfax Health District facility links to the county and names it (FFX-M
             row={row({ permit_id: 'HFOOD-000011010', name: 'Bull Run Regional Park', tenant: 'fairfax' })}
             lite={false}
             state={{ status: 'ready', detail: fairfaxDetail() }}
-            underBand
             onClose={() => {}}
             onAbout={() => {}}
         />,
@@ -271,7 +269,6 @@ test('the basic map hands a Fairfax facility off to the county (FFX-M4)', async 
             row={row({ tenant: 'fairfax' })}
             lite
             state={{ status: 'loading' }}
-            underBand
             onClose={() => {}}
             onAbout={() => {}}
         />,
@@ -291,7 +288,6 @@ test('a Fairfax row with ffx_oid deep-links the Source and the basic-map hand-of
             row={row({ permit_id: 'HFOOD-2026-00063', name: 'Dominion Eats', tenant: 'fairfax', ffx_oid: 335393 })}
             lite={false}
             state={{ status: 'ready', detail: fairfaxDetail() }}
-            underBand
             onClose={() => {}}
             onAbout={() => {}}
         />,
@@ -305,7 +301,6 @@ test('a Fairfax row with ffx_oid deep-links the Source and the basic-map hand-of
             row={row({ tenant: 'fairfax', ffx_oid: 335393 })}
             lite
             state={{ status: 'loading' }}
-            underBand
             onClose={() => {}}
             onAbout={() => {}}
         />,
@@ -320,7 +315,6 @@ test('an unavailable detail reads as exactly that', async () => {
             row={row()}
             lite={false}
             state={{ status: 'ready', detail: { available: false, reason: 'no data published yet' } }}
-            underBand
             onClose={() => {}}
             onAbout={() => {}}
         />,
@@ -328,48 +322,32 @@ test('an unavailable detail reads as exactly that', async () => {
     expect(el.textContent).toContain('Failed to load: no data published yet')
 })
 
-test('the phone sheet stops under a fixed band, and takes the screen without one', async () => {
-    const under = await render(
+test('the phone sheet stops at the band line, on every view', async () => {
+    const el = await render(
         <DetailPanel
             row={row()}
             lite={false}
             state={{ status: 'ready', detail: detail() }}
-            underBand
             onClose={() => {}}
             onAbout={() => {}}
         />,
     )
-    const sheet = () => under.querySelector('aside')!.className
-    expect(sheet()).toContain('max-sm:top-[calc(var(--cp-band-line-1)+8px)]')
+    const sheet = el.querySelector('aside')!.className
+    // One rule, not a pair: the edge means the same thing on the map's fixed
+    // band and at the head of a scrolled List, so the panel does not need to
+    // be told which view it is in.
+    expect(sheet).toContain('max-sm:top-[calc(var(--cp-band-line-1)+8px)]')
+    expect(sheet).not.toContain('max-sm:top-0')
     // Only the top edge is drawn, so it reads as a sheet under the band.
-    expect(sheet()).toContain('max-sm:rounded-b-none')
-    expect(sheet()).toContain('max-sm:border-x-0')
-    expect(sheet()).not.toContain('max-sm:top-0')
-
-    const over = await render(
-        <DetailPanel
-            row={row()}
-            lite={false}
-            state={{ status: 'ready', detail: detail() }}
-            underBand={false}
-            onClose={() => {}}
-            onAbout={() => {}}
-        />,
-    )
-    const document_ = over.querySelector('aside')!.className
-    expect(document_).toContain('max-sm:top-0')
-    expect(document_).toContain('max-sm:rounded-none')
-    expect(document_).not.toContain('var(--cp-band-line-1)')
-
-    // Either way the sheet is flush to the phone's other three edges, and
-    // the desktop right sheet is untouched.
-    for (const cls of [sheet(), document_]) {
-        expect(cls).toContain('max-sm:right-0')
-        expect(cls).toContain('max-sm:bottom-0')
-        expect(cls).toContain('max-sm:left-0')
-        expect(cls).toContain('max-sm:w-full')
-        expect(cls).toContain('fixed top-3 right-3 bottom-3')
-    }
+    expect(sheet).toContain('max-sm:rounded-b-none')
+    expect(sheet).toContain('max-sm:border-x-0')
+    // Flush to the phone's other three edges; the desktop right sheet is
+    // untouched.
+    expect(sheet).toContain('max-sm:right-0')
+    expect(sheet).toContain('max-sm:bottom-0')
+    expect(sheet).toContain('max-sm:left-0')
+    expect(sheet).toContain('max-sm:w-full')
+    expect(sheet).toContain('fixed top-3 right-3 bottom-3')
 })
 
 test('the stack popover lists members name-sorted with ramp chips and picks by permit', async () => {

@@ -7,11 +7,14 @@
  * switcher to survive an open place: a phone sheet that swallows the
  * chrome leaves ✕ as the only way back, and nothing says which view you
  * are standing in. It stops at `--cp-band-line-1`, the edge Toolbar
- * measures and publishes (so the stop follows the text-size slider and a
- * band that wrapped), and only where that line is the fixed map band —
- * `underBand`, which App answers for the map view. On the List and About
- * documents the band scrolls with the records, so there is no fixed first
- * line to clear and the sheet still takes the screen.
+ * measures and publishes, so the stop follows the text-size slider and a
+ * band that wrapped. EVERY view (Cannon, same day — the map first, then
+ * "the same restaurant mobile thing on List view too"): the edge is the
+ * gutter plus the identity card's height, not a rect that scrolls, so it
+ * means the same thing on the map's fixed band and at the head of a
+ * scrolled List. What sits in the strip differs — the band on the map, the
+ * records on a scrolled List — and on a list a sheet over its own rows is
+ * the ordinary grammar.
  * Header: name/address + the Source button (the external
  * grammar) + close; the fact line renders permanent facts structurally
  * (kind as icon + word, status as dot + word) with `≈ approximate
@@ -146,14 +149,10 @@ function GradeHero({ fac, delta, onOpen }: {
     )
 }
 
-export function DetailPanel({ row, lite, state, underBand, onClose, onAbout }: {
+export function DetailPanel({ row, lite, state, onClose, onAbout }: {
     row: RosterRow
     lite: boolean
     state: DetailState
-    /** Whether a FIXED band's first line is standing above this panel — the
-     *  map view. The phone sheet stops under it; elsewhere it takes the
-     *  screen, as it has since 2026-09-06. */
-    underBand: boolean
     onClose: () => void
     onAbout: () => void
 }) {
@@ -173,17 +172,13 @@ export function DetailPanel({ row, lite, state, underBand, onClose, onAbout }: {
     const fairfax = isFairfax(fac)
     const dept = sourceDepartment(fac)
 
-    // The phone sheet: full width, flush to the bottom and the sides, with
-    // its top either at the band's first line (whole class strings, so
-    // Tailwind's scanner sees them) or at the screen's. Only the top edge
-    // is drawn — a hairline and the card's two top corners — so the sheet
-    // reads as a sheet under the band rather than a page with a seam.
-    const phone = underBand
-        ? 'max-sm:top-[calc(var(--cp-band-line-1)+8px)] max-sm:rounded-b-none max-sm:border-x-0 max-sm:border-b-0'
-        : 'max-sm:top-0 max-sm:rounded-none max-sm:border-0 max-sm:shadow-none'
+    // The phone sheet: full width, flush to the bottom and the sides, its top
+    // at the band's first line. Only the top edge is drawn — a hairline and
+    // the card's two top corners — so it reads as a sheet under the band
+    // rather than a page with a seam.
     return (
         <aside
-            className={`fixed top-3 right-3 bottom-3 z-30 flex w-[min(400px,calc(100vw-24px))] flex-col overflow-hidden rounded-cp-card border border-cp-hairline bg-cp-surface-1 shadow-cp max-sm:right-0 max-sm:bottom-0 max-sm:left-0 max-sm:w-full ${phone}`}
+            className="fixed top-3 right-3 bottom-3 z-30 flex w-[min(400px,calc(100vw-24px))] flex-col overflow-hidden rounded-cp-card border border-cp-hairline bg-cp-surface-1 shadow-cp max-sm:top-[calc(var(--cp-band-line-1)+8px)] max-sm:right-0 max-sm:bottom-0 max-sm:left-0 max-sm:w-full max-sm:rounded-b-none max-sm:border-x-0 max-sm:border-b-0"
             aria-label={`${row.name} details`}
         >
             <header className="border-b border-cp-hairline px-4 pt-4 pb-3">

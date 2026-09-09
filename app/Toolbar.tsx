@@ -108,11 +108,19 @@ const IDENTITY = 'rounded-cp-card border border-cp-hairline bg-cp-surface-1 px-3
 const QUERY = 'rounded-cp-card border border-cp-hairline bg-cp-surface-1/65 px-3 py-2 '
     + 'shadow-cp backdrop-blur-md sm:rounded-cp-pill sm:px-4'
 
-/** Where the band's FIRST line ends, in viewport px — the only geometry the
- *  band exports. The phone detail sheet's top (DetailPanel) is the one
- *  consumer; theme.css carries the fallback the sheet falls back to before
- *  the first measure. */
+/** Where the band's FIRST line ends, measured from the top of whatever
+ *  holds it — the only geometry the band exports. The phone detail sheet's
+ *  top (DetailPanel) is the one consumer; theme.css carries the fallback the
+ *  sheet uses before the first measure. */
 export const BAND_LINE_1_PROPERTY = '--cp-band-line-1'
+
+/** The gutter App leaves above the band, in px. It is the same `3` in both
+ *  placements — the map's `fixed top-3` column and the documents' `mt-3`
+ *  wrapper (App.tsx) — which is why the published edge can be a height plus
+ *  a constant instead of a rect that scrolls. Change either placement and
+ *  the band-lines e2e, which measures the sheet against the identity card's
+ *  real bottom, says so. */
+const BAND_TOP_GUTTER = 12
 
 /** The canonical form the URL carries (C6): trimmed, lower-cased, internal
  *  whitespace runs collapsed. The box itself keeps whatever was typed. */
@@ -142,21 +150,25 @@ export function Toolbar({ state, actions, lite, shown, total }: {
     }, [])
     const searchInput = useRef<HTMLInputElement>(null)
 
-    // Line 1's bottom edge on <html>, for the phone detail sheet to stop at.
-    // A ResizeObserver on the row and nothing else: on the map view the band
-    // is fixed at the viewport's top, so the row's bottom moves only when its
-    // own height does — a text-size step, or the name and switcher wrapping
-    // on a narrow phone — and the observer fires exactly then. The write
-    // touches no width the row is measured on, so it cannot feed itself.
-    // Cleanup drops the property; effect cleanups run before the next tree's
-    // effects, so a view switch hands the property from one band to the next.
+    // The identity card's bottom edge on <html>, for the phone detail sheet
+    // to stop at. A ResizeObserver on the card and nothing else: the edge is
+    // the GUTTER plus the card's own height, never its viewport rect, so the
+    // number is the same whether the band is fixed at the top of the map or
+    // riding the head of a List that has been scrolled a thousand rows —
+    // which is what lets the sheet stop in the same place on every view. The
+    // observer fires exactly when that height moves: a text-size step, or
+    // the name and switcher wrapping on a narrow phone. The write touches no
+    // width the card is measured on, so it cannot feed itself. Cleanup drops
+    // the property; effect cleanups run before the next tree's effects, so a
+    // view switch hands the property from one band to the next.
     const identityLine = useRef<HTMLDivElement>(null)
     useEffect(() => {
         const row = identityLine.current
         const root = document.documentElement
         if (!row) return
         const publish = () => {
-            root.style.setProperty(BAND_LINE_1_PROPERTY, `${Math.round(row.getBoundingClientRect().bottom)}px`)
+            const edge = BAND_TOP_GUTTER + row.getBoundingClientRect().height
+            root.style.setProperty(BAND_LINE_1_PROPERTY, `${Math.round(edge)}px`)
         }
         publish()
         const drop = () => root.style.removeProperty(BAND_LINE_1_PROPERTY)

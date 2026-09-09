@@ -21,7 +21,11 @@
  *     taking the screen — at the default size and at 20 px, where identity
  *     itself wraps and the stop has to follow it (this is why
  *     `--cp-band-line-1` is measured and re-published rather than computed
- *     from the box model).
+ *     from the box model), and on the LIST view including a list scrolled
+ *     far enough to carry its band off the screen, which is the case the
+ *     scroll-free edge exists for: it is a height plus a gutter, not a
+ *     rect, so a scrolled document publishes the same number as a fresh
+ *     one.
  *
  * `?tier=lite` keeps the boot cheap and the ack out of the way; the basic
  * map carries the same band minus the grade chips (P6), and the search is
@@ -223,6 +227,42 @@ function anyPlace(): { permit_id: string; name: string } {
     if (!place) throw new Error('the first finder shard is empty')
     return place
 }
+
+test('the phone sheet stops in the same place on the List, scrolled or not', async ({ page }) => {
+    const place = anyPlace()
+    await seed(page)
+    await page.setViewportSize(PHONE)
+    await page.goto('/list?tier=lite')
+    await expect(page.getByRole('navigation', { name: 'View' })).toBeVisible()
+
+    // The List's band rides the flow, so the edge it publishes has to be
+    // the one it would publish unscrolled. Read it fresh, then scroll the
+    // records past it and read it again.
+    const edge = () => page.evaluate(() =>
+        getComputedStyle(document.documentElement).getPropertyValue('--cp-band-line-1').trim())
+    const [identity] = await bandLines(page) as [Line, Line]
+    const atRest = await edge()
+    expect(parseFloat(atRest)).toBeCloseTo(identity.bottom, 0)
+
+    const scroller = page.locator('div.overflow-y-auto').first()
+    await scroller.evaluate((el) => { el.scrollTop = 1200 })
+    await expect.poll(() => scroller.evaluate((el) => el.scrollTop)).toBeGreaterThan(1000)
+    // The band has left the screen; the published edge has not moved.
+    const [scrolledIdentity] = await bandLines(page) as [Line, Line]
+    expect(scrolledIdentity.bottom).toBeLessThan(0)
+    expect(await edge()).toBe(atRest)
+
+    // Open a place from the scrolled list: the sheet stops at that same
+    // edge, not at the top of the screen.
+    await page.goto(`/list?tier=lite&permit=${encodeURIComponent(place.permit_id)}`)
+    const sheet = page.getByLabel(`${place.name} details`)
+    await expect(sheet).toBeVisible()
+    const box = (await sheet.boundingBox())!
+    expect(box.y).toBeCloseTo(parseFloat(atRest) + 8, 0)
+    expect(box.x).toBe(0)
+    expect(box.width).toBe(PHONE.width)
+    expect(box.y + box.height).toBe(PHONE.height)
+})
 
 for (const size of [undefined, TEXT_SIZE_MAX]) {
     const label = size ? `${size}px, where line 1 wraps` : 'the ratified size'
