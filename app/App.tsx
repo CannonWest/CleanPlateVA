@@ -36,6 +36,7 @@ import type { RowDragHandler } from './StackPopover'
 import { DetailPanel } from './DetailPanel'
 import type { DetailState } from './DetailPanel'
 import { MapView } from './MapView'
+import { LayersControl } from './LayersControl'
 import { SettingsButton } from './SettingsButton'
 import { SettingsDialog } from './SettingsDialog'
 import { SettingsHint } from './SettingsHint'
@@ -168,10 +169,18 @@ function Shell({ forceLite, ack }: {
     }
 
     // The basemap (basemap.ts): the same kind of preference, but its control
-    // is the map's own layers button rather than the settings dialog —
+    // is the band's own Layers pill rather than the settings dialog —
     // a basemap is what the map is DRAWN ON, and the visitor flips it while
     // looking at a place (LayersControl's header carries the reasoning).
     const [basemap, setBasemap] = useState<Basemap>(storedBasemap)
+    // Whether the Layers pill's basemap list is open. It is held HERE
+    // rather than inside the control for the reason MapView held it before:
+    // the pill is torn down and rebuilt by things that have nothing to do
+    // with it (a view switch takes the whole column away), and a component
+    // that owns its own open flag says nothing about that from the outside.
+    // The view-change effect below closes it, so a list left open on the map
+    // is not open again on the way back from the List.
+    const [layersOpen, setLayersOpen] = useState(false)
     const onBasemap = (next: Basemap) => {
         persistBasemap(next)
         setBasemap(next)
@@ -263,9 +272,12 @@ function Shell({ forceLite, ack }: {
         setEditNote('Sign in at /admin to continue.')
         setEditing(null)
     }, [])
-    // A mode belongs to its view: leaving the view leaves the mode.
+    // A mode belongs to its view: leaving the view leaves the mode. So
+    // does an open basemap list — the pill is the map view's, and coming
+    // back to the map should find its chrome the way a visitor left it.
     useEffect(() => {
         if (editing && editing !== state.view) setEditing(null)
+        if (state.view !== 'map') setLayersOpen(false)
     }, [state.view, editing])
     // The map edit mode's wiring: the live map (MapView hands it over) and
     // the popover row press handler (MapEditor hands it back) — both null
@@ -346,7 +358,6 @@ function Shell({ forceLite, ack }: {
                 clusters={editing === 'map' ? false : clusters}
                 palette={palette}
                 basemap={basemap}
-                onBasemap={onBasemap}
                 onSelect={(pid) => actions.select(pid)}
                 locateReady={!blocking && !arrivedAtPlace}
                 selected={selected}
@@ -444,26 +455,59 @@ function Shell({ forceLite, ack }: {
                 </div>
             ) : (
                 // The map view's top-left as ONE self-stacking column — the
-                // band, with the settings button hanging under its left edge
-                // (where the theme switch stood until the settings dialog
-                // took the theme, 2026-09-06) — so the button never depends
-                // on the band's height, which wraps with the viewport and
-                // beside an open panel. The column is as wide as the band,
-                // capped at the viewport's gutters and, beside an OPEN panel
+                // band, with the presentation pills hanging under it, one at
+                // each of its edges (Settings on the right stands where the
+                // theme switch did on the left until the settings dialog took
+                // the theme, 2026-09-06; Layers joined it on the left
+                // 2026-09-09) — so the pills never depend on the band's
+                // height, which wraps with the viewport and beside an open
+                // panel. The column is as wide as the band, capped at
+                // the viewport's gutters and, beside an OPEN panel
                 // from `sm` up (the right sheet takes 400px + gutters), at
                 // what is left; below `sm` the panel is a full-screen sheet
                 // (DetailPanel's max-sm rules) and the column keeps the full
                 // width — the caps are the band's own from the mobile fix of
                 // 2026-09-06 (an inline min(100vw - 24px, 100vw - 448px)
-                // went negative on a phone and collapsed the band). Only the
-                // two children take the pointer, so the map still drags
-                // beside the button. (Whole class strings, whitespace-
+                // went negative on a phone and collapsed the band).
+                //
+                // The EDIT MODE's drawer takes the same side and gets the
+                // same treatment (2026-09-09): 340px + its gutter + this
+                // column's + the same 24px of air the panel's cap leaves =
+                // 388. Measured at 1280 before the cap: the drawer's left
+                // edge falls at 928 and this column stretched to 1268, so
+                // the band's right end ran a third of its width underneath
+                // it — the query bar's counts since CPE-M2, unnoticed
+                // because nothing anyone needed was out there, and the
+                // SETTINGS pill from the moment the pair was pushed to the
+                // band's two ends. Below `sm` the drawer is a bottom sheet
+                // (MapEditor's max-sm rules) and the column keeps the
+                // width, exactly as for the panel. The two never combine:
+                // the mode opens no detail panel.
+                //
+                // The column is pointer-TRANSPARENT and every CONTROL in it
+                // claims the pointer back for itself — `pointer-events-auto`
+                // on the band, on each pill, on the note and on the hint,
+                // never on a wrapper — so the map drags anywhere a control
+                // is not. It read `[&>*]:pointer-events-auto` here until
+                // 2026-09-09, and that variant is a specificity trap:
+                // `.parent > *` and a child's own `.pointer-events-none`
+                // both score (0,1,0), the stylesheet's order decides it, and
+                // Tailwind emits the variant LAST — so the row of pills
+                // below, which asked to be transparent between them, was
+                // `auto` clean across and swallowed every drag from the
+                // Settings pill to the band's right edge. Measured in the
+                // browser on the shipped build, not reasoned about. A
+                // wrapper cannot say "none" under a parent that says "auto"
+                // for all its children; only the leaves can be trusted to
+                // say what they mean. (Whole class strings, whitespace-
                 // delimited: Tailwind's scanner drops one glued to a `${`.)
                 <div
-                    className={`pointer-events-none fixed top-3 left-3 z-20 flex flex-col gap-2.5 [&>*]:pointer-events-auto ${
+                    className={`pointer-events-none fixed top-3 left-3 z-20 flex flex-col gap-2.5 ${
                         selected
                             ? 'max-w-[calc(100vw-24px)] sm:max-w-[calc(100vw-448px)]'
-                            : 'max-w-[calc(100vw-24px)]'
+                            : editing === 'map'
+                                ? 'max-w-[calc(100vw-24px)] sm:max-w-[calc(100vw-388px)]'
+                                : 'max-w-[calc(100vw-24px)]'
                     }`}
                 >
                     <Toolbar
@@ -473,31 +517,53 @@ function Shell({ forceLite, ack }: {
                         shown={filtered.length}
                         total={all.length}
                     />
-                    {/* The Settings pill, and — for a device holding the
-                        session flag — the admin's Edit pill to its right
-                        (§6.6, OQ-A; CPE-M2). One row, so the hint below
-                        keeps pointing at the gear. The row is pointer-
-                        transparent between the pills; the pills take it. */}
-                    <div className="pointer-events-none flex flex-wrap items-start gap-2.5 [&>*]:pointer-events-auto">
+                    {/* The two presentation controls, one row under the
+                        band, pushed to ITS TWO ENDS (Cannon's call
+                        2026-09-09): LAYERS at the left — it came off the
+                        map's bottom-right lane in the same pass — and
+                        SETTINGS at the right, the same pill in the same
+                        chrome, so the pair reads as a pair rather than as a
+                        queue. `justify-between` against the row's own width,
+                        which is the column's, which is the band's: the right
+                        pill sits under the band's right edge at every width
+                        without a measurement. The admin's Edit pill (§6.6,
+                        OQ-A; CPE-M2) and its note ride with Layers on the
+                        left, where they have always been — second and third
+                        pill from that edge. Both wrappers are pure layout:
+                        they inherit the column's transparency and claim
+                        nothing back, so the ~800px of map between the two
+                        pills drags. */}
+                    <div className="flex flex-wrap items-start justify-between gap-2.5">
+                        <div className="flex flex-wrap items-start gap-2.5">
+                            <LayersControl
+                                basemap={basemap}
+                                open={layersOpen}
+                                onOpenChange={setLayersOpen}
+                                onBasemap={onBasemap}
+                            />
+                            {(adminSession || editNote) && (
+                                <EditButton
+                                    editing={editing === 'map'}
+                                    busy={probing}
+                                    onClick={editing === 'map' ? exitEdit : enterEdit}
+                                />
+                            )}
+                            {editNote && !editing && (
+                                <span role="status" className="pointer-events-auto self-center rounded-cp-pill bg-cp-surface-1/95 px-2.5 py-1 text-cp-12.5 text-cp-ink-3 shadow-cp">
+                                    {editNote}
+                                </span>
+                            )}
+                        </div>
                         <SettingsButton
                             onClick={() => {
                                 dismissHint()
                                 setSettingsOpen(true)
                             }}
                         />
-                        {(adminSession || editNote) && (
-                            <EditButton
-                                editing={editing === 'map'}
-                                busy={probing}
-                                onClick={editing === 'map' ? exitEdit : enterEdit}
-                            />
-                        )}
-                        {editNote && !editing && (
-                            <span role="status" className="self-center rounded-cp-pill bg-cp-surface-1/95 px-2.5 py-1 text-cp-12.5 text-cp-ink-3 shadow-cp">
-                                {editNote}
-                            </span>
-                        )}
                     </div>
+                    {/* The hint follows the gear to the right edge — it is
+                        an arrow at Settings, and pointing it at Layers would
+                        be a lie. */}
                     {!hintDismissed && <SettingsHint onDismiss={dismissHint} />}
                 </div>
             )}

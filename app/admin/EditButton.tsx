@@ -21,7 +21,7 @@ export function EditButton({ editing, busy = false, onClick }: {
             onClick={onClick}
             disabled={busy}
             aria-pressed={editing}
-            className="flex flex-none items-center gap-1.5 self-start rounded-cp-pill border border-cp-hairline bg-cp-surface-2 px-4 py-2.5 text-cp-13 font-semibold text-cp-ink-2 shadow-cp hover:text-cp-ink disabled:opacity-60"
+            className="pointer-events-auto flex flex-none items-center gap-1.5 self-start rounded-cp-pill border border-cp-hairline bg-cp-surface-2 px-4 py-2.5 text-cp-13 font-semibold text-cp-ink-2 shadow-cp hover:text-cp-ink disabled:opacity-60"
         >
             {editing
                 ? <PencilOff size={16} aria-hidden="true" />
