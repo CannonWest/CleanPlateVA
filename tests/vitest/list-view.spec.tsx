@@ -118,7 +118,7 @@ async function render(over: Overrides) {
     return host
 }
 
-test('the full-tier cells: chip+score, address line, compliance, trend, last visit + outcome', async () => {
+test('the full-tier cells: name, chip+score, trend, last visit + outcome', async () => {
     const el = await render({
         rows: [
             row({ name: 'Quick Stop Grill', o: { grade_score: 42, trend_delta: -11, latest_yyyymmdd: 20260811, base_yyyymmdd: 20260811, latest_scope_code: 1, compliance_pct: 61 } }),
@@ -126,12 +126,26 @@ test('the full-tier cells: chip+score, address line, compliance, trend, last vis
             row({ name: 'Casa Del Barco', o: { grade_score: 85, trend_delta: 3, latest_yyyymmdd: 20260624, base_yyyymmdd: 20260624, latest_scope_code: 1, compliance_pct: 88 } }),
         ],
     })
+    // Headers order: Name, Score, Trend, Last visit
+    const headers = Array.from(el.querySelectorAll('th')).map((th) => th.textContent?.replace(/[▲▼]/g, '').trim())
+    expect(headers).toEqual(['Name', 'Score', 'Trend', 'Last visit'])
+
+    // Cell order: Name, Score, Trend, Last visit
+    const firstRowCells = Array.from(el.querySelectorAll('tbody tr')[0]?.querySelectorAll('td') ?? [])
+    expect(firstRowCells).toHaveLength(4)
+    expect(firstRowCells[0]?.textContent).toContain('Quick Stop Grill')
+    expect(firstRowCells[1]?.textContent).toContain('F')
+    expect(firstRowCells[1]?.textContent).toContain('42')
+    expect(firstRowCells[2]?.textContent).toContain('-11')
+    expect(firstRowCells[3]?.textContent).toContain('2026-08-11')
+    expect(firstRowCells[3]?.textContent).toContain('· broad')
+
     // Worst first: F 42 → C 78 → B 85 (score asc default).
     const names = Array.from(el.querySelectorAll('tbody tr')).map((tr) => tr.textContent)
     expect(names[0]).toContain('Quick Stop Grill')
     expect(names[0]).toContain('F')
     expect(names[0]).toContain('42')
-    expect(names[0]).toContain('61%')
+    expect(names[0]).not.toContain('61%')
     expect(names[0]).toContain('-11')
     expect(names[0]).toContain('2026-08-11')
     expect(names[0]).toContain('· broad')

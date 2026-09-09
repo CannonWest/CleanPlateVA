@@ -1,7 +1,7 @@
 /**
  * The List view (§6.3, CRVb-M0) — the roster as a dense sortable table,
  * drawing ONLY on finder + overlay fields (frozen contract): grade chip +
- * score · name over address/city/zip · compliance % · trend (colored
+ * name over address/city/zip · grade chip + score · trend (colored
  * arrow + signed delta, em-dash when null) · last visit (date +
  * scope/outcome). Sticky headers carry the active sort in accent with a
  * direction arrow (C6 `sort`/`dir`); closed rows render muted with a
@@ -128,9 +128,8 @@ function TrendCell({ delta }: { delta: number | null }) {
 }
 
 const HEADERS: Array<{ key: SortKey; label: string; narrow?: boolean }> = [
-    { key: 'score', label: 'Score' },
     { key: 'name', label: 'Name' },
-    { key: 'compliance', label: 'Compliance', narrow: true },
+    { key: 'score', label: 'Score' },
     { key: 'trend', label: 'Trend', narrow: true },
     { key: 'date', label: 'Last visit' },
 ]
@@ -199,11 +198,6 @@ export function ListView({ rows, lite, sort, page, selectedPermit, onSort, onMor
                                     closed ? 'opacity-55' : ''
                                 } ${selected ? 'bg-cp-surface-2' : ''}`}
                             >
-                                {!lite && (
-                                    <td className="px-3 py-2 align-middle">
-                                        <ScoreCell f={f} />
-                                    </td>
-                                )}
                                 <td className="px-3 py-2 align-middle">
                                     <div className="font-semibold">
                                         {f.name}
@@ -225,11 +219,8 @@ export function ListView({ rows, lite, sort, page, selectedPermit, onSort, onMor
                                 </td>
                                 {!lite && (
                                     <>
-                                        <td className="px-3 py-2 align-middle tabular-nums max-md:hidden">
-                                            {(() => {
-                                                const rate = (fp.assessmentRecord as { compliance_rate?: number | null } | null)?.compliance_rate
-                                                return rate != null ? `${Math.round(rate * 100)}%` : <span className="text-cp-ink-3">—</span>
-                                            })()}
+                                        <td className="px-3 py-2 align-middle">
+                                            <ScoreCell f={f} />
                                         </td>
                                         <td className="px-3 py-2 align-middle max-md:hidden">
                                             <TrendCell delta={fp.trendDelta} />

@@ -40,8 +40,8 @@ afterEach(() => {
     document.documentElement.classList.remove('theme-light')
 })
 
-test('the range: 12..20 by 1 around the ratified 14, which is scale 1', () => {
-    expect(TEXT_SIZE_DEFAULT).toBe(14)
+test('the range: 12..20 by 1 around the ratified 14, which is scale 1, default 16', () => {
+    expect(TEXT_SIZE_DEFAULT).toBe(16)
     expect(TEXT_SIZE_MIN).toBe(12)
     expect(TEXT_SIZE_MAX).toBe(20)
     expect(TEXT_SIZE_STEP).toBe(1)
@@ -51,10 +51,10 @@ test('the range: 12..20 by 1 around the ratified 14, which is scale 1', () => {
 })
 
 test('unset, garbage and out-of-range read as the default; an integer in range is itself', () => {
-    expect(storedTextSize(memoryStorage())).toBe(14)
+    expect(storedTextSize(memoryStorage())).toBe(16)
     for (const raw of ['', 'big', '11', '21', '14.5', 'NaN', 'Infinity', '-16']) {
         expect(validTextSize(raw), raw).toBe(null)
-        expect(storedTextSize(memoryStorage({ [TEXT_SIZE_KEY]: raw })), raw).toBe(14)
+        expect(storedTextSize(memoryStorage({ [TEXT_SIZE_KEY]: raw })), raw).toBe(16)
     }
     expect(validTextSize(null)).toBe(null)
     for (const size of [12, 13, 14, 16, 20]) {
@@ -75,7 +75,7 @@ test('the size round-trips as an integer string under its own key', () => {
 })
 
 test('a throwing storage is the default, not an error (private mode)', () => {
-    expect(storedTextSize(throwing)).toBe(14)
+    expect(storedTextSize(throwing)).toBe(16)
     expect(() => persistTextSize(16, throwing)).not.toThrow()
     expect(storedSettingsSeen(throwing)).toBe(false)
     expect(() => persistSettingsSeen(throwing)).not.toThrow()

@@ -18,7 +18,8 @@
 import { SETTINGS_HINT_KEY, SETTINGS_SEEN_KEY, TEXT_SIZE_KEY } from './constants'
 
 /** The ratified body size — scale 1. */
-export const TEXT_SIZE_DEFAULT = 14
+export const TEXT_SIZE_BASE = 14
+export const TEXT_SIZE_DEFAULT = 16
 export const TEXT_SIZE_MIN = 12
 export const TEXT_SIZE_MAX = 20
 export const TEXT_SIZE_STEP = 1
@@ -51,13 +52,13 @@ export function persistTextSize(size: number, storage: Pick<Storage, 'setItem'> 
 }
 
 export function textScale(size: number): number {
-    return size / TEXT_SIZE_DEFAULT
+    return size / TEXT_SIZE_BASE
 }
 
 /** Reflect the size on <html> as the scale the stylesheet multiplies by.
- *  The default clears the property, leaving the stylesheet's own 1. */
+ *  14px (the design base) clears the property, leaving the stylesheet's own 1. */
 export function applyTextSize(size: number, root: HTMLElement = document.documentElement): void {
-    if (size === TEXT_SIZE_DEFAULT) root.style.removeProperty(TEXT_SCALE_PROPERTY)
+    if (size === TEXT_SIZE_BASE) root.style.removeProperty(TEXT_SCALE_PROPERTY)
     else root.style.setProperty(TEXT_SCALE_PROPERTY, String(textScale(size)))
 }
 

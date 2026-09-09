@@ -204,11 +204,11 @@ export function SettingsDialog({
                             <X size={16} aria-hidden="true" />
                         </button>
                     </Dialog.Close>
-                    <Dialog.Title className="text-cp-17 font-bold tracking-[.01em]">
+                    <Dialog.Title className="sr-only">
                         Settings
                     </Dialog.Title>
 
-                    <div className="mt-4 flex flex-col gap-5">
+                    <div className="flex flex-col gap-5">
                         <section aria-labelledby="cpSettingsTheme">
                             <h2 id="cpSettingsTheme" className="mb-2 text-cp-13 font-semibold">
                                 Theme
@@ -263,9 +263,6 @@ export function SettingsDialog({
                             <h2 id="cpSettingsClusters" className="text-cp-13 font-semibold">
                                 Group nearby places
                             </h2>
-                            <p className="mt-0.5 text-cp-11.5 text-cp-ink-3">
-                                Nearby places share one bubble when zoomed out.
-                            </p>
                             <ToggleGroup.Root
                                 type="single"
                                 value={clusters ? 'on' : 'off'}
@@ -277,7 +274,7 @@ export function SettingsDialog({
                             >
                                 <ToggleGroup.Item value="off" className={PICTURE_ITEM}>
                                     <EveryPlacePicture />
-                                    <span>Every place</span>
+                                    <span>Individual</span>
                                 </ToggleGroup.Item>
                                 <ToggleGroup.Item value="on" className={PICTURE_ITEM}>
                                     <GroupedPicture />
@@ -314,7 +311,30 @@ export function SettingsDialog({
                                     className="block h-5 w-5 rounded-full border-2 border-cp-surface-1 bg-cp-accent-solid shadow-[0_1px_3px_rgba(0,0,0,.35)] outline-none focus-visible:ring-2 focus-visible:ring-cp-focus"
                                 />
                             </Slider.Root>
-                            <div className="mt-1 flex items-center justify-between text-cp-10.5 text-cp-ink-3 tabular-nums">
+                            <div className="mt-2.5 flex items-baseline justify-between px-0.5 text-cp-ink-2 select-none" aria-hidden="true">
+                                <span
+                                    style={{ fontSize: `${TEXT_SIZE_MIN}px` }}
+                                    className="cursor-pointer font-medium leading-none hover:text-cp-accent"
+                                    onClick={() => onTextSize(TEXT_SIZE_MIN)}
+                                >
+                                    Abc
+                                </span>
+                                <span
+                                    style={{ fontSize: `${TEXT_SIZE_DEFAULT}px` }}
+                                    className="cursor-pointer font-medium leading-none hover:text-cp-accent"
+                                    onClick={() => onTextSize(TEXT_SIZE_DEFAULT)}
+                                >
+                                    Abc
+                                </span>
+                                <span
+                                    style={{ fontSize: `${TEXT_SIZE_MAX}px` }}
+                                    className="cursor-pointer font-medium leading-none hover:text-cp-accent"
+                                    onClick={() => onTextSize(TEXT_SIZE_MAX)}
+                                >
+                                    Abc
+                                </span>
+                            </div>
+                            <div className="mt-1.5 flex items-center justify-between text-cp-10.5 text-cp-ink-3 tabular-nums">
                                 <span aria-hidden="true">{TEXT_SIZE_MIN} px</span>
                                 {textSize !== TEXT_SIZE_DEFAULT ? (
                                     <button

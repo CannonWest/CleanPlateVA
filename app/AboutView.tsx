@@ -25,6 +25,7 @@ import {
 import { AGGREGATE_TENANT, FAIRFAX_RECORDS_URL, PORTAL_BASE } from './constants'
 import { fmtDate } from './data/presentation'
 import { TermsBody } from './TermsBody'
+import { ThemeLogo } from './ThemeLogo'
 import type { LoadedRoster } from './data/types'
 
 const PORTAL_URL = `${PORTAL_BASE}/${AGGREGATE_TENANT}`
@@ -250,6 +251,9 @@ export function AboutView({ loaded, unavailable, forceLite, ack, onSwitchToBasic
         <main className="mx-auto max-w-[52rem] px-4 pt-2 pb-7">
             {/* hero */}
             <Card>
+                <div className="mb-4 flex justify-center sm:justify-start">
+                    <ThemeLogo className="h-20 w-auto sm:h-24" />
+                </div>
                 <h1 className="mt-1 mb-1.5 text-cp-22 leading-tight font-bold">
                     CleanPlateVA: an unofficial archive and grading of Virginia's health-inspected
                     food-serving facilities

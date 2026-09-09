@@ -63,7 +63,12 @@
             document.documentElement.classList.add('palette-colorblind');
         }
         var px = Number(size);
-        if (size !== null && Number.isInteger(px) && px >= 12 && px <= 20 && px !== 14) {
+        if (size === null || !Number.isInteger(px) || px < 12 || px > 20) {
+            px = 16;
+        }
+        if (px === 14) {
+            document.documentElement.style.removeProperty('--cp-text-scale');
+        } else {
             document.documentElement.style.setProperty('--cp-text-scale', String(px / 14));
         }
     })();
