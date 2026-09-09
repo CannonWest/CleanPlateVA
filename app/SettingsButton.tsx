@@ -1,18 +1,24 @@
 /**
  * The settings button (2026-09-06, Cannon's call): a labeled pill — gear
- * glyph + the word — under the band on the MAP VIEW ONLY, where the theme
- * switch stood; it opens the settings dialog, which now holds the theme,
- * the cluster switch and the text size. Obvious, not a buried icon
- * (Cannon's M0 review call for the theme control carries over), in the
- * band's own pill chrome so it lightens with the theme. It sat under the
- * band's LEFT edge until 2026-09-09, when the Layers pill came off the
- * map's control lane to mirror it: Layers left, Settings RIGHT (Cannon's
- * call). App's top column places it — the row's `justify-between` puts it
- * at the band's right edge, and `self-start` keeps it its own height; the
- * List / About documents render no button —
- * a document is a page of records, and the presentation controls belong
- * with the thing they present. The choices themselves hold on every view
- * (the theme is on <html>, the text scale beside it).
+ * glyph + the word — on the MAP VIEW ONLY; it opens the settings dialog,
+ * which holds the theme, the cluster switch and the text size. Obvious, not
+ * a buried icon (Cannon's M0 review call for the theme control carries
+ * over), in the band's own pill chrome so it lightens with the theme.
+ *
+ * It lives in the map's BOTTOM-LEFT corner, directly over the attribution
+ * chip, since 2026-09-09 — Cannon's call, and the third address it held that
+ * day: under the band's left edge (where the theme switch stood until the
+ * dialog took the theme, 2026-09-06), then the band's right edge when Layers
+ * came off the map's control lane and the two were mirrored, then down here.
+ * The corner is where the cluster switch stood until the settings dialog
+ * swallowed it, and the box it goes in kept the column shape for exactly
+ * this (App's note there). App places it; `self-start` keeps it its own
+ * width in a box the wide attribution chip also sits in.
+ *
+ * The List / About documents render no button — a document is a page of
+ * records, and the presentation controls belong with the thing they present.
+ * The choices themselves hold on every view (the theme is on <html>, the
+ * text scale beside it).
  */
 
 import { Settings } from 'lucide-react'

@@ -238,14 +238,16 @@ test('a ZIP-centroid place drags as a site fix and says what it moves', async ({
 
 // ── the band's column against the drawer (2026-09-09) ─────────────────
 // D-CPE-5 stopped the drawer above the map's bottom-right control lane. The
-// TOP-left column is the other side it can reach, and the SETTINGS pill
-// moved into its path on 2026-09-09, when the presentation pair was pushed
-// to the band's two ends. Measured on the running site at 1280: the drawer's
-// left edge falls at 928 and the full-tier band reaches 1024, so the pill
-// sat behind it — as the query bar's own right end had been doing, unnoticed
-// since CPE-M2, because nothing out there was worth reaching. The column now
-// takes the same kind of cap an open detail panel gives it (340px + both
-// gutters + the panel cap's own 24px of air = 388).
+// TOP-left column is the other side it can reach, and it had been reaching:
+// measured on the running site at 1280, the drawer's left edge falls at 928
+// and the full-tier band reaches 1024, so the query bar's right end — its
+// counts — had been sitting behind the drawer since CPE-M2, unnoticed
+// because nothing out there was worth reaching. Found on 2026-09-09 when the
+// SETTINGS pill spent a revision at that end of the band; the pill has since
+// gone to the bottom-left corner, which no drawer reaches from `sm` up, and
+// the counts are reason enough to keep the cap. The column takes the same
+// kind an open detail panel gives it (340px + both gutters + the panel cap's
+// own 24px of air = 388).
 //
 // AT 900, deliberately. This build serves the basic map, whose band carries
 // no grade chips and is narrow enough at 1280 to clear the drawer on its own
@@ -282,23 +284,30 @@ test('in edit mode the drawer covers nothing in the band\'s column', async ({ pa
             column: rect(column),
             band: rect(band),
             layers: rect(named('Layers')),
-            settings: rect(named('Settings')),
             exit: rect(named('Exit edit')),
         }
     })
 
     expect(boxes.drawer, 'the mode is on and its drawer is up').not.toBeNull()
-    expect(boxes.settings, 'Settings is rendered in edit mode').not.toBeNull()
+    expect(boxes.band, 'the band is up in edit mode').not.toBeNull()
     // The drawer is the right column; everything the band owns stops short
-    // of it, the pill at the band's right edge included.
+    // of it, its own right end — the counts — included.
     for (const [what, box] of Object.entries(boxes)) {
         if (what === 'drawer' || !box) continue
         expect(box.right, `${what} clears the drawer`).toBeLessThanOrEqual(boxes.drawer!.left)
     }
-    // And the pointer agrees: the pill is the thing at its own centre.
-    const settings = page.getByRole('button', { name: 'Settings', exact: true })
-    await expect(settings).toBeVisible()
-    await settings.click({ trial: true, timeout: 5_000 })
+    // And the pointer agrees: Layers is the thing at its own centre, not
+    // the drawer over it.
+    const layers = page.getByRole('button', { name: 'Layers', exact: true })
+    await expect(layers).toBeVisible()
+    await layers.click({ trial: true, timeout: 5_000 })
+    // Settings left this column for the bottom-left corner; from `sm` up the
+    // drawer stops 202px above the bottom (DRAWER_BOTTOM) and is the RIGHT
+    // column, so it cannot reach that corner at all. Said as a measurement
+    // rather than assumed.
+    const pill = await page.getByRole('button', { name: 'Settings', exact: true }).boundingBox()
+    expect(pill, 'Settings is rendered in edit mode').not.toBeNull()
+    expect(pill!.x + pill!.width).toBeLessThanOrEqual(boxes.drawer!.left)
 })
 
 // ── "Go to a coordinate" (the coordinate box, 2026-09-09) ───────────────────────────────────────

@@ -16,8 +16,13 @@
  * same in both states and nothing dims it. Only the BORDER changes, to the
  * accent that says "this one" everywhere else on the site.
  *
- * Placement is App's (the top column's row, at the band's left edge, with
- * Settings mirrored at its right) and is not pinned here.
+ * Placement is App's — the top column's row, at the band's left edge — and
+ * is not pinned here. Settings is NOT beside it: it spent one revision at
+ * the band's other end and went to the map's bottom-left corner the same
+ * day. What survives that is the CHROME, which is why the pill is still
+ * measured against SettingsButton's classes below: the two are the site's
+ * two presentation controls and should read as the same kind of thing from
+ * opposite corners.
  */
 import { act, StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
