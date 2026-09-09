@@ -35,8 +35,8 @@ import { expect, test } from '@playwright/test'
 import type { Page } from '@playwright/test'
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { SETTINGS_HINT_KEY, SETTINGS_SEEN_KEY, TEXT_SIZE_KEY } from '../../app/constants'
-import { TEXT_SIZE_MAX, TEXT_SIZE_MIN } from '../../app/settings'
+import { SEARCH_LABEL, SETTINGS_HINT_KEY, SETTINGS_SEEN_KEY, TEXT_SIZE_KEY } from '../../app/constants'
+import { TEXT_SIZE_DEFAULT, TEXT_SIZE_MAX, TEXT_SIZE_MIN } from '../../app/settings'
 
 const PHONE = { width: 390, height: 844 }
 const DESKTOP = { width: 1280, height: 800 }
@@ -110,6 +110,8 @@ function searchFit(page: Page) {
         const pill = input.closest('div')!.getBoundingClientRect()
         return {
             has: input.clientWidth,
+            shown: input.placeholder,
+            label: input.getAttribute('aria-label'),
             needs: ctx.measureText(input.placeholder).width,
             // Negative = the pill has spilled out of the card.
             insideCard: Math.min(pill.left - card.left, card.right - pill.right),
@@ -210,6 +212,15 @@ for (const viewport of [DESKTOP, PHONE]) {
                 .toBeGreaterThanOrEqual(fit.needs)
             expect(fit.insideCard, `${size}px on ${where}: the pill has spilled out of the band`)
                 .toBeGreaterThanOrEqual(0)
+            // Whatever it shows, the full sentence is what it is CALLED.
+            expect(fit.label).toBe(SEARCH_LABEL)
+            // Shortening is the corner, not the rule: with a desktop's width
+            // the full sentence stands at every size, and a phone keeps it
+            // at the size the design was ratified at.
+            if (viewport === DESKTOP || size <= TEXT_SIZE_DEFAULT) {
+                expect(fit.shown, `${size}px on ${where}: the sentence shortened with room to spare`)
+                    .toBe(SEARCH_LABEL)
+            }
         }
     })
 }

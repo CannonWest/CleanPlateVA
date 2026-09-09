@@ -78,6 +78,7 @@ import { VIEWS } from './router'
 import logoUrl from './clean-plate-va-logo.png'
 import type { View } from './router'
 import { FLAG_DEFAULTS } from './router'
+import { SEARCH_LABEL, SEARCH_PLACEHOLDERS } from './constants'
 
 const GRADES = ['A', 'B', 'C', 'D', 'F'] as const
 const VIEW_LABEL: Record<View, string> = { map: 'Map', list: 'List', about: 'About' }
@@ -98,11 +99,11 @@ const IDENTITY = 'rounded-cp-card border border-cp-hairline bg-cp-surface-1 px-3
  *  the split reads at a glance instead of being a gap inside one card. The
  *  ends are fully round (`rounded-cp-pill`, the shape the search box and the
  *  Filters trigger inside it already wear) and the surface is translucent
- *  over a blur, so the map moves under the controls. `bg-cp-surface-1/75`
+ *  over a blur, so the map moves under the controls. `bg-cp-surface-1/65`
  *  is the same token the identity card is painted in — the theme still owns
- *  the color; this line just lets a quarter of the ground through. The blur
- *  is what keeps it legible: at 75% alone the aerial basemap's photograph
- *  reads straight through the text. Below `sm` the line wraps to three rows
+ *  the color; this line just lets a third of the ground through. The blur
+ *  is what keeps it legible: at that alpha alone the aerial basemap's
+ *  photograph reads straight through the text. Below `sm` the line wraps to three rows
  *  and a stadium that tall reads as a blob, so the radius steps down to the
  *  card's — the shape is for the one-row bar it is from `sm` up. */
 const QUERY = 'rounded-cp-card border border-cp-hairline bg-cp-surface-1/65 px-3 py-2 '
@@ -121,6 +122,25 @@ export const BAND_LINE_1_PROPERTY = '--cp-band-line-1'
  *  the band-lines e2e, which measures the sheet against the identity card's
  *  real bottom, says so. */
 const BAND_TOP_GUTTER = 12
+
+/** One canvas for every measurement this module makes (created on first
+ *  use; null where there is no 2D context, which is jsdom). */
+let textCanvas: CanvasRenderingContext2D | null | undefined
+
+/** The longest placeholder that fits `room` px in the box's own font — the
+ *  browser's own text shaping through a canvas, so no layout is forced and
+ *  nothing is added to the DOM to measure. Without a context (jsdom) the
+ *  full sentence stands: the fallback of a measurement you cannot take is
+ *  the thing you would have shown anyway. */
+function fittingPlaceholder(input: HTMLInputElement, room: number): string {
+    if (textCanvas === undefined) textCanvas = document.createElement('canvas').getContext('2d')
+    const ctx = textCanvas
+    if (!ctx) return SEARCH_LABEL
+    const style = getComputedStyle(input)
+    ctx.font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`
+    return SEARCH_PLACEHOLDERS.find((text) => ctx.measureText(text).width <= room)
+        ?? SEARCH_PLACEHOLDERS[SEARCH_PLACEHOLDERS.length - 1]!
+}
 
 /** The canonical form the URL carries (C6): trimmed, lower-cased, internal
  *  whitespace runs collapsed. The box itself keeps whatever was typed. */
@@ -149,6 +169,29 @@ export function Toolbar({ state, actions, lite, shown, total }: {
         if (debounce.current) clearTimeout(debounce.current)
     }, [])
     const searchInput = useRef<HTMLInputElement>(null)
+
+    // The visible hint, chosen against the room the box actually got.
+    // `--cp-search-min` keeps the box wide enough for the full sentence
+    // wherever the width allows it — but on a 390px phone at 19 or 20px it
+    // does not allow it: 34 characters want more than the screen has, and a
+    // box capped at the row can only clip. So the SENTENCE gives way where
+    // the box cannot, and only there. Measured rather than guessed at a
+    // breakpoint, because the width it needs depends on the face as well as
+    // the size and `system-ui` is a different face on every platform (the
+    // Linux runner sets this string 17% wider than Segoe UI — CI caught
+    // exactly that). A ResizeObserver on the input: its width changes when
+    // the viewport does, when a panel opens, and when the text size steps.
+    const [placeholder, setPlaceholder] = useState<string>(SEARCH_LABEL)
+    useEffect(() => {
+        const input = searchInput.current
+        if (!input) return
+        const measure = () => setPlaceholder(fittingPlaceholder(input, input.clientWidth))
+        measure()
+        if (typeof ResizeObserver === 'undefined') return
+        const observer = new ResizeObserver(measure)
+        observer.observe(input)
+        return () => observer.disconnect()
+    }, [])
 
     // The identity card's bottom edge on <html>, for the phone detail sheet
     // to stop at. A ResizeObserver on the card and nothing else: the edge is
@@ -286,8 +329,8 @@ export function Toolbar({ state, actions, lite, shown, total }: {
                         ref={searchInput}
                         type="search"
                         value={draft}
-                        placeholder="Search name, address, city, or ZIP"
-                        aria-label="Search name, address, city, or ZIP"
+                        placeholder={placeholder}
+                        aria-label={SEARCH_LABEL}
                         className="w-full min-w-0 bg-transparent outline-none placeholder:text-cp-ink-3 [&::-webkit-search-cancel-button]:hidden"
                         onChange={(e) => {
                             const raw = e.target.value
