@@ -4,9 +4,10 @@
  * driven against a RECORDING map: the proposal layers and their order, the
  * dot drag from mousedown to drop — start, move, drop, discard on a change
  * of mind, the pan prevented — a drafted pin picked up again, the row drag
- * from the popover with its click-stays-a-click threshold, the theme swap's
- * reinstall, and a clean dispose. Real DOM events are the e2e's job; this
- * pins the state machine.
+ * from the popover with its click-stays-a-click threshold, the "Go to a
+ * coordinate" mark under them all (2026-09-09), the theme swap's reinstall, and
+ * a clean dispose. Real DOM events are the e2e's job; this pins the state
+ * machine.
  */
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { LYR_POINTS } from '../../app/constants'
@@ -15,6 +16,9 @@ import {
     LYR_PROPOSAL_BADGES, LYR_PROPOSAL_PINS, LYR_PROPOSAL_TETHERS, newPin, PIN_RADIUS, SRC_PROPOSALS,
 } from '../../app/admin/mapDraft'
 import type { LngLatPair, ProposalCollection, ProposalPin } from '../../app/admin/mapDraft'
+import {
+    GOTO_COLOR, GOTO_RADIUS, LYR_GOTO_CASE, LYR_GOTO_DOT, LYR_GOTO_RING, SRC_GOTO,
+} from '../../app/admin/mapGoto'
 import { createMapEditController, installProposalLayers, ROW_DRAG_THRESHOLD_PX } from '../../app/admin/mapEditController'
 import type { ControllerDeps, EditHost } from '../../app/admin/mapEditController'
 import type { RosterRow } from '../../app/data/types'
@@ -29,7 +33,10 @@ const unproject = ([x, y]: [number, number]) => ({ lng: x / 1000 - 78, lat: 38 -
 /** MapView's own dot layer is always on the live map before the mode
  *  installs; the controller guards its queries on its presence. */
 const DATA_LAYER: Layer = { id: LYR_POINTS, type: 'circle' }
-const proposalLayers = (layers: Layer[]) => layers.filter((l) => l.id !== LYR_POINTS)
+const GOTO_IDS = [LYR_GOTO_CASE, LYR_GOTO_RING, LYR_GOTO_DOT]
+const proposalLayers = (layers: Layer[]) =>
+    layers.filter((l) => l.id !== LYR_POINTS && !GOTO_IDS.includes(l.id))
+const gotoLayers = (layers: Layer[]) => layers.filter((l) => GOTO_IDS.includes(l.id))
 
 function recorder(dots: Dot[] = [], zoom = 14) {
     const handlers = new Map<string, Set<(e: unknown) => void>>()
@@ -148,11 +155,16 @@ describe('the layers', () => {
         expect(r.canvas.style.cursor).toBe('crosshair')
         r.wipeStyle()
         r.fire('style.load', {})
-        expect(r.calls.addSource).toBe(2)
+        // Two sources per install — the mark, then the proposals.
+        expect(r.calls.addSource).toBe(4)
         expect(proposalLayers(r.layers).map((l) => l.id)).toEqual([LYR_PROPOSAL_TETHERS, LYR_PROPOSAL_PINS, LYR_PROPOSAL_BADGES])
+        expect(gotoLayers(r.layers).map((l) => l.id)).toEqual(GOTO_IDS)
         c.dispose()
-        expect(r.calls.removeLayer).toEqual([LYR_PROPOSAL_BADGES, LYR_PROPOSAL_PINS, LYR_PROPOSAL_TETHERS])
-        expect(r.calls.removeSource).toEqual([SRC_PROPOSALS])
+        expect(r.calls.removeLayer).toEqual([
+            LYR_PROPOSAL_BADGES, LYR_PROPOSAL_PINS, LYR_PROPOSAL_TETHERS,
+            LYR_GOTO_DOT, LYR_GOTO_RING, LYR_GOTO_CASE,
+        ])
+        expect(r.calls.removeSource).toEqual([SRC_PROPOSALS, SRC_GOTO])
         expect([...r.handlers.values()].every((set) => set.size === 0)).toBe(true)
         expect(r.canvas.style.cursor).toBe('')
     })
@@ -167,6 +179,49 @@ describe('the layers', () => {
         c.setPins([pin])
         expect(r.calls.setData).toBe(1)
         expect(r.sources.get(SRC_PROPOSALS)!.data.features).toHaveLength(2)
+    })
+
+    test('the mark installs UNDER the proposals, so a pin dragged onto it draws inside the ring', () => {
+        const r = recorder()
+        const c = createMapEditController(r.map, deps())
+        c.install()
+        const ids = r.layers.map((l) => l.id)
+        expect(ids).toEqual([
+            LYR_POINTS,
+            LYR_GOTO_CASE, LYR_GOTO_RING, LYR_GOTO_DOT,
+            LYR_PROPOSAL_TETHERS, LYR_PROPOSAL_PINS, LYR_PROPOSAL_BADGES,
+        ])
+        const mark = gotoLayers(r.layers)
+        expect(mark.map((l) => l.type)).toEqual(['circle', 'circle', 'circle'])
+        expect(new Set(mark.map((l) => l.source))).toEqual(new Set([SRC_GOTO]))
+        // A ring with a hole (the casing and the ring paint no fill), and a
+        // bead on the coordinate itself.
+        expect(mark[0]!.paint!['circle-opacity']).toBe(0)
+        expect(mark[1]!.paint!['circle-opacity']).toBe(0)
+        expect(mark[0]!.paint!['circle-radius']).toBe(GOTO_RADIUS)
+        expect(mark[1]!.paint!['circle-radius']).toBe(GOTO_RADIUS)
+        expect(mark[1]!.paint!['circle-stroke-color']).toBe(GOTO_COLOR)
+        expect(mark[2]!.paint!['circle-color']).toBe(GOTO_COLOR)
+        // Never the proposal orange: the mark is not judgment.
+        expect(GOTO_COLOR).not.toBe('#ff922b')
+    })
+
+    test('setTarget draws one point through the mark, and null takes it off', () => {
+        const r = recorder()
+        const c = createMapEditController(r.map, deps())
+        c.setTarget({ lat: 37.5, lon: -77.4 })
+        expect(r.calls.setData).toBe(0) // a no-op before install
+        c.install()
+        // The install carried the target the caller had already set.
+        expect(r.sources.get(SRC_GOTO)!.data.features).toHaveLength(1)
+        c.setTarget({ lat: 37.6, lon: -77.5 })
+        const marked = r.sources.get(SRC_GOTO)!.data.features
+        expect(marked).toHaveLength(1)
+        expect(marked[0]!.geometry).toEqual({ type: 'Point', coordinates: [-77.5, 37.6] })
+        c.setTarget(null)
+        expect(r.sources.get(SRC_GOTO)!.data.features).toHaveLength(0)
+        // The mark never enters a hit test: no gesture starts on it.
+        expect(r.calls.prevented).toBe(0)
     })
 })
 
