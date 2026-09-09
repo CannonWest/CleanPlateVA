@@ -27,7 +27,12 @@
          untiled it disappears at 16px. -->
     <link rel="icon" href="./favicon.ico" sizes="16x16 32x32 48x48">
     <link rel="apple-touch-icon" href="./apple-touch-icon.png">
-    <title>CleanPlateVA — archived Virginia health inspection finder</title>
+    <!-- The page title is the NAME and nothing else (2026-09-09): the tab
+         strip truncates anyway, and a description there read as clutter on
+         every tab and bookmark. app/useAppRouter.ts captures whatever stands
+         here as the base title and router.ts prefixes the view, so List and
+         About follow it without a second edit. -->
+    <title>CleanPlateVA</title>
     <script>
     // Apply the stored theme, grade palette and text size before first paint
     // to avoid a flash. The theme is three-way (2026-09-06): 'dark' and

@@ -49,12 +49,13 @@ test('D-URL-1/2: / is the canonical Map, /map is an alias, unknown and trailing-
 })
 
 test('document.title names the view; the Map keeps the page title', () => {
-    const base = 'CleanPlateVA — archived Virginia health inspection finder'
+    const base = 'CleanPlateVA'
     assert.equal(titleForView('map', base), base)
     assert.equal(titleForView('list', base), `List · ${base}`)
     assert.equal(titleForView('about', base), `About · ${base}`)
-    // The CR entry carries the same identity the old shell does.
-    assert.match(rootHtml, /<title>CleanPlateVA — archived Virginia health inspection finder<\/title>/)
+    // The entry's title is the name alone (2026-09-09) — no description, no
+    // em dash. The router captures it and prefixes the view from there.
+    assert.match(rootHtml, /<title>CleanPlateVA<\/title>/)
 })
 
 test('D-URL-3: the URL state set — filters, permit, and List sort/dir/page — parses and validates', () => {
