@@ -26,9 +26,10 @@
  *     scroll-free edge exists for: it is a height plus a gutter, not a
  *     rect, so a scrolled document publishes the same number as a fresh
  *     one;
- *  5. the two presentation pills under the band — Layers at its left edge,
- *     Settings at its right (2026-09-09) — and the map still DRAGGING
- *     between them. That last one is why the case is here and not in jsdom:
+ *  5. where the two presentation controls ended up (2026-09-09) — Layers a
+ *     pill under the band's left edge, Settings down in the bottom-left
+ *     corner over the attribution chip — and the map still DRAGGING beside
+ *     both. That last one is why the case is here and not in jsdom:
  *     `elementFromPoint` is the browser's own hit test, and it was the only
  *     thing that could have caught the row swallowing every drag across the
  *     band's width.
@@ -310,64 +311,79 @@ for (const size of [undefined, TEXT_SIZE_MAX]) {
 }
 
 
-// ── the presentation pills under the band (2026-09-09) ──────────────────
-// Layers came off the map's bottom-right control lane to mirror Settings,
-// and the pair was pushed to the band's two ends (Cannon's call). Two things
-// have to hold, and only a browser can say either.
+// ── where the two presentation controls sit (2026-09-09) ──────────────
+// LAYERS came off the map's bottom-right control lane to a pill under the
+// band's left edge; SETTINGS went the other way, out of the band entirely
+// and down to the bottom-left corner, over the attribution chip (Cannon's
+// call, after one revision that had the pair mirrored at the band's two
+// ends). Three things have to hold, and only a browser can say any of them.
 //
-// The second is the one with history. The row's wrappers ask to be
-// pointer-TRANSPARENT so the map drags behind them, and until this change
-// the column said `[&>*]:pointer-events-auto` — which quietly beat the row's
+// The third is the one with history. The column's wrappers ask to be
+// pointer-TRANSPARENT so the map drags behind them, and until 2026-09-09 the
+// columns said `[&>*]:pointer-events-auto` — which quietly beat a child's
 // own `pointer-events-none`, because `.parent > *` and `.pointer-events-none`
 // score the same and Tailwind emits the variant last. The result was a dead
 // strip clean across the top of the map, invisible to every unit test and to
 // the eye. The pointer claim now sits on each CONTROL instead of on the
 // wrappers, and this is what says so.
 
-test('Layers and Settings sit at the two ends of the band, and the map drags between them', async ({ page }) => {
+test('Layers sits under the band, Settings over the footer chip, and the map drags around both', async ({ page }) => {
     await seed(page)
     await page.setViewportSize(DESKTOP)
     await page.goto('/?tier=lite')
     await expect(page.getByRole('navigation', { name: 'View' })).toBeVisible()
-    const layers = page.getByRole('button', { name: 'Layers', exact: true })
-    const settings = page.getByRole('button', { name: 'Settings', exact: true })
-    await expect(layers).toBeVisible()
-    await expect(settings).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Layers', exact: true })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Settings', exact: true })).toBeVisible()
 
     const geometry = await page.evaluate(() => {
-        const named = (word: string) => Array.from(document.querySelectorAll('button'))
-            .find((b) => b.textContent?.trim() === word)!.getBoundingClientRect()
-        const band = document.querySelector('header')!.getBoundingClientRect()
-        const l = named('Layers')
-        const s = named('Settings')
+        const rect = (el: Element) => {
+            const r = el.getBoundingClientRect()
+            return {
+                left: Math.round(r.left), right: Math.round(r.right),
+                top: Math.round(r.top), bottom: Math.round(r.bottom),
+                midX: Math.round(r.left + r.width / 2), midY: Math.round(r.top + r.height / 2),
+            }
+        }
+        const named = (word: string) => rect(Array.from(document.querySelectorAll('button'))
+            .find((b) => b.textContent?.trim() === word)!)
         const hit = (x: number, y: number) => {
             const el = document.elementFromPoint(x, y)
             return el ? `${el.tagName.toLowerCase()}.${String(el.className).split(' ')[0]}` : 'null'
         }
-        const y = Math.round(l.top + l.height / 2)
+        const band = rect(document.querySelector('header')!)
+        const l = named('Layers')
+        const s = named('Settings')
+        const chip = rect(document.querySelector('footer')!)
         return {
-            bandLeft: Math.round(band.left), bandRight: Math.round(band.right),
-            layers: { left: Math.round(l.left), right: Math.round(l.right) },
-            settings: { left: Math.round(s.left), right: Math.round(s.right) },
-            // The pills' own row, sampled where each thing should be.
-            onLayers: hit(Math.round(l.left + l.width / 2), y),
-            onSettings: hit(Math.round(s.left + s.width / 2), y),
-            justPastLayers: hit(Math.round(l.right) + 12, y),
-            midway: hit(Math.round((l.right + s.left) / 2), y),
-            justBeforeSettings: hit(Math.round(s.left) - 12, y),
+            band, layers: l, settings: s, chip,
+            viewportHeight: window.innerHeight,
+            onLayers: hit(l.midX, l.midY),
+            onSettings: hit(s.midX, s.midY),
+            // The band's own row, to the right of the one pill on it.
+            rightOfLayers: hit(l.right + 12, l.midY),
+            acrossTheBand: hit(Math.round(band.right) - 40, l.midY),
+            // The bottom-left column's row, to the right of the pill on it.
+            rightOfSettings: hit(s.right + 12, s.midY),
         }
     })
 
-    // Mirrored: one pill flush with each edge of the band above them.
-    expect(geometry.layers.left).toBe(geometry.bandLeft)
-    expect(geometry.settings.right).toBe(geometry.bandRight)
-    expect(geometry.layers.right).toBeLessThan(geometry.settings.left)
+    // Layers hangs from the band's left edge.
+    expect(geometry.layers.left).toBe(geometry.band.left)
+    expect(geometry.layers.top).toBeGreaterThanOrEqual(geometry.band.bottom)
+
+    // Settings is in the OTHER corner: same left gutter, down at the bottom,
+    // directly over the attribution chip and clear of it.
+    expect(geometry.settings.left).toBe(geometry.band.left)
+    expect(geometry.settings.bottom).toBeLessThanOrEqual(geometry.chip.top)
+    expect(geometry.settings.left).toBe(geometry.chip.left)
+    // "Bottom-left" means it: below the halfway line, not merely under Layers.
+    expect(geometry.settings.top).toBeGreaterThan(geometry.viewportHeight / 2)
 
     // Each pill takes its own click...
     expect(geometry.onLayers).toContain('button')
     expect(geometry.onSettings).toContain('button')
-    // ...and every point between them belongs to the map.
-    expect(geometry.justPastLayers).toBe('canvas.maplibregl-canvas')
-    expect(geometry.midway).toBe('canvas.maplibregl-canvas')
-    expect(geometry.justBeforeSettings).toBe('canvas.maplibregl-canvas')
+    // ...and the map has every point beside them, on both rows.
+    expect(geometry.rightOfLayers).toBe('canvas.maplibregl-canvas')
+    expect(geometry.acrossTheBand).toBe('canvas.maplibregl-canvas')
+    expect(geometry.rightOfSettings).toBe('canvas.maplibregl-canvas')
 })
