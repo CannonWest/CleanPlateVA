@@ -50,7 +50,7 @@
         // a console MIME error rather than a silent mis-parse.
         //   /admin/api/*  joined 2026-09-08 (CPE-M1, design ref
         //            frontend-redesign.md §6.6): the edit modes' server side —
-        //            `session` now, `proposals` at M3. The path is inside the
+        //            `session` (M1) and `proposals` (M3). The path is inside the
         //            Access application `CleanPlateVA admin` (both hosts, the
         //            /admin prefix), so Access redirects an unauthenticated
         //            request before the worker sees it; the worker then
@@ -68,8 +68,23 @@
     },
     "r2_buckets": [
         {
+            // The full inspection archive — the worker only ever READS it.
             "binding": "DATA_FULL",
             "bucket_name": "cleanplateva-data"
+        },
+        {
+            // The map edit mode's drafts (CPE-M3, 2026-09-08; design ref
+            // frontend-redesign.md §6.6): `POST /admin/api/proposals` writes
+            // content-addressed drafts under `drafts/`, and nothing else
+            // writes here from the site. A bucket of its OWN, on purpose:
+            // cannon-food's publisher owns the whole object set of
+            // `cleanplateva-data` and deletes anything its manifest does not
+            // name, so a draft there would not survive the next publish. No
+            // custom domain, r2.dev off — the worker binding is the only door
+            // in, and `cf_location.py manual pull` (M4, its own R2 token) is
+            // the only way out.
+            "binding": "PROPOSALS",
+            "bucket_name": "cleanplateva-proposals"
         }
     ],
     // The Access application the admin API verifies tokens against (CPE-M1):
@@ -79,9 +94,13 @@
     // b421f71e-d025-48d2-96be-c64620d8dbbb). Public identifiers, not secrets
     // — the AUD rides in every Access login redirect — kept as vars so the
     // worker's check is configuration and a test can point it at its own keys.
+    // PROPOSAL_OPERATOR (CPE-M3) is the `operator` a stored draft carries —
+    // the contract's `human:<name>` handle for the one email the application
+    // admits; the verified email itself rides beside it as `submitted_by`.
     "vars": {
         "ACCESS_TEAM_DOMAIN": "https://cannonwest.cloudflareaccess.com",
-        "ACCESS_AUD": "ceb3edb0a2a92bc1115a7569db031d6c27b1fd84d0f9d3b80f73e761bbb72360"
+        "ACCESS_AUD": "ceb3edb0a2a92bc1115a7569db031d6c27b1fd84d0f9d3b80f73e761bbb72360",
+        "PROPOSAL_OPERATOR": "human:cannon"
     },
     "workers_dev": false,
     "preview_urls": false,

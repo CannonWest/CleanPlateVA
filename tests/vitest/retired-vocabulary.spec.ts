@@ -101,6 +101,9 @@ const RETIRED: { re: RegExp; why: string }[] = [
     { re: /coverageBounds|withinCoverage|COVERAGE_PAD/, why: 'the padded roster bounding box went with the note that was measured against it' },
     { re: /backToVirginia|Back to Virginia/, why: 'the note card carried the only way back; the camera belongs to mapCamera.ts' },
     { re: /dismissNote/, why: 'there is no note left to dismiss' },
+
+    // --- CPE-M3 (2026-09-08): Submit landed ---
+    { re: /NO_SUBMIT_NOTE|Submit is not available in this build/, why: 'the drawer submits (CPE-M3); the M2 placeholder line is gone' },
 ]
 
 const SCAN_DIRS = ['docs', 'src', 'public', 'tests', 'app']

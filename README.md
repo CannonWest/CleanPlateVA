@@ -209,7 +209,16 @@ Two locks, then a flag:
   `no-store`. `/admin/api/*` is the second entry in `run_worker_first`; the
   application's team domain and audience tag ride as `vars` in
   `wrangler.jsonc`. An identity check on one operator's route — never a tier
-  boundary; the full channel still reads no header.
+  boundary; the full channel still reads no header. The same check fronts
+  `POST /admin/api/proposals` (CPE-M3), the map edit mode's Submit: a
+  `cleanplateva.map-draft.v1` draft is shape-checked, completed with the
+  server-owned fields (`operator` from the `PROPOSAL_OPERATOR` var,
+  `instrument`, `saved_at`, `submitted_by` from the verified claim) and
+  stored as canonical content-addressed bytes in the `PROPOSALS` bucket —
+  `cleanplateva-proposals`, a bucket of its own, because cannon-food's
+  publisher owns every object in `cleanplateva-data` and deletes strays —
+  never overwriting; `GET` lists the drafts. That bucket is the Worker's
+  only write, anywhere.
 - **The device flag** (`cleanplateva.admin.session`, `app/admin/session.ts`)
   is what the session page writes on a verified answer. The public views
   render their **Edit** controls only for a device holding it — a visitor's
@@ -249,10 +258,15 @@ was dropped, tethered to where the record stands; the record never moves.
 A place on a ZIP centroid drags as a SITE fix that moves every permit at
 its address; anything else is a refinement of that one permit. Pins live in
 this device's `localStorage` (`cleanplateva.admin.map.v1`) with a note each,
-survive a reload, and can be undone or reset. Nothing is published:
-**Submit** — the content-addressed draft in its own R2 bucket, pulled and
-composed into the manual-pin contracts on Cannon's machine — follows at
-CPE-M3/M4.
+survive a reload, and can be undone or reset. **Submit** (CPE-M3,
+`mapSubmit.ts`) posts one draft per place or stack to the Worker, which
+stores it as a content-addressed draft in the proposals bucket; a stored
+draft's pins leave the device, and the drawer's Submitted panel lists the
+bucket. Nothing is published by any of it: `cf_location.py manual pull`
+(cannon-food, CPE-M4) fetches the drafts on Cannon's machine and composes
+them into the manual-pin contracts, with the archive's own `before`, for the
+same review and bridges the CannonAI Refinement Editor's proposals go
+through.
 
 ### Shared finder contract
 
