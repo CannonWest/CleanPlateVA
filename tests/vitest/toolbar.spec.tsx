@@ -1,12 +1,17 @@
 // @vitest-environment jsdom
 /**
  * The §6.2 band (CRVa-M0): one card carrying brand · view switcher ·
- * search · A–F chips · Filters · Show closed · counts, with the ported
+ * search · A–F chips · Filters · counts, with the ported
  * tier rules — the basic map hides the judgment controls (grade chips,
  * Show closed, Show newly permitted) and keeps search, Restaurants only,
  * Mobile food units, and the counts (P6). The search box debounces 150 ms
  * into the canonical C6 form; grade chips are single-select against the
  * frozen `grade` key (select again to clear).
+ *
+ * Filters is a hand-rolled panel of real checkboxes (2026-09-09) — no
+ * portal and no positioning library, so every assertion here reads the
+ * band's own subtree. SHOW CLOSED is one of those rows: it was a band pill
+ * until that date, and the band must no longer carry it.
  */
 import { act, StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
@@ -80,6 +85,24 @@ function byText(text: string): HTMLButtonElement | undefined {
     return buttons().find((b) => b.textContent?.trim() === text)
 }
 
+/** Open the Filters panel and hand it back. */
+async function openFilters(): Promise<HTMLElement> {
+    const trigger = buttons().find((b) => b.textContent?.trim().startsWith('Filters'))
+    if (!trigger) throw new Error('no Filters trigger on the band')
+    await act(async () => {
+        trigger.click()
+    })
+    const panel = host.querySelector('[role="group"][aria-label="Filters"]')
+    if (!(panel instanceof HTMLElement)) throw new Error('the Filters panel did not open')
+    return panel
+}
+
+/** The panel's checkbox rows, by their label. */
+function rows(panel: HTMLElement): Map<string, HTMLInputElement> {
+    return new Map(Array.from(panel.querySelectorAll('label'))
+        .map((label) => [label.textContent?.trim() ?? '', label.querySelector('input')!]))
+}
+
 beforeEach(() => {
     calls = []
     host = document.createElement('div')
@@ -102,24 +125,26 @@ test('the full-tier band carries every §6.2 control', async () => {
     expect(host.querySelector('input[type="search"]')).toBeTruthy()
     for (const grade of ['A', 'B', 'C', 'D', 'F']) expect(byText(grade)).toBeTruthy()
     expect(byText('Filters')).toBeTruthy()
-    expect(byText('Show closed')).toBeTruthy()
+    // Show closed left the band for the Filters menu (2026-09-09).
+    expect(byText('Show closed')).toBeUndefined()
+    expect(host.textContent).not.toContain('Show closed')
     // Filtered counts read "shown of total".
     expect(host.textContent).toContain('412')
     expect(host.textContent).toContain('of')
     expect(host.textContent).toContain('25,164')
+    expect([...rows(await openFilters()).keys()])
+        .toEqual(['Restaurants only', 'Show newly permitted', 'Show closed', 'Show mobile food units'])
 })
 
 test('the basic map hides the judgment controls and keeps the rest (P6)', async () => {
     await mount({ lite: true })
     for (const grade of ['A', 'B', 'C', 'D', 'F']) expect(byText(grade)).toBeUndefined()
-    expect(byText('Show closed')).toBeUndefined()
     expect(host.querySelector('input[type="search"]')).toBeTruthy()
-    await act(async () => {
-        byText('Filters')?.click()
-    })
-    expect(host.textContent).toContain('Restaurants only')
-    expect(host.textContent).toContain('Show mobile food units')
-    expect(host.textContent).not.toContain('Show newly permitted')
+    const labels = [...rows(await openFilters()).keys()]
+    expect(labels).toContain('Restaurants only')
+    expect(labels).toContain('Show mobile food units')
+    expect(labels).not.toContain('Show newly permitted')
+    expect(labels).not.toContain('Show closed')
 })
 
 test('grade chips are single-select on the frozen key: select, and select again to clear', async () => {
@@ -159,7 +184,7 @@ test('search debounces 150 ms into the canonical form; clearing is immediate', a
     expect(input.value).toBe('')
 })
 
-test('the Filters pill counts deviations from the shipped defaults', async () => {
+test('the Filters trigger counts deviations from the shipped defaults', async () => {
     await mount({
         state: {
             filters: {
@@ -171,22 +196,49 @@ test('the Filters pill counts deviations from the shipped defaults', async () =>
         },
     })
     expect(byText('Filters · 2')).toBeTruthy()
+    // Show closed counts from inside the menu the way it counted from the
+    // band: off-default is off-default wherever its control sits.
+    await mount({
+        state: {
+            filters: { ...initialAppState().filters, restaurantsOnly: true, showClosed: true },
+        },
+    })
+    expect(byText('Filters · 2')).toBeTruthy()
 })
 
-test('the toggles dispatch through setFlag', async () => {
-    await mount()
+test('the panel reports each flag and asks through setFlag', async () => {
+    await mount({ state: { filters: { ...initialAppState().filters, showNew: true } } })
+    const open = rows(await openFilters())
+    // The rows REPORT the state they were given...
+    expect(open.get('Show closed')?.checked).toBe(false)
+    expect(open.get('Show newly permitted')?.checked).toBe(true)
+    // ...and ask for the flip; they never flip themselves (the App owns it).
     await act(async () => {
-        byText('Show closed')?.click()
+        open.get('Show closed')?.click()
     })
     expect(calls).toContainEqual(['setFlag', 'showClosed', true])
+    // The panel STAYS OPEN on a toggle, so a visit can set several filters.
+    const still = rows(host.querySelector('[role="group"][aria-label="Filters"]') as HTMLElement)
     await act(async () => {
-        byText('Filters')?.click()
-    })
-    const restaurants = Array.from(host.querySelectorAll('label'))
-        .find((l) => l.textContent?.includes('Restaurants only'))
-        ?.querySelector('input')
-    await act(async () => {
-        restaurants?.click()
+        still.get('Restaurants only')?.click()
     })
     expect(calls).toContainEqual(['setFlag', 'restaurantsOnly', true])
+})
+
+test('the panel closes on outside pointerdown and on Escape, which restores focus', async () => {
+    await mount()
+    await openFilters()
+    await act(async () => {
+        document.dispatchEvent(new Event('pointerdown', { bubbles: true }))
+    })
+    expect(host.querySelector('[role="group"][aria-label="Filters"]')).toBeNull()
+
+    await openFilters()
+    await act(async () => {
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    })
+    expect(host.querySelector('[role="group"][aria-label="Filters"]')).toBeNull()
+    expect(document.activeElement).toBe(
+        buttons().find((b) => b.textContent?.trim().startsWith('Filters')),
+    )
 })

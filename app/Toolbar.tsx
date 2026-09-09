@@ -1,11 +1,31 @@
 /**
  * The ONE floating band (§6.2 chrome, CRVa-M0) — brand · Map/List/About
- * switcher · search pill · A–F grade chips · Filters pill · Show closed ·
- * counts, in a single card that reflows into the space left of an open
+ * switcher · search pill · A–F grade chips · Filters panel · counts, in a
+ * single card that reflows into the space left of an open
  * panel (the panel never obscures chrome — the RIGHT sheet, from `sm`
  * up; on a phone the panel is a bottom sheet and the band keeps its
  * full width). Wired to the ported filter
  * predicate through the router actions; every control speaks C6.
+ *
+ * Filters reads as a select — a trigger with a chevron over a panel of
+ * ticked rows — and is HAND-ROLLED on purpose (2026-09-09, Cannon's call
+ * after a look at the Radix build): `DropdownMenu` portals its content and
+ * keeps it glued to the trigger with floating-ui's `autoUpdate`, which
+ * installs resize / scroll / layout-shift observers that run against a
+ * MapLibre canvas repainting behind the band — measurably laggy on the map
+ * view. This panel is one absolutely-positioned div in the band's own
+ * stacking context: no portal, no observers, nothing measured on a frame.
+ *
+ * The rows are REAL checkboxes (a visually-hidden `input` under a drawn
+ * tick), not `menuitemcheckbox`es: Tab reaches them, Space toggles them
+ * and a screen reader names them without a line of key handling. Claiming
+ * `role="menu"` would owe arrow-key roving focus, and a filter panel that
+ * a visitor sets several of at once is not a menu anyway.
+ *
+ * SHOW CLOSED is one of those rows since 2026-09-09; it was a top-level
+ * pill on the band until then, and the band is quieter for the move. The
+ * flag itself is untouched — same `?closed=` key, same storage, same
+ * lazy pull of the closed family in App.
  *
  * Tier rules (ported): the basic map hides the judgment controls — grade
  * chips, Show closed, Show newly permitted — and keeps search, Restaurants
@@ -20,7 +40,7 @@
  */
 
 import { useEffect, useRef, useState } from 'react'
-import { Search, SlidersHorizontal, X } from 'lucide-react'
+import { Check, ChevronDown, Search, SlidersHorizontal, X } from 'lucide-react'
 import type { RouterActions } from './useAppRouter'
 import type { AppState } from './store'
 import { VIEWS } from './router'
@@ -69,17 +89,22 @@ export function Toolbar({ state, actions, lite, shown, total }: {
     }, [])
     const searchInput = useRef<HTMLInputElement>(null)
 
-    // The Filters popover (the three narrowing toggles that are not
-    // top-level): closes on outside pointerdown and on Escape.
+    // The Filters panel (the narrowing toggles that are not top-level):
+    // closes on outside pointerdown and on Escape. Escape also hands focus
+    // back to the trigger — a keyboard visitor who dismisses a panel should
+    // not be dropped at the top of the document.
     const [filtersOpen, setFiltersOpen] = useState(false)
     const popover = useRef<HTMLDivElement>(null)
+    const filtersTrigger = useRef<HTMLButtonElement>(null)
     useEffect(() => {
         if (!filtersOpen) return
         const onDown = (e: PointerEvent) => {
             if (!popover.current?.contains(e.target as Node)) setFiltersOpen(false)
         }
         const onKey = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') setFiltersOpen(false)
+            if (e.key !== 'Escape') return
+            setFiltersOpen(false)
+            filtersTrigger.current?.focus()
         }
         document.addEventListener('pointerdown', onDown)
         document.addEventListener('keydown', onKey)
@@ -89,12 +114,14 @@ export function Toolbar({ state, actions, lite, shown, total }: {
         }
     }, [filtersOpen])
 
-    // "Filters · N" counts the popover's own toggles deviating from their
+    // "Filters · N" counts the panel's own toggles deviating from their
     // shipped defaults — what is actively reshaping the map right now.
-    const popoverFlags = (lite
+    // Show closed joined this count when it left the band (2026-09-09):
+    // an off-default filter is off-default wherever its control sits.
+    const panelFlags = (lite
         ? (['restaurantsOnly', 'showMobile'] as const)
-        : (['restaurantsOnly', 'showNew', 'showMobile'] as const))
-    const deviations = popoverFlags.filter((f) => filters[f] !== FLAG_DEFAULTS[f]).length
+        : (['restaurantsOnly', 'showNew', 'showClosed', 'showMobile'] as const))
+    const deviations = panelFlags.filter((f) => filters[f] !== FLAG_DEFAULTS[f]).length
 
     const filtered = shown !== total
     const countTitle = filtered
@@ -199,6 +226,7 @@ export function Toolbar({ state, actions, lite, shown, total }: {
 
             <div className="relative" ref={popover}>
                 <button
+                    ref={filtersTrigger}
                     type="button"
                     aria-expanded={filtersOpen}
                     onClick={() => setFiltersOpen((open) => !open)}
@@ -206,9 +234,20 @@ export function Toolbar({ state, actions, lite, shown, total }: {
                 >
                     <SlidersHorizontal size={13} aria-hidden="true" />
                     Filters{deviations > 0 && <span className="tabular-nums"> · {deviations}</span>}
+                    <ChevronDown
+                        size={13}
+                        aria-hidden="true"
+                        className={`text-cp-ink-3 transition-transform duration-150 ${
+                            filtersOpen ? 'rotate-180' : ''
+                        }`}
+                    />
                 </button>
                 {filtersOpen && (
-                    <div className="absolute top-full left-0 z-30 mt-1.5 w-60 rounded-cp-card border border-cp-hairline bg-cp-surface-1 p-2 shadow-cp">
+                    <div
+                        role="group"
+                        aria-label="Filters"
+                        className="absolute top-full left-0 z-30 mt-1.5 w-60 rounded-cp-card border border-cp-hairline bg-cp-surface-1 p-1.5 shadow-cp"
+                    >
                         <FlagRow
                             label="Restaurants only"
                             checked={filters.restaurantsOnly}
@@ -221,6 +260,13 @@ export function Toolbar({ state, actions, lite, shown, total }: {
                                 onChange={(v) => actions.setFlag('showNew', v)}
                             />
                         )}
+                        {!lite && (
+                            <FlagRow
+                                label="Show closed"
+                                checked={filters.showClosed}
+                                onChange={(v) => actions.setFlag('showClosed', v)}
+                            />
+                        )}
                         <FlagRow
                             label="Show mobile food units"
                             checked={filters.showMobile}
@@ -229,17 +275,6 @@ export function Toolbar({ state, actions, lite, shown, total }: {
                     </div>
                 )}
             </div>
-
-            {!lite && (
-                <button
-                    type="button"
-                    aria-pressed={filters.showClosed}
-                    onClick={() => actions.setFlag('showClosed', !filters.showClosed)}
-                    className={`${PILL} ${filters.showClosed ? 'border-cp-accent text-cp-ink' : ''}`}
-                >
-                    Show closed
-                </button>
-            )}
 
             <span className="flex-none text-cp-11.5 font-semibold text-cp-ink-3 tabular-nums" title={countTitle}>
                 {filtered ? (
@@ -256,20 +291,40 @@ export function Toolbar({ state, actions, lite, shown, total }: {
     )
 }
 
+/** One narrowing toggle, drawn as a select's row. The input carries every
+ *  semantic — Tab reaches it, Space toggles it, a screen reader reads it as
+ *  a checkbox — and is visually hidden under a drawn tick; the label is its
+ *  own row, so the whole strip is the hit target. The tick sits in a fixed
+ *  gutter so the labels align checked or not, and checked rows also go bold
+ *  and brighten to `--cp-ink`: the state never rides on color alone.
+ *  `has-[:focus-visible]` puts the keyboard's ring on the row, since the
+ *  input it would have outlined is the hidden one. */
 function FlagRow({ label, checked, onChange }: {
     label: string
     checked: boolean
     onChange: (value: boolean) => void
 }) {
     return (
-        <label className="flex cursor-pointer items-center justify-between gap-3 rounded-cp-control px-2 py-1.5 text-cp-12.5 text-cp-ink-2 hover:bg-cp-surface-2">
-            {label}
+        <label
+            className={`relative flex cursor-pointer items-center rounded-cp-control py-1.5 pr-2 pl-7 text-cp-12.5 select-none hover:bg-cp-surface-2 has-[:focus-visible]:bg-cp-surface-2 has-[:focus-visible]:ring-1 has-[:focus-visible]:ring-cp-focus ${
+                checked ? 'font-semibold text-cp-ink' : 'text-cp-ink-2'
+            }`}
+        >
             <input
                 type="checkbox"
                 checked={checked}
                 onChange={(e) => onChange(e.target.checked)}
-                className="h-3.5 w-3.5 accent-(--cp-accent-solid)"
+                className="sr-only"
             />
+            {checked && (
+                <Check
+                    size={13}
+                    strokeWidth={3}
+                    aria-hidden="true"
+                    className="absolute left-2 text-cp-accent"
+                />
+            )}
+            {label}
         </label>
     )
 }
