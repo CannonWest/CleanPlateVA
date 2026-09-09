@@ -8,6 +8,9 @@
  * its dot is discarded; the draft survives a reload; a row dragged out of a
  * stack's popover becomes a pin; a ZIP-centroid place drags as a site fix
  * with its badge. A visitor's map shows no pill and makes no /admin request.
+ * Submit (CPE-M3) posts one `cleanplateva.map-draft.v1` draft per place to
+ * the proposals route — Playwright's stub here, the Worker on the host —
+ * and a build without the route cannot pretend to store.
  *
  * The places are read from the committed public/data/ finder shards at
  * test time (content-addressed; the roster moves with every publish). The
@@ -286,4 +289,113 @@ test('flipping to the aerial in edit mode keeps the photo under the dots AND und
     // The mode is still on, its layers still above the markers, untouched.
     expect(after.tethers).toBeGreaterThan(after.points)
     await expect(page.getByRole('note').filter({ hasText: 'Edit mode.' })).toBeVisible()
+})
+
+// ── Submit (CPE-M3) ─────────────────────────────────────────────────────
+// `vite preview` runs no Worker, so the proposals route is Playwright's: a
+// Worker that stores what it is sent and lists it back, or the SPA shell a
+// host without the route answers. The draft's SHAPE is the contract under
+// test here — the Worker's own checks are worker-admin-proposals.spec.ts.
+
+interface StoredDraft {
+    key: string; name: string; saved_at: string; pins: number; sha256: string; stack_key: string
+    snapshot_id: string; submitted_by: string; size: number; uploaded: string; pulled: boolean
+}
+
+test('Submit stores one draft per place: the pin leaves the device, the line names the draft, the Submitted panel lists it', async ({ page }) => {
+    const place = lonePlace((loc) => loc !== 2)
+    await seed(page, { [ADMIN_SESSION_KEY]: session() })
+    await stubSession(page)
+    const posted: Record<string, unknown>[] = []
+    const stored: StoredDraft[] = []
+    await page.route('**/admin/api/proposals', async (route) => {
+        const request = route.request()
+        if (request.method() === 'POST') {
+            const body = request.postDataJSON() as Record<string, unknown>
+            posted.push(body)
+            const name = `20260908T191503Z-${String(posted.length).padStart(8, '0')}`
+            const entry: StoredDraft = {
+                key: `drafts/${name}.json`, name, saved_at: '2026-09-08T19:15:03Z', pins: (body.pins as unknown[]).length,
+                sha256: 'ab'.repeat(32), stack_key: (body.batch as { stack_key: string }).stack_key,
+                snapshot_id: String(body.snapshot_id), submitted_by: EMAIL, size: 1,
+                uploaded: '2026-09-08T19:15:03.000Z', pulled: false,
+            }
+            stored.push(entry)
+            await route.fulfill({
+                status: 201,
+                contentType: 'application/json; charset=utf-8',
+                headers: { 'cache-control': 'no-store' },
+                body: JSON.stringify({ ok: true, key: entry.key, sha256: entry.sha256, pins: entry.pins, saved_at: entry.saved_at, existing: false }),
+            })
+            return
+        }
+        await route.fulfill({
+            status: 200,
+            contentType: 'application/json; charset=utf-8',
+            headers: { 'cache-control': 'no-store' },
+            body: JSON.stringify({ ok: true, drafts: [...stored].reverse(), truncated: false }),
+        })
+    })
+    await openOn(page, place)
+    await enterEdit(page)
+    await expect(page.locator('[data-cp-submitted-count]')).toHaveText('0')
+    const submit = page.locator('[data-cp-submit]')
+    await expect(submit).toBeDisabled()
+
+    const at = await screenPoint(page, place)
+    await drag(page, at, 90, 60)
+    await expect(pinCount(page)).toHaveText('1')
+    await expect(submit).toHaveText('Submit 1 pin')
+    await expect(submit).toBeEnabled()
+    await submit.click()
+
+    await expect(pinCount(page)).toHaveText('0')
+    expect(posted).toHaveLength(1)
+    const draft = posted[0]!
+    expect(draft.contract).toBe('cleanplateva.map-draft.v1')
+    expect(draft.schema_version).toBe(1)
+    expect(draft.tier).toBe('lite')
+    expect(typeof draft.snapshot_id).toBe('string')
+    for (const field of ['operator', 'instrument', 'saved_at', 'submitted_by']) expect(draft).not.toHaveProperty(field)
+    expect(['positron', 'dark-matter']).toContain((draft.basemap as { style: string }).style)
+    expect((draft.basemap as { zoom: number }).zoom).toBeGreaterThanOrEqual(SELECT_ZOOM)
+    const batch = draft.batch as { stack_key: string; group_lat: number; group_lon: number; facility_count: number; site_group_id: null }
+    expect(batch.stack_key).toBe(stackKey(place.lat, place.lon))
+    expect(batch.facility_count).toBe(1)
+    expect(batch.site_group_id).toBeNull()
+    const pins = draft.pins as { permit_id: string; kind: string; covers: string[]; published: { lat: number; lon: number; loc: number; location: null }; after: { lat: number; lon: number }; note: null }[]
+    expect(pins).toHaveLength(1)
+    expect(pins[0]!.permit_id).toBe(place.permit_id)
+    expect(pins[0]!.kind).toBe('refinement')
+    expect(pins[0]!.covers).toEqual([place.permit_id])
+    expect(pins[0]!.published).toEqual({ lat: place.lat, lon: place.lon, loc: place.loc, location: null })
+    expect(pins[0]!.after).not.toEqual({ lat: place.lat, lon: place.lon })
+    expect(pins[0]!.note).toBeNull()
+
+    await expect(page.locator('[data-cp-result="stored"]')).toContainText('20260908T191503Z-00000001')
+    await expect(page.locator('[data-cp-submitted-count]')).toHaveText('1')
+    await expect(page.locator('[data-cp-submitted="20260908T191503Z-00000001"]')).toContainText('Awaiting pull')
+    expect(await page.evaluate((key) => window.localStorage.getItem(key), MAP_DRAFT_KEY)).toBeNull()
+})
+
+test('a build without the Worker: Submit cannot store, says so, and the pin stays', async ({ page }) => {
+    const place = lonePlace((loc) => loc !== 2)
+    await seed(page, { [ADMIN_SESSION_KEY]: session() })
+    await stubSession(page)
+    // What a host without the route answers: the SPA shell, 200 text/html.
+    await page.route('**/admin/api/proposals', (route) => route.fulfill({
+        status: 200, contentType: 'text/html; charset=utf-8', body: '<!doctype html><title>shell</title>',
+    }))
+    await openOn(page, place)
+    await enterEdit(page)
+    await expect(page.locator('[data-cp-submitted-panel]')).toContainText('not listed in this build')
+    const at = await screenPoint(page, place)
+    await drag(page, at, 90, 60)
+    await expect(pinCount(page)).toHaveText('1')
+    const submit = page.locator('[data-cp-submit]')
+    await expect(submit).toBeEnabled()
+    await submit.click()
+    await expect(page.locator('[data-cp-result="unavailable"]')).toContainText('cannot store drafts')
+    await expect(pinCount(page)).toHaveText('1')
+    expect(await page.evaluate((key) => window.localStorage.getItem(key), MAP_DRAFT_KEY)).not.toBeNull()
 })
