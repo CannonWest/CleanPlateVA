@@ -22,6 +22,7 @@ import { useEffect, useRef } from 'react'
 import { X } from 'lucide-react'
 import { ACK_AGREED, ACK_DECLINED } from './ack'
 import { TermsBody } from './TermsBody'
+import { ThemeLogo } from './ThemeLogo'
 
 export function AckDialog({ blocking, onDecide, onEscapeDecline, onClose }: {
     blocking: boolean
@@ -81,7 +82,10 @@ export function AckDialog({ blocking, onDecide, onEscapeDecline, onClose }: {
                             <X size={16} aria-hidden="true" />
                         </button>
                     )}
-                    <h1 id="cpAckTitle" className="mb-3.5 text-center text-cp-17 font-bold tracking-[.01em]">
+                    <div className="mb-2 flex justify-center">
+                        <ThemeLogo className="h-12 w-auto sm:h-14" />
+                    </div>
+                    <h1 id="cpAckTitle" className="mb-3 text-center text-cp-17 font-bold tracking-[.01em]">
                         Terms of Use and Data Acknowledgment
                     </h1>
                     <div className="min-h-0 w-[min(36rem,100%)] flex-1 self-center rounded-cp-control border border-cp-hairline bg-cp-bg py-1 pr-0.5">

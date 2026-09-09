@@ -96,6 +96,12 @@ test('content parity: hero, both receipts, weights, pipeline, lineage, all eight
     // emphasis (the editor hands over `<b>`/`<br>` as text; the JSX must
     // carry them as elements), the four live cards under their new labels
     // — and neither the provenance legend nor the kicker.
+    // Hero brand logo
+    const heroImgs = el.querySelectorAll('main section:first-of-type img')
+    expect(heroImgs.length).toBe(2)
+    expect(heroImgs[0]?.className).toContain('light:hidden')
+    expect(heroImgs[1]?.className).toContain('light:block')
+
     expect(el.textContent).toContain("CleanPlateVA: an unofficial archive and grading of Virginia's health-inspected food-serving facilities")
     const hero = el.querySelector('h1 + p') as HTMLElement
     expect(hero.querySelectorAll('strong')).toHaveLength(2)

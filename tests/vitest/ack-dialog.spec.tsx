@@ -62,6 +62,12 @@ test('the dialog is the title alone over the single-source terms, Decline left /
     const [el] = await render(true)
     const dialog = el.querySelector('[role="dialog"]')
     expect(dialog?.getAttribute('aria-modal')).toBe('true')
+    // Branded header logo above the title.
+    const logoImgs = dialog?.querySelectorAll('img')
+    expect(logoImgs?.length).toBe(2)
+    expect(logoImgs?.[0]?.className).toContain('light:hidden')
+    expect(logoImgs?.[1]?.className).toContain('light:block')
+
     // Title alone — no kicker, no lede.
     expect(dialog?.querySelector('h1')?.textContent).toBe('Terms of Use and Data Acknowledgment')
     expect(dialog?.textContent).not.toContain('Methodology & provenance')

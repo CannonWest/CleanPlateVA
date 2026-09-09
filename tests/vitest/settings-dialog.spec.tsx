@@ -207,14 +207,14 @@ test('Grade colors is a two-ramp choice — Standard · Color-blind friendly —
     expect(asked.palette).toEqual(['colorblind', 'standard'])
 })
 
-test('Group nearby places is a two-picture choice — Every place · Grouped — the current one on, the other faded', async () => {
+test('Group nearby places is a two-picture choice — Individual · Grouped — the current one on, the other faded', async () => {
     const dialog = await mount({ clusters: false })
     expect(dialog.textContent).toContain('Group nearby places')
-    expect(dialog.textContent).toContain('Nearby places share one bubble when zoomed out.')
+    expect(dialog.textContent).not.toContain('Nearby places share one bubble when zoomed out.')
     const items = radios(dialog, 'cpSettingsClusters')
     // The caption is its own element: the donut's count is text too, and the
     // picture is aria-hidden, so the caption alone names the option.
-    expect(items.map((item) => item.querySelector('span')?.textContent)).toEqual(['Every place', 'Grouped'])
+    expect(items.map((item) => item.querySelector('span')?.textContent)).toEqual(['Individual', 'Grouped'])
     expect(items.every((item) => item.querySelector('svg')?.getAttribute('aria-hidden') === 'true')).toBe(true)
     expect(items.map((item) => item.getAttribute('data-state'))).toEqual(['on', 'off'])
     // Each option is a drawing of its map state: dots on the basemap tint,
@@ -253,15 +253,23 @@ test('Group nearby places is a two-picture choice — Every place · Grouped —
 })
 
 test('the text size is a slider 12..20 by 1 reporting its value, asking by keyboard', async () => {
-    const dialog = await mount({ textSize: 14 })
+    const dialog = await mount({ textSize: 16 })
     const thumb = dialog.querySelector<HTMLElement>('[role="slider"]')
     expect(thumb).toBeTruthy()
     expect(thumb?.getAttribute('aria-valuemin')).toBe('12')
     expect(thumb?.getAttribute('aria-valuemax')).toBe('20')
-    expect(thumb?.getAttribute('aria-valuenow')).toBe('14')
-    expect(thumb?.getAttribute('aria-valuetext')).toBe('14 pixels')
+    expect(thumb?.getAttribute('aria-valuenow')).toBe('16')
+    expect(thumb?.getAttribute('aria-valuetext')).toBe('16 pixels')
     expect(thumb?.getAttribute('aria-label')).toBe('Text size')
-    expect(dialog.textContent).toContain('14 px · default')
+    expect(dialog.textContent).toContain('16 px · default')
+
+    // Abc sample markers at 12px, 16px, 20px
+    const abcSamples = Array.from(dialog.querySelectorAll('span')).filter((s) => s.textContent === 'Abc')
+    expect(abcSamples).toHaveLength(3)
+    expect(abcSamples[0]?.style.fontSize).toBe('12px')
+    expect(abcSamples[1]?.style.fontSize).toBe('16px')
+    expect(abcSamples[2]?.style.fontSize).toBe('20px')
+
     await act(async () => {
         thumb?.focus()
     })
@@ -269,22 +277,22 @@ test('the text size is a slider 12..20 by 1 reporting its value, asking by keybo
     await press(thumb as HTMLElement, 'ArrowLeft')
     await press(thumb as HTMLElement, 'End')
     await press(thumb as HTMLElement, 'Home')
-    expect(asked.textSize).toEqual([15, 13, 20, 12])
+    expect(asked.textSize).toEqual([17, 15, 20, 12])
     // Controlled: the thumb reports the App's value, not its own.
-    expect(thumb?.getAttribute('aria-valuenow')).toBe('14')
+    expect(thumb?.getAttribute('aria-valuenow')).toBe('16')
 })
 
-test('off the default the readout drops the word and a reset appears, asking for 14', async () => {
-    const dialog = await mount({ textSize: 16 })
-    expect(dialog.textContent).toContain('16 px')
+test('off the default the readout drops the word and a reset appears, asking for 16', async () => {
+    const dialog = await mount({ textSize: 14 })
+    expect(dialog.textContent).toContain('14 px')
     expect(dialog.textContent).not.toContain('default')
-    const reset = Array.from(dialog.querySelectorAll('button')).find((b) => b.textContent === 'Reset to 14 px')
+    const reset = Array.from(dialog.querySelectorAll('button')).find((b) => b.textContent === 'Reset to 16 px')
     expect(reset).toBeTruthy()
     await act(async () => {
         reset?.click()
     })
-    expect(asked.textSize).toEqual([14])
-    const atDefault = await mount({ textSize: 14 })
+    expect(asked.textSize).toEqual([16])
+    const atDefault = await mount({ textSize: 16 })
     expect(Array.from(atDefault.querySelectorAll('button')).some((b) => b.textContent?.startsWith('Reset'))).toBe(false)
 })
 
