@@ -275,7 +275,7 @@ export function Toolbar({ state, actions, lite, shown, total }: {
     // so side by side the two cards share a height rather than sitting a
     // pixel or two apart at the foot.
     return (
-        <header className="relative z-20 flex min-w-0 flex-wrap gap-2">
+        <header className="pointer-events-auto relative z-20 flex min-w-0 flex-wrap gap-2">
             <div ref={identityLine} className={`${LINE} ${IDENTITY}`}>
                 <div className="flex flex-none items-center gap-2 text-cp-14.5 font-bold">
                     <img

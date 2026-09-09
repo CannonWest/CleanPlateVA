@@ -318,9 +318,12 @@
 
 /* The map edit mode (CPE-M3, OQ-F 2026-09-08): the pins drawer stops above
    the bottom-right control lane (MapEditor DRAWER_BOTTOM), and the lane is
-   lifted over the drawer (z-30) while the mode is on, so the layers list —
-   which opens UPWARD from its button — draws over the drawer's foot rather
-   than under it. MapView sets the class on its container in edit mode. */
+   lifted over the drawer (z-30) while the mode is on, so nothing of the
+   drawer's can come to rest on top of a lane control. MapView sets the class
+   on its container in edit mode. The lane held the layers button until
+   2026-09-09 — and its list, which opened UPWARD over the drawer's foot, is
+   what sized the lift; the zoom pair and "Find me" are what it keeps clear
+   now. */
 .cp-map-editing .maplibregl-ctrl-bottom-right {
     z-index: 40;
 }
