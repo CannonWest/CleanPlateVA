@@ -8,6 +8,14 @@
  * facility's, never an inspection's — C1/C9); the basic map keeps the
  * identity + official-VDH hand-off. Plus the stack member popover
  * (Cannon's M1-boundary call).
+ *
+ * The PHONE sheet stops under the band's first line on EVERY view
+ * (2026-09-09) — `--cp-band-line-1`, which Toolbar measures as the gutter
+ * plus the identity card's height, so it means the same thing on the map's
+ * fixed band and at the head of a List scrolled a thousand rows. jsdom
+ * carries no media queries, so what is pinned here is which rule the panel
+ * ASKS for; `tests/e2e/band-lines.spec.ts` measures where the sheet
+ * actually lands, on the map and on a scrolled List.
  */
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
@@ -312,6 +320,34 @@ test('an unavailable detail reads as exactly that', async () => {
         />,
     )
     expect(el.textContent).toContain('Failed to load: no data published yet')
+})
+
+test('the phone sheet stops at the band line, on every view', async () => {
+    const el = await render(
+        <DetailPanel
+            row={row()}
+            lite={false}
+            state={{ status: 'ready', detail: detail() }}
+            onClose={() => {}}
+            onAbout={() => {}}
+        />,
+    )
+    const sheet = el.querySelector('aside')!.className
+    // One rule, not a pair: the edge means the same thing on the map's fixed
+    // band and at the head of a scrolled List, so the panel does not need to
+    // be told which view it is in.
+    expect(sheet).toContain('max-sm:top-[calc(var(--cp-band-line-1)+8px)]')
+    expect(sheet).not.toContain('max-sm:top-0')
+    // Only the top edge is drawn, so it reads as a sheet under the band.
+    expect(sheet).toContain('max-sm:rounded-b-none')
+    expect(sheet).toContain('max-sm:border-x-0')
+    // Flush to the phone's other three edges; the desktop right sheet is
+    // untouched.
+    expect(sheet).toContain('max-sm:right-0')
+    expect(sheet).toContain('max-sm:bottom-0')
+    expect(sheet).toContain('max-sm:left-0')
+    expect(sheet).toContain('max-sm:w-full')
+    expect(sheet).toContain('fixed top-3 right-3 bottom-3')
 })
 
 test('the stack popover lists members name-sorted with ramp chips and picks by permit', async () => {

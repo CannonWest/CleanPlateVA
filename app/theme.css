@@ -80,6 +80,42 @@
        chrome's px geometry, the map's canvas labels and the trend SVG
        stand. Not a theme token: .theme-light leaves it alone. */
     --cp-text-scale: 1;
+
+    /* The search pill's smallest useful width (Toolbar) — the ONE control
+       whose WIDTH has to follow the text-size slider. Everything else on
+       the band is a word or two and wraps when it runs out of room; a
+       search box just clips, and one that cannot show "Search name,
+       address, city, or ZIP" reads as broken (it did, from 16px up:
+       Cannon, 2026-09-09). Two terms, because only one of them scales:
+       48px of the pill's own furniture (12px padding either side, the 15px
+       icon, the 8px gap — none of which follow the text size) plus the
+       placeholder in `ch`.
+       `ch` and not px times the scale, because the placeholder's width
+       depends on the FACE as well as the size and system-ui is a different
+       face on every platform: 34 characters measure 191px on Windows'
+       Segoe UI and 223px on the Linux runner's default at the same 13px —
+       17% wider, enough to clip a box sized off the Windows number (CI
+       caught exactly that, 2026-09-09). In `ch` the two agree to within a
+       third of a character — 27.26 and 26.96 — because a font that sets
+       the string wider sets its own "0" wider too. 30ch carries ~10% over
+       the widest measured. The unit resolves against the PILL's font, not
+       the root's: an unregistered custom property substitutes as tokens,
+       so `ch` is evaluated where it is used — which is the one place whose
+       font-size is the ratified 13px times the slider. */
+    --cp-search-min: calc(48px + 30ch);
+    --cp-search-max: calc(var(--cp-search-min) + 100px);
+
+    /* Where the band's FIRST line — the identity card, mark · name · view
+       switcher — ends, measured from the top of whatever holds it. Toolbar
+       publishes the measured edge on <html> as the gutter plus the card's
+       own HEIGHT (never its viewport rect, so a scrolled List publishes the
+       same number as a fresh one) and the phone detail sheet stops there
+       instead of taking the whole screen (DetailPanel). The value here is
+       that card at the ratified text size — 12px of gutter + 58px (a 40px
+       switcher row, 8px of padding either side, the hairline) — which is
+       what the sheet uses for the frame before the first measure, and if a
+       band ever renders without publishing one. */
+    --cp-band-line-1: 70px;
 }
 
 .theme-light {

@@ -1,8 +1,20 @@
 /**
  * The detail panel (§6.2, CRVa-M2) — a right sheet from `sm` up; on a
- * phone it takes the WHOLE screen, the close ✕ at the screen's top-right
- * (Cannon's call 2026-09-06, replacing the 62vh bottom sheet: any width
- * that would put the panel at the bottom gets it full-screen instead).
+ * phone it rises from the bottom to just under the band's FIRST line, the
+ * close ✕ at its own top-right. It took the whole screen from 2026-09-06
+ * (Cannon's call, replacing the ratified 62vh bottom sheet) until
+ * 2026-09-09, when Cannon asked for the mark, the name and the view
+ * switcher to survive an open place: a phone sheet that swallows the
+ * chrome leaves ✕ as the only way back, and nothing says which view you
+ * are standing in. It stops at `--cp-band-line-1`, the edge Toolbar
+ * measures and publishes, so the stop follows the text-size slider and a
+ * band that wrapped. EVERY view (Cannon, same day — the map first, then
+ * "the same restaurant mobile thing on List view too"): the edge is the
+ * gutter plus the identity card's height, not a rect that scrolls, so it
+ * means the same thing on the map's fixed band and at the head of a
+ * scrolled List. What sits in the strip differs — the band on the map, the
+ * records on a scrolled List — and on a list a sheet over its own rows is
+ * the ordinary grammar.
  * Header: name/address + the Source button (the external
  * grammar) + close; the fact line renders permanent facts structurally
  * (kind as icon + word, status as dot + word) with `≈ approximate
@@ -160,9 +172,13 @@ export function DetailPanel({ row, lite, state, onClose, onAbout }: {
     const fairfax = isFairfax(fac)
     const dept = sourceDepartment(fac)
 
+    // The phone sheet: full width, flush to the bottom and the sides, its top
+    // at the band's first line. Only the top edge is drawn — a hairline and
+    // the card's two top corners — so it reads as a sheet under the band
+    // rather than a page with a seam.
     return (
         <aside
-            className="fixed top-3 right-3 bottom-3 z-30 flex w-[min(400px,calc(100vw-24px))] flex-col overflow-hidden rounded-cp-card border border-cp-hairline bg-cp-surface-1 shadow-cp max-sm:inset-0 max-sm:w-full max-sm:rounded-none max-sm:border-0 max-sm:shadow-none"
+            className="fixed top-3 right-3 bottom-3 z-30 flex w-[min(400px,calc(100vw-24px))] flex-col overflow-hidden rounded-cp-card border border-cp-hairline bg-cp-surface-1 shadow-cp max-sm:top-[calc(var(--cp-band-line-1)+8px)] max-sm:right-0 max-sm:bottom-0 max-sm:left-0 max-sm:w-full max-sm:rounded-b-none max-sm:border-x-0 max-sm:border-b-0"
             aria-label={`${row.name} details`}
         >
             <header className="border-b border-cp-hairline px-4 pt-4 pb-3">
@@ -187,7 +203,7 @@ export function DetailPanel({ row, lite, state, onClose, onAbout }: {
                         Source
                         <ExternalLink size={13} aria-hidden="true" />
                     </a>
-                    {/* On a phone the ✕ IS the screen's top-right corner: the
+                    {/* On a phone the ✕ IS the sheet's top-right corner: the
                         icon stays put, the hit box grows to 8px off both edges. */}
                     <button type="button" aria-label="Close" onClick={onClose} className="flex-none self-start text-cp-ink-3 hover:text-cp-ink max-sm:-m-2 max-sm:p-2">
                         <X size={17} aria-hidden="true" />

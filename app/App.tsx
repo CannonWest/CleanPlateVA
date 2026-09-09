@@ -8,6 +8,7 @@
  */
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ACK_DECLINED, createAckState, forceLiteFromSearch } from './ack'
+import { SEARCH_LABEL } from './constants'
 import { createFoodApi } from './data/client'
 import { DataProvider, useRoster } from './data/provider'
 import { fmtDate } from './data/presentation'
@@ -602,7 +603,7 @@ function GhostShell() {
                 CleanPlateVA
             </div>
             <div className="max-w-[420px] flex-1 rounded-cp-pill border border-cp-hairline bg-cp-surface-1 px-3.5 py-2 text-cp-13 text-cp-ink-3 shadow-cp">
-                Search name, address, city, or ZIP
+                {SEARCH_LABEL}
             </div>
         </div>
     )

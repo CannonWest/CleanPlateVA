@@ -12,6 +12,20 @@ export const SHOW_CLOSED_KEY = 'cleanplateva.food.showClosed'
 export const SHOW_NEW_KEY = 'cleanplateva.food.showNew'
 export const SHOW_MOBILE_KEY = 'cleanplateva.food.showMobile'
 
+/** What the search box offers to look up, longest first (§6.2). The first
+ *  is the full sentence — the box is SIZED for it (`--cp-search-min`,
+ *  theme.css) and it is always the control's `aria-label`; the others exist
+ *  for the corner the width cannot reach, a 390px phone at 19 or 20px,
+ *  where 34 characters need more than the screen has whatever the box does.
+ *  Here rather than beside the box, so the ghosted boot shell (App) and the
+ *  e2e can read the same words without importing the band. */
+export const SEARCH_PLACEHOLDERS = [
+    'Search name, address, city, or ZIP',
+    'Search name or ZIP',
+    'Search',
+] as const
+export const SEARCH_LABEL = SEARCH_PLACEHOLDERS[0]
+
 // List load-more (D-DATA-11): rows revealed per chunk; `?page=N` = N chunks.
 export const LIST_PAGE_SIZE = 50
 
