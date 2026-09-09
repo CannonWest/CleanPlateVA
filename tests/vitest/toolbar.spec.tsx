@@ -12,6 +12,17 @@
  * portal and no positioning library, so every assertion here reads the
  * band's own subtree. SHOW CLOSED is one of those rows: it was a band pill
  * until that date, and the band must no longer carry it.
+ *
+ * TWO OBJECTS since 2026-09-09: identity (mark · name · switcher) in one
+ * card, the query (search · chips · Filters · counts) in a second, ovular,
+ * frosted one — beside it while the width allows, under it when it does
+ * not. jsdom has no layout, so what is pinned here is the STRUCTURE the
+ * layout rests on — which control sits in which object, and that identity
+ * holds nothing else, so it stays one row on a phone under the detail
+ * sheet. The flow and the paint — side by side or stacked, the search never
+ * clipping its placeholder, the shapes, the translucency, the sheet
+ * stopping at the identity card — are the e2e's
+ * (`tests/e2e/band-lines.spec.ts`).
  */
 import { act, StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
@@ -134,6 +145,43 @@ test('the full-tier band carries every §6.2 control', async () => {
     expect(host.textContent).toContain('25,164')
     expect([...rows(await openFilters()).keys()])
         .toEqual(['Restaurants only', 'Show newly permitted', 'Show closed', 'Show mobile food units'])
+})
+
+test('the band is two objects: identity, then the query', async () => {
+    await mount({ shown: 412 })
+    const band = host.querySelector('header')!
+    const lines = Array.from(band.children) as HTMLElement[]
+    expect(lines).toHaveLength(2)
+    const [identity, query] = lines as [HTMLElement, HTMLElement]
+
+    // Identity is the mark, the name and the switcher — and nothing else, so
+    // a phone renders it in one row and the detail sheet can stop under it.
+    expect(identity.textContent).toContain('CleanPlateVA')
+    expect(identity.querySelector('nav[aria-label="View"]')).toBeTruthy()
+    expect(identity.querySelector('input[type="search"]')).toBeNull()
+    expect(identity.textContent).not.toContain('412')
+
+    // The query bar is every control that narrows the roster, and the count
+    // they produce.
+    expect(query.querySelector('input[type="search"]')).toBeTruthy()
+    expect(query.querySelector('[role="group"][aria-label="Grade filter"]')).toBeTruthy()
+    expect(Array.from(query.querySelectorAll('button'))
+        .some((b) => b.textContent?.trim().startsWith('Filters'))).toBe(true)
+    expect(query.textContent).toContain('412')
+})
+
+test('the band publishes its first line\'s bottom edge, and drops it on unmount', async () => {
+    const root0 = document.documentElement
+    expect(root0.style.getPropertyValue('--cp-band-line-1')).toBe('')
+    await mount()
+    // jsdom lays nothing out, so the edge is 0 — the property being SET is
+    // the contract (the phone sheet reads it); the number is the e2e's.
+    expect(root0.style.getPropertyValue('--cp-band-line-1')).toBe('0px')
+    await act(async () => {
+        root?.unmount()
+    })
+    root = null
+    expect(root0.style.getPropertyValue('--cp-band-line-1')).toBe('')
 })
 
 test('the basic map hides the judgment controls and keeps the rest (P6)', async () => {
