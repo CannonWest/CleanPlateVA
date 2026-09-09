@@ -7,7 +7,8 @@
  * an orange pin tethered to where the record stands; a pin dropped back on
  * its dot is discarded; the draft survives a reload; a row dragged out of a
  * stack's popover becomes a pin; a ZIP-centroid place drags as a site fix
- * with its badge. A visitor's map shows no pill and makes no /admin request.
+ * with its badge; a pasted coordinate flies the camera to it, keeps the
+ * zoom and marks the point (the coordinate box, 2026-09-09). A visitor's map shows no pill and makes no /admin request.
  * Submit (CPE-M3) posts one `cleanplateva.map-draft.v1` draft per place to
  * the proposals route — Playwright's stub here, the Worker on the host —
  * and a build without the route cannot pretend to store.
@@ -35,6 +36,7 @@ interface MapHandle {
     loaded(): boolean
     isMoving(): boolean
     getZoom(): number
+    getCenter(): { lat: number; lng: number }
     project(lngLat: [number, number]): { x: number; y: number }
     querySourceFeatures(source: string): unknown[]
 }
@@ -232,6 +234,77 @@ test('a ZIP-centroid place drags as a site fix and says what it moves', async ({
     const item = page.locator(`[data-cp-pin="${place.permit_id}"]`)
     await expect(item).toContainText('Site fix')
     await expect(item).toContainText(/Moves \d+ permits? at /)
+})
+
+// ── "Go to a coordinate" (the coordinate box, 2026-09-09) ───────────────────────────────────────
+// The navigation aid, on the real map: a decimal pair moves the CENTRE and
+// nothing else, and the mark is painted where the coordinate is. The zoom
+// assertion is the point of the feature — a survey scale has to survive a
+// paste.
+
+const CANNONS_COORDINATE = '37.53812556551333, -77.56654203147325'
+const CANNONS_POINT = { lat: 37.53812556551333, lon: -77.56654203147325 }
+
+function camera(page: Page) {
+    return page.evaluate(() => {
+        const map = (window as unknown as WithHandle).__cpMap!
+        const centre = map.getCenter()
+        return { lat: centre.lat, lon: centre.lng, zoom: map.getZoom() }
+    })
+}
+
+/** How many features the mark's source has ON THE LOADED TILES. A `setData`
+ *  re-parses them asynchronously, so this is always polled, never sampled:
+ *  the count trails the draft by a frame or two, and one point lands in
+ *  several tiles at a tile boundary. */
+const gotoMarks = (page: Page) =>
+    page.evaluate(() => (window as unknown as WithHandle).__cpMap!.querySourceFeatures('cp-goto').length)
+
+async function paste(page: Page, text: string) {
+    await page.locator('#cp-goto-input').fill(text)
+    await page.locator('#cp-goto-input').press('Enter')
+}
+
+test('a pasted coordinate flies the camera to the point, keeps the zoom, and marks it', async ({ page }) => {
+    const place = lonePlace((loc) => loc !== 2)
+    await seed(page, { [ADMIN_SESSION_KEY]: session() })
+    await stubSession(page)
+    await openOn(page, place)
+    await enterEdit(page)
+
+    const before = await camera(page)
+    await expect.poll(() => gotoMarks(page)).toBe(0)
+
+    await paste(page, CANNONS_COORDINATE)
+    await page.waitForFunction(() => {
+        const map = (window as unknown as WithHandle).__cpMap
+        return !!map && !map.isMoving()
+    }, undefined, { timeout: 30_000 })
+
+    const after = await camera(page)
+    expect(after.lat).toBeCloseTo(CANNONS_POINT.lat, 5)
+    expect(after.lon).toBeCloseTo(CANNONS_POINT.lon, 5)
+    // The operator's zoom, to the digit: flyTo was given a centre alone.
+    expect(after.zoom).toBeCloseTo(before.zoom, 6)
+    // The point is MARKED — a centred view alone is not something a pin can
+    // be dragged onto.
+    await expect.poll(() => gotoMarks(page)).toBeGreaterThanOrEqual(1)
+    await expect(page.locator('[data-cp-goto-marked]')).toHaveText('37.538126, -77.566542')
+    // It proposed nothing.
+    await expect(pinCount(page)).toHaveText('0')
+
+    // A paste it cannot read is refused by name and the camera stands.
+    await paste(page, '-77.56654203147325, 37.53812556551333')
+    await expect(page.locator('[data-cp-goto-refusal]'))
+        .toHaveText('That pair reads longitude first. Paste latitude, then longitude.')
+    const still = await camera(page)
+    expect(still.lat).toBeCloseTo(CANNONS_POINT.lat, 5)
+    expect(still.zoom).toBeCloseTo(before.zoom, 6)
+
+    // Clear takes the mark off the map.
+    await page.getByRole('region', { name: 'Go to a coordinate' }).getByRole('button', { name: 'Clear' }).click()
+    await expect(page.locator('[data-cp-goto-marked]')).toHaveCount(0)
+    await expect.poll(() => gotoMarks(page)).toBe(0)
 })
 
 // ── the aerial basemap inside edit mode (2026-09-08) ─────────────────────

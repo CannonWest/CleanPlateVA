@@ -25,7 +25,10 @@
  *
  * The layers are reinstalled on every `style.load` — a theme swap drops
  * every custom source — AFTER MapView's own data layers, which registered
- * their listener first, so the proposals draw on top.
+ * their listener first, so the proposals draw on top. The "Go to a
+ * coordinate" mark (mapGoto.ts) rides the same reinstall, added first so
+ * the proposals draw over it; it is drawn and nothing else — no hit test
+ * knows it is there, and no gesture starts on it.
  */
 
 import type * as maplibregl from 'maplibre-gl'
@@ -36,6 +39,9 @@ import {
     PIN_RADIUS, PROPOSAL_COLOR, SRC_PROPOSALS, withinDiscard,
 } from './mapDraft'
 import type { LngLatPair, ProposalCollection, ProposalPin } from './mapDraft'
+import {
+    buildGotoGeoJSON, installGotoLayers, LYR_GOTO_CASE, LYR_GOTO_DOT, LYR_GOTO_RING, SRC_GOTO,
+} from './mapGoto'
 
 /** What the controller needs of a map — the real `maplibregl.Map`
  *  satisfies it; a spec passes a recorder. */
@@ -59,6 +65,9 @@ export interface ControllerDeps {
 export interface MapEditController {
     install(): void
     setPins(pins: readonly ProposalPin[]): void
+    /** The "Go to a coordinate" mark, or null for none (mapGoto.ts). It is
+     *  drawn, never dragged: the hit tests do not know it exists. */
+    setTarget(point: LngLatPair | null): void
     /** A stack-popover row is being pressed at these client coordinates. */
     beginRowDrag(permitId: string, clientX: number, clientY: number): void
     dispose(): void
@@ -134,6 +143,7 @@ export function installProposalLayers(
 
 export function createMapEditController(map: EditHost, deps: ControllerDeps): MapEditController {
     let pins: readonly ProposalPin[] = []
+    let target: LngLatPair | null = null
     let drag: Drag | null = null
     let installed = false
     const slop = deps.coarse ? HIT_SLOP_COARSE : HIT_SLOP_FINE
@@ -143,13 +153,20 @@ export function createMapEditController(map: EditHost, deps: ControllerDeps): Ma
         canvas().style.cursor = value
     }
 
+    // The mark goes on first, so the proposal pins draw over it.
     const reinstall = () => {
+        installGotoLayers(map, deps.dark(), buildGotoGeoJSON(target))
         installProposalLayers(map, deps.dark(), buildProposalGeoJSON(pins))
     }
 
     const setData = () => {
         const source = map.getSource(SRC_PROPOSALS) as maplibregl.GeoJSONSource | undefined
         source?.setData(buildProposalGeoJSON(pins) as never)
+    }
+
+    const setGotoData = () => {
+        const source = map.getSource(SRC_GOTO) as maplibregl.GeoJSONSource | undefined
+        source?.setData(buildGotoGeoJSON(target) as never)
     }
 
     /** The nearest feature of `layer` within the slop of `point`, by centre
@@ -302,6 +319,10 @@ export function createMapEditController(map: EditHost, deps: ControllerDeps): Ma
             pins = next
             if (installed) setData()
         },
+        setTarget(next) {
+            target = next
+            if (installed) setGotoData()
+        },
         beginRowDrag(permitId, clientX, clientY) {
             if (!installed || drag || row) return
             row = { permitId, startX: clientX, startY: clientY, live: false }
@@ -320,10 +341,14 @@ export function createMapEditController(map: EditHost, deps: ControllerDeps): Ma
             map.off('mouseup', onMouseUp)
             window.removeEventListener('mouseup', onWindowMouseUp)
             try {
-                for (const id of [LYR_PROPOSAL_BADGES, LYR_PROPOSAL_PINS, LYR_PROPOSAL_TETHERS]) {
+                for (const id of [
+                    LYR_PROPOSAL_BADGES, LYR_PROPOSAL_PINS, LYR_PROPOSAL_TETHERS,
+                    LYR_GOTO_DOT, LYR_GOTO_RING, LYR_GOTO_CASE,
+                ]) {
                     if (map.getLayer(id)) map.removeLayer(id)
                 }
                 if (map.getSource(SRC_PROPOSALS)) map.removeSource(SRC_PROPOSALS)
+                if (map.getSource(SRC_GOTO)) map.removeSource(SRC_GOTO)
             } catch {
                 // A style mid-swap: the outgoing style takes them with it.
             }
