@@ -5,6 +5,12 @@
  * control in the map's top column (App), left with Exit edit. Its own lazy
  * chunk: a visitor's page never loads it.
  *
+ * "Go to a coordinate" (2026-09-09, mapGoto.ts) sits above the pin list:
+ * a pasted decimal pair centres the view on that point — at the zoom chosen
+ * — and marks it, so a coordinate that came from somewhere else has
+ * something a pin can be dragged onto. It proposes nothing and fetches
+ * nothing; the mark is per session, not per device.
+ *
  * The draft is this device's (mapDraft.ts, `cleanplateva.admin.map.v1`) and
  * survives a reload (OQ-B). The detail's 9-dp `location` block is fetched
  * for each new pin through the click-path client and attached when it
@@ -36,6 +42,7 @@ import {
     setNote, upsertPin,
 } from './mapDraft'
 import type { LngLatPair, ProposalPin } from './mapDraft'
+import { formatCoordinate, parseCoordinate } from './mapGoto'
 import { buildDrafts, draftName, listSubmitted, submitDraft } from './mapSubmit'
 import type { SubmitOutcome, SubmittedDraft } from './mapSubmit'
 import type { ProbeFetch } from './session'
@@ -83,12 +90,15 @@ export function MapEditor({
     transport?: ProbeFetch
 }) {
     const [pins, setPins] = useState<ProposalPin[]>(() => loadPins(window.localStorage))
+    const [target, setTarget] = useState<LngLatPair | null>(null)
     const [refusal, setRefusal] = useState<string | null>(null)
     const [submitting, setSubmitting] = useState(false)
     const [results, setResults] = useState<BatchResult[]>([])
     const [submitted, setSubmitted] = useState<ListState>({ kind: 'loading' })
     const pinsRef = useRef(pins)
     pinsRef.current = pins
+    const targetRef = useRef(target)
+    targetRef.current = target
     const rowsRef = useRef(rows)
     rowsRef.current = rows
     const snapshotRef = useRef(snapshotId)
@@ -153,6 +163,7 @@ export function MapEditor({
         controller.current = created
         created.install()
         created.setPins(pinsRef.current)
+        created.setTarget(targetRef.current)
         bindRowDrag((permitId, event) => created.beginRowDrag(permitId, event.clientX, event.clientY))
         return () => {
             bindRowDrag(null)
@@ -164,6 +175,23 @@ export function MapEditor({
     useEffect(() => {
         controller.current?.setPins(pins)
     }, [pins])
+
+    useEffect(() => {
+        controller.current?.setTarget(target)
+    }, [target])
+
+    // "Go to a coordinate": the centre moves, the operator's zoom stands
+    // (Cannon, 2026-09-09), and the point is MARKED — a centred view alone
+    // says only "somewhere near the middle", which is not something a pin
+    // can be dragged onto.
+    // `flyTo`, not `easeTo`: it ENDS at the zoom it started at, which is the
+    // rule, and it arcs out over a long move rather than smearing the map
+    // sideways at z19 — a coordinate from elsewhere is as often across the
+    // state as across the street.
+    const goTo = useCallback((point: LngLatPair) => {
+        setTarget(point)
+        map?.flyTo({ center: [point.lon, point.lat] })
+    }, [map])
 
     // The Submitted panel: the bucket's drafts, listed once on entry and
     // again after a store. A build without the Worker says so.
@@ -256,6 +284,8 @@ export function MapEditor({
                     </p>
                 )}
 
+                <GotoSection target={target} onGo={goTo} onClear={() => setTarget(null)} />
+
                 <div className="min-h-0 flex-1 overflow-y-auto px-3.5 py-2">
                     {!pins.length ? (
                         <p className="py-2 text-cp-12.5 leading-normal text-cp-ink-3">
@@ -324,6 +354,86 @@ export function MapEditor({
  *  — 190 px, the same at 1024, 1280 and 1440 wide on the production build —
  *  plus the drawer's own 12 px gutter. */
 export const DRAWER_BOTTOM = 'sm:bottom-[202px]'
+
+/** The drawer's navigation aid (2026-09-09): paste a decimal pair and the view
+ *  centres on it at the zoom already chosen, with the point marked so a pin
+ *  has something to be dragged onto. It proposes nothing, and the copy says
+ *  so — this is the one control in an edit drawer that does not edit. A
+ *  refusal names what was wrong with the paste and the mark stays where it
+ *  was; the box never guesses at a pair it cannot read. */
+function GotoSection({ target, onGo, onClear }: {
+    target: LngLatPair | null
+    onGo: (point: LngLatPair) => void
+    onClear: () => void
+}) {
+    const [text, setText] = useState('')
+    const [refusal, setRefusal] = useState<string | null>(null)
+
+    const go = () => {
+        const parsed = parseCoordinate(text)
+        if (!parsed.ok) {
+            setRefusal(parsed.reason)
+            return
+        }
+        setRefusal(null)
+        onGo(parsed.point)
+    }
+
+    return (
+        <section
+            aria-label="Go to a coordinate"
+            className="flex-none border-b border-cp-hairline px-3.5 py-2.5"
+            data-cp-goto=""
+        >
+            <label className="block text-cp-12 font-semibold" htmlFor="cp-goto-input">
+                Go to a coordinate
+            </label>
+            <form
+                className="mt-1.5 flex items-center gap-2"
+                onSubmit={(e) => { e.preventDefault(); go() }}
+            >
+                <input
+                    id="cp-goto-input"
+                    type="text"
+                    inputMode="decimal"
+                    autoComplete="off"
+                    spellCheck={false}
+                    className="min-w-0 flex-1 rounded-[6px] border border-cp-hairline bg-cp-surface-2 px-2 py-1 text-cp-11.5 tabular-nums"
+                    placeholder="37.538126, -77.566542"
+                    value={text}
+                    onChange={(e) => { setText(e.target.value); setRefusal(null) }}
+                />
+                <button type="submit" className={BTN} disabled={!text.trim()}>
+                    Go
+                </button>
+            </form>
+            {refusal && (
+                <p role="status" className="mt-1.5 text-cp-11 text-cp-ink-3" data-cp-goto-refusal="">
+                    {refusal}
+                </p>
+            )}
+            {target ? (
+                <p className="mt-1.5 flex flex-wrap items-baseline gap-x-2 text-cp-11 text-cp-ink-3">
+                    <span>Marked</span>
+                    <span className="font-mono text-cp-10.5 text-cp-ink" data-cp-goto-marked="">
+                        {formatCoordinate(target)}
+                    </span>
+                    <button
+                        type="button"
+                        className="font-semibold text-cp-ink-3 underline hover:text-cp-ink"
+                        onClick={onClear}
+                    >
+                        Clear
+                    </button>
+                </p>
+            ) : (
+                <p className="mt-1.5 text-cp-11 text-cp-ink-3">
+                    The view centres on the point and marks it. Nothing is proposed.
+                </p>
+            )}
+        </section>
+    )
+}
 
 function ResultLine({ result }: { result: BatchResult }) {
     const who = result.names.length === 1 ? result.names[0] : `${result.names[0]} + ${result.names.length - 1}`

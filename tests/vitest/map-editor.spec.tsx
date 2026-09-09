@@ -3,7 +3,8 @@
  * The map edit mode's chrome (CPE-M2 + M3, app/admin/MapEditor.tsx): the
  * banner, the pins drawer and what a row says, the note that persists, Undo
  * and Reset all, the stale-snapshot note, the wiring to a map — the
- * row-press handler handed up, the controller torn down — and Submit: one
+ * row-press handler handed up, the controller torn down — "Go to a
+ * coordinate" (2026-09-09) — and Submit: one
  * draft per stack, a stored draft's pins leaving the device, a refusal's
  * reason, the session loss handed up, a build without the Worker saying so,
  * and the Submitted panel.
@@ -14,6 +15,7 @@ import type { Root } from 'react-dom/client'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { DRAWER_BOTTOM, EDIT_BANNER, fmtMetres, fmtSavedAt, MapEditor } from '../../app/admin/MapEditor'
 import { attachDetail, loadPins, movePin, newPin, savePins, SRC_PROPOSALS } from '../../app/admin/mapDraft'
+import { SRC_GOTO } from '../../app/admin/mapGoto'
 import type { ProbeFetch, ProbeResponse } from '../../app/admin/session'
 import type { RosterRow } from '../../app/data/types'
 
@@ -186,7 +188,8 @@ test('with a map: the row-press handler is handed up, Exit edit calls out, unmou
     const onExit = vi.fn()
     await render({ map: map as never, bindRowDrag, onExit })
     expect(sources.has(SRC_PROPOSALS)).toBe(true)
-    expect(layers).toHaveLength(3)
+    expect(sources.has(SRC_GOTO)).toBe(true)
+    expect(layers).toHaveLength(6) // the mark's three, then the proposals' three
     expect(bindRowDrag).toHaveBeenCalled()
     expect(typeof bindRowDrag.mock.calls.at(-1)?.[0]).toBe('function')
 
@@ -198,6 +201,7 @@ test('with a map: the row-press handler is handed up, Exit edit calls out, unmou
     expect(bindRowDrag.mock.calls.at(-1)?.[0]).toBeNull()
     expect(layers).toHaveLength(0)
     expect(sources.has(SRC_PROPOSALS)).toBe(false)
+    expect(sources.has(SRC_GOTO)).toBe(false)
 })
 
 test('metres read as metres, then kilometres; a saved_at reads in the device\'s clock', () => {
@@ -361,4 +365,116 @@ test('a pin still waiting for its detail holds Submit', async () => {
     expect(host.querySelector('[data-cp-pin-count]')?.textContent).toBe('1')
     expect(submitButton().disabled).toBe(true)
     expect(host.textContent).toContain('Waiting for site detail before submitting.')
+})
+
+// ── "Go to a coordinate" (the coordinate box, 2026-09-09) ───────────────────────────────────────
+
+/** A map that records where it was told to fly. */
+function gotoMap() {
+    const flights: Array<Record<string, unknown>> = []
+    const layers: string[] = []
+    const sources = new Map<string, { data: { features: unknown[] } }>()
+    return {
+        flights,
+        sources,
+        map: {
+            on: () => {}, off: () => {},
+            getSource: (id: string) => sources.get(id) && {
+                setData: (d: { features: unknown[] }) => { sources.set(id, { data: d }) },
+            },
+            addSource: (id: string, spec: { data: { features: unknown[] } }) => { sources.set(id, { data: spec.data }) },
+            addLayer: (spec: { id: string }) => { layers.push(spec.id) },
+            getLayer: (id: string) => (layers.includes(id) ? {} : undefined),
+            removeLayer: (id: string) => { layers.splice(layers.indexOf(id), 1) },
+            removeSource: (id: string) => { sources.delete(id) },
+            project: () => ({ x: 0, y: 0 }),
+            unproject: () => ({ lng: 0, lat: 0 }),
+            queryRenderedFeatures: () => [],
+            getCanvas: () => ({ style: { cursor: '' }, getBoundingClientRect: () => ({ left: 0, top: 0 }) }),
+            getZoom: () => 17,
+            flyTo: (options: Record<string, unknown>) => { flights.push(options) },
+        } as never,
+    }
+}
+
+const typeInto = (input: HTMLInputElement, text: string) => act(async () => {
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set
+    setter?.call(input, text)
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+})
+
+const submitGoto = () => act(async () => {
+    host.querySelector('[data-cp-goto] form')
+        ?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+})
+
+const gotoInput = () => host.querySelector('#cp-goto-input') as HTMLInputElement
+const marked = () => host.querySelector('[data-cp-goto-marked]')?.textContent ?? null
+const gotoRefusal = () => host.querySelector('[data-cp-goto-refusal]')?.textContent ?? null
+
+test('a pasted coordinate centres the view, keeps the zoom, and marks the point', async () => {
+    const m = gotoMap()
+    await render({ map: m.map })
+    expect(host.querySelector('[data-cp-goto]')?.textContent).toContain('Nothing is proposed')
+    expect(gotoInput().placeholder).toBe('37.538126, -77.566542')
+
+    await typeInto(gotoInput(), '37.53812556551333, -77.56654203147325')
+    await submitGoto()
+
+    // The centre and NOTHING else — no zoom in the options, so the flight
+    // ends at the zoom the operator chose (Cannon, 2026-09-09).
+    expect(m.flights).toHaveLength(1)
+    expect(m.flights[0]).toEqual({ center: [-77.56654203147325, 37.53812556551333] })
+    expect(Object.keys(m.flights[0]!)).toEqual(['center'])
+    expect(marked()).toBe('37.538126, -77.566542')
+    // The mark is drawn, and it is the ONLY thing that happened: no pin.
+    expect(m.sources.get(SRC_GOTO)?.data.features).toHaveLength(1)
+    expect(host.querySelector('[data-cp-pin-count]')?.textContent).toBe('0')
+    expect(loadPins(window.localStorage)).toEqual([])
+})
+
+test('a paste it cannot read is refused by name; the map does not move and the mark stands', async () => {
+    const m = gotoMap()
+    await render({ map: m.map })
+    await typeInto(gotoInput(), '37.5, -77.4')
+    await submitGoto()
+    expect(marked()).toBe('37.500000, -77.400000')
+
+    await typeInto(gotoInput(), '-77.56654203147325, 37.53812556551333')
+    await submitGoto()
+    expect(gotoRefusal()).toBe('That pair reads longitude first. Paste latitude, then longitude.')
+    expect(m.flights).toHaveLength(1)          // still just the good one
+    expect(marked()).toBe('37.500000, -77.400000') // the mark did not move
+
+    // Typing again clears the refusal: the operator is answering it.
+    await typeInto(gotoInput(), '37.6, -77.5')
+    expect(gotoRefusal()).toBeNull()
+    await submitGoto()
+    expect(m.flights).toHaveLength(2)
+    expect(marked()).toBe('37.600000, -77.500000')
+})
+
+test('Clear takes the mark off the map and the drawer', async () => {
+    const m = gotoMap()
+    await render({ map: m.map })
+    await typeInto(gotoInput(), '37.5, -77.4')
+    await submitGoto()
+    expect(m.sources.get(SRC_GOTO)?.data.features).toHaveLength(1)
+
+    await click(Array.from(host.querySelectorAll('[data-cp-goto] button'))
+        .find((el) => el.textContent === 'Clear') ?? null)
+    expect(marked()).toBeNull()
+    expect(host.querySelector('[data-cp-goto]')?.textContent).toContain('Nothing is proposed')
+    expect(m.sources.get(SRC_GOTO)?.data.features).toHaveLength(0)
+})
+
+test('Go is held while the box is empty', async () => {
+    await render({ map: gotoMap().map })
+    const go = Array.from(host.querySelectorAll('[data-cp-goto] button'))
+        .find((el) => el.textContent === 'Go') as HTMLButtonElement
+    expect(go.disabled).toBe(true)
+    await typeInto(gotoInput(), '   ')
+    expect(go.disabled).toBe(true)
+    await typeInto(gotoInput(), '37.5, -77.4')
+    expect(go.disabled).toBe(false)
 })
