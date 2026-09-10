@@ -72,7 +72,7 @@ export function matchesFilters(f: FacilityLike, filters: FilterState, mode = 'fu
     if (!showMobile && isMobileUnit(f)) return false
     if (!lite && grade) {
         const letter = facilityPresentation(f).grade?.letter || null
-        if (letter !== grade) return false
+        if (!letter || !grade.includes(letter)) return false
     }
     if (q) {
         // Each field tested SEPARATELY (a phrase must not span the seam);

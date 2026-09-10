@@ -197,7 +197,7 @@ test('the basic map hides the judgment controls and keeps the rest (P6)', async 
     expect(labels).not.toContain('Show closed')
 })
 
-test('grade chips are single-select on the frozen key: select, and select again to clear', async () => {
+test('grade chips toggle on and off, allowing multiple grades to be active simultaneously', async () => {
     await mount()
     await act(async () => {
         byText('A')?.click()
@@ -209,6 +209,26 @@ test('grade chips are single-select on the frozen key: select, and select again 
         byText('A')?.click()
     })
     expect(calls).toContainEqual(['setGrade', ''])
+    calls = []
+    await mount({ state: { filters: { ...initialAppState().filters, grade: 'A' } } })
+    await act(async () => {
+        byText('B')?.click()
+    })
+    expect(calls).toContainEqual(['setGrade', 'A,B'])
+    calls = []
+    await mount({ state: { filters: { ...initialAppState().filters, grade: 'A,B' } } })
+    await act(async () => {
+        byText('A')?.click()
+    })
+    expect(calls).toContainEqual(['setGrade', 'B'])
+
+    const aBtn = byText('A')
+    const bBtn = byText('B')
+    const cBtn = byText('C')
+    expect(aBtn?.getAttribute('aria-pressed')).toBe('true')
+    expect(bBtn?.getAttribute('aria-pressed')).toBe('true')
+    expect(cBtn?.getAttribute('aria-pressed')).toBe('false')
+    expect(cBtn?.className).toContain('opacity-30')
 })
 
 test('search debounces 150 ms into the canonical form; clearing is immediate', async () => {

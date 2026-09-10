@@ -81,6 +81,24 @@ import { FLAG_DEFAULTS } from './router'
 import { SEARCH_LABEL, SEARCH_PLACEHOLDERS } from './constants'
 
 const GRADES = ['A', 'B', 'C', 'D', 'F'] as const
+
+export function toggleGrade(current: string | undefined, letter: string): string {
+    const validGrades = GRADES as readonly string[]
+    const currentSet = new Set<string>()
+    if (current) {
+        for (const token of current.toUpperCase().split(/[,\s+]+/)) {
+            for (const ch of token) {
+                if (validGrades.includes(ch)) currentSet.add(ch)
+            }
+        }
+    }
+    if (currentSet.has(letter)) {
+        currentSet.delete(letter)
+    } else {
+        currentSet.add(letter)
+    }
+    return validGrades.filter((g) => currentSet.has(g)).join(',')
+}
 const VIEW_LABEL: Record<View, string> = { map: 'Map', list: 'List', about: 'About' }
 
 const PILL = 'inline-flex items-center gap-1.5 rounded-cp-pill border border-cp-hairline '
@@ -359,19 +377,21 @@ export function Toolbar({ state, actions, lite, shown, total }: {
                 {!lite && (
                     <div className="flex items-center gap-1" role="group" aria-label="Grade filter">
                         {GRADES.map((letter) => {
-                            const dimmed = filters.grade !== '' && filters.grade !== letter
+                            const isSelected = filters.grade ? filters.grade.split(',').includes(letter) : false
+                            const hasAnyGrade = !!filters.grade
+                            const dimmed = hasAnyGrade && !isSelected
                             return (
                                 <button
                                     key={letter}
                                     type="button"
-                                    aria-pressed={filters.grade === letter}
-                                    title={filters.grade === letter
-                                        ? `Showing only grade ${letter} — select again to clear`
-                                        : `Show only grade ${letter}`}
-                                    onClick={() => actions.setGrade(filters.grade === letter ? '' : letter)}
-                                    className={`h-[26px] min-w-[26px] rounded-[6px] text-cp-11.5 font-bold text-white ${
+                                    aria-pressed={isSelected}
+                                    title={isSelected
+                                        ? `Grade ${letter} selected — click to unselect`
+                                        : `Filter by grade ${letter}`}
+                                    onClick={() => actions.setGrade(toggleGrade(filters.grade, letter))}
+                                    className={`h-[26px] min-w-[26px] rounded-[6px] text-cp-11.5 font-bold text-white transition-opacity ${
                                         dimmed ? 'opacity-30' : 'opacity-95'
-                                    } ${filters.grade === letter ? 'ring-2 ring-cp-focus ring-offset-1 ring-offset-cp-surface-1' : ''}`}
+                                    } ${isSelected ? 'ring-2 ring-cp-focus ring-offset-1 ring-offset-cp-surface-1' : ''}`}
                                     style={{ background: `var(--cp-grade-${letter.toLowerCase()})` }}
                                 >
                                     {letter}
