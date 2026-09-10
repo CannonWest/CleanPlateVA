@@ -2,7 +2,7 @@
  * The framed trend section (§6.0) — "TREND · N VISITS" header, the FULL
  * panel-variant instrument (threshold hairlines, A·C·F band labels,
  * endpoint dates), and the mark-grammar legend. ONE component for both
- * consumers: the detail panel (CRVa-M2) and — since Cannon's 2026-08-30
+ * consumers: the detail panel (CRVa-M2) and — since the maintainer's 2026-08-30
  * preview-review call — the hover card, which borrows the expanded view's
  * trend wholesale (dates and legend included) instead of a compact
  * variant. One module, two mounts, so the two surfaces cannot drift (the

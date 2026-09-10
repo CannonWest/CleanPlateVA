@@ -7,7 +7,7 @@
    config, class-based variant, the DARK design as the un-prefixed CSS base.
    :root carries the dark values; .theme-light on <html> flips the theme —
    and since 2026-09-06 the class is ON by default: LIGHT is the visitor
-   default (Cannon's call, C10 amended; index.html + app/theme.ts add the
+   default (a design decision, C10 amended; index.html + app/theme.ts add the
    class unless the visitor chose dark). The base itself did not flip —
    no component uses the `light:` variant, so nothing had to.
    The raw --cp-* custom properties are the source of truth and the @theme
@@ -52,7 +52,7 @@
     --cp-marker-ring: rgba(255, 255, 255, .85);
 
     /* grade ramp — mode-invariant (validated 2026-08-29; the letter always
-       rides the color, §6.0). B is Cannon's call: yellow-green #94be1b
+       rides the color, §6.0). B is a design decision: yellow-green #94be1b
        (blue is NEW's alone); F darkened to #a61e1e fixes the live site's
        D↔F normal-vision failure (7.6 → ~15). */
     --cp-grade-a: #2f9e44;
@@ -86,7 +86,7 @@
        the band is a word or two and wraps when it runs out of room; a
        search box just clips, and one that cannot show "Search name,
        address, city, or ZIP" reads as broken (it did, from 16px up:
-       Cannon, 2026-09-09). Two terms, because only one of them scales:
+       design review, 2026-09-09). Two terms, because only one of them scales:
        48px of the pill's own furniture (12px padding either side, the 15px
        icon, the 8px gap — none of which follow the text size) plus the
        placeholder in `ch`.
@@ -141,7 +141,7 @@
 }
 
 /* The color-blind friendly grade ramp (the settings dialog, 2026-09-06,
-   Cannon's palette): blue → gold → orange → umber, a diverging scale in
+   the chosen palette): blue → gold → orange → umber, a diverging scale in
    place of the green → red one, hooked by a class on <html> beside the
    theme class (app/palette.ts; index.html applies it pre-paint). The grades
    are mode-invariant, so one block serves both themes. NEW leaves blue for

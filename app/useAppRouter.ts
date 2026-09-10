@@ -13,7 +13,7 @@
  *     the panel / returns); replaceState for filter / sort / page churn and
  *     for the load-time normalization (`/map` → `/`, legacy `?zip=` folded
  *     into `q`, legacy `#about` → `/about`).
- *   · Framed (the CannonAI embed): everything is replaceState — the parent
+ *   · Framed (the host embed): everything is replaceState — the parent
  *     owns history; the frame just keeps its URL current.
  *   · The router never WRITES localStorage; only a toggle's own click
  *     persists (setFlag persists first, so the fresh default swallows the
@@ -55,7 +55,7 @@ const FLAG_STORAGE: Record<FlagField, string> = {
     showMobile: STORAGE_KEYS.SHOW_MOBILE_KEY,
 }
 
-/** Framed = the CannonAI Food tab. Cross-origin frames throw on
+/** Framed = the host's Food tab. Cross-origin frames throw on
  *  `window.top` access; treat that as framed too. */
 function detectEmbedded(): boolean {
     try {

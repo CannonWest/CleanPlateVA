@@ -77,7 +77,7 @@ export interface SerializableState {
 }
 
 /** The mount the page is served under, from `document.baseURI` ('/' on the
- *  public site, '/cleanplate/' in the CannonAI embed). Always ends with '/'.
+ *  public site, '/cleanplate/' in the host embed). Always ends with '/'.
  *  Anything unparseable degrades to '/'. */
 export function mountFromBaseURI(baseURI: string): string {
     let pathname: string

@@ -1,6 +1,6 @@
 /**
  * The clustering preference (CRP-M6) — theme.ts's twin: off when unset (the
- * shipped default, Cannon's call), a '1'/'0' round trip, and a throwing
+ * shipped default, a design decision), a '1'/'0' round trip, and a throwing
  * storage (private mode) reads as the default rather than an error.
  */
 import { expect, test } from 'vitest'

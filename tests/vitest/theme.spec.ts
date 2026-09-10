@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * The theme preference — THREE-way since 2026-09-06 (Cannon's call, with
+ * The theme preference — THREE-way since 2026-09-06 (a design decision, with
  * the settings dialog): SYSTEM when unset — the device's own appearance is
  * the visitor default (light was, earlier that day; dark from CRVa-M0
  * until then) — the two explicit words round-tripping under the old

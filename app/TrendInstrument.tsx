@@ -6,7 +6,7 @@
  *
  * The panel instance carries the furniture (threshold hairlines w/ dashed
  * 60, A·C·F band labels, endpoint dates), the ALWAYS-ON per-mark labels
- * above the marks (Cannon's 2026-08-30 call — the old sparkline's grammar
+ * above the marks (the 2026-08-30 design call — the old sparkline's grammar
  * in the new style; the geometry reserves top headroom for a 100's label
  * under hover enlargement), and the hover interactivity (enlarge 1.7× /
  * dim the rest to 30% — CSS in theme.css, `.cp-trend--interactive`; the

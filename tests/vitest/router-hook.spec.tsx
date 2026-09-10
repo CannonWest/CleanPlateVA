@@ -11,7 +11,7 @@
  *     for filter churn — measured by history.length;
  *   · non-default-only writes: a toggle equal to its persisted value never
  *     reaches the query string, and persisting happens BEFORE the write;
- *   · framed (the CannonAI embed): everything is replaceState;
+ *   · framed (the host embed): everything is replaceState;
  *   · popstate: the URL is applied without growing history;
  *   · the basic map falls back to name order when the Full default sort
  *     is still selected.

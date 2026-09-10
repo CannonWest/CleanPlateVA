@@ -374,7 +374,7 @@ test('item-less, sentinel, and item >29 rows all count as retail practice', () =
 })
 
 test('scope-unknown with zero recorded violations suppresses the badge', () => {
-    // Cannon's call (2026-07-22): a green "0 violations" on an unknown
+    // a design decision (2026-07-22): a green "0 violations" on an unknown
     // checklist breadth reads as "verified clean" — do not loosen this.
     const c = inspectionCountsPresentation({ checklist_present: false, score: 100, violations: [] })
     expect([c.n, c.show]).toEqual([0, false])

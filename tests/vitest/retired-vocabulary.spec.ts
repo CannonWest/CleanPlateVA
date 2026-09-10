@@ -10,7 +10,7 @@
  *
  * D-CLOSEOUT-1: term lists are per-repo. The site's CI runs this repo alone,
  * so a shared cross-repo file would have to be vendored or fetched — and would
- * silently skip if it were not. cannon-food owns the mirror of this test for
+ * silently skip if it were not. the ingest pipeline owns the mirror of this test for
  * its own rows.
  *
  * D-CLOSEOUT-2: a deliberate historical mention escapes with an inline
@@ -93,10 +93,10 @@ const RETIRED: { re: RegExp; why: string }[] = [
     { re: /visits-crosscheck\.mjs/, why: 'deleted at CRX-M1 — it imported the old client\'s presentation.js + dataClient.js; tests/vitest/visits-parity.spec.ts pins the derivation' },
 
     // --- post-CR (2026-09-06): the grade letters left the map ---
-    { re: /food-point-letters|LYR_POINT_LETTERS/, why: "the letters layer is deleted; the dot is grade color + ring alone (Cannon's call 2026-09-06)" },
+    { re: /food-point-letters|LYR_POINT_LETTERS/, why: "the letters layer is deleted; the dot is grade color + ring alone (design decision, 2026-09-06)" },
     { re: /LETTER_ZOOM|LETTER_TEXT_SIZE/, why: "the letters' zoom gate and text size went with the layer that read them" },
 
-    // --- 2026-09-08: the geolocate note UI (Cannon's call) ---
+    // --- 2026-09-08: the geolocate note UI (a design decision) ---
     { re: /OUTSIDE_COVERAGE_NOTE|LOCATION_FAILED_NOTE/, why: 'geolocate is silent both ways; both note strings are deleted' },
     { re: /coverageBounds|withinCoverage|COVERAGE_PAD/, why: 'the padded roster bounding box went with the note that was measured against it' },
     { re: /backToVirginia|Back to Virginia/, why: 'the note card carried the only way back; the camera belongs to mapCamera.ts' },
@@ -213,6 +213,6 @@ test('no retired vocabulary in live prose or code (design ref §14.1)', () => {
  *
  * And the class it cannot catch at all: prose built entirely from live
  * vocabulary that describes a world which changed. CPX-M0 finding F5 — the
- * CannonAI Food tab called ?tier=lite "what anonymous visitors see" while
+ * host's Food tab called ?tier=lite "what anonymous visitors see" while
  * containing not one term from this list.
  */

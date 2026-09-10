@@ -9,11 +9,11 @@
  *     a REFINEMENT — "this permit's storefront is here";
  *   · a place on a ZIP centroid (`loc` 2) is a SITE fix — "this ADDRESS is
  *     here", which moves every permit filed at that address (OQ ratified
- *     2026-09-07; the drag matrix the CannonAI editor enforces).
+ *     2026-09-07; the drag matrix the embedding host editor enforces).
  *
  * Pins live in this device's localStorage (MAP_DRAFT_KEY) and survive a
  * reload (OQ-B); nothing here publishes. The draft leaves the browser only
- * through Submit (M3), and the composer on Cannon's machine (M4) resolves
+ * through Submit (M3), and the composer on the maintainer's machine (M4) resolves
  * the contract's `before` from the archive — the pin carries the PUBLISHED
  * point (the finder row, 6 dp) and, when the detail arrived, its 9-dp
  * `location` block, as provenance rather than as the authority.
@@ -76,7 +76,7 @@ export const LYR_PROPOSAL_PINS = 'cp-proposal-pins'
 export const LYR_PROPOSAL_BADGES = 'cp-proposal-badges'
 
 /** The one orange, both themes — "unsaved judgment", neither a grade nor an
- *  action color (§6.6; the CannonAI editor's dirty color). */
+ *  action color (§6.6; the embedding host editor's dirty color). */
 export const PROPOSAL_COLOR = '#ff922b'
 export const PIN_RADIUS = 8
 

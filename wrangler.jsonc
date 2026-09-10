@@ -77,7 +77,7 @@
             // frontend-redesign.md §6.6): `POST /admin/api/proposals` writes
             // content-addressed drafts under `drafts/`, and nothing else
             // writes here from the site. A bucket of its OWN, on purpose:
-            // cannon-food's publisher owns the whole object set of
+            // the pipeline's publisher owns the whole object set of
             // `cleanplateva-data` and deletes anything its manifest does not
             // name, so a draft there would not survive the next publish. No
             // custom domain, r2.dev off — the worker binding is the only door

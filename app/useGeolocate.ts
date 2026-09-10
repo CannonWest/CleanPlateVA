@@ -20,7 +20,7 @@
  *     a no-op. MapView releases it the first time the page is ready
  *     (`locateReady`: the acknowledgement answered, or never asked).
  *
- * The hook is SILENT about where the fix lands (2026-09-08, Cannon's call).
+ * The hook is SILENT about where the fix lands (2026-09-08, a design decision).
  * The note UI it used to raise is deleted — the card under the band, the
  * message for a fix outside the mapped area, the way back it offered, the
  * message for a fix the browser never returned, and the padded roster

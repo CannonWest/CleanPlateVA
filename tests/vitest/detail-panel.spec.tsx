@@ -7,7 +7,7 @@
  * section; history rows carrying scores only (grade letters are the
  * facility's, never an inspection's — C1/C9); the basic map keeps the
  * identity + official-VDH hand-off. Plus the stack member popover
- * (Cannon's M1-boundary call).
+ * (the maintainer's M1-boundary call).
  *
  * The PHONE sheet stops under the band's first line on EVERY view
  * (2026-09-09) — `--cp-band-line-1`, which Toolbar measures as the gutter

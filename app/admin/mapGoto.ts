@@ -5,7 +5,7 @@
  * it into the drawer and the view centres on it, with a mark drawn where
  * the point actually is. It proposes NOTHING: no pin, no draft, no fetch —
  * the mark is a place to aim at, and the drag is still what makes a
- * proposal. Zoom is the operator's (Cannon, 2026-09-09): the box moves the
+ * proposal. Zoom is the operator's (design review, 2026-09-09): the box moves the
  * centre and nothing else, so a survey scale survives a paste.
  *
  * The parse is deliberately narrow — a decimal pair, latitude first — and

@@ -3,7 +3,7 @@
  * The Layers pill (2026-09-09) — what the move off the map's bottom-right
  * lane has to keep true. `tests/e2e/aerial.spec.ts` is still what proves the
  * flip actually repaints the map; this pins the CHROME, and one rule in
- * particular that Cannon named when he asked for the move: the button must
+ * particular that the maintainer named when he asked for the move: the button must
  * not vanish or go see-through under a click.
  *
  * That is a real hazard with a named cause. In the control lane the button
@@ -98,7 +98,7 @@ test('the trigger stays solid when the list is open — same surface, no dimming
     root = null
     const open = await mount({ open: true })
 
-    // The one thing Cannon asked for: clicking it must not make it vanish or
+    // The one thing the maintainer asked for: clicking it must not make it vanish or
     // fade. The surface token is the same in both states, and nothing in
     // either state touches opacity, visibility or transparency.
     expect(shut.className).toContain('bg-cp-surface-2')

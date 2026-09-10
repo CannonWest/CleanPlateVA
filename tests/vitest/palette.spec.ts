@@ -71,7 +71,7 @@ test('the class on <html> is the color-blind ramp\'s hook; the bare tokens are t
     expect(PALETTE_CLASS).toBe('palette-colorblind')
 })
 
-test('the two tables: Cannon\'s ramp by hex, NEW and the declining ring off blue and red under it', () => {
+test('the two tables: the maintainer\'s ramp by hex, NEW and the declining ring off blue and red under it', () => {
     expect(GRADE_PALETTES.colorblind).toEqual({
         A: '#045a8d', B: '#5aa9d6', C: '#f4c245', D: '#f08c3c', F: '#9c4a0c', none: '#868e96',
     })

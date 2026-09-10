@@ -2,13 +2,13 @@
  * The detail panel (§6.2, CRVa-M2) — a right sheet from `sm` up; on a
  * phone it rises from the bottom to just under the band's FIRST line, the
  * close ✕ at its own top-right. It took the whole screen from 2026-09-06
- * (Cannon's call, replacing the ratified 62vh bottom sheet) until
- * 2026-09-09, when Cannon asked for the mark, the name and the view
+ * (a design decision, replacing the ratified 62vh bottom sheet) until
+ * 2026-09-09, when design review asked for the mark, the name and the view
  * switcher to survive an open place: a phone sheet that swallows the
  * chrome leaves ✕ as the only way back, and nothing says which view you
  * are standing in. It stops at `--cp-band-line-1`, the edge Toolbar
  * measures and publishes, so the stop follows the text-size slider and a
- * band that wrapped. EVERY view (Cannon, same day — the map first, then
+ * band that wrapped. EVERY view (design review, same day — the map first, then
  * "the same restaurant mobile thing on List view too"): the edge is the
  * gutter plus the identity card's height, not a rect that scrolls, so it
  * means the same thing on the map's fixed band and at the head of a

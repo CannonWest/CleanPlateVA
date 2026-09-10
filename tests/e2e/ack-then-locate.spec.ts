@@ -65,7 +65,7 @@ test('a first-time visitor is not asked for their location under the terms dialo
 })
 
 /**
- * The terms scroll box CONTAINS its scroller (2026-09-10, Cannon's catch —
+ * The terms scroll box CONTAINS its scroller (2026-09-10, the maintainer's catch —
  * "text in the terms is overrunning the box a little").
  *
  * The scroller used to be `h-full max-h-[46vh]` inside a box sized by

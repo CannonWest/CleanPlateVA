@@ -16,7 +16,7 @@ function storage(initial: Record<string, string> = {}) {
     }
 }
 
-test('unset reads as the drawn map — the shipped default (Cannon 2026-09-07)', () => {
+test('unset reads as the drawn map — the shipped default (design decision, 2026-09-07)', () => {
     expect(storedBasemap(storage())).toBe('map')
 })
 

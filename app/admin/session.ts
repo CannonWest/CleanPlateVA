@@ -18,7 +18,7 @@
  *     team's keys were unreachable (a transient, NOT "signed out").
  *
  * In a build without the Worker (the Vite dev server, `vite preview`, the
- * CannonAI embed) the path is the SPA shell — text/html, 200 — which reads
+ * host embed) the path is the SPA shell — text/html, 200 — which reads
  * as "unavailable", never as a session.
  */
 

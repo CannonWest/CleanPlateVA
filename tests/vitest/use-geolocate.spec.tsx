@@ -6,7 +6,7 @@
  * install asks the browser for nothing; `autoLocate` is the one request,
  * once.
  *
- * The note UI was deleted 2026-09-08 (Cannon's call): no message for a fix
+ * The note UI was deleted 2026-09-08 (a design decision): no message for a fix
  * outside the mapped area, no way back offered, no message for a failed
  * fix, no coverage math. The specs that pinned them are gone, and one that
  * pins their ABSENCE takes their place — a hook that quietly regrew a

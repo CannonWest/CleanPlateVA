@@ -1,9 +1,17 @@
 __pycache__/
 *.pyc
-.env
 .venv/
 venv/
 *.egg-info/
+.pytest_cache/
+
+# Local secrets. `.dev.vars` is the Workers convention and `.env*` the
+# Vite one; neither exists today, and both are ignored so that neither
+# can be committed by accident on the day one does.
+.env
+.env.*
+.dev.vars
+.dev.vars.*
 
 # Data tiers. The LITE finder shards + freshness/integrity manifest are
 # committed and deploy with the site. The FULL

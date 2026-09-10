@@ -5,11 +5,11 @@
  * worked receipts, scope cards, the grade-scale bar in the ramp,
  * adjustment cards, edge-cases disclosure); §02 pipeline; §03 lineage +
  * tiers; §04 limits (all eight) + Verify-at-the-source in the external
- * grammar; §05 Terms — the verbatim single-source body (Cannon's words,
+ * grammar; §05 Terms — the verbatim single-source body (the maintainer's words,
  * real hrefs; the ack dialog clones THIS element) + the status panel
  * OUTSIDE the cloned body, owning the one tier switch (C2).
  *
- * Copy rule: the prose is Cannon's, verbatim — the 2026-09-07 pass through
+ * Copy rule: the prose is the maintainer's, verbatim — the 2026-09-07 pass through
  * the /admin editor reframed the page around CleanPlateVA's own
  * grading system, dropped the provenance badges, the section kickers, the
  * signals section (the old §02, so the numbers moved up one) and the

@@ -1,10 +1,10 @@
 /**
- * The settings dialog (2026-09-06, Cannon's call) — the site's presentation
+ * The settings dialog (2026-09-06, a design decision) — the site's presentation
  * choices in one place, Radix primitives dressed in the theme's tokens:
  * the THEME as a three-way group (Light · Dark · System, the segmented
  * idiom of the band's view switcher), GROUP NEARBY PLACES as a two-picture
  * choice (the two map states drawn in the map's own marker vocabulary, the
- * current one lit and the other faded — Cannon's ask on the first look,
+ * current one lit and the other faded — a design request on the first look,
  * replacing a plain switch), and the TEXT SIZE as a slider over the body
  * size in px (settings.ts). The copy is the title and three short labels:
  * the lede and the System hint were cut on that same review. Every change
@@ -191,7 +191,7 @@ export function SettingsDialog({
             <Dialog.Portal>
                 <Dialog.Overlay className="fixed inset-0 z-50 bg-cp-scrim backdrop-blur-[2px]" />
                 <Dialog.Content
-                    // No lede (Cannon's cut): the title alone names the dialog.
+                    // No lede (the cut): the title alone names the dialog.
                     aria-describedby={undefined}
                     className="fixed top-1/2 left-1/2 z-50 flex max-h-[min(86vh,720px)] w-[min(26rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 flex-col overflow-y-auto rounded-cp-card border border-cp-hairline bg-cp-surface-1 px-5 pt-5 pb-4 shadow-cp outline-none max-sm:top-auto max-sm:bottom-0 max-sm:left-0 max-sm:max-h-[92vh] max-sm:w-full max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-b-none"
                 >

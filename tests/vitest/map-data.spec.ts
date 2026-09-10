@@ -16,12 +16,12 @@
  *   · rows without coordinates draw nothing.
  *
  * (The 2026-08-30 cluster accumulators and the declining-ring property
- * were withdrawn on Cannon's live review the same day — CleanPlateVA
+ * were withdrawn on the live review the same day — CleanPlateVA
  * #174/#175. The declining form returned as the CRP-M1 ↓ suffix, then
  * became the CRP-M2 red ring — the bake is the same for both: `declining`
  * is true only on a GRADED dot; the ring itself has no zoom gate. The
  * grade letters that predicate was once phrased against left the map
- * 2026-09-06 (Cannon's call), so no feature carries a `letter` any more.
+ * 2026-09-06 (a design decision), so no feature carries a `letter` any more.
  * Clustering returned as the CRP-M6 switch, with per-bucket COUNTS in
  * place of #174's mean-grade sums. The hex fill and the opacity left the
  * data 2026-09-07 — the bucket already said what the dot IS.)

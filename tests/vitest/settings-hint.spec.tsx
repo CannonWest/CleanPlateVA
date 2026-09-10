@@ -79,7 +79,7 @@ test('one control — the dismiss ✕ — and the tip is chrome, hidden from the
 
 test('it does not whisper: a 2px accent outline the tip carries too, and text ABOVE the 14px body', async () => {
     // The pointer AT the accessibility choices is the one floating control
-    // that must read at a glance over a busy map (Cannon, 2026-09-07), so
+    // that must read at a glance over a busy map (design review, 2026-09-07), so
     // these are contract, not styling incidentals: every other floating
     // control sits at 11.5–13px inside a hairline.
     const note = await mount()

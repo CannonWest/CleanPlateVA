@@ -3,9 +3,9 @@
  * places" is a PRESENTATION choice, remembered per visitor like the theme
  * and never carried by the URL: a shared link says what you look at, not
  * how it is drawn (C6), so this lives beside the theme and outside the
- * router's AppState. Off is the shipped default (Cannon's call,
+ * router's AppState. Off is the shipped default (a design decision,
  * 2026-09-05): a first-time visitor sees the twice-ratified no-clusters
- * design, and the switch is the way to production's bubbles. The CannonAI
+ * design, and the switch is the way to production's bubbles. The embedding host
  * Food-tab embed remembers its own choice per origin, exactly as it does
  * the theme.
  */

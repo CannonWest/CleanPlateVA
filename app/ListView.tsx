@@ -13,7 +13,7 @@
  * no judgment column exists on that tier.
  *
  * Sort semantics port the old `list.js` — the seven C6 keys with their
- * comparator forms — with ONE Cannon-directed change (CRVb-M1 boundary,
+ * comparator forms — with ONE review-directed change (CRVb-M1 boundary,
  * 2026-08-30): on the VALUE sorts (score/compliance/trend/date), rows
  * MISSING the sorted value go last in both directions, so "worst first"
  * leads with the worst actual grades instead of the ungraded/NEW block
@@ -56,7 +56,7 @@ export function sortValue(f: RosterRow, key: SortKey): string | number {
 }
 
 /** Sorted copy — stable within equal keys, direction-aware, rows missing
- *  the sorted value LAST in both directions (Cannon's call: worst-first
+ *  the sorted value LAST in both directions (a design decision: worst-first
  *  means the worst actual grades lead). Decorated first so the
  *  presentation derivation runs once per ROW, not once per comparison
  *  (the old client paid n·log n derivations per sort). */

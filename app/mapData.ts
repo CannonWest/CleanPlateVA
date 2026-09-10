@@ -16,16 +16,16 @@
  * Redesigned per the ratified mockup (design ref §6.2, CRD-M1):
  *   · the dot is COLOR + RING alone. Grade letters rode the dots past a
  *     z13.5 gate (a `letter` property feeding a symbol layer) until
- *     2026-09-06, when Cannon retired them from the map — the letter still
+ *     2026-09-06, when the maintainer retired them from the map — the letter still
  *     rides every place a grade is NAMED (hover card, panel, list, chips),
  *     so this bake keeps deriving the letter, but only to pick the bucket;
  *   · stacks are NEUTRAL count bubbles (their PAINT carries no judgment).
  *
  * Proximity clustering was revived and withdrawn the same day (2026-08-30,
- * Cannon's live preview review; CleanPlateVA #174/#175) and the CRD-M1
+ * live preview review; CleanPlateVA #174/#175) and the CRD-M1
  * dashed declining ring was scrapped on the same review. The declining
  * replacement landed CRP-M1 (2026-08-31): the ↓ suffix beside the letter;
- * CRP-M2 (2026-09-05, Cannon's pick) retired the suffix for a RED RING on
+ * CRP-M2 (2026-09-05, the pick) retired the suffix for a RED RING on
  * the dot at every zoom — production's form, off-ramp color. The bake is
  * the same either way: `declining` is true for GRADED dots only (what the
  * letters used to mark), and MapView's ring expression reads it.

@@ -1,5 +1,5 @@
 /**
- * The grade-palette preference (2026-09-06, Cannon's ask) — theme.ts's twin
+ * The grade-palette preference (2026-09-06, a design request) — theme.ts's twin
  * for the color-blind friendly ramp. `standard` is the ratified green → red
  * ramp; `colorblind` the blue → gold → orange → umber one (constants.ts
  * GRADE_PALETTES). The DOM follows a class on <html> that re-points the

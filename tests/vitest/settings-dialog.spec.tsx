@@ -2,7 +2,7 @@
 /**
  * The settings dialog (2026-09-06): Radix primitives, so the suite pins the
  * CONTRACT they render — a modal dialog named "Settings" (the title alone:
- * the lede and the System hint were cut on Cannon's first look), portaled
+ * the lede and the System hint were cut on the first look), portaled
  * over the page; the theme as a radio group of three (Light · Dark ·
  * System, in that order) that reports the current choice and asks for the
  * pressed one; "Group nearby places" as a two-picture radio group — Every
@@ -138,7 +138,7 @@ test('a modal dialog named Settings — the title alone, no lede — portaled ov
     expect(host.getAttribute('aria-hidden')).toBe('true')
     const title = document.getElementById(dialog.getAttribute('aria-labelledby') ?? '')
     expect(title?.textContent).toBe('Settings')
-    // Cannon's cut (2026-09-06): no description, no System hint.
+    // the maintainer's cut (2026-09-06): no description, no System hint.
     expect(dialog.getAttribute('aria-describedby')).toBeNull()
     expect(dialog.textContent).not.toContain('kept on this device')
     expect(dialog.textContent).not.toContain('appearance')

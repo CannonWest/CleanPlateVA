@@ -25,7 +25,7 @@
  * button; Access's redirect on the way hands the session loss up to App.
  * The Submitted panel lists the bucket's drafts, `pulled` when
  * `cf_location.py manual pull` has composed one. In a build without the
- * Worker (dev, `vite preview`, the CannonAI embed) both say so and nothing
+ * Worker (dev, `vite preview`, the host embed) both say so and nothing
  * is lost.
  */
 
@@ -181,7 +181,7 @@ export function MapEditor({
     }, [target])
 
     // "Go to a coordinate": the centre moves, the operator's zoom stands
-    // (Cannon, 2026-09-09), and the point is MARKED — a centred view alone
+    // (design review, 2026-09-09), and the point is MARKED — a centred view alone
     // says only "somewhere near the middle", which is not something a pin
     // can be dragged onto.
     // `flyTo`, not `easeTo`: it ENDS at the zoom it started at, which is the

@@ -1,9 +1,9 @@
 /**
- * The hint under the Settings pill (2026-09-07, Cannon's ask): a closeable
+ * The hint under the Settings pill (2026-09-07, a design request): a closeable
  * note that points UP at the pill and says where the theme and the
  * accessibility choices live. **It is the pointer AT the accessibility
  * choices, so it is the one piece of chrome that does not whisper**
- * (Cannon's calls on the first two looks — "make it bigger", then "give
+ * (design decisions on the first two looks — "make it bigger", then "give
  * the whole shape an outline and make the font BIGGER even on default
  * settings"): 15px ink at medium weight — above the 14px body, where every
  * other floating control sits at 11.5–13 — inside a 2px accent outline

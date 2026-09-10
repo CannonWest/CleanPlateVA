@@ -314,7 +314,7 @@ function base64UrlText(text) {
 
 /**
  * `/admin/api/proposals` — the map edit mode's drafts (design ref §6.6,
- * `cleanplateva.map-draft.v1`). The browser proposes; the cannon-food spine
+ * `cleanplateva.map-draft.v1`). The browser proposes; the pipeline spine
  * disposes: a draft is what the operator saw and where each place was
  * dragged, stored here as content-addressed bytes for `cf_location.py
  * manual pull` (M4) to fetch and compose into the manual-pin contracts with
@@ -348,7 +348,7 @@ const DRAFT_CONTRACT = 'cleanplateva.map-draft.v1';
 const DRAFT_SCHEMA_VERSION = 1;
 const DRAFT_INSTRUMENT = 'cleanplateva:map-editor@1';
 /** Fields this Worker owns. A draft carrying one is refused loudly rather
- *  than silently overwritten — the CannonAI composer's rule. */
+ *  than silently overwritten — the host composer's rule. */
 const SERVER_FIELDS = ['operator', 'instrument', 'saved_at', 'submitted_by'];
 const DRAFT_KEYS = ['contract', 'schema_version', 'snapshot_id', 'tier', 'basemap', 'batch', 'pins'];
 const BASEMAP_KEYS = ['style', 'zoom'];

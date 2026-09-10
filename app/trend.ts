@@ -23,7 +23,7 @@
  *     (all-corrected rides the 100 line);
  *   · baseline tick below the band = an event with nothing claimable;
  *   · every claiming mark carries its LABEL — score, bare X/Y ratio, or
- *     verdict glyph — printed ABOVE the mark always (Cannon's 2026-08-30
+ *     verdict glyph — printed ABOVE the mark always (the maintainer's 2026-08-30
  *     preview call, the old sparkline's grammar in the new style); the
  *     panel geometry reserves headroom so a 100-height mark's label and
  *     its 1.7× hover enlargement both stay in frame. This retires the
