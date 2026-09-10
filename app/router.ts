@@ -1,12 +1,8 @@
 /**
- * Routes + URL state — the PURE functions of the old `router.js`, ported
- * with their semantics intact (C6 is the spec; design ref §4 D-CR-ROUTE-1:
- * hand-rolled, no route library). The address-bar writer / popstate glue
- * becomes CRV's router hook; everything here is data-in data-out.
+ * Routes + URL state
  *
  * The three views are real paths — `/` (Map, canonical; `/map` accepted and
- * normalized), `/list`, `/about` — and shareable state rides the query
- * string. Only NON-DEFAULT state is written; a toggle's "default" is the
+ * normalized), `/list`, `/about`. Only NON-DEFAULT state is written; a toggle's "default" is the
  * visitor's PERSISTED value (what an omitted key falls back to), which is
  * what makes the address bar reload-stable. Legacy `?zip=` folds into `q`
  * once and is never written back.
