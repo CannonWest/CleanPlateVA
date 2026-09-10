@@ -2,8 +2,9 @@
  * The acknowledgement dialog (§6.1, CRVb-M2) — the ratified anatomy: the
  * title alone (no kicker, no lede), the terms as ONE verbatim document
  * (the shared TermsBody — the same component About §05 mounts, C2) in an
- * inset, recessed scroll box with a PERSISTENT scrollbar, and the two
- * decision buttons centered — Decline left (filled red) / Agree right
+ * inset, recessed scroll box with a PERSISTENT scrollbar — the project's
+ * two outward links (ProjectBadges) closing the scroll under a hairline,
+ * 2026-09-09 — and the two decision buttons centered — Decline left (filled red) / Agree right
  * (filled blue), the shipped labels. Filled for the dialog's fork;
  * standing controls elsewhere stay outlined (§6.0).
  *
@@ -21,6 +22,7 @@
 import { useEffect, useRef } from 'react'
 import { X } from 'lucide-react'
 import { ACK_AGREED, ACK_DECLINED } from './ack'
+import { ProjectBadges } from './ProjectBadges'
 import { TermsBody } from './TermsBody'
 import { ThemeLogo } from './ThemeLogo'
 
@@ -91,6 +93,12 @@ export function AckDialog({ blocking, onDecide, onEscapeDecline, onClose }: {
                     <div className="min-h-0 w-[min(36rem,100%)] flex-1 self-center rounded-cp-control border border-cp-hairline bg-cp-bg py-1 pr-0.5">
                         <div className="h-full max-h-[46vh] [overflow-y:scroll] px-4 py-2.5 [scrollbar-color:var(--cp-ink-3)_transparent] [scrollbar-width:thin]">
                             <TermsBody />
+                            {/* The project's outward links, at the foot of the
+                                document and INSIDE the scroll (Cannon's ask,
+                                2026-09-09) — a hairline keeps them out of the
+                                terms' own voice. About's hero mounts the same
+                                component as a column. */}
+                            <ProjectBadges className="mt-3.5 flex flex-wrap items-stretch justify-center gap-2.5 border-t border-cp-hairline pt-3.5" />
                         </div>
                     </div>
                     <div className="flex items-center justify-center gap-2.5 pt-4 max-sm:flex-col-reverse max-sm:[&>button]:w-full">
