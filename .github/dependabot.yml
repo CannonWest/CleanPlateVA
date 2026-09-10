@@ -1,12 +1,31 @@
-# To get started with Dependabot version updates, you'll need to specify which
-# package ecosystems to update and where the package manifests are located.
-# Please see the documentation for all configuration options:
-# https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+# Dependabot version updates.
+#
+# This repo has exactly two ecosystems: the npm tree at the root, and the
+# actions the CI workflow pins. Nothing else — no Dockerfile, no Python
+# manifest, no submodules.
 
 version: 2
 updates:
-  - package-ecosystem: "" # See documentation for possible values
-    directory: "/" # Location of package manifests
+  # The app: React, Vite, Tailwind, MapLibre, Vitest, Playwright.
+  - package-ecosystem: "npm"
+    directory: "/"
     schedule:
       interval: "weekly"
-      
+    open-pull-requests-limit: 5
+    groups:
+      # One pull request a week for the routine bumps rather than one per
+      # package. Majors stay separate on purpose: they are the ones that
+      # can move the build or the map, and they deserve their own diff and
+      # their own CI run.
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  # actions/checkout, actions/setup-node and actions/upload-artifact are all
+  # pinned at v4, which is why every CI run currently warns that they target
+  # a deprecated Node 20 and are being forced onto Node 24.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
