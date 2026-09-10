@@ -1,6 +1,6 @@
 // CRF-M0 build-output contract (design ref §3, C5) — the pipeline pin.
 //
-// The publisher (cannon-food) writes public/data/** and public/_headers and
+// The publisher (the ingest pipeline) writes public/data/** and public/_headers and
 // never learns the front-end changed: whatever the build does, those files
 // must reach dist/ byte-identical, and the entries the build excludes
 // (data-full/**, the old client's index.html + static/**) must NOT.
@@ -165,7 +165,7 @@ describe.skipIf(!built)('dist/ splits what changes from what does not (CRP-M5)',
 describe('the app never reaches into the retired client (§3)', () => {
     // Source-level companion to the dist checks above: catches a
     // reintroduced /static/... reference at edit time, with no build. An
-    // absolute path would also break the CannonAI Food tab, which mounts
+    // absolute path would also break the host's Food tab, which mounts
     // this build under /cleanplate/ behind a rewritten <base href>.
     // Anchored to a quote so it matches the defect's shape -- a string or
     // JSX attribute beginning "/static/" -- and not prose in a comment that

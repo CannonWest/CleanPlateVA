@@ -19,7 +19,7 @@ content-hashed dist/assets/ name. public/** is copied verbatim into dist/
 (vite.config.ts closeBundle, everything but data-full/**), so these ship at
 the root and the assets layer answers them without a Worker request.
 
-Why the tile at all (Cannon's call, 2026-09-06): the mark is a white plate,
+Why the tile at all (design decision, 2026-09-06): the mark is a white plate,
 and Chrome's light tab strip is near-white — untiled, the plate vanishes at
 16px and the icon is an orange smear. The dark tile is --cp-surface-1's dark
 value, so the icon reads as the app's own chrome.

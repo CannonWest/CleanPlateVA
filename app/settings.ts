@@ -1,5 +1,5 @@
 /**
- * The settings dialog's own state (2026-09-06, Cannon's call) — the two
+ * The settings dialog's own state (2026-09-06, a design decision) — the two
  * preferences that are not the theme's or the cluster switch's: the TEXT
  * SIZE, and whether the dialog has introduced itself. Presentation choices
  * like the theme (theme.ts) and clustering (clusters.ts): remembered per

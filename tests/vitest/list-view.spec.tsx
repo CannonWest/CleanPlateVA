@@ -53,7 +53,7 @@ test('sort values keep the old list.js sentinels and forms', () => {
 })
 
 test('sortRows: worst actual grades lead; rows missing the value go LAST both directions', () => {
-    // Cannon's CRVb-M1-boundary call: the old −1 sentinel floated the
+    // the maintainer's CRVb-M1-boundary call: the old −1 sentinel floated the
     // ungraded/NEW block to the top of worst-first — now graded rows lead
     // and value-less rows trail on every value sort, asc and desc alike.
     const a = row({ o: { grade_score: 95 } })

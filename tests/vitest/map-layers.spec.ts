@@ -189,7 +189,7 @@ test('the theme reaches the paint: ring color and the donut ids (the stacks no l
     }
 })
 
-test('the neutral count bubble is THEME-INVARIANT (Cannon 2026-09-06): the dark surface + ink on a light basemap too', () => {
+test('the neutral count bubble is THEME-INVARIANT (design decision, 2026-09-06): the dark surface + ink on a light basemap too', () => {
     expect(STACK_SURFACE).toBe('#242a31')
     expect(STACK_INK).toBe('#e9ecef')
     // Four paints across the two themes — the stack bubble, its count, and

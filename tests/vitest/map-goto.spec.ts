@@ -27,7 +27,7 @@ const refusal = (text: string) => {
 
 describe('the parse', () => {
     test('a pasted pair, at the precision it was pasted', () => {
-        // Cannon's own example, 14 dp, kept to the last digit: the box is
+        // the maintainer's own example, 14 dp, kept to the last digit: the box is
         // for a coordinate that came from somewhere exact.
         expect(ok('37.53812556551333, -77.56654203147325'))
             .toEqual({ lat: 37.53812556551333, lon: -77.56654203147325 })

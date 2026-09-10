@@ -26,7 +26,7 @@ describe('the shell links its icons (source)', () => {
         expect(shell()).toMatch(/<link\s+rel="apple-touch-icon"\s+href="\.\/apple-touch-icon\.png"/)
     })
 
-    // Same rule the /static/ pin enforces for app sources: the CannonAI Food
+    // Same rule the /static/ pin enforces for app sources: the embedding host Food
     // tab mounts this build under /cleanplate/ behind a rewritten <base
     // href>, so an absolute href would point at the host's root instead of
     // the mount. Anchored to the attribute so the prose above (which names

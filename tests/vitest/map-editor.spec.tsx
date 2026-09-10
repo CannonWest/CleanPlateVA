@@ -422,7 +422,7 @@ test('a pasted coordinate centres the view, keeps the zoom, and marks the point'
     await submitGoto()
 
     // The centre and NOTHING else — no zoom in the options, so the flight
-    // ends at the zoom the operator chose (Cannon, 2026-09-09).
+    // ends at the zoom the operator chose (design review, 2026-09-09).
     expect(m.flights).toHaveLength(1)
     expect(m.flights[0]).toEqual({ center: [-77.56654203147325, 37.53812556551333] })
     expect(Object.keys(m.flights[0]!)).toEqual(['center'])

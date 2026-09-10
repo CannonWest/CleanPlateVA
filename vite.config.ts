@@ -20,7 +20,7 @@
 // resurrected public/static.
 //
 // What DOES ride into dist/: public/data/** (manifest + finder shards) and
-// public/_headers — cannon-food's write targets, byte-identical (C5), pinned
+// public/_headers — the pipeline's write targets, byte-identical (C5), pinned
 // by tests/vitest/dist-contract.spec.ts.
 //
 // The build then APPENDS its own rules to the dist/ copy of _headers — one
@@ -85,7 +85,7 @@ function maplibreWorkerCopy() {
 }
 
 // Long-lived cache-control for the build's content-hashed assets (CRX,
-// D-CRX-1, Cannon's call 2026-09-06). The host serves everything under dist/
+// D-CRX-1, a design decision, 2026-09-06). The host serves everything under dist/
 // at the platform default `public, max-age=0, must-revalidate`, so a
 // returning browser re-validates every chunk — a 304 with no body, ~75 ms per
 // wave measured on production. Vite names each emitted file
@@ -146,7 +146,7 @@ function buildAssetHeaders() {
 
 export default defineConfig({
     plugins: [react(), tailwindcss(), cpPublicCopy(), maplibreWorkerCopy(), buildAssetHeaders()],
-    // Base-relative asset URLs (D-CR-EMBED-1, C7): the CannonAI Food tab
+    // Base-relative asset URLs (D-CR-EMBED-1, C7): the host's Food tab
     // serves this build under /cleanplate/ behind a rewritten <base href>,
     // so the built entry must reference ./assets/* and let index.html's
     // <base> tag resolve them at the mount. Dev is unaffected (the dev
@@ -165,7 +165,7 @@ export default defineConfig({
     server: {
         watch: {
             // The local full archive is ~28k JSON files; watching it costs a
-            // >10 s first load and buys nothing (it changes via cannon-food
+            // >10 s first load and buys nothing (it changes via the ingest pipeline
             // publishes, not editor saves). It still SERVES from the
             // passthrough — this only unwatches it.
             ignored: ['**/public/data-full/**'],

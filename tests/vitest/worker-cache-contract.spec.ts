@@ -103,7 +103,7 @@ test('the public channel cache-control lives in public/_headers, not the worker 
     // assets layer returns for a name the tree lacks (a browser or the edge
     // would hold that shell for a year); an unlisted name falls back to
     // `max-age=0, must-revalidate`, and the client treats the shell as a
-    // miss. cannon-food's publisher regenerates the file from the Lite
+    // miss. the pipeline's publisher regenerates the file from the Lite
     // manifest with every publish — this pins the two in step.
     const manifest = JSON.parse(readFileSync(resolve(ROOT, 'public', 'data', 'manifest.json'), 'utf8')) as {
         resources: { finder: { shards: { bucket: number; path: string }[] } }

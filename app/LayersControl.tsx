@@ -1,5 +1,5 @@
 /**
- * The layers control (2026-09-07, Cannon's ask) — the basemap choice: the
+ * The layers control (2026-09-07, a design request) — the basemap choice: the
  * drawn CARTO ground, or the Commonwealth's own VBMP aerial photography.
  *
  * It is the one presentation choice that did NOT go into the settings
@@ -10,21 +10,21 @@
  * an errand. The choice persists like the others (basemap.ts, never the
  * URL — C6).
  *
- * **It moved OFF the map's bottom-right lane on 2026-09-09** (Cannon's
- * call). It shipped as a 29px icon button stacked above the zoom and "Find
- * me" buttons — the corner every map application puts a basemap switch in —
- * and the corner turned out to be the wrong home for it here: that lane is
- * MapLibre's, its buttons are the map's own instruments, and a control that
- * changes what the visitor is looking AT was reading as one more zoom
+ * **It moved OFF the map's bottom-right lane on 2026-09-09** (a design
+ * decision). It shipped as a 29px icon button stacked above the zoom and
+ * "Find me" buttons — the corner every map application puts a basemap switch
+ * in — and the corner turned out to be the wrong home for it here: that lane
+ * is MapLibre's, its buttons are the map's own instruments, and a control
+ * that changes what the visitor is looking AT was reading as one more zoom
  * affordance. So it is now a pill under the band's left edge (App's top
  * column), in SettingsButton's chrome to the class — the site's two
- * presentation controls reading as the same kind of thing, both labelled
- * with the word as well as the glyph. They were briefly a mirrored PAIR at
- * the band's two ends; Settings went down to the map's bottom-left corner
- * the same day (Cannon's call), so they now hold opposite corners and the
+ * presentation controls reading as the same kind of thing, both labelled with
+ * the word as well as the glyph. They were briefly a mirrored PAIR at the
+ * band's two ends; Settings went down to the map's bottom-left corner the
+ * same day (a design decision), so they now hold opposite corners and the
  * shared vocabulary is what ties them.
  *
- * The move also answers the thing Cannon asked for by name — that it not go
+ * The move also answers the thing the review asked for by name — that it not go
  * transparent under a click — and answers it at the cause. In the lane the
  * trigger was a `button` inside `.maplibregl-ctrl`, and maplibre-gl.css
  * (imported globally by MapView) carries

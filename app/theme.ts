@@ -1,5 +1,5 @@
 /**
- * Theme state — a THREE-way preference since 2026-09-06 (Cannon's call,
+ * Theme state — a THREE-way preference since 2026-09-06 (a design decision,
  * with the settings dialog): 'light', 'dark', or 'system', where 'system'
  * follows the device's `prefers-color-scheme` and is the visitor DEFAULT.
  * Light was the default from earlier that day (C10 amended) and dark from

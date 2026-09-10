@@ -11,7 +11,7 @@
     <!-- The mount (C7, D-CR-EMBED-1): the host serves this file for any view
          path, so the built asset URLs (./assets/*) and the app's relative
          data paths resolve from here rather than from the current path. The
-         CannonAI Food tab serves this same file under /cleanplate/ and
+         host's Food tab serves this same file under /cleanplate/ and
          rewrites this one href; the router reads document.baseURI. -->
     <base href="/">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -19,7 +19,7 @@
          shipped from public/ under stable names (a content-hashed
          dist/assets/ name is unreachable for a bare probe). Relative hrefs,
          so they resolve through the <base> above and follow the mount when
-         the CannonAI Food tab rewrites it. Absent these files the assets
+         the host's Food tab rewrites it. Absent these files the assets
          layer answers /favicon.ico with the SPA shell -- 200 text/html,
          measured on production 2026-09-06 -- and the tab shows the generic
          globe. The ico is a rounded dark tile (--cp-surface-1 dark): the

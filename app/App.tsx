@@ -390,7 +390,7 @@ function Shell({ forceLite, ack }: {
                 // List and About are scrolling DOCUMENTS (§6.3/§6.4): the
                 // band rides in the flow at the top; content scrolls under
                 // it. NO settings button here — it is the map view's
-                // control (Cannon's call 2026-09-06): a document is a page
+                // control (design decision, 2026-09-06): a document is a page
                 // of records, and the presentation choices belong with the
                 // thing they present. The choices themselves still hold
                 // (the theme class and the text scale are on <html>, not
@@ -524,7 +524,7 @@ function Shell({ forceLite, ack }: {
                         to its right (§6.6, OQ-A; CPE-M2). Settings stood at
                         the band's OTHER end for one revision on 2026-09-09
                         and went to the bottom-left corner the same day
-                        (Cannon's call); the hint went with it, because it is
+                        (a design decision); the hint went with it, because it is
                         an arrow at the gear. The wrapper is pure layout: it
                         inherits the column's transparency and claims nothing
                         back, so the map drags everywhere the pills are
@@ -569,7 +569,7 @@ function Shell({ forceLite, ack }: {
                 // note this carried since 2026-09-06 said the column idiom
                 // was being kept "so a control can return above the chip
                 // without re-deriving the rules below" — this is that
-                // control returning (Cannon's call, 2026-09-09, the same day
+                // control returning (design decision, 2026-09-09, the same day
                 // it went from the band's left edge to its right and then
                 // here). The cluster switch stood in this spot until the
                 // settings dialog swallowed it; the gear that opens that

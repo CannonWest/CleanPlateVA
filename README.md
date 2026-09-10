@@ -263,7 +263,7 @@ survive a reload, and can be undone or reset. **Submit** (CPE-M3,
 stores it as a content-addressed draft in the proposals bucket; a stored
 draft's pins leave the device, and the drawer's Submitted panel lists the
 bucket. Nothing is published by any of it: `cf_location.py manual pull`
-(the ingest pipeline, CPE-M4) fetches the drafts on Cannon's machine and
+(the ingest pipeline, CPE-M4) fetches the drafts on the maintainer's machine and
 composes them into the manual-pin contracts, with the archive's own
 `before`, for the same review and bridges that the embedding host's
 Refinement Editor proposals go through.
@@ -473,3 +473,19 @@ and, for the Fairfax Health District, from the
 clients route to the county instead of a portal path). The map is a prepared
 snapshot, not a live feed; the publishing health department remains
 authoritative.
+
+Full attribution — the geographic sources behind the coordinates, the basemap
+providers, and the statement that scores and grades are derived here rather
+than issued by either department — is in [NOTICE.md](NOTICE.md). The
+authoritative version of that text is the Terms of Use and Data
+Acknowledgment inside the application itself.
+
+## License and reporting
+
+The source is MIT ([LICENSE](LICENSE)). The inspection data committed under
+`public/data/` is not covered by that grant and is not ours to relicense;
+[NOTICE.md](NOTICE.md) says what applies to it.
+
+Security reports go through GitHub's private vulnerability reporting for this
+repository — see [SECURITY.md](SECURITY.md), which also records what is
+public by design, so a reader can tell the intended surface from a defect.

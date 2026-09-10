@@ -1,12 +1,12 @@
 /**
- * The settings button (2026-09-06, Cannon's call): a labeled pill — gear
+ * The settings button (2026-09-06, a design decision): a labeled pill — gear
  * glyph + the word — on the MAP VIEW ONLY; it opens the settings dialog,
  * which holds the theme, the cluster switch and the text size. Obvious, not
- * a buried icon (Cannon's M0 review call for the theme control carries
+ * a buried icon (the M0 review call for the theme control carries
  * over), in the band's own pill chrome so it lightens with the theme.
  *
  * It lives in the map's BOTTOM-LEFT corner, directly over the attribution
- * chip, since 2026-09-09 — Cannon's call, and the third address it held that
+ * chip, since 2026-09-09 — a design decision, and the third address it held that
  * day: under the band's left edge (where the theme switch stood until the
  * dialog took the theme, 2026-09-06), then the band's right edge when Layers
  * came off the map's control lane and the two were mirrored, then down here.

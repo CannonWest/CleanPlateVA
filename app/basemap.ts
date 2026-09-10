@@ -8,7 +8,7 @@
  * `map` — the CARTO style the theme picks — is the shipped default and what
  * a first-time visitor sees; `aerial` lays the Commonwealth's own VBMP
  * orthoimagery under that style's labels (mapLayers installBasemap). The
- * CannonAI Food-tab embed remembers its own choice per origin, exactly as
+ * the embedding host Food-tab embed remembers its own choice per origin, exactly as
  * it does the theme.
  *
  * Unknown stored values read as `map`, so a key written by a later version

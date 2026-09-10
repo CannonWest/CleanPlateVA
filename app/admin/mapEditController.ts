@@ -21,7 +21,7 @@
  *     the pointer has travelled past a small threshold (a click on the row
  *     stays a click); then the pin is born under the pointer, tethered to
  *     the stack point, and follows it via `unproject` of the canvas-relative
- *     position until release. No spiderfy (Cannon, 2026-09-07).
+ *     position until release. No spiderfy (design review, 2026-09-07).
  *
  * The layers are reinstalled on every `style.load` — a theme swap drops
  * every custom source — AFTER MapView's own data layers, which registered

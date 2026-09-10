@@ -1,5 +1,5 @@
 /**
- * The Terms of Use and Data Acknowledgment — the ONE source (C2). Cannon's
+ * The Terms of Use and Data Acknowledgment — the ONE source (C2). the maintainer's
  * words verbatim (approved 2026-08-17; typographic quotes intact), with
  * the real attribution hrefs (D-ACK-2 rides here). About §05 mounts this
  * inside `#aboutTermsBody`; the acknowledgement dialog mounts the SAME

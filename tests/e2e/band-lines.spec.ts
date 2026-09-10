@@ -136,7 +136,7 @@ test('the band is two objects that flow: side by side with room, stacked without
     expect(wide).toHaveLength(2)
     const [identity, query] = wide as [Line, Line]
     // With the room for it they share a row, identity first — the ordinary
-    // flow Cannon asked for, not an unconditional new line.
+    // flow design review asked for, not an unconditional new line.
     expect(identity.top).toBeCloseTo(query.top, 0)
     expect(identity.right).toBeLessThanOrEqual(query.left)
     // Two OBJECTS: each paints its own ground, and they are separated by a
@@ -314,8 +314,8 @@ for (const size of [undefined, TEXT_SIZE_MAX]) {
 // ── where the two presentation controls sit (2026-09-09) ──────────────
 // LAYERS came off the map's bottom-right control lane to a pill under the
 // band's left edge; SETTINGS went the other way, out of the band entirely
-// and down to the bottom-left corner, over the attribution chip (Cannon's
-// call, after one revision that had the pair mirrored at the band's two
+// and down to the bottom-left corner, over the attribution chip (a design
+// decision, after one revision that had the pair mirrored at the band's two
 // ends). Three things have to hold, and only a browser can say any of them.
 //
 // The third is the one with history. The column's wrappers ask to be

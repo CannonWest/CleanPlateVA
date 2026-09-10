@@ -4,7 +4,7 @@
  * roster row (finder + overlay). ZERO fetches (C3) — on Workers Free the
  * metered unit is the request, and a curious mouse must cost nothing.
  *
- * Re-laid to the OLD client's defined zones at Cannon's preview-review
+ * Re-laid to the OLD client's defined zones at the preview review
  * call (2026-08-30; supersedes the CRVa-M1 compact card): a bordered head
  * (identity), a grade hero (the circle beside its score and anchor date),
  * then the panel's trend section borrowed WHOLESALE — hairlines, band

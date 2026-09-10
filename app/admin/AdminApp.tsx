@@ -3,7 +3,7 @@
  *
  * Reached only at /admin, which has no link anywhere on the site and sits
  * behind a Cloudflare Access application (both the apex and the www host,
- * one-time PIN, Cannon's address alone). This module ships in its own lazy
+ * one-time PIN, the maintainer's address alone). This module ships in its own lazy
  * chunk — main.tsx branches here before the app mounts — so a visitor never
  * downloads it.
  *

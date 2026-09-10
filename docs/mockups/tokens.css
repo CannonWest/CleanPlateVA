@@ -27,7 +27,7 @@
   --cp-marker-ring: rgba(255, 255, 255, .85);
 
   /* grade ramp — mode-invariant (validated 2026-08-29; letter always rides).
-     B is Cannon's call: yellow-green #94be1b (blue is NEW's alone) — the best
+     B is a design decision: yellow-green #94be1b (blue is NEW's alone) — the best
      of that family by the numbers (deutan worst 3.8 B↔C, normal worst 14.4
      A↔B, carried by the always-present letters); F darkened to #a61e1e fixes
      the live site's D↔F normal-vision failure (7.6 → ~15). */
@@ -41,7 +41,7 @@
   --cp-closed: #9aa0a6;
   --cp-lite: #8d939c;
 
-  /* The color-blind friendly ramp (the settings dialog, 2026-09-06, Cannon's
+  /* The color-blind friendly ramp (the settings dialog, 2026-09-06, the maintainer's
      palette): blue → gold → orange → umber under `.palette-colorblind` on
      <html>; NEW leaves blue for near-black there (A and B are blues). The
      live values are app/theme.css + constants.ts GRADE_PALETTES.

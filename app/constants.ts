@@ -54,14 +54,14 @@ export const FAIRFAX_EXPERIENCE_SOURCE = 'dataSource_5-17e77d67cec-layer-3'
 // tokens). `standard` is the RATIFIED ramp (design ref §6.0, CRD-M1
 // 2026-08-29): only F moved from the live site (#e03131 → #a61e1e, fixing
 // the D↔F normal-vision failure). `colorblind` is the visitor's alternative
-// since 2026-09-06 (Cannon's palette, the settings dialog): a blue → gold →
+// since 2026-09-06 (the chosen palette, the settings dialog): a blue → gold →
 // orange → umber diverging scale in place of green → red. The visitor's
 // choice is a class on <html> (palette.ts) that re-points the --cp-grade-*
 // tokens for every DOM surface (theme.css mirrors these hex values — keep
 // the two in step); the map's paint and the donut canvas cannot read a
 // custom property and take the hex from here by palette name. The letter
 // rides the color everywhere a grade is NAMED — chip, hover card, panel,
-// list row — but no longer on the map dots (Cannon's call 2026-09-06; §6.0
+// list row — but no longer on the map dots (design decision, 2026-09-06; §6.0
 // amended): the dot is color + ring alone, and the letter is one hover away.
 export type GradePalette = 'standard' | 'colorblind'
 export const GRADE_PALETTES: Record<GradePalette, Readonly<Record<string, string>>> = {
@@ -159,7 +159,7 @@ export const VA_FIT = { padding: 20 }
 
 // The visitor's persisted theme, 'dark' | 'light' | 'system'; unset (and
 // anything else) reads as SYSTEM — the device's own appearance, the visitor
-// default since the settings dialog (2026-09-06, Cannon's call; light was
+// default since the settings dialog (2026-09-06, a design decision; light was
 // the default earlier that day, dark before it). The CSS base stays the dark
 // design (D-CR-STYLE-1) — app/theme.ts resolves the choice to the class.
 export const THEME_KEY = 'cleanplateva.theme'
@@ -185,7 +185,7 @@ export const SETTINGS_SEEN_KEY = 'cleanplateva.settingsSeen'
 export const SETTINGS_HINT_KEY = 'cleanplateva.settingsHintDismissed'
 // The visitor's persisted clustering choice (CRP-M6): '1' groups nearby
 // places into proximity clusters, '0' (and unset — the shipped default,
-// Cannon's call 2026-09-05) draws every place. A presentation preference
+// a design decision, 2026-09-05) draws every place. A presentation preference
 // like the theme — never URL state (C6: a shared link says what you look
 // at, not how it is drawn).
 export const CLUSTERS_KEY = 'cleanplateva.clusters'
@@ -224,7 +224,7 @@ export const LYR_AERIAL = 'vbmp-imagery'
 // 10.5). [zoom, radius] pairs feed the circle layer's one linear
 // interpolate expression (the stack bubbles ride the same curve, scaled).
 // The dots carried their grade letter past a z13.5 gate until 2026-09-06
-// (Cannon's call) — the curve is unchanged, the glyphs are gone.
+// (a design decision) — the curve is unchanged, the glyphs are gone.
 export const POINT_RADIUS_FULL = 10.5 // the z14 dot
 export const POINT_RADIUS_STOPS: ReadonlyArray<readonly [number, number]> =
     [[5, 3.5], [9, 4.5], [12, 6], [14, POINT_RADIUS_FULL]]
@@ -248,14 +248,14 @@ export const STACK_COUNT_ZOOM = 12
 
 // Proximity clusters (CRP-M6, 2026-09-05) — production's bubble clustering
 // as a VISITOR SWITCH, off by default: #174 ported it verbatim on
-// 2026-08-30 and #175 withdrew it on Cannon's review the same day; the
+// 2026-08-30 and #175 withdrew it on design review the same day; the
 // switch keeps the production look as a choice through the cutover, which
 // deletes the old client. Grouped at metro view, dissolved from
 // neighborhood zoom up — CLUSTER_MAX_ZOOM is a TILE zoom on CARTO's 512px
 // tiles, so bubbles dissolve at camera zoom 13. Bubbles are SIZED by the
 // places they stand for (sum of member stacks, the same steps the hit test
 // measures against); their FILL is the donut below. Values ported verbatim
-// from the old `constants.js` / `stacks.js`; tuning is Cannon's live-review
+// from the old `constants.js` / `stacks.js`; tuning is live review
 // call, not the build's.
 export const CLUSTER_RADII = [12, 16, 22] as const // <10 · <50 · 50+ places
 export const CLUSTER_STEPS = [10, 50] as const
@@ -263,7 +263,7 @@ export const CLUSTER_MAX_ZOOM = 12
 export const CLUSTER_PIXEL_RADIUS = 40 // grouping reach, source config
 export const CLUSTER_COUNT_TEXT_SIZE = 12 // production's count label
 
-// The donut (Cannon's form, 2026-09-05): a cluster is a RING whose arcs are
+// The donut (the chosen form, 2026-09-05): a cluster is a RING whose arcs are
 // the grade breakdown of the places inside, in the dots' own fills, around
 // a hole in the theme's stack surface that carries the count — "a neutral
 // count bubble wearing the ring of the dots it hides." Painted on demand
@@ -275,14 +275,14 @@ export const DONUT_SEPARATOR = 1 // hairline between arcs, CSS px
 export const DONUT_PIXEL_RATIO = 2
 export const DONUT_CLOSED_ALPHA = 0.5
 
-// The neutral count bubble — THEME-INVARIANT since 2026-09-06 (Cannon's
-// call): a stack wears the dark theme's surface and ink on the light
+// The neutral count bubble — THEME-INVARIANT since 2026-09-06 (a design
+// decision): a stack wears the dark theme's surface and ink on the light
 // basemap too, so a stack looks like a stack wherever you meet it. The
 // donut's hole is the same surface (donut.ts) and its count the same ink,
 // which is what keeps an isolated stack and a cluster bubble reading as one
 // vocabulary on a light map. Values are the dark theme's tokens.css
-// --cp-surface-3 / --cp-ink; MapLibre paint can't read CSS vars, so these
-// are literals and the layers are re-added on a theme swap regardless.
+// --cp-surface-3 / --cp-ink; MapLibre paint can't read CSS vars, so these are
+// literals and the layers are re-added on a theme swap regardless.
 export const STACK_SURFACE = '#242a31'
 export const STACK_INK = '#e9ecef'
 export const MARKER_RING = {
@@ -291,7 +291,7 @@ export const MARKER_RING = {
 } as const
 export const MARKER_RING_WIDTH = 1.5
 
-// The declining ring (CRP-M2, Cannon's pick 2026-09-05; retires the CRP-M1
+// The declining ring (CRP-M2, the pick 2026-09-05; retires the CRP-M1
 // ↓ suffix and its image machinery): a dot whose bake says declining wears
 // this ring in place of the theme's white one, at every zoom the dot is
 // drawn — it never had the letters' zoom gate, and outlives them. Production's form (markers.js has worn a heavier

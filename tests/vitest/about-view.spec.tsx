@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * The §6.4 About (CRVb-M1), pinned to Cannon's 2026-09-07 copy pass:
+ * The §6.4 About (CRVb-M1), pinned to the maintainer's 2026-09-07 copy pass:
  * the hero's title + two bold disclaimers + four live cards (no badges, no
  * kicker), §01's boards and BOTH worked receipts, §02's pipeline (C8: the
  * channel chips say "basic map", never "lite"), §03's lineage + tiers,
@@ -130,7 +130,7 @@ test('content parity: hero, both receipts, weights, pipeline, lineage, all eight
     expect(el.textContent).not.toContain('28,087')       // the closed-inclusive total never shows
     expect(el.textContent).toContain('2')                // ZIP count excludes '?'
     // The sections run 01–05: the signals section is gone whole and every
-    // number after it moved up one (Cannon's call, incl. Terms → 05).
+    // number after it moved up one (a design decision, incl. Terms → 05).
     const numbers = Array.from(el.querySelectorAll('span.opacity-60')).map((s) => s.textContent)
     expect(numbers).toEqual(['01', '02', '03', '04', '05'])
     expect(el.textContent).not.toContain('What the other signals mean')
@@ -190,9 +190,9 @@ test('§05 carries the verbatim single-source terms with the real attribution hr
     const el = await render()
     const body = el.querySelector('#aboutTermsBody')
     expect(body).toBeTruthy()
-    // Verbatim sentences (typographic quotes preserved — Cannon's words).
+    // Verbatim sentences (typographic quotes preserved — the maintainer's words).
     expect(body?.textContent).toContain('CleanPlateVA is an independent service and is not affiliated with, operated by, or endorsed by the Virginia Department of Health, MyHealthDepartment, or the Fairfax County Health Department.')
-    // FFX-M4 (OQ-B, Cannon 2026-09-05): both agencies named once, the county's
+    // FFX-M4 (OQ-B, design decision, 2026-09-05): both agencies named once, the county's
     // outcome paragraph kept, the acknowledgment generalized.
     expect(body?.textContent).toContain('published by two agencies')
     expect(body?.textContent).toContain('The Fairfax County Health Department records an inspection outcome')

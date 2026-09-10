@@ -1,5 +1,5 @@
 /**
- * The stack member list (CRVa-M2, Cannon's call at the M1 boundary): a
+ * The stack member list (CRVa-M2, a design decision at the M1 boundary): a
  * same-point stack CLICK opens a compact popover listing its members —
  * name over suite/address2, a grade chip speaking the ramp (letter always
  * rides the color, §6.0) or NEW / closed / unscored — and picking one

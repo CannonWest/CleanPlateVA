@@ -62,7 +62,7 @@ body {
   --cp-marker-ring: rgba(255,255,255,.95);
 }
 /* grade ramp — MODE-INVARIANT (validated 2026-08-29, both surfaces).
-   B is Cannon's call: yellow-green #94be1b, blue stays NEW's alone.
+   B is a design decision: yellow-green #94be1b, blue stays NEW's alone.
    Numbers: deutan worst ΔE 3.8 (B↔C) · normal worst 14.4 (A↔B) — the
    F darkening fixes the live site's D↔F fail (7.6 → ~15). The letter
    ALWAYS rides the color: chips and badges carry it, markers gain it
@@ -434,15 +434,15 @@ body {
   <h2>Grade-ramp receipts — validated 2026-08-29 (dataviz six-checks, all-pairs, both surfaces)</h2>
   <table class="receipts">
     <tr><th>Check</th><th>Today's site ramp</th><th>CR ramp (this tile)</th></tr>
-    <tr><td>Normal-vision worst adjacent pair</td><td class="warn">ΔE 7.6 (D↔F) — FAIL</td><td class="ok">ΔE 14.4 (A↔B) — the D↔F fail is fixed; a hair under the 15 bar, accepted (Cannon) with letters riding</td></tr>
-    <tr><td>CVD worst pair (deutan)</td><td class="warn">ΔE 3.0 (A↔F) — FAIL</td><td class="warn">ΔE 3.8 (B↔C) — letter + ring mandated (Cannon’s yellow-green call; blue stays NEW’s)</td></tr>
+    <tr><td>Normal-vision worst adjacent pair</td><td class="warn">ΔE 7.6 (D↔F) — FAIL</td><td class="ok">ΔE 14.4 (A↔B) — the D↔F fail is fixed; a hair under the 15 bar, accepted (the maintainer) with letters riding</td></tr>
+    <tr><td>CVD worst pair (deutan)</td><td class="warn">ΔE 3.0 (A↔F) — FAIL</td><td class="warn">ΔE 3.8 (B↔C) — letter + ring mandated (the maintainer’s yellow-green call; blue stays NEW’s)</td></tr>
     <tr><td>Chroma floor</td><td class="ok">PASS</td><td class="ok">PASS</td></tr>
     <tr><td>Contrast vs surface</td><td class="warn">B/C sub-3:1 on light</td><td class="warn">F 2.4:1 on dark, B/C on light — relief: marker ring + letter on every colored mark</td></tr>
     <tr><td>Lightness band (categorical check)</td><td>—</td><td>waived — ordinal status ramp; the lightness zigzag IS the CVD mechanism</td></tr>
   </table>
   <div class="note">
     Consequences the views inherit: the grade letter always accompanies the color (chips, badges, hover, panel);
-    markers wear a ring and gain their letter past a zoom threshold; F darkened is the load-bearing change (fixes D↔F); B stays the lime family by Cannon’s call, with NEW’s blue kept unique. Grays (unscored · closed · basic map) stay neutral by design.
+    markers wear a ring and gain their letter past a zoom threshold; F darkened is the load-bearing change (fixes D↔F); B stays the lime family by the maintainer’s call, with NEW’s blue kept unique. Grays (unscored · closed · basic map) stay neutral by design.
   </div>
 </section>
 </body>

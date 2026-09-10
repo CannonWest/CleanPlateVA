@@ -6,7 +6,7 @@
  * sheet and the band keeps its full width). Wired to the ported filter
  * predicate through the router actions; every control speaks C6.
  *
- * TWO OBJECTS since 2026-09-09 (Cannon's call, in three passes — split the
+ * TWO OBJECTS since 2026-09-09 (a design decision, in three passes — split the
  * two jobs · "separate them graphically" · make the drop width-dependent):
  * IDENTITY — the mark, the name, the view switcher — and the QUERY —
  * search, the A–F chips, Filters, and the counts they produce. It began as
@@ -32,7 +32,7 @@
  * Filters note below for why that distinction is load-bearing on this view.
  *
  * Filters reads as a select — a trigger with a chevron over a panel of
- * ticked rows — and is HAND-ROLLED on purpose (2026-09-09, Cannon's call
+ * ticked rows — and is HAND-ROLLED on purpose (2026-09-09, a design decision
  * after a look at the Radix build): `DropdownMenu` portals its content and
  * keeps it glued to the trigger with floating-ui's `autoUpdate`, which
  * installs resize / scroll / layout-shift observers that run against a
@@ -55,7 +55,7 @@
  * chips, Show closed, Show newly permitted — and keeps search, Restaurants
  * only, Mobile food units, and the counts (P6).
  *
- * The theme control moved OFF the band at the M0 review (Cannon's call):
+ * The theme control moved OFF the band at the M0 review (a design decision):
  * it's a real switch — `ThemeSwitch` — under the band's left edge on the
  * MAP VIEW since 2026-09-06 (bottom-left before that; the documents carry
  * no switch). The band does not position itself: App places it — the
@@ -74,7 +74,7 @@ import { VIEWS } from './router'
 // /static/img/... src never reaches dist/ and the SPA fallback answers it
 // with index.html. An import rides into dist/assets/ content-addressed, and
 // Vite resolves it against `base: './'` — which the absolute path also broke,
-// since the CannonAI Food tab mounts this build under /cleanplate/.
+// since the host's Food tab mounts this build under /cleanplate/.
 import logoUrl from './clean-plate-va-logo.png'
 import type { View } from './router'
 import { FLAG_DEFAULTS } from './router'
@@ -112,7 +112,7 @@ const LINE = 'flex min-w-0 max-w-full flex-wrap items-center gap-x-3.5 gap-y-1.5
 /** Line 1, IDENTITY: the solid card the band has always been. */
 const IDENTITY = 'rounded-cp-card border border-cp-hairline bg-cp-surface-1 px-3 py-2 shadow-cp'
 
-/** Line 2, the QUERY: an OVULAR bar in frosted glass (Cannon's call,
+/** Line 2, the QUERY: an OVULAR bar in frosted glass (a design decision,
  *  2026-09-09) — the two lines are separate objects with separate shapes, so
  *  the split reads at a glance instead of being a gap inside one card. The
  *  ends are fully round (`rounded-cp-pill`, the shape the search box and the
@@ -283,7 +283,7 @@ export function Toolbar({ state, actions, lite, shown, total }: {
 
     // The band is the first item of App's top column, and it is TWO objects
     // now, not one card with a seam: the identity card and the query bar,
-    // laid out as an ordinary WRAPPING ROW (Cannon's third call, 2026-09-09
+    // laid out as an ordinary WRAPPING ROW (a third design call, 2026-09-09
     // — the drop to a second line is width-dependent, not unconditional).
     // Side by side while there is room; the query bar drops under identity
     // when there is not — which is a phone, and a desktop beside an open

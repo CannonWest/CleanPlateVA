@@ -33,7 +33,7 @@ test('D-URL-1/2: / is the canonical Map, /map is an alias, unknown and trailing-
     assert.deepEqual(viewFromPath('/list/'), { view: 'list', canonical: false })
     assert.deepEqual(viewFromPath('/nonsense'), { view: 'map', canonical: false })
     assert.deepEqual(viewFromPath('/list/23294'), { view: 'map', canonical: false })
-    // under the CannonAI mount
+    // under the host mount
     assert.deepEqual(viewFromPath('/cleanplate/', '/cleanplate/'), { view: 'map', canonical: true })
     assert.deepEqual(viewFromPath('/cleanplate/list', '/cleanplate/'), { view: 'list', canonical: true })
     assert.deepEqual(viewFromPath('/cleanplate/map', '/cleanplate/'), { view: 'map', canonical: false })

@@ -5,17 +5,17 @@
  *
  *   · grade-colored dots with a ring in every mode (zoom-scaled radius);
  *     the dots carried their grade letter past z13.5 until 2026-09-06,
- *     when Cannon retired the glyphs from the map (§6.0 amended: the
+ *     when the maintainer retired the glyphs from the map (§6.0 amended: the
  *     letter still rides every place a grade is NAMED — hover card,
  *     panel, list, chips — but the dot is color + ring alone);
  *   · gray uniform = basic map, gray = unscored, dimmed gray = closed;
  *   · same-point stacks as NEUTRAL count bubbles; no proximity clusters BY
  *     DEFAULT — the CRD-M1 mockup rule, re-ratified 2026-08-30 after a live
- *     trial on the preview (revived in #174 at Cannon's ask, withdrawn on
+ *     trial on the preview (revived in #174 at a design request, withdrawn on
  *     his review in the next pass; the CRF proof already drew all ~25k
  *     dots).
  *
- * Declining (CRP-M2, Cannon's pick 2026-09-05, replacing the CRP-M1 ↓
+ * Declining (CRP-M2, the pick 2026-09-05, replacing the CRP-M1 ↓
  * suffix): the dot's ring turns red (constants.ts DECLINE_RINGS — near-
  * black on the color-blind ramp, whose umber F would swallow the red) at
  * every zoom the dot is drawn — a paint expression on the one circle
@@ -27,7 +27,7 @@
  * production's source clustering is ALWAYS configured (#174's port) and
  * flipped in place by `setClusterOptions` — no teardown, no GeoJSON rebuild
  * (the cluster inputs ride every feature, mapData.ts). The bubble is
- * Cannon's DONUT: a symbol layer whose icon id encodes the per-grade sums a
+ * The DONUT: a symbol layer whose icon id encodes the per-grade sums a
  * cluster accumulated, painted on demand by the missing-image resolver
  * (donut.ts). Production's grammar otherwise: places-sized, under dots and
  * stacks, hover = cursor only, click = expansion zoom, dissolving at camera
@@ -43,7 +43,7 @@
  * theme / palette / basemap changes, and the one that releases the
  * auto-locate once the page is ready for it.
  *
- * The basemap choice (2026-09-07, Cannon's ask; public use confirmed by
+ * The basemap choice (2026-09-07, a design request; public use confirmed by
  * VGIN 2026-09-08) swaps the drawn CARTO ground for the Commonwealth's own
  * VBMP aerial photography, which goes UNDER the style's label block
  * (mapLayers applyBasemap) rather than over the whole basemap — so the theme

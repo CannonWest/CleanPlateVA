@@ -55,7 +55,7 @@ export interface FacilityLike {
 
 export const OVERLAY_SCOPES = ['unknown', 'broad', 'focused'] as const
 
-/** "Declining" is banded (CRP-M1b, Cannon 2026-08-31): strictly MORE than
+/** "Declining" is banded (CRP-M1b, design decision, 2026-08-31): strictly MORE than
  *  this many points of grade-to-grade drop. Mirrors the exporter's
  *  cf_export_site.TREND_DECLINE_BAND — change both together (the old
  *  client's presentation.js was the third copy until CRC). */
@@ -117,7 +117,7 @@ export function isNewlyPermitted(f: FacilityLike | null | undefined): boolean {
 export function isActivePermit(f: FacilityLike | null | undefined): boolean {
     // VDH's roster word is `Permitted` (substring); the Fairfax Health
     // District's is `Active`, matched exactly so `Inactive` can never pass —
-    // the same predicate as the exporter's cannon_food.merge.is_active.
+    // the same predicate as the exporter's the exporter's own is_active predicate.
     if (f?.status == null) return true
     const status = String(f.status).trim().toLowerCase()
     return status.includes('permitted') || status === 'active'
@@ -539,7 +539,7 @@ export function facilityPresentation(facility: FacilityLike = {}): FacilityView 
         const baseDate = isoFromYmd(o.base_yyyymmdd)
         const assessmentRecord = baseDate != null || compliance != null
             ? { date: baseDate, compliance_rate: compliance } : null
-        // trend_delta is GRADE-to-grade since CRP-M1b (Cannon 2026-08-31):
+        // trend_delta is GRADE-to-grade since CRP-M1b (design decision, 2026-08-31):
         // the exporter ships current adjusted grade minus the previous
         // era's (second-newest scored broad + ITS follow-ups). Payloads
         // published before the republish carry the retired raw
@@ -557,7 +557,7 @@ export function facilityPresentation(facility: FacilityLike = {}): FacilityView 
             // BANDED (CRP-M1b): the flag — and the map's ring that reads it —
             // fires only past TREND_DECLINE_BAND points of drop. A −5
             // exactly is not declining. Mirrors the exporter's one
-            // definition (cannon-food cf_export_site.TREND_DECLINE_BAND).
+            // definition (the ingest pipeline cf_export_site.TREND_DECLINE_BAND).
             declining: trendDelta != null && trendDelta < -TREND_DECLINE_BAND,
         }
     }

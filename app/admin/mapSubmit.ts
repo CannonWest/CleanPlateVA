@@ -9,8 +9,8 @@
  *     judged, the roster snapshot and the basemap under the drag — and
  *     nothing the archive owns. The Worker adds `operator` · `instrument` ·
  *     `saved_at` · `submitted_by` and REFUSES a draft that carries them (the
- *     CannonAI composer's rule); `cf_location.py manual pull` (M4) composes
- *     the contract files on Cannon's machine with `before` from Couch.
+ *     the embedding host composer's rule); `cf_location.py manual pull` (M4) composes
+ *     the contract files on the maintainer's machine with `before` from Couch.
  *   · ONE DRAFT PER STACK OR LONE POINT (OQ-C): `buildDrafts` groups the
  *     device's pins by the published point they came from — and by the
  *     snapshot they were drafted against, so a pin from before a publish
@@ -18,7 +18,7 @@
  *   · THE POST AND THE GET, read the way the session probe reads its answer:
  *     an opaque redirect or a 401 is Access saying the session is gone; the
  *     SPA shell (a build without the Worker — dev, `vite preview`, the
- *     CannonAI embed) is "unavailable", never a store; a 5xx is a transient.
+ *     the host embed) is "unavailable", never a store; a 5xx is a transient.
  *     `redirect: 'manual'` is load-bearing here as it is there.
  */
 

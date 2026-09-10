@@ -1,5 +1,5 @@
 /**
- * The cluster donut (CRP-M6, Cannon's form) — the pure half of the bubble
+ * The cluster donut (CRP-M6, the chosen form) — the pure half of the bubble
  * the map draws when "Group nearby places" is on. A cluster is a RING whose
  * arcs are the grade breakdown of the places it hides, in the very fills
  * the dots use (A–F on the ramp, NEW, unscored gray, closed dimmed),
@@ -192,7 +192,7 @@ function scratchContext(doc: Document): CanvasRenderingContext2D | null {
  *  draws at CSS size, crisp on dense screens). Arcs clockwise from 12
  *  o'clock in bucket order with hairline separators in the hole's surface;
  *  the hole in the stacks' surface; no outer ring — the arcs meet the
- *  basemap directly (Cannon's live-review call, 2026-09-05). Null where
+ *  basemap directly (live review call, 2026-09-05). Null where
  *  there is no 2D canvas (headless runners). */
 export function paintDonut(spec: DonutSpec, doc: Document = document): ImageData | null {
     // `theme` rides in the spec for the image id alone — no color here

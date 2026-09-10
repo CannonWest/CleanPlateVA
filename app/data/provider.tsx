@@ -44,7 +44,7 @@ export function DataProvider({ api, ack, forceLite, children }: {
     // 'awaiting-ack' — the App renders the blocking terms dialog on that
     // status, and seeding it unconditionally flashed the terms at every
     // decided visitor until the post-paint effect below caught up
-    // (Cannon's report, 2026-08-30 preview review).
+    // (the review report, 2026-08-30 preview review).
     const [roster, setRoster] = useState<RosterStatus>(() =>
         !forceLite && !ack.decided ? { status: 'awaiting-ack' } : { status: 'loading' })
     const [closed, setClosed] = useState<RosterRow[]>([])

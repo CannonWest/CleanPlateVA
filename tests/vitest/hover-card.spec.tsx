@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /**
  * The §6.2 hover card (CRVa-M1; re-laid 2026-08-30 to the old client's
- * zones at Cannon's preview call, anchor boxes cut on the same day's
+ * zones at the maintainer's preview call, anchor boxes cut on the same day's
  * pass 3): rendered WHOLLY from the roster row — the bordered identity
  * head, the grade hero (circle + score + anchor date), and the panel's
  * trend section borrowed WHOLESALE (shared TrendSection: furniture, dates,
