@@ -1,9 +1,75 @@
 # CleanPlateVA
 
-A finder map for Virginia food establishments, built from Virginia Department
-of Health inspection records and, for the Fairfax localities it serves, the
-Fairfax County Health Department's. Every marker links to the establishment's
-official record at the publishing department.
+### [cleanplateva.com](https://cleanplateva.com)
+
+An independent map of health-inspection records for Virginia food
+establishments — 29,572 of them — with a letter grade computed for each from
+its own inspection history.
+
+Neither the Virginia Department of Health nor the Fairfax County Health
+Department issues grades. They publish inspections: violations, risk factors,
+corrections, repeats. What they do not publish is a way to compare two places
+at a glance, or to see whether one is getting better. This site derives that,
+and says on every screen that the derivation is its own and not the health
+department's. Every marker links back to the establishment's official record,
+which remains the authoritative source.
+
+Built from Virginia Department of Health records and, for the Fairfax
+localities it serves, the Fairfax County Health Department's.
+
+## Run it
+
+```bash
+npm ci
+npm run dev
+```
+
+The suites — 453 unit and contract tests, plus a browser smoke that asks a
+real Chromium whether the map actually paints:
+
+```bash
+npm test
+npm run test:e2e
+```
+
+## What might be worth a look
+
+- **The tier boundary** (§ Two tiers, one site). The judgment-bearing data is
+  fetched only after a visitor acknowledges the terms — and the map before
+  that acknowledgement is a working product, not a paywall wall. The boundary
+  is about judgment, not secrecy: everything here is public record.
+- **The contract with the data producer** (§ Shared finder contract, § Full
+  archive contract). The data is built by a separate private pipeline that
+  never learns the front end changed; what passes between them is a frozen,
+  versioned contract, and `tests/vitest/lite-roster-contract.spec.ts` fails
+  the build if a publish drifts from it.
+- **`tests/vitest/retired-vocabulary.spec.ts`.** A tripwire that fails when a
+  name this project retired comes back into live prose or code — with a
+  reason per term, an inline `retired-ok` escape for deliberate historical
+  mentions, and a self-test that plants a term to prove the escape works.
+- **The request budget** (§ Architecture). On Cloudflare's free tier the
+  metered unit is the *request*, so the architecture is shaped around not
+  making them: the basic map costs zero Worker requests, and an acknowledged
+  boot costs seventeen.
+
+## Reading the design references
+
+`docs/architecture-v4.md` and `docs/frontend-redesign.md` are living design
+references rather than write-once documents, and they use two conventions
+throughout:
+
+- **Arc codes.** A three-letter program plus a milestone number — `CPF-M3`,
+  `CRC-M1`. The programs: `CPR` routes · `CPD` boot diet and Contract V4 ·
+  `CPF` the public full tier · `CPH` request diet · `CPX` close-out ·
+  `CRD`/`CRF`/`CRV`/`CRC`/`CRX` the React rewrite, design through close-out ·
+  `CPE` the map editor.
+- **`D-` identifiers.** Entries in each document's open-decisions registry —
+  `D-URL-2`, `D-TRANSPORT-4` — recording the options considered, which was
+  chosen, and which milestone closed it. A row's status flips in the document
+  in the same pull request that resolves it.
+
+Measured numbers in those documents are stamped with the date they were
+measured. Treat them as dated receipts, not as constants.
 
 ## Two tiers, one site
 
