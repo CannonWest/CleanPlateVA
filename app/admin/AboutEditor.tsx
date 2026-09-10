@@ -236,7 +236,7 @@ export function AboutEditor({ children, onExit }: {
                         <div className="flex items-center gap-2.5">
                             <span className="text-cp-13 font-bold">Export</span>
                             <span className="text-cp-11.5 text-cp-ink-3">
-                                hand this to Claude to fold into app/AboutView.tsx
+                                paste this into app/AboutView.tsx to publish it
                             </span>
                             <div className="ml-auto flex gap-2">
                                 <button type="button" className={BTN_ACCENT} onClick={copyExport}>
