@@ -104,7 +104,7 @@ from the address bar.
 Serving this needs one thing from the host: any non-asset path must return
 `index.html` so the client can route it. Cloudflare does that through
 `assets.not_found_handling` in [`wrangler.jsonc`](wrangler.jsonc); the Vite
-dev server and the CannonAI embed mount mirror it.
+dev server and the host embed mount mirror it.
 
 That setting is all-or-nothing: a genuinely missing data shard comes back as
 `200 text/html` too. The client keeps that honest — `dataClient` treats the
@@ -134,7 +134,7 @@ so a missing shard 404s there (and `_headers` is a Workers-only file, inert
 locally).
 
 The page declares its mount with `<base href>` (`/` here, rewritten to
-`/cleanplate/` by the CannonAI passthrough) and the router reads it from
+`/cleanplate/` by the embedding host passthrough) and the router reads it from
 `document.baseURI`, which is what lets one build serve from either.
 
 Prepared data uses explicit Contract V4 manifests:
@@ -174,17 +174,17 @@ full channel fails and the client degrades to the basic map, which is static
 and keeps working; the Worker's route can additionally be set to fail open
 where Cloudflare offers the setting.
 
-Publication is driven from cannon-food by a strict source-fact change set or an
-explicit full-build run ID. The persistent local Full cache is treated as a
-materialized view. A permit-bounded update is accepted only when current
-identity/site ownership and, for inspection changes, the shared-standards vote
-state prove it equivalent to a full rebuild. Any missing proof or global/schema
-change falls back to the deterministic two-pass full exporter. The publisher is
-resumable, records a manifest-bound receipt, runs the Lite contract and shrink
-gates, previews R2, flips R2 manifest-last, then commits/pushes the Lite data.
-There is no cross-system distributed transaction, but each tier changes through
-one atomic pointer (the R2 manifest or the Git commit), and completed phases are
-not repeated on resume.
+Publication is driven from the ingest pipeline by a strict source-fact change
+set or an explicit full-build run ID. The persistent local Full cache is
+treated as a materialized view. A permit-bounded update is accepted only when
+current identity/site ownership and, for inspection changes, the
+shared-standards vote state prove it equivalent to a full rebuild. Any missing
+proof or global/schema change falls back to the deterministic two-pass full
+exporter. The publisher is resumable, records a manifest-bound receipt, runs
+the Lite contract and shrink gates, previews R2, flips R2 manifest-last, then
+commits/pushes the Lite data. There is no cross-system distributed
+transaction, but each tier changes through one atomic pointer (the R2 manifest
+or the Git commit), and completed phases are not repeated on resume.
 
 ### /admin — the session page, and the edit modes
 
@@ -215,7 +215,7 @@ Two locks, then a flag:
   server-owned fields (`operator` from the `PROPOSAL_OPERATOR` var,
   `instrument`, `saved_at`, `submitted_by` from the verified claim) and
   stored as canonical content-addressed bytes in the `PROPOSALS` bucket —
-  `cleanplateva-proposals`, a bucket of its own, because cannon-food's
+  `cleanplateva-proposals`, a bucket of its own, because the pipeline's
   publisher owns every object in `cleanplateva-data` and deletes strays —
   never overwriting; `GET` lists the drafts. That bucket is the Worker's
   only write, anywhere.
@@ -263,10 +263,10 @@ survive a reload, and can be undone or reset. **Submit** (CPE-M3,
 stores it as a content-addressed draft in the proposals bucket; a stored
 draft's pins leave the device, and the drawer's Submitted panel lists the
 bucket. Nothing is published by any of it: `cf_location.py manual pull`
-(cannon-food, CPE-M4) fetches the drafts on Cannon's machine and composes
-them into the manual-pin contracts, with the archive's own `before`, for the
-same review and bridges the CannonAI Refinement Editor's proposals go
-through.
+(the ingest pipeline, CPE-M4) fetches the drafts on Cannon's machine and
+composes them into the manual-pin contracts, with the archive's own
+`before`, for the same review and bridges that the embedding host's
+Refinement Editor proposals go through.
 
 ### Shared finder contract
 
