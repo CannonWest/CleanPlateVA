@@ -13,16 +13,16 @@ export function ThemeLogo({
             <img
                 src={logoDark}
                 alt={alt}
-                width={2500}
-                height={1201}
+                width={1855}
+                height={897}
                 aria-hidden={alt ? undefined : 'true'}
                 className="block h-full w-auto max-w-full object-contain light:hidden"
             />
             <img
                 src={logoLight}
                 alt={alt}
-                width={2500}
-                height={1200}
+                width={1972}
+                height={954}
                 aria-hidden={alt ? undefined : 'true'}
                 className="hidden h-full w-auto max-w-full object-contain light:block"
             />

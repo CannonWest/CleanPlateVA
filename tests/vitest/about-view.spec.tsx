@@ -96,16 +96,20 @@ test('content parity: hero, both receipts, weights, pipeline, lineage, all eight
     // emphasis (the editor hands over `<b>`/`<br>` as text; the JSX must
     // carry them as elements), the four live cards under their new labels
     // — and neither the provenance legend nor the kicker.
-    // Hero brand logo & embed badges
+    // Hero brand logo, CENTERED and alone (2026-09-10): the GitHub and
+    // PeerPush badges are gone from the page entirely, so the hero's only
+    // images are the theme logo's two faces and its row just centers them.
     const heroImgs = el.querySelectorAll('main section:first-of-type img')
-    expect(heroImgs.length).toBe(3)
+    expect(heroImgs.length).toBe(2)
     expect(heroImgs[0]?.className).toContain('light:hidden')
     expect(heroImgs[1]?.className).toContain('light:block')
-    expect(heroImgs[2]?.getAttribute('src')).toBe('https://peerpush.com/p/cleanplateva/badge.png')
-    const ghLink = el.querySelector('a[href="https://github.com/CannonWest/CleanPlateVA"]')
-    expect(ghLink).toBeTruthy()
-    const peerpushLink = el.querySelector('a[href="https://peerpush.com/p/cleanplateva"]')
-    expect(peerpushLink).toBeTruthy()
+    const logoRow = heroImgs[0]?.closest('section')?.firstElementChild
+    expect(logoRow?.className).toContain('justify-center')
+    expect(logoRow?.className).not.toContain('justify-between')
+    expect(logoRow?.children.length).toBe(1)
+    expect(el.querySelector('a[href*="github.com"]')).toBeNull()
+    expect(el.querySelector('a[href*="peerpush.com"]')).toBeNull()
+    expect(el.querySelector('img[src*="peerpush.com"]')).toBeNull()
 
     expect(el.textContent).toContain("CleanPlateVA: an unofficial archive and grading of Virginia's health-inspected food-serving facilities")
     const hero = el.querySelector('h1 + p') as HTMLElement
