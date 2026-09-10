@@ -24,7 +24,6 @@ import {
 } from 'lucide-react'
 import { AGGREGATE_TENANT, FAIRFAX_RECORDS_URL, PORTAL_BASE } from './constants'
 import { fmtDate } from './data/presentation'
-import { ProjectBadges } from './ProjectBadges'
 import { TermsBody } from './TermsBody'
 import { ThemeLogo } from './ThemeLogo'
 import type { LoadedRoster } from './data/types'
@@ -252,9 +251,8 @@ export function AboutView({ loaded, unavailable, forceLite, ack, onSwitchToBasic
         <main className="mx-auto max-w-[52rem] px-4 pt-2 pb-7">
             {/* hero */}
             <Card>
-                <div className="mb-5 flex flex-col items-center justify-between gap-6 sm:flex-row sm:items-center">
+                <div className="mb-5 flex justify-center">
                     <ThemeLogo className="h-40 w-auto max-w-full sm:h-48" />
-                    <ProjectBadges className="flex flex-col items-center gap-2.5 shrink-0 sm:items-end" />
                 </div>
                 <h1 className="mt-1 mb-1.5 text-cp-22 leading-tight font-bold">
                     CleanPlateVA: an unofficial archive and grading of Virginia's health-inspected

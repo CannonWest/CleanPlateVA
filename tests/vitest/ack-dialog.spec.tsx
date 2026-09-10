@@ -62,10 +62,9 @@ test('the dialog is the title alone over the single-source terms, Decline left /
     const [el] = await render(true)
     const dialog = el.querySelector('[role="dialog"]')
     expect(dialog?.getAttribute('aria-modal')).toBe('true')
-    // Branded header logo above the title — scoped to the header, because
-    // the scroll box now ends with the PeerPush badge (2026-09-09).
-    const header = dialog?.querySelector('h1')?.previousElementSibling
-    const logoImgs = header?.querySelectorAll('img')
+    // Branded header logo above the title — and it is the dialog's ONLY
+    // image: the terms carry no badges (2026-09-10).
+    const logoImgs = dialog?.querySelectorAll('img')
     expect(logoImgs?.length).toBe(2)
     expect(logoImgs?.[0]?.className).toContain('light:hidden')
     expect(logoImgs?.[1]?.className).toContain('light:block')
@@ -86,40 +85,17 @@ test('the dialog is the title alone over the single-source terms, Decline left /
         refRoot.unmount()
     })
     reference.remove()
+    // No outward links in the terms — the badges were tried at the foot of
+    // the scroll box (2026-09-09) and taken out again (2026-09-10).
+    expect(dialog?.querySelector('a[href*="github.com"]')).toBeNull()
+    expect(dialog?.querySelector('a[href*="peerpush.com"]')).toBeNull()
+
     // The fork: Decline left (danger fill), Agree right (accent fill).
     const actionButtons = Array.from(dialog?.querySelectorAll('button') ?? [])
     expect(actionButtons.map((b) => b.textContent))
         .toEqual(['Decline and Use Basic Map', 'Agree and View Grades'])
     expect(actionButtons[0]?.className).toContain('bg-cp-danger-solid')
     expect(actionButtons[1]?.className).toContain('bg-cp-accent-solid')
-})
-
-test('the project badges close the scroll box, after the terms', async () => {
-    const [el] = await render(true)
-    const dialog = el.querySelector('[role="dialog"]')
-    // The scroll box is the element that actually scrolls; the badges must
-    // be INSIDE it (Cannon's ask) — not in the dialog's chrome, where they
-    // would stand above the buttons and never scroll away.
-    const scroller = dialog?.querySelector('[class*="overflow-y:scroll"]') as HTMLElement
-    expect(scroller).toBeTruthy()
-    const gh = scroller.querySelector('a[href="https://github.com/CannonWest/CleanPlateVA"]')
-    const pp = scroller.querySelector('a[href="https://peerpush.com/p/cleanplateva"]')
-    expect(gh).toBeTruthy()
-    expect(pp).toBeTruthy()
-    expect(pp?.querySelector('img')?.getAttribute('src'))
-        .toBe('https://peerpush.com/p/cleanplateva/badge.png')
-    // At the very END — after the Acknowledgment section, the terms' last words.
-    const badgeRow = gh?.parentElement as HTMLElement
-    expect(badgeRow).toBe(scroller.lastElementChild)
-    const terms = scroller.firstElementChild as HTMLElement
-    expect(terms.textContent).toContain('can be changed later from the About page')
-    expect(badgeRow.compareDocumentPosition(terms) & Node.DOCUMENT_POSITION_PRECEDING)
-        .toBeTruthy()
-    // New windows, and never a referrer-bearing opener back into the dialog.
-    expect(gh?.getAttribute('target')).toBe('_blank')
-    expect(pp?.getAttribute('target')).toBe('_blank')
-    expect(gh?.getAttribute('rel')).toContain('noopener')
-    expect(pp?.getAttribute('rel')).toContain('noopener')
 })
 
 test('blocking: no close affordance, backdrop ignored, Escape = unpersisted decline', async () => {

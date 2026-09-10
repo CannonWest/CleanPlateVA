@@ -63,3 +63,86 @@ test('a first-time visitor is not asked for their location under the terms dialo
     await page.waitForTimeout(500)
     expect(await page.evaluate(() => (window as unknown as Probe).__geoCalls?.length)).toBe(1)
 })
+
+/**
+ * The terms scroll box CONTAINS its scroller (2026-09-10, Cannon's catch —
+ * "text in the terms is overrunning the box a little").
+ *
+ * The scroller used to be `h-full max-h-[46vh]` inside a box sized by
+ * `flex-1`. A percentage height does not resolve against a parent whose
+ * height comes from flex, so `h-full` fell back to `auto` — the whole
+ * ~2,200px document — and the 46vh cap then set the scroller's height to a
+ * number derived from the VIEWPORT rather than from its parent. At 900px
+ * that was 414.16px inside a 404.22px content box: a 5px overhang past a
+ * rounded border with no `overflow-hidden`, so the terms' last line painted
+ * over it. The box is a flex column now and the scroller is `flex-1
+ * min-h-0`, so it is sized BY its parent and cannot exceed it.
+ *
+ * Only a real layout engine can say this, which is why it lives out here:
+ * jsdom reports every box as 0×0 and would pass either way. Measured at
+ * three heights because the old bug's size scaled with the viewport.
+ */
+for (const [w, h] of [[1280, 900], [1280, 700], [375, 812]] as const) {
+    test(`the terms scroller stays inside its box at ${w}x${h}`, async ({ page }) => {
+        await page.setViewportSize({ width: w, height: h })
+        await page.goto('/')
+        await expect(page.getByRole('button', { name: /decline/i })).toBeVisible()
+
+        const box = await page.evaluate(() => {
+            const dialog = document.querySelector('[role="dialog"]')!
+            const scroller = [...dialog.querySelectorAll('div')]
+                .find((d) => getComputedStyle(d).overflowY === 'scroll')!
+            const outer = scroller.parentElement!
+            const o = outer.getBoundingClientRect()
+            const i = scroller.getBoundingClientRect()
+            return {
+                bottomInset: o.bottom - i.bottom,
+                topInset: i.top - o.top,
+                leftInset: i.left - o.left,
+                rightInset: o.right - i.right,
+                scrollable: scroller.scrollHeight > scroller.clientHeight,
+            }
+        })
+
+        // Every edge of the scroller is at or inside the box's border.
+        expect(box.bottomInset).toBeGreaterThanOrEqual(0)
+        expect(box.topInset).toBeGreaterThanOrEqual(0)
+        expect(box.leftInset).toBeGreaterThanOrEqual(0)
+        expect(box.rightInset).toBeGreaterThanOrEqual(0)
+        // The document is long enough that this is a real scroll box — a
+        // scroller that fit its content would satisfy the insets trivially.
+        expect(box.scrollable).toBe(true)
+    })
+}
+
+/**
+ * The terms carry no outward links (2026-09-10). The GitHub and PeerPush
+ * badges rode the foot of this scroll box for one deploy and came out
+ * again, along with About's pair.
+ */
+test('the terms dialog and the About page carry no project badges', async ({ page }) => {
+    await page.goto('/')
+    const dialog = page.locator('[role="dialog"]')
+    await expect(dialog).toBeVisible()
+    await expect(dialog.locator('a[href*="peerpush.com"], a[href*="github.com"]')).toHaveCount(0)
+    await expect(dialog.locator('img')).toHaveCount(2)
+
+    await page.getByRole('button', { name: /agree/i }).click()
+    await page.goto('/about')
+    await expect(page.locator('main')).toBeVisible()
+    await expect(page.locator('a[href*="peerpush.com"], a[href*="github.com"]')).toHaveCount(0)
+    await expect(page.locator('img[src*="peerpush.com"]')).toHaveCount(0)
+
+    // The hero logo stands alone and centered in its row.
+    const row = page.locator('main section').first().locator('> div').first()
+    await expect(row).toHaveClass(/justify-center/)
+    const gaps = await row.evaluate((el) => {
+        const img = [...el.querySelectorAll('img')]
+            .find((i) => getComputedStyle(i).display !== 'none')!
+        const r = el.getBoundingClientRect()
+        const b = img.getBoundingClientRect()
+        return { left: b.left - r.left, right: r.right - b.right, kids: el.children.length }
+    })
+    expect(gaps.kids).toBe(1)
+    expect(Math.abs(gaps.left - gaps.right)).toBeLessThanOrEqual(1)
+})
