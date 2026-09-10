@@ -17,6 +17,10 @@ which remains the authoritative source.
 Built from Virginia Department of Health records and, for the Fairfax
 localities it serves, the Fairfax County Health Department's.
 
+![The map at statewide zoom: 26,867 establishments drawn as grade-coloured
+markers across Virginia, with the A–F filter chips and the search bar above
+them](docs/screenshot.png)
+
 ## Run it
 
 ```bash
