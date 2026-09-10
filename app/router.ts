@@ -29,6 +29,22 @@ export const SORT_KEYS = ['address', 'name', 'zip', 'score', 'compliance', 'tren
 export type SortKey = (typeof SORT_KEYS)[number]
 const GRADES = ['A', 'B', 'C', 'D', 'F'] as const
 
+export function parseGrade(raw: string | null): string | undefined {
+    if (!raw) return undefined
+    const tokens = raw.toUpperCase().split(/[,\s+]+/).map((t) => t.trim()).filter(Boolean)
+    const validGrades = GRADES as readonly string[]
+    const set = new Set<string>()
+    for (const token of tokens) {
+        if (token.length === 1 && validGrades.includes(token)) {
+            set.add(token)
+        } else if (token.length > 1 && token.split('').every((ch) => validGrades.includes(ch))) {
+            for (const ch of token) set.add(ch)
+        }
+    }
+    if (set.size === 0) return undefined
+    return validGrades.filter((g) => set.has(g)).join(',')
+}
+
 // The four persisted toggles: URL key → filter field → shipped default.
 export const FLAG_FIELDS = {
     restaurants: 'restaurantsOnly',
@@ -121,8 +137,9 @@ export function parseUrlState(search: string): UrlState {
         s.q = zipRaw.trim()
     }
     const gradeRaw = p.get('grade')
-    if (gradeRaw !== null && (GRADES as readonly string[]).includes(gradeRaw.toUpperCase())) {
-        s.grade = gradeRaw.toUpperCase()
+    const parsedGrade = parseGrade(gradeRaw)
+    if (parsedGrade) {
+        s.grade = parsedGrade
     }
     for (const [key, field] of Object.entries(FLAG_FIELDS) as [string, FlagField][]) {
         const raw = p.get(key)

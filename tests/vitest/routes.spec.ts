@@ -80,6 +80,9 @@ test('D-URL-3: the URL state set — filters, permit, and List sort/dir/page —
     // Legacy `?zip=` folds into the search box, keeping old shared links.
     assert.deepEqual(parseUrlState('?zip=23294'), { q: '23294' })
     assert.deepEqual(parseUrlState('?zip=23294&grade=a'), { q: '23294', grade: 'A' })
+    assert.deepEqual(parseUrlState('?grade=A,B'), { grade: 'A,B' })
+    assert.deepEqual(parseUrlState('?grade=ab'), { grade: 'A,B' })
+    assert.deepEqual(parseUrlState('?grade=F,A,C'), { grade: 'A,C,F' })
     // A URL carrying both keeps `q` — it is what the visitor actually typed.
     assert.deepEqual(parseUrlState('?q=taco&zip=23294'), { q: 'taco' })
     assert.deepEqual(parseUrlState('?zip=2329'), {})

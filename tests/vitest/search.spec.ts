@@ -102,3 +102,19 @@ test('search works on the basic map too — it is judgment-free state', () => {
     assert.deepEqual(hits(ROWS, 'richmond', 'lite'), ['Taco Bell', 'Sub Rosa', 'Taqueria El Taco'])
     assert.deepEqual(hits(ROWS, '"taco bell"', 'lite'), ['Taco Bell'])
 })
+
+test('grade filters allow single or multiple active grades', () => {
+    const rowA: FacilityLike = { name: 'Place A', status: 'Permitted', grade: { letter: 'A', score: 95 } }
+    const rowB: FacilityLike = { name: 'Place B', status: 'Permitted', grade: { letter: 'B', score: 85 } }
+    const rowC: FacilityLike = { name: 'Place C', status: 'Permitted', grade: { letter: 'C', score: 75 } }
+
+    assert.equal(match(rowA, { grade: 'A' }), true)
+    assert.equal(match(rowB, { grade: 'A' }), false)
+
+    assert.equal(match(rowA, { grade: 'A,B' }), true)
+    assert.equal(match(rowB, { grade: 'A,B' }), true)
+    assert.equal(match(rowC, { grade: 'A,B' }), false)
+
+    // Lite mode ignores grade filters entirely
+    assert.equal(match(rowC, { grade: 'A,B' }, 'lite'), true)
+})

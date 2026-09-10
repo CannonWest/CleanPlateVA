@@ -83,7 +83,7 @@ export function AckDialog({ blocking, onDecide, onEscapeDecline, onClose }: {
                         </button>
                     )}
                     <div className="mb-2 flex justify-center">
-                        <ThemeLogo className="h-12 w-auto sm:h-14" />
+                        <ThemeLogo className="h-36 max-h-[25vh] w-auto max-w-full sm:h-[10.5rem] sm:max-h-none" />
                     </div>
                     <h1 id="cpAckTitle" className="mb-3 text-center text-cp-17 font-bold tracking-[.01em]">
                         Terms of Use and Data Acknowledgment

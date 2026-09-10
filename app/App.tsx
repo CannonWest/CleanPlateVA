@@ -395,7 +395,7 @@ function Shell({ forceLite, ack }: {
                 // thing they present. The choices themselves still hold
                 // (the theme class and the text scale are on <html>, not
                 // on the view), and persist across every view.
-                <div className="absolute inset-0 z-10 overflow-y-auto bg-cp-bg">
+                <div className="absolute inset-0 z-10 overflow-y-auto bg-cp-bg pb-16">
                     <div className="mx-3 mt-3">
                         <Toolbar
                             state={state}
@@ -563,7 +563,7 @@ function Shell({ forceLite, ack }: {
                 />
             )}
 
-            {state.view === 'map' && !blocking && (
+            {!blocking && (
                 // The bottom-left corner: the SETTINGS pill over the
                 // attribution chip, in a pointer-transparent column box. The
                 // note this carried since 2026-09-06 said the column idiom
@@ -616,8 +616,12 @@ function Shell({ forceLite, ack }: {
                 // whitespace-delimited: Tailwind's scanner drops one glued
                 // to a `${`.)
                 <div
-                    className={`pointer-events-none fixed bottom-2.5 left-3 z-10 flex flex-col items-start gap-1.5 max-sm:right-[54px] max-sm:bottom-[38px] ${
-                        basemap === 'aerial' ? 'sm:right-[54px] sm:bottom-[38px]' : 'sm:right-[360px]'
+                    className={`pointer-events-none fixed bottom-2.5 left-3 z-20 flex flex-col items-start gap-1.5 ${
+                        state.view === 'map'
+                            ? `max-sm:right-[54px] max-sm:bottom-[38px] ${
+                                basemap === 'aerial' ? 'sm:right-[54px] sm:bottom-[38px]' : 'sm:right-[360px]'
+                            }`
+                            : ''
                     }`}
                 >
                     {!hintDismissed && <SettingsHint onDismiss={dismissHint} />}
@@ -627,7 +631,7 @@ function Shell({ forceLite, ack }: {
                             setSettingsOpen(true)
                         }}
                     />
-                    <Attribution snapshot={snapshot} onTerms={showTerms} />
+                    {state.view === 'map' && <Attribution snapshot={snapshot} onTerms={showTerms} />}
                 </div>
             )}
 
