@@ -112,6 +112,31 @@ test('the storage key is the v2 key: a v1 draft (host-anchored paths) is never r
     expect(STORAGE_KEY).toBe('cleanplateva.admin.about.v2')
 })
 
+// The Export hint is the only place the editor says what to DO with a draft,
+// and it names a real file. It went unpinned until CPP-M1 rewrote it, so it
+// is pinned here: what the operator is told, and that the instruction is
+// tool-agnostic — the export is a paste, whoever or whatever does the pasting.
+test('the Export dialog tells the operator where the draft goes, without naming a tool', async () => {
+    await render(<AboutEditor onExit={() => {}}><Doc /></AboutEditor>)
+    const heading = host.querySelector('main > h2') as Element
+    await click(heading)
+    const textarea = host.querySelector('#cp-admin-text') as HTMLTextAreaElement
+    const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set
+    await act(async () => {
+        setter?.call(textarea, 'How the score works')
+        textarea.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+    await click(Array.from(host.querySelectorAll('button')).find((b) => b.textContent === 'Apply text') as Element)
+
+    const exportBtn = Array.from(host.querySelectorAll('button')).find((b) => b.textContent === 'Export') as HTMLButtonElement
+    expect(exportBtn.disabled).toBe(false)      // an op exists, so the dialog can open
+    await click(exportBtn)
+
+    const hint = host.querySelector('.fixed.z-\\[60\\]')?.textContent ?? ''
+    expect(hint).toContain('app/AboutView.tsx')
+    expect(hint).not.toMatch(/claude|chatgpt|copilot|\bAI\b/i)
+})
+
 // ── the session page ─────────────────────────────────────────────────────
 
 function fetchAnswering(status: number, body: unknown, contentType = 'application/json; charset=utf-8') {
