@@ -114,7 +114,7 @@ test('content parity: hero, both receipts, weights, pipeline, lineage, all eight
     expect(el.textContent).toContain("CleanPlateVA: an unofficial archive and grading of Virginia's health-inspected food-serving facilities")
     const hero = el.querySelector('h1 + p') as HTMLElement
     expect(hero.querySelectorAll('strong')).toHaveLength(2)
-    expect(hero.querySelectorAll('br')).toHaveLength(2)
+    expect(hero.querySelectorAll('br')).toHaveLength(3)   // the derived-grade disclaimer sits on its own block, a break either side
     expect(hero.textContent).toContain("derived from CleanPlateVA's proprietary grading system")
     expect(hero.textContent).toContain('This site is for reference use only')
     expect(hero.textContent).not.toContain('<b>')

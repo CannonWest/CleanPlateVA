@@ -264,6 +264,7 @@ export function AboutView({ loaded, unavailable, forceLite, ack, onSwitchToBasic
                     MyHealthDepartment and by the Fairfax County Health Department.
                     <br />
                     <strong>The Virginia Department of Health and Fairfax County Health Department do not issue grades on inspection reports, therefore any grade presented here is derived from CleanPlateVA's proprietary grading system based on risk factor, corrections, and repeats</strong>.
+                    <br />
                     CleanPlateVA is not affiliated with or endorsed by VDH, MyHealthDepartment, or
                     the Fairfax County Health Department. All permits and inspections are linked
                     in a given facility's details when clicked.
