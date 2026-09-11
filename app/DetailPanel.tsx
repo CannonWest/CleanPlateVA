@@ -261,12 +261,6 @@ export function DetailPanel({ row, lite, state, onClose, onAbout }: {
                     </p>
                 ) : (
                     <>
-                        {typeof fac.status_onpage === 'string' && fac.status
-                            && fac.status_onpage.toLowerCase() !== (fac.status as string).toLowerCase() && (
-                            <p className="px-4 pt-2.5 text-cp-11.5" style={{ color: 'var(--cp-grade-c)' }} title="The inspection page reports a different status than the permit roster">
-                                ⚠ inspection page says: {fac.status_onpage}
-                            </p>
-                        )}
                         {Array.isArray(fac.merged_from) && fac.merged_from.length > 0 && (
                             <p className="px-4 pt-2.5 text-cp-11.5 text-cp-ink-3" title="Same address, near-identical name — a re-issued permit. History below spans all permits.">
                                 Includes earlier permit{fac.merged_from.length === 1 ? '' : 's'}:{' '}

@@ -165,11 +165,26 @@ test('CLOSED renders muted with the word-badge; NEW is the blue-dot word-badge; 
         sort: { key: 'name', dir: 'asc' },
     })
     const [closedRow, newRow] = Array.from(el.querySelectorAll('tbody tr'))
-    expect(closedRow?.textContent).toContain('closed')
+    expect(closedRow?.textContent).toContain('Business Closed')   // the roster's word, not a constant
     expect(closedRow?.className).toContain('opacity-55')
     expect(newRow?.textContent).toContain('new')
     expect(newRow?.textContent).toContain('NEW')     // the score cell's pending pill
     expect(newRow?.textContent).toContain('—')       // no delta yet
+})
+
+test('the closed badge is the roster status word — an Expired permit reads Expired, never "closed"', async () => {
+    const el = await render({
+        rows: [
+            row({ name: 'Old Tavern', status: 'Expired', o: { grade_score: 60, compliance_pct: 70, latest_yyyymmdd: 20240101, latest_scope_code: 1 } }),
+            row({ name: 'Corner Grill', status: 'Temporary Closure', o: { grade_score: 82, compliance_pct: 90, latest_yyyymmdd: 20260301, latest_scope_code: 1 } }),
+        ],
+        sort: { key: 'name', dir: 'asc' },
+    })
+    const [grill, tavern] = Array.from(el.querySelectorAll('tbody tr'))
+    expect(grill?.textContent).toContain('Temporary Closure')
+    expect(tavern?.textContent).toContain('Expired')
+    expect(tavern?.textContent).not.toContain('closed')
+    expect(tavern?.className).toContain('opacity-55')
 })
 
 test('load-more reveals 50 per chunk, labels per the mockup, and drives page=N', async () => {

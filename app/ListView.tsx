@@ -4,8 +4,11 @@
  * name over address/city/zip · grade chip + score · trend (colored
  * arrow + signed delta, em-dash when null) · last visit (date +
  * scope/outcome). Sticky headers carry the active sort in accent with a
- * direction arrow (C6 `sort`/`dir`); closed rows render muted with a
- * CLOSED word-badge (they exist only while "Show closed" is on); NEW is
+ * direction arrow (C6 `sort`/`dir`); closed rows render muted with the
+ * permit roster's own status word as the badge — Business Closed, Temporary
+ * Closure, Pending, Expired … — falling back to "closed" only when a row
+ * carries no word (they exist only while "Show closed" is on). The site shows
+ * what the portal says and never asserts "closed" where it did not; NEW is
  * the blue-dot word-badge; load-more reveals 50 per chunk and writes
  * `page=N` (D-DATA-11). Row click opens the shared detail panel.
  *
@@ -208,8 +211,11 @@ export function ListView({ rows, lite, sort, page, selectedPermit, onSort, onMor
                                             </span>
                                         )}
                                         {closed && (
-                                            <span className="ml-2 align-middle text-cp-10 font-semibold tracking-[.05em] text-cp-ink-3 uppercase">
-                                                closed
+                                            <span
+                                                className="ml-2 align-middle text-cp-10 font-semibold tracking-[.05em] text-cp-ink-3 uppercase"
+                                                title="The permit roster's status for this record"
+                                            >
+                                                {(f.status as string) || 'closed'}
                                             </span>
                                         )}
                                     </div>
