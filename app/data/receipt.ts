@@ -144,6 +144,7 @@ interface BaseFinding {
     item: number | null
     code: string | null
     text: string
+    corrective: string
     pointsTT: number
     fullTT: number
     repeat: boolean
@@ -168,6 +169,7 @@ function receiptBaseFindings(base: Inspection): BaseFinding[] {
             item,
             code: receiptNormCode(observation.code),
             text: observation.text || '',
+            corrective: observation.corrective || '',
             pointsTT: rowCos ? weightTT * 3 / 4 : weightTT,
             fullTT: weightTT,
             repeat,
@@ -343,6 +345,9 @@ export interface ReceiptBaseItem {
     cos: boolean
     points: number | null
     text: string
+    /** The inspector's corrective-action note for this finding, empty when
+     *  none was recorded — same field InspectionRow shows as the "↳" line. */
+    corrective: string
 }
 
 export interface ReceiptJourneyRow {
@@ -350,6 +355,9 @@ export interface ReceiptJourneyRow {
     idx: number | null
     bucket: JourneyBucket
     texts: string[]
+    /** Positionally aligned with `texts` — this finding's corrective note,
+     *  or '' when none. */
+    correctives: string[]
     category: 'risk_factor' | 'grp'
     narrative: boolean
     repeat: boolean
@@ -630,16 +638,19 @@ export function gradeReceiptPresentation(
 
     // Full text, no truncation — EVERY observation cited under the item
     // comes back (VDH routinely files several unrelated findings under one
-    // item number).
-    const textsFor = (item: number): string[] => {
+    // item number). Corrective notes ride alongside, positionally aligned,
+    // so a finding's "↳" line survives the same fallback the text does.
+    const findingsFor = (item: number): { text: string; corrective: string }[] => {
         const dock = docks.get(item)
         if (dock && dock.findings.length) {
-            return dock.findings.map((f) => f.text).filter(Boolean)
+            return dock.findings
+                .filter((f) => f.text)
+                .map((f) => ({ text: f.text, corrective: f.corrective || '' }))
         }
         for (const fup of followups) {       // new items: found by a re-check
             const hits = (fup.violations || [])
                 .filter((v) => v.item === item && v.text)
-                .map((v) => v.text as string)
+                .map((v) => ({ text: v.text as string, corrective: v.corrective || '' }))
             if (hits.length) return hits     // newest-first: the governing visit
         }
         return []
@@ -655,6 +666,7 @@ export function gradeReceiptPresentation(
             idx: f.idx,
             bucket,
             texts: f.text ? [f.text] : [],
+            correctives: f.text ? [f.corrective || ''] : [],
             category: (f.item as number) <= RF_MAX_ITEM ? 'risk_factor' : 'grp',
             narrative: publishedNarrative.has(f.item as number),
             repeat: f.repeat,
@@ -679,7 +691,8 @@ export function gradeReceiptPresentation(
         item,
         idx: null,
         bucket,
-        texts: textsFor(item),
+        texts: findingsFor(item).map((f) => f.text),
+        correctives: findingsFor(item).map((f) => f.corrective),
         category: item <= RF_MAX_ITEM ? 'risk_factor' : 'grp',
         narrative: publishedNarrative.has(item),
         repeat: false,
@@ -715,13 +728,15 @@ export function gradeReceiptPresentation(
     // category weight however many observations the re-check wrote.
     const journeyNew = (items: number[] | undefined): ReceiptJourneyRow[] =>
         (items || []).map(Number).map((item) => {
-            const texts = textsFor(item)
+            const fs = findingsFor(item)
+            const texts = fs.map((f) => f.text)
             const w = latestWord.get(item)
             const row: ReceiptJourneyRow = {
                 item,
                 idx: null,
                 bucket: 'new',
                 texts,
+                correctives: fs.map((f) => f.corrective),
                 category: item <= RF_MAX_ITEM ? 'risk_factor' : 'grp',
                 narrative: publishedNarrative.has(item),
                 repeat: !!w?.repeat,
@@ -754,6 +769,7 @@ export function gradeReceiptPresentation(
             cos: f.cos,
             points: verified ? oneDpTT(f.pointsTT) : null,
             text: f.text,
+            corrective: f.corrective,
         })))
 
     // The ledger states the published triplet; `exact` decides whether the

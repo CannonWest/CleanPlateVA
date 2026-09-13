@@ -116,11 +116,27 @@ function JourneyRow({ row, delta }: { row: ReceiptJourneyRow; delta: React.React
             {texts.length > 1 ? (
                 <ul className="mt-1 list-disc pl-4">
                     {texts.map((t, i) => (
-                        <li key={i} className="text-cp-12.5">{t}</li>
+                        <li key={i} className="text-cp-12.5">
+                            {t}
+                            {row.correctives[i] && (
+                                <div className="text-cp-12 text-cp-ink-2">
+                                    <span className="text-cp-ink-3">↳ </span>
+                                    {row.correctives[i]}
+                                </div>
+                            )}
+                        </li>
                     ))}
                 </ul>
             ) : texts.length === 1 ? (
-                <div className="mt-1 text-cp-12.5">{texts[0]}</div>
+                <>
+                    <div className="mt-1 text-cp-12.5">{texts[0]}</div>
+                    {row.correctives[0] && (
+                        <div className="mt-1 pl-1 text-cp-12 text-cp-ink-2">
+                            <span className="text-cp-ink-3">↳ </span>
+                            {row.correctives[0]}
+                        </div>
+                    )}
+                </>
             ) : null}
         </ItemShell>
     )
@@ -280,6 +296,12 @@ export function ReceiptModal({ receipt, name, onClose, onAbout, fairfax = false 
                                             )}
                                         </div>
                                         {it.text && <div className="mt-1 text-cp-12.5">{it.text}</div>}
+                                        {it.corrective && (
+                                            <div className="mt-1 pl-1 text-cp-12 text-cp-ink-2">
+                                                <span className="text-cp-ink-3">↳ </span>
+                                                {it.corrective}
+                                            </div>
+                                        )}
                                     </ItemShell>
                                 ))}
                                 {b.itemless && (
