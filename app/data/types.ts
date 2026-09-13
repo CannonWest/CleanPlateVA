@@ -172,6 +172,9 @@ export interface Violation {
     item?: number | null
     code?: string | null
     text?: string
+    /** The inspector's corrective-action note for this specific finding
+     *  (empty string when none) — shown in InspectionRow as the "↳" line. */
+    corrective?: string
     [key: string]: unknown
 }
 
