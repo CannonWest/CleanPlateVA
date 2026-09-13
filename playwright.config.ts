@@ -10,8 +10,16 @@
  * `dist/` must exist — `npm run test:e2e` builds first; CI runs the build
  * step of tests.yml and then `npx playwright test` bare.
  *
- * One worker, no retries: a flake here is information about the map, not
- * noise to average away.
+ * Two workers, not more (2026-09-13): `fullyParallel: false` hands whole
+ * FILES to workers, so wall time floors at the biggest file regardless of
+ * worker count — going to 4 buys nothing over 2 at today's suite shape
+ * (map-edit.spec.ts alone runs 72.5s of its 10 tests) and doubles SwiftShader
+ * (software GL) contention, which is exactly the false-signal risk the
+ * original single-worker choice (2026-09-07, written for a 2-test smoke) was
+ * protecting against. Re-measure if the suite's per-file shape changes.
+ *
+ * No retries: a flake here is information about the map, not noise to
+ * average away.
  */
 import { defineConfig, devices } from '@playwright/test'
 
@@ -20,7 +28,7 @@ export const PREVIEW_ORIGIN = 'http://127.0.0.1:4173'
 export default defineConfig({
     testDir: 'tests/e2e',
     fullyParallel: false,
-    workers: 1,
+    workers: 2,
     retries: 0,
     // A cold map load: the CARTO style, its glyphs, the roster shards, then
     // the worker's first tiles — under a software GL in CI.
