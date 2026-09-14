@@ -98,11 +98,11 @@ test('content parity: hero, both receipts, weights, pipeline, lineage, all eight
     // — and neither the provenance legend nor the kicker.
     // Hero brand logo, CENTERED and alone (2026-09-10): the GitHub and
     // PeerPush badges are gone from the page entirely, so the hero's only
-    // images are the theme logo's two faces and its row just centers them.
+    // image is the theme logo's ONE resolved face (2026-09-14 — it used to
+    // render both and hide one, which still downloaded both) and its row
+    // just centers it.
     const heroImgs = el.querySelectorAll('main section:first-of-type img')
-    expect(heroImgs.length).toBe(2)
-    expect(heroImgs[0]?.className).toContain('light:hidden')
-    expect(heroImgs[1]?.className).toContain('light:block')
+    expect(heroImgs.length).toBe(1)
     const logoRow = heroImgs[0]?.closest('section')?.firstElementChild
     expect(logoRow?.className).toContain('justify-center')
     expect(logoRow?.className).not.toContain('justify-between')

@@ -125,7 +125,9 @@ test('the terms dialog and the About page carry no project badges', async ({ pag
     const dialog = page.locator('[role="dialog"]')
     await expect(dialog).toBeVisible()
     await expect(dialog.locator('a[href*="peerpush.com"], a[href*="github.com"]')).toHaveCount(0)
-    await expect(dialog.locator('img')).toHaveCount(2)
+    // ONE image: the wordmark's resolved face. ThemeLogo used to render both
+    // and hide one, which still downloaded both (2026-09-14).
+    await expect(dialog.locator('img')).toHaveCount(1)
 
     await page.getByRole('button', { name: /agree/i }).click()
     await page.goto('/about')
