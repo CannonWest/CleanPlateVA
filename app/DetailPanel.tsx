@@ -206,7 +206,7 @@ export function DetailPanel({ row, lite, state, onClose, onAbout }: {
                     {/* On a phone the ✕ IS the sheet's top-right corner: the
                         icon stays put, the hit box grows to 8px off both edges. */}
                     <button type="button" aria-label="Close" onClick={onClose} className="flex-none self-start text-cp-ink-3 hover:text-cp-ink max-sm:-m-2 max-sm:p-2">
-                        <X size={17} aria-hidden="true" />
+                        <X size={26} aria-hidden="true" />
                     </button>
                 </div>
                 <div className="mt-2.5 flex flex-wrap items-center gap-x-3.5 gap-y-1.5">
