@@ -63,11 +63,11 @@ test('the dialog is the title alone over the single-source terms, Decline left /
     const dialog = el.querySelector('[role="dialog"]')
     expect(dialog?.getAttribute('aria-modal')).toBe('true')
     // Branded header logo above the title — and it is the dialog's ONLY
-    // image: the terms carry no badges (2026-09-10).
+    // image: the terms carry no badges (2026-09-10), and ThemeLogo renders
+    // ONE face rather than two with one hidden (2026-09-14 — a hidden <img>
+    // is still downloaded). The face itself is theme-logo.spec.tsx's job.
     const logoImgs = dialog?.querySelectorAll('img')
-    expect(logoImgs?.length).toBe(2)
-    expect(logoImgs?.[0]?.className).toContain('light:hidden')
-    expect(logoImgs?.[1]?.className).toContain('light:block')
+    expect(logoImgs?.length).toBe(1)
 
     // Title alone — no kicker, no lede.
     expect(dialog?.querySelector('h1')?.textContent).toBe('Terms of Use and Data Acknowledgment')
