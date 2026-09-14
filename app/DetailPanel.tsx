@@ -149,12 +149,17 @@ function GradeHero({ fac, delta, onOpen }: {
     )
 }
 
-export function DetailPanel({ row, lite, state, onClose, onAbout }: {
+export function DetailPanel({ row, lite, state, onClose, onAbout, onReviewTerms }: {
     row: RosterRow
     lite: boolean
     state: DetailState
     onClose: () => void
     onAbout: () => void
+    /** Reopen the terms from the basic map's panel. NULL when the basic map
+     *  is forced by ?tier=lite: no acknowledgement was ever asked there, so
+     *  there is nothing to review and nothing was declined — that visit keeps
+     *  the plain hand-off line instead. */
+    onReviewTerms: (() => void) | null
 }) {
     const [receiptOpen, setReceiptOpen] = useState(false)
     const approx = approximateLabel(row)
@@ -249,9 +254,30 @@ export function DetailPanel({ row, lite, state, onClose, onAbout }: {
                             View inspections {dept.handoff}
                             <ExternalLink size={13} aria-hidden="true" />
                         </a>
-                        <p className="mt-2.5 text-cp-12 text-cp-ink-3">
-                            Inspection reports live on the official {fairfax ? 'Fairfax County Health Department site' : 'VDH portal'} — this map is a finder.
-                        </p>
+                        {onReviewTerms ? (
+                            <>
+                                <p className="mt-2.5 text-cp-12 text-cp-ink-3">
+                                    You are using the Basic version of CleanPlateVA because you declined
+                                    the terms for our grading system. Please click the button below to
+                                    view Terms again
+                                </p>
+                                {/* The same control the About page's status box carries
+                                    (AboutView §09, accent tone) — one way back to the
+                                    terms, worded and styled the same in both places. */}
+                                <button
+                                    type="button"
+                                    onClick={onReviewTerms}
+                                    className="mt-2.5 rounded-cp-control border px-2.5 py-1.5 text-cp-12 font-semibold hover:bg-cp-surface-3"
+                                    style={{ color: 'var(--cp-accent)', borderColor: 'var(--cp-accent)' }}
+                                >
+                                    Review the terms and view grades
+                                </button>
+                            </>
+                        ) : (
+                            <p className="mt-2.5 text-cp-12 text-cp-ink-3">
+                                Inspection reports live on the official {fairfax ? 'Fairfax County Health Department site' : 'VDH portal'} — this map is a finder.
+                            </p>
+                        )}
                     </div>
                 ) : state.status === 'loading' ? (
                     <p className="px-4 py-4 text-cp-12.5 text-cp-ink-3">Loading {row.name}…</p>
