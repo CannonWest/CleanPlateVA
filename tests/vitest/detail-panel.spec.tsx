@@ -123,6 +123,7 @@ test('the full panel: header, fact line, tappable hero → report-card modal, tr
             state={{ status: 'ready', detail: detail() }}
             onClose={() => {}}
             onAbout={() => {}}
+            onReviewTerms={() => {}}
         />,
     )
     // Header: identity + the Source button in the external grammar + close.
@@ -171,6 +172,7 @@ test('the full panel: header, fact line, tappable hero → report-card modal, tr
 })
 
 test('the basic map keeps the identity + official hand-off (P6/C8)', async () => {
+    let reviewed = 0
     const el = await render(
         <DetailPanel
             row={row()}
@@ -178,12 +180,42 @@ test('the basic map keeps the identity + official hand-off (P6/C8)', async () =>
             state={{ status: 'loading' }}
             onClose={() => {}}
             onAbout={() => {}}
+            onReviewTerms={() => { reviewed += 1 }}
         />,
     )
     expect(el.textContent).toContain('View inspections on VDH')
-    expect(el.textContent).toContain('this map is a finder')
     expect(el.textContent).not.toContain('Tap to see Grade breakdown')
     expect(el.querySelector('svg.cp-trend')).toBeNull()
+
+    // Declined rather than forced: the panel says WHY the grades are absent
+    // and carries the one way back — the About page's own control, same
+    // words, so the two places cannot drift.
+    expect(el.textContent).toContain('Basic version of CleanPlateVA because you declined')
+    expect(el.textContent).not.toContain('this map is a finder')
+    const back = Array.from(el.querySelectorAll('button'))
+        .find((b) => b.textContent?.includes('Review the terms and view grades'))
+    expect(back).toBeTruthy()
+    await act(async () => {
+        back?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+    expect(reviewed).toBe(1)
+})
+
+test('the basic map forced by ?tier=lite declined nothing, so it keeps the hand-off line', async () => {
+    const el = await render(
+        <DetailPanel
+            row={row()}
+            lite
+            state={{ status: 'loading' }}
+            onClose={() => {}}
+            onAbout={() => {}}
+            onReviewTerms={null}
+        />,
+    )
+    expect(el.textContent).toContain('this map is a finder')
+    expect(el.textContent).not.toContain('because you declined')
+    expect(Array.from(el.querySelectorAll('button'))
+        .some((b) => b.textContent?.includes('Review the terms'))).toBe(false)
 })
 
 // FFX-M4: a Fairfax Health District facility. The exporter's `tenant`
@@ -236,6 +268,7 @@ test('a Fairfax Health District facility links to the county and names it (FFX-M
             state={{ status: 'ready', detail: fairfaxDetail() }}
             onClose={() => {}}
             onAbout={() => {}}
+            onReviewTerms={() => {}}
         />,
     )
     const source = Array.from(el.querySelectorAll('a')).find((a) => a.textContent?.includes('Source'))
@@ -263,6 +296,9 @@ test('a Fairfax Health District facility links to the county and names it (FFX-M
     expect(el.textContent).not.toContain('Open the official VDH report')
 })
 
+// Forced-lite, because the department-named hand-off line is that branch's:
+// a visitor who DECLINED sees the terms message instead (the county link and
+// its label, which is what this test is really about, are the same either way).
 test('the basic map hands a Fairfax facility off to the county (FFX-M4)', async () => {
     const el = await render(
         <DetailPanel
@@ -271,6 +307,7 @@ test('the basic map hands a Fairfax facility off to the county (FFX-M4)', async 
             state={{ status: 'loading' }}
             onClose={() => {}}
             onAbout={() => {}}
+            onReviewTerms={null}
         />,
     )
     expect(el.textContent).toContain('View inspections at Fairfax County')
@@ -290,6 +327,7 @@ test('a Fairfax row with ffx_oid deep-links the Source and the basic-map hand-of
             state={{ status: 'ready', detail: fairfaxDetail() }}
             onClose={() => {}}
             onAbout={() => {}}
+            onReviewTerms={() => {}}
         />,
     )
     const source = Array.from(full.querySelectorAll('a')).find((a) => a.textContent?.includes('Source'))
@@ -303,6 +341,7 @@ test('a Fairfax row with ffx_oid deep-links the Source and the basic-map hand-of
             state={{ status: 'loading' }}
             onClose={() => {}}
             onAbout={() => {}}
+            onReviewTerms={() => {}}
         />,
     )
     const cta = Array.from(lite.querySelectorAll('a')).find((a) => a.textContent?.includes('View inspections'))
@@ -317,6 +356,7 @@ test('an unavailable detail reads as exactly that', async () => {
             state={{ status: 'ready', detail: { available: false, reason: 'no data published yet' } }}
             onClose={() => {}}
             onAbout={() => {}}
+            onReviewTerms={() => {}}
         />,
     )
     expect(el.textContent).toContain('Failed to load: no data published yet')
@@ -330,6 +370,7 @@ test('the phone sheet stops at the band line, on every view', async () => {
             state={{ status: 'ready', detail: detail() }}
             onClose={() => {}}
             onAbout={() => {}}
+            onReviewTerms={() => {}}
         />,
     )
     const sheet = el.querySelector('aside')!.className

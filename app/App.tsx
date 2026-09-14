@@ -560,6 +560,9 @@ function Shell({ forceLite, ack }: {
                     state={detailState}
                     onClose={() => actions.closePanel()}
                     onAbout={() => actions.setView('about')}
+                    // Nothing was declined under ?tier=lite and nothing is
+                    // asked there, so that visit gets no way back to the terms.
+                    onReviewTerms={forceLite ? null : () => setTermsOpen(true)}
                 />
             )}
 
