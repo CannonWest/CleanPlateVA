@@ -36,6 +36,7 @@
 
 const DATA_PREFIX = '/data-full/';
 const ADMIN_API_PREFIX = '/admin/api/';
+const CONTACT_PATH = '/api/contact';
 
 export default {
     async fetch(request, env, ctx) {
@@ -46,8 +47,11 @@ export default {
         if (url.pathname.startsWith(ADMIN_API_PREFIX)) {
             return serveAdminApi(request, env, url);
         }
-        // Unreachable under the deployed run_worker_first (only the two
-        // prefixes above invoke the worker); kept so a widened list still
+        if (url.pathname === CONTACT_PATH) {
+            return serveContact(request, env);
+        }
+        // Unreachable under the deployed run_worker_first (only the three
+        // paths above invoke the worker); kept so a widened list still
         // serves the site rather than 404ing it.
         return env.ASSETS.fetch(request);
     },
@@ -488,6 +492,184 @@ async function listAll(store, prefix) {
         cursor = page.truncated ? page.cursor : undefined;
     } while (cursor && out.length < LIST_CAP);
     return out.slice(0, LIST_CAP);
+}
+
+// ── the contact route (2026-09-17) ───────────────────────────────────────
+
+/**
+ * `POST /api/contact` — a visitor's message to the maintainer (design ref
+ * §6.7). The ONE public write route on this Worker, and the only one that
+ * reads no identity at all: a message is not inspection data, so the tier
+ * and the acknowledgement have nothing to say about it (the client posts
+ * with plain `fetch`, never the data client — C2/C3 gate the ARCHIVE).
+ *
+ * Delivery is Cloudflare Email Service through the `CONTACT_EMAIL` send
+ * binding, which is pinned in wrangler.jsonc to ONE `destination_address`.
+ * That pin is the point: this code names no recipient, so no bug here and no
+ * value in a request can make the Worker mail anyone but the maintainer's own
+ * address. The visitor's address rides as `replyTo`, never as `from` — the
+ * sender must be the onboarded sending domain or the send is refused
+ * (E_SENDER_NOT_VERIFIED), and forging a visitor into `from` would be a
+ * spoof besides.
+ *
+ *   200 { ok: true }              accepted and sent — and the same answer a
+ *                                 honeypot submission gets, mailing nothing,
+ *                                 so a bot learns nothing from the reply;
+ *   400 { ok: false, reason }     "<field>: <what>" — the shape it refused;
+ *   405 / 413 / 415               method · over MAX_CONTACT_BYTES · not JSON;
+ *   429 { ok: false, reason }     over the per-address rate limit;
+ *   500 { ok: false, reason }     a binding this route needs is missing —
+ *                                 loud, as the proposals store is;
+ *   502 { ok: false, reason }     Email Service refused or was unreachable.
+ *
+ * Every answer is `no-store`, and every answer is JSON: the client reads a
+ * non-JSON body as "it did not arrive" (the SPA fallback under a mount with
+ * no Worker behind it).
+ */
+const MAX_CONTACT_BYTES = 16 * 1024;
+/** RFC 5321's maximum path length. Mirrors app/contact.ts EMAIL_MAX — the
+ *  client's copy is a courtesy to the typist; THIS is the one that decides.
+ *  `contact.spec.ts` pins the two in step. */
+const CONTACT_EMAIL_MAX = 254;
+const CONTACT_SUBJECT_MAX = 150;
+const CONTACT_MESSAGE_MAX = 5000;
+/** Deliberately permissive — see app/contact.ts EMAIL_RE, which this
+ *  mirrors. The only authority on whether an address exists is a delivery
+ *  attempt; this catches the typo a reply-to would die on. */
+const CONTACT_EMAIL_RE = /^[^\s@,;<>"\\]+@[^\s@.,;<>"\\]+(?:\.[^\s@.,;<>"\\]+)+$/;
+/** CR, LF and friends. Refused in the address and the subject because those
+ *  become mail HEADERS; the message body keeps its newlines. */
+const CONTROL_CHARS_RE = /[\u0000-\u001f\u007f]/;
+/** The subject a message arrives under, so the inbox can file it. */
+const CONTACT_SUBJECT_TAG = '[CleanPlateVA]';
+
+async function serveContact(request, env) {
+    if (request.method !== 'POST') {
+        return json({ ok: false, reason: 'method not allowed' }, 405, NO_STORE, request.method);
+    }
+    // Every binding checked BEFORE the body is read, so a misconfigured
+    // deploy fails the same way on every request instead of only on the ones
+    // whose shape happens to be valid.
+    const mailer = env.CONTACT_EMAIL;
+    if (!mailer || typeof mailer.send !== 'function') {
+        return json({ ok: false, reason: 'contact mailer not configured' }, 500, NO_STORE);
+    }
+    const from = env.CONTACT_FROM;
+    if (typeof from !== 'string' || !CONTACT_EMAIL_RE.test(from)) {
+        return json({ ok: false, reason: 'contact sender not configured' }, 500, NO_STORE);
+    }
+    const limiter = env.CONTACT_LIMIT;
+    if (!limiter || typeof limiter.limit !== 'function') {
+        return json({ ok: false, reason: 'contact rate limit not configured' }, 500, NO_STORE);
+    }
+
+    const contentType = (request.headers.get('Content-Type') || '').trim().toLowerCase();
+    if (!/^application\/json(?:\s*;|$)/.test(contentType)) {
+        return json({ ok: false, reason: 'the message must be sent as application/json' }, 415, NO_STORE);
+    }
+    const text = await request.text();
+    if (new TextEncoder().encode(text).length > MAX_CONTACT_BYTES) {
+        return json({ ok: false, reason: `the message exceeds ${MAX_CONTACT_BYTES} bytes` }, 413, NO_STORE);
+    }
+    let body;
+    try {
+        body = JSON.parse(text);
+    } catch (_) {
+        return json({ ok: false, reason: '$: not JSON' }, 400, NO_STORE);
+    }
+    if (!isObject(body)) {
+        return json({ ok: false, reason: '$: must be an object' }, 400, NO_STORE);
+    }
+
+    // The rate limit is measured on the CONNECTING ADDRESS, before the send
+    // and after the cheap checks — a refused shape should not spend a
+    // visitor's allowance, and a flood should not reach Email Service. One
+    // fixed key when the header is absent (local `wrangler dev`, a test):
+    // that is a shared bucket, which is the safe direction to fail.
+    const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+    let allowed;
+    try {
+        allowed = await limiter.limit({ key: `contact:${ip}` });
+    } catch (_) {
+        // A limiter that cannot answer must not become an open door.
+        return json({ ok: false, reason: 'the message could not be sent' }, 502, NO_STORE);
+    }
+    if (!allowed?.success) {
+        return json({
+            ok: false,
+            reason: 'too many messages from this address just now — try again in a minute',
+        }, 429, NO_STORE);
+    }
+
+    const email = contactText(body.email, 'email', CONTACT_EMAIL_MAX);
+    if (email.error) return json({ ok: false, reason: email.error }, 400, NO_STORE);
+    if (CONTROL_CHARS_RE.test(email.value) || !CONTACT_EMAIL_RE.test(email.value)) {
+        return json({ ok: false, reason: 'email: does not look like an email address' }, 400, NO_STORE);
+    }
+    const subject = contactText(body.subject, 'subject', CONTACT_SUBJECT_MAX);
+    if (subject.error) return json({ ok: false, reason: subject.error }, 400, NO_STORE);
+    if (CONTROL_CHARS_RE.test(subject.value)) {
+        return json({ ok: false, reason: 'subject: cannot contain control characters' }, 400, NO_STORE);
+    }
+    const message = contactText(body.message, 'message', CONTACT_MESSAGE_MAX);
+    if (message.error) return json({ ok: false, reason: message.error }, 400, NO_STORE);
+
+    // The honeypot: a field no person can reach (app/ContactDialog.tsx hides
+    // it from sight, from the accessible tree and from the tab order), so
+    // anything in it filled every input it found. Answered with the SAME
+    // success a real send gets — a bot that can tell refusal from acceptance
+    // learns what to change.
+    if (typeof body.trap === 'string' && body.trap.trim()) {
+        return json({ ok: true }, 200, NO_STORE);
+    }
+
+    try {
+        await mailer.send({
+            from,
+            // No `to`: the binding's `destination_address` is the recipient,
+            // and leaving it out of the code is what makes that a guarantee.
+            replyTo: email.value,
+            subject: `${CONTACT_SUBJECT_TAG} ${subject.value}`,
+            text: contactBody({
+                email: email.value,
+                message: message.value,
+                ip,
+                country: request.headers.get('CF-IPCountry') || 'unknown',
+                receivedAt: new Date().toISOString(),
+            }),
+        });
+    } catch (_) {
+        // The reason is Email Service's (an unverified sender, a quota, an
+        // outage) and is the site's problem, not the visitor's — logged by
+        // the platform, never handed to the browser.
+        return json({ ok: false, reason: 'the message could not be sent' }, 502, NO_STORE);
+    }
+    return json({ ok: true }, 200, NO_STORE);
+}
+
+/** A required string field, trimmed, within `max`. `{ value }` or `{ error }`
+ *  in the `"<field>: <what>"` grammar the proposals route refuses in. */
+function contactText(value, field, max) {
+    if (typeof value !== 'string') return { error: `${field}: must be a string`, value: '' };
+    const trimmed = value.trim();
+    if (!trimmed) return { error: `${field}: is required`, value: '' };
+    if (trimmed.length > max) return { error: `${field}: at most ${max} characters`, value: '' };
+    return { value: trimmed };
+}
+
+/** The message as it arrives in the inbox: the visitor's words first, then a
+ *  fixed footer saying where it came from. The address is repeated below the
+ *  rule because `replyTo` is a header a client may not show. */
+function contactBody({ email, message, ip, country, receivedAt }) {
+    return [
+        message,
+        '',
+        '--',
+        'Sent from the CleanPlateVA About page.',
+        `From: ${email}`,
+        `Received: ${receivedAt}`,
+        `Origin: ${country} / ${ip}`,
+    ].join('\n');
 }
 
 // ── the draft's shape ────────────────────────────────────────────────────

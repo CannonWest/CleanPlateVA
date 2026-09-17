@@ -59,7 +59,14 @@
         //            untouched. /admin itself (the session page) is NOT here:
         //            it is the SPA shell, served by the assets layer through
         //            Access like any other path.
-        "run_worker_first": ["/data-full/*", "/admin/api/*"],
+        //   /api/contact  joined 2026-09-17 (design ref frontend-redesign.md
+        //            §6.7): the About page's contact form, the one PUBLIC
+        //            write route here. An exact path, not a prefix — nothing
+        //            else under /api exists, and a splat would hand the
+        //            worker every probe for one. A visitor pays this
+        //            invocation only by pressing Send; the request diet is
+        //            otherwise untouched.
+        "run_worker_first": ["/data-full/*", "/admin/api/*", "/api/contact"],
         // Real per-view URLs (/list, /about — app/router.ts): any path
         // that is not an asset gets index.html and the client routes it
         // (unknown paths normalize to /). Assets and the /data-full/*
@@ -97,11 +104,51 @@
     // PROPOSAL_OPERATOR (CPE-M3) is the `operator` a stored draft carries —
     // the contract's `human:<name>` handle for the one email the application
     // admits; the verified email itself rides beside it as `submitted_by`.
+    // CONTACT_FROM (2026-09-17) is the envelope sender the contact route
+    // mails AS. It must be an address on a domain onboarded to Cloudflare
+    // Email Service, or every send is refused E_SENDER_NOT_VERIFIED; a var
+    // rather than a literal so the address can move without a code change.
+    // The visitor's own address never lands here — it rides as `replyTo`.
     "vars": {
         "ACCESS_TEAM_DOMAIN": "https://cannonwest.cloudflareaccess.com",
         "ACCESS_AUD": "ceb3edb0a2a92bc1115a7569db031d6c27b1fd84d0f9d3b80f73e761bbb72360",
-        "PROPOSAL_OPERATOR": "human:cannon"
+        "PROPOSAL_OPERATOR": "human:cannon",
+        "CONTACT_FROM": "contact@cleanplateva.com"
     },
+    // The contact form's delivery (2026-09-17, design ref §6.7). The
+    // `destination_address` pin is the security boundary, not a convenience:
+    // src/worker.js names no recipient at all, so nothing in a request and no
+    // bug in that code can make this Worker mail anyone else. Sending to a
+    // VERIFIED destination address is free on any plan and counts against no
+    // quota or daily limit, which is why the recipient is the maintainer's
+    // own verified address rather than an arbitrary one.
+    //
+    // Setup this depends on (one-time, Cloudflare dashboard — the deploy
+    // succeeds without it and every send answers 502 until it is done):
+    //   1. onboard cleanplateva.com to Email Service as a sending domain
+    //      (publishes the DKIM/SPF records), so CONTACT_FROM can send;
+    //   2. add CleanPlateVA@gmail.com as a destination address and click the
+    //      verification link Cloudflare mails to it.
+    "send_email": [
+        {
+            "name": "CONTACT_EMAIL",
+            "destination_address": "CleanPlateVA@gmail.com"
+        }
+    ],
+    // Per-address throttle on that one route (the native Rate Limiting
+    // binding — no KV, no Durable Object, no storage to keep). `period` may
+    // only be 10 or 60. Three a minute is room for a visitor who mistypes an
+    // address twice and none for a flood; the key is the connecting IP, so
+    // one sender's burst never spends another's allowance. `namespace_id` is
+    // this Worker's own counter space and must stay stable — changing it
+    // silently resets every bucket.
+    "ratelimits": [
+        {
+            "name": "CONTACT_LIMIT",
+            "namespace_id": "1",
+            "simple": { "limit": 3, "period": 60 }
+        }
+    ],
     "workers_dev": false,
     "preview_urls": false,
     "routes": [

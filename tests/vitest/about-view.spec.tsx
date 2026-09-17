@@ -82,6 +82,7 @@ async function render(over: Partial<React.ComponentProps<typeof AboutView>> = {}
                 ack={over.ack ?? ANSWERED}
                 onSwitchToBasic={over.onSwitchToBasic ?? (() => {})}
                 onReviewTerms={over.onReviewTerms ?? (() => {})}
+                onContact={over.onContact ?? (() => {})}
                 scrollToTerms={over.scrollToTerms ?? false}
                 onTermsShown={over.onTermsShown ?? (() => {})}
             />,
@@ -244,6 +245,45 @@ test('the status panel buttons drive the tier switch', async () => {
         back?.click()
     })
     expect(reviewed).toBe(1)
+})
+
+test('the contact box is the document\'s last word, and its own box (§6.7)', async () => {
+    let contacted = 0
+    const el = await render({ onContact: () => { contacted += 1 } })
+    const box = Array.from(el.querySelectorAll('button'))
+        .find((b) => b.textContent?.trim() === 'Have questions or comments? Click here to send me a message!')
+    expect(box, 'the maintainer\'s own copy, verbatim').toBeTruthy()
+
+    // The WHOLE box is the control, centered: there is nothing else in it.
+    expect(box?.className).toContain('text-center')
+    expect(box?.className).toContain('w-full')
+
+    // Outside §05's card, and outside the body the ack dialog clones (C2) —
+    // it is neither a term nor a tier.
+    expect(box?.closest('#aboutTerms')).toBeNull()
+    expect(box?.closest('#aboutTermsBody')).toBeNull()
+    // The document's last element, after the terms.
+    const main = el.querySelector('main')
+    expect(main?.lastElementChild).toBe(box)
+
+    await act(async () => {
+        box?.click()
+    })
+    expect(contacted).toBe(1)
+})
+
+test('the contact box stands on the basic map and under ?tier=lite too', async () => {
+    // A message is not inspection data: no tier and no acknowledgement has
+    // anything to say about who may write.
+    for (const over of [{ ack: DECLINED }, { forceLite: true, ack: UNDECIDED }]) {
+        await act(async () => {
+            root?.unmount()
+        })
+        host?.remove()
+        const el = await render(over)
+        expect(el.textContent, JSON.stringify(over))
+            .toContain('Have questions or comments? Click here to send me a message!')
+    }
 })
 
 test('?tier=lite states the override and offers nothing to press', async () => {

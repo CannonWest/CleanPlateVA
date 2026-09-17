@@ -214,13 +214,16 @@ function LiveCard({ k, v, small }: { k: string; v: string; small?: string }) {
 
 // ── the view ────────────────────────────────────────────────────────────
 
-export function AboutView({ loaded, unavailable, forceLite, ack, onSwitchToBasic, onReviewTerms, scrollToTerms, onTermsShown }: {
+export function AboutView({ loaded, unavailable, forceLite, ack, onSwitchToBasic, onReviewTerms, onContact, scrollToTerms, onTermsShown }: {
     loaded: LoadedRoster | null
     unavailable: boolean
     forceLite: boolean
     ack: AckView
     onSwitchToBasic: () => void
     onReviewTerms: () => void
+    /** Opens the contact dialog (§6.7). Never gated on the tier or the
+     *  acknowledgement — a message is not inspection data. */
+    onContact: () => void
     /** A cold-loaded /about#aboutTerms or the footer's terms link: bring
      *  §05 into view with its heading focused, once. */
     scrollToTerms: boolean
@@ -597,6 +600,21 @@ export function AboutView({ loaded, unavailable, forceLite, ack, onSwitchToBasic
                     )}
                 </div>
             </Card>
+
+            {/* The way to write to the maintainer (a design decision,
+                2026-09-17; design ref §6.7) — the document's LAST word, after
+                the terms, and a box of its own rather than a row inside §05:
+                it is not a term and not a tier, and the status panel above it
+                owns the one thing C2 says belongs there. The whole box is the
+                control, centered, because there is nothing else in it to
+                aim at. The copy is the maintainer's own. */}
+            <button
+                type="button"
+                onClick={onContact}
+                className="my-3.5 block w-full rounded-cp-card border border-cp-accent bg-cp-surface-1 px-4 py-4 text-center text-cp-13.5 font-semibold text-cp-accent shadow-cp hover:bg-cp-surface-3 sm:px-4.5"
+            >
+                Have questions or comments? Click here to send me a message!
+            </button>
         </main>
     )
 }
