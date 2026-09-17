@@ -200,15 +200,23 @@ test('wrangler.jsonc pins the one recipient, and the Worker names none', () => {
     const wrangler = readFileSync(join(ROOT, 'wrangler.jsonc'), 'utf8')
     const worker = readFileSync(join(ROOT, 'src', 'worker.js'), 'utf8')
 
-    // The destination pin IS the boundary: the Worker cannot mail anyone else
-    // because it never says who to mail (worker-contact.spec.ts asserts the
-    // absence of `to` on the sent message; this asserts the pin exists).
+    // The destination pin is the boundary: Email Service refuses anything but
+    // the pinned address, so the worst a wrong CONTACT_TO can do is fail.
+    // That only holds while the two AGREE — hence this.
     assert.match(wrangler, /"name":\s*"CONTACT_EMAIL"/)
-    assert.match(wrangler, /"destination_address":\s*"CleanPlateVA@gmail\.com"/)
-    // A lower-case `to:` field anywhere in the send call would defeat it.
+    const pinned = wrangler.match(/"destination_address":\s*"([^"]+)"/)
+    assert.ok(pinned, 'the send binding must pin one destination_address')
+    const configured = wrangler.match(/"CONTACT_TO":\s*"([^"]+)"/)
+    assert.ok(configured, 'CONTACT_TO must be a var')
+    expect(configured[1]).toBe(pinned[1])
+
+    // The recipient reaches `send` as the bound `to` — never a literal, and
+    // never anything read off the request.
     const send = worker.match(/mailer\.send\(\{[\s\S]*?\}\);/)
     assert.ok(send, 'the contact route must call mailer.send')
-    assert.doesNotMatch(send[0], /(^|[^a-zA-Z])to:/, 'the Worker must not name a recipient')
+    assert.match(send[0], /^\s*to,$/m, 'the recipient is the CONTACT_TO binding, not a literal')
+    assert.doesNotMatch(send[0], /to:\s*['"]/, 'no hard-coded address in the send call')
+    assert.doesNotMatch(send[0], /body\.|draft\./, 'nothing in the send call is read off the request')
 
     // The sender must be configuration, not a literal: it has to track
     // whatever domain is onboarded to Email Service.
