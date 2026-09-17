@@ -193,10 +193,8 @@ export function ContactDialog({ open, onOpenChange, send = sendContact }: {
                     {phase === 'sent' ? (
                         <>
                             <p id={`${ids}-lede`} className="mt-1 mb-4 text-cp-13 leading-normal text-cp-ink-2">
-                                Thank you — your message is on its way, and a reply will come to
-                                the address you gave. CleanPlateVA cannot change an inspection
-                                record or a health department's findings; for those, the
-                                authorities linked on this page are the ones to write to.
+                                Thank you! Your message is on its way and a reply will be sent to
+                                the address listed on the form.
                             </p>
                             <div className="flex justify-end">
                                 <Dialog.Close asChild>
