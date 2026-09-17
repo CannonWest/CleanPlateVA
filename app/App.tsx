@@ -114,16 +114,30 @@ function Shell({ forceLite, ack }: {
     // The acknowledgement (§6.1): BLOCKING on an undecided first load (the
     // provider is already withholding every fetch, C2); re-openable from
     // About §05's declined-side action any later time.
+    //
+    // A re-opened dialog remembers WHERE it was opened from, because that
+    // decides where the decision lands (a design decision, 2026-09-17).
+    // About §05's own action is the visitor asking to change tier from a
+    // document about the tiers, so the decision hands them the MAP, which is
+    // what the new tier actually changes — 'to-map'. The detail panel's way
+    // back in (DetailPanel, the basic map's explanation) is pressed while
+    // already looking at the thing it affects, so that decision stays where
+    // it is — 'stay'. Null is closed; the blocking first load carries no
+    // origin at all (nothing to return to — the visitor has not arrived yet).
+    type TermsOrigin = 'to-map' | 'stay'
     const blocking = !forceLite && roster.status === 'awaiting-ack'
-    const [termsOpen, setTermsOpen] = useState(false)
-    const decide = (value: string, persist = true) => {
+    const [termsOpen, setTermsOpen] = useState<TermsOrigin | null>(null)
+    const decide = (value: string, { persist = true, thenMap = false } = {}) => {
         const changed = ack.value !== value
         ack.set(value, { persist })
-        setTermsOpen(false)
+        setTermsOpen(null)
         // The tier is about to flip; a selection from the old tier must
         // not outlive it (the old _decideAck discipline).
         if (changed && state.permit) actions.closePanel()
         reload()
+        // Last, so the panel close above is the replaceState and this is the
+        // push: Back then returns to the document the visitor came from.
+        if (thenMap) actions.setView('map')
     }
 
     // The theme (theme.ts): the visitor's three-way choice, resolved against
@@ -335,12 +349,15 @@ function Shell({ forceLite, ack }: {
             unavailable={unavailable}
             forceLite={forceLite}
             ack={{ agreed: ack.agreed, decided: ack.decided, persisted: ack.persisted }}
-            onSwitchToBasic={() => {
-                // A downgrade needs no acknowledgement (ack.js).
-                ack.set(ACK_DECLINED)
-                reload()
-            }}
-            onReviewTerms={() => setTermsOpen(true)}
+            // Both of §05's actions end on the MAP (a design decision,
+            // 2026-09-17): the panel states which tier this device is on and
+            // offers the one way to the other, so pressing it is a request to
+            // go and LOOK at the difference — leaving the visitor at the foot
+            // of the terms was the defect. The downgrade needs no
+            // acknowledgement (ack.js) but goes through `decide` all the same,
+            // for the selection-clearing it shares with the dialog.
+            onSwitchToBasic={() => decide(ACK_DECLINED, { thenMap: true })}
+            onReviewTerms={() => setTermsOpen('to-map')}
             scrollToTerms={termsIntent}
             onTermsShown={() => setTermsIntent(false)}
         />
@@ -562,7 +579,7 @@ function Shell({ forceLite, ack }: {
                     onAbout={() => actions.setView('about')}
                     // Nothing was declined under ?tier=lite and nothing is
                     // asked there, so that visit gets no way back to the terms.
-                    onReviewTerms={forceLite ? null : () => setTermsOpen(true)}
+                    onReviewTerms={forceLite ? null : () => setTermsOpen('stay')}
                 />
             )}
 
@@ -641,9 +658,9 @@ function Shell({ forceLite, ack }: {
             {(blocking || termsOpen) && (
                 <AckDialog
                     blocking={blocking}
-                    onDecide={(value) => decide(value)}
-                    onEscapeDecline={() => decide(ACK_DECLINED, false)}
-                    onClose={() => setTermsOpen(false)}
+                    onDecide={(value) => decide(value, { thenMap: termsOpen === 'to-map' })}
+                    onEscapeDecline={() => decide(ACK_DECLINED, { persist: false })}
+                    onClose={() => setTermsOpen(null)}
                 />
             )}
 
