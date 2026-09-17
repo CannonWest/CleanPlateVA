@@ -133,11 +133,31 @@ test('the form offers exactly the three fields, Cancel and Send', async () => {
 test('nothing complains before the visitor has had a chance to type', async () => {
     const dialog = await open(accepts())
     expect(dialog.querySelectorAll('[aria-invalid="true"]').length).toBe(0)
-    // The lede says every field IS required; no field says it yet. (Matched
-    // on the complaint's own sentence, not the substring the lede shares.)
-    expect(dialog.textContent).toContain('Every field is required')
+    expect(dialog.textContent).not.toContain('is required, so a reply can reach you')
     expect(dialog.textContent).not.toContain('A subject is required.')
     expect(dialog.textContent).not.toContain('A message is required.')
+})
+
+test('no lede, and every label carries its own "(required)" (2026-09-17)', async () => {
+    const dialog = await open(accepts())
+    // The paragraph that said it for all three at once is gone.
+    expect(dialog.textContent).not.toContain('Questions, corrections and comments are all welcome')
+    // The title is the only description, so nothing may point at a lede
+    // that is not in the tree.
+    expect(dialog.getAttribute('aria-describedby')).toBeNull()
+
+    for (const [name, label] of [
+        ['email', 'Your email address'],
+        ['subject', 'Subject'],
+        ['message', 'Message'],
+    ] as const) {
+        const el = field(dialog, name)
+        const labelEl = dialog.querySelector(`label[for="${el.id}"]`)
+        expect(labelEl?.textContent, name).toBe(`${label} (required)`)
+        // INSIDE the label, so it joins the control's accessible name rather
+        // than sitting beside it as decoration.
+        expect(labelEl?.textContent, name).toContain('(required)')
+    }
 })
 
 test('a refused Send asks about EVERY field at once, and posts nothing', async () => {

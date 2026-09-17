@@ -8,6 +8,10 @@
  * decision, so the two actions are Cancel (outlined — a standing control,
  * §6.0) and Send (filled accent, the affirmative, as Settings' Done is).
  *
+ * No lede: the title names the dialog and each label carries its own
+ * "(required)" (a design decision, 2026-09-17 — the paragraph that said it
+ * for all three at once is gone, as §6.5's lede was cut on its first look).
+ *
  * Three states, one dialog:
  *   · the form — three required fields, each complaining in place once it
  *     has been asked to (`touched`), never before a visitor has had a
@@ -40,10 +44,20 @@ const EMPTY: ContactDraft = { email: '', subject: '', message: '' }
 
 type Phase = 'form' | 'sending' | 'sent'
 
-/** The shared field chrome: label, control, and the one complaint. */
-function Field({ id, label, error, hint, children }: {
+/** The shared field chrome: label, control, and the one complaint.
+ *
+ *  `required` marks the label rather than the form, because the lede that
+ *  used to say it for all three at once is gone (a design decision,
+ *  2026-09-17): the fact belongs beside the field it constrains, where it is
+ *  still there when the visitor reaches that field. It rides INSIDE the
+ *  label, so it joins the control's accessible name — "Subject (required)" —
+ *  instead of being decoration a screen reader steps past. A prop rather
+ *  than a constant: all three fields are required today (`validateContact`),
+ *  and an optional one should not have to remove a hard-coded word. */
+function Field({ id, label, required, error, hint, children }: {
     id: string
     label: string
+    required?: boolean
     error?: string
     hint?: string
     children: React.ReactNode
@@ -52,6 +66,10 @@ function Field({ id, label, error, hint, children }: {
         <div className="flex flex-col gap-1.5">
             <label htmlFor={id} className="text-cp-12.5 font-semibold">
                 {label}
+                {/* A LITERAL space, not a margin: `ml-1` is a visual gap the
+                    accessible name does not have, and the label read
+                    "Your email address(required)" with one. */}
+                {required && <>{' '}<span className="text-cp-11.5 font-normal text-cp-ink-3">(required)</span></>}
             </label>
             {children}
             {error ? (
@@ -150,7 +168,13 @@ export function ContactDialog({ open, onOpenChange, send = sendContact }: {
             <Dialog.Portal>
                 <Dialog.Overlay className="fixed inset-0 z-50 bg-cp-scrim backdrop-blur-[2px]" />
                 <Dialog.Content
-                    aria-describedby={`${ids}-lede`}
+                    // The form has no lede any more (the 2026-09-17 cut — the
+                    // title names the dialog and each label carries its own
+                    // "(required)", as §6.5's dialog has no lede either). The
+                    // SENT state's acknowledgement is a real description, so
+                    // it stays wired; pointing at an id that is not in the
+                    // tree would be worse than pointing at nothing.
+                    aria-describedby={phase === 'sent' ? `${ids}-lede` : undefined}
                     className="fixed top-1/2 left-1/2 z-50 flex max-h-[min(86vh,720px)] w-[min(32rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 flex-col overflow-y-auto rounded-cp-card border border-cp-hairline bg-cp-surface-1 px-5 pt-5 pb-4 shadow-cp outline-none max-sm:top-auto max-sm:bottom-0 max-sm:left-0 max-sm:max-h-[92vh] max-sm:w-full max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-b-none"
                 >
                     <Dialog.Close asChild>
@@ -186,16 +210,11 @@ export function ContactDialog({ open, onOpenChange, send = sendContact }: {
                             </div>
                         </>
                     ) : (
-                        <form noValidate onSubmit={submit} className="flex flex-col gap-3.5">
-                            <p id={`${ids}-lede`} className="m-0 text-cp-13 leading-normal text-cp-ink-2">
-                                Questions, corrections and comments are all welcome. Every field is
-                                required — the address is where a reply goes, and nothing here is
-                                kept or used for anything else.
-                            </p>
-
+                        <form noValidate onSubmit={submit} className="mt-2 flex flex-col gap-3.5">
                             <Field
                                 id={`${ids}-email`}
                                 label="Your email address"
+                                required
                                 error={shown('email')}
                                 hint="Used only to reply to this message."
                             >
@@ -216,7 +235,7 @@ export function ContactDialog({ open, onOpenChange, send = sendContact }: {
                                 />
                             </Field>
 
-                            <Field id={`${ids}-subject`} label="Subject" error={shown('subject')}>
+                            <Field id={`${ids}-subject`} label="Subject" required error={shown('subject')}>
                                 <input
                                     id={`${ids}-subject`}
                                     name="subject"
@@ -236,6 +255,7 @@ export function ContactDialog({ open, onOpenChange, send = sendContact }: {
                             <Field
                                 id={`${ids}-message`}
                                 label="Message"
+                                required
                                 error={shown('message')}
                                 hint={`${draft.message.trim().length.toLocaleString('en-US')} of ${MESSAGE_MAX.toLocaleString('en-US')} characters.`}
                             >
