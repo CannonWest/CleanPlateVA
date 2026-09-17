@@ -115,13 +115,19 @@
         "PROPOSAL_OPERATOR": "human:cannon",
         "CONTACT_FROM": "contact@cleanplateva.com",
         // CONTACT_TO must equal the `destination_address` below, and
-        // `contact.spec.ts` fails if the two ever drift. It exists because
+        // `contact.spec.ts` fails if the two ever drift. Both are LOWER-CASE
+        // on purpose: Email Service matches a verified destination address as
+        // an exact string, and the address verified on this account is
+        // `cleanplateva@gmail.com`. Sending to the capitalised spelling of
+        // the same Gmail mailbox was refused E_RECIPIENT_NOT_ALLOWED
+        // ("destination address is not a verified address") — measured
+        // 2026-09-17, Worker bcabc340. Do not "tidy" the capitalisation. It exists because
         // the runtime validates recipients BEFORE applying the binding's
         // default, so a send with no `to` is refused outright (measured
         // 2026-09-17) — the send-bindings doc's null/undefined allowance
         // does not hold. The pin is still what decides: a wrong value here
         // is refused by Email Service rather than delivered.
-        "CONTACT_TO": "CleanPlateVA@gmail.com"
+        "CONTACT_TO": "cleanplateva@gmail.com"
     },
     // The contact form's delivery (2026-09-17, design ref §6.7). The
     // `destination_address` pin is the security boundary, not a convenience:
@@ -135,12 +141,12 @@
     // succeeds without it and every send answers 502 until it is done):
     //   1. onboard cleanplateva.com to Email Service as a sending domain
     //      (publishes the DKIM/SPF records), so CONTACT_FROM can send;
-    //   2. add CleanPlateVA@gmail.com as a destination address and click the
+    //   2. add cleanplateva@gmail.com as a destination address and click the
     //      verification link Cloudflare mails to it.
     "send_email": [
         {
             "name": "CONTACT_EMAIL",
-            "destination_address": "CleanPlateVA@gmail.com"
+            "destination_address": "cleanplateva@gmail.com"
         }
     ],
     // Per-address throttle on that one route (the native Rate Limiting
