@@ -505,12 +505,14 @@ async function listAll(store, prefix) {
  *
  * Delivery is Cloudflare Email Service through the `CONTACT_EMAIL` send
  * binding, which is pinned in wrangler.jsonc to ONE `destination_address`.
- * That pin is the point: this code names no recipient, so no bug here and no
- * value in a request can make the Worker mail anyone but the maintainer's own
- * address. The visitor's address rides as `replyTo`, never as `from` — the
- * sender must be the onboarded sending domain or the send is refused
- * (E_SENDER_NOT_VERIFIED), and forging a visitor into `from` would be a
- * spoof besides.
+ * That pin is the point: the recipient is configuration (`CONTACT_TO`) and
+ * the pin refuses anything else, so no value in a request can make the
+ * Worker mail a stranger — the worst a wrong `CONTACT_TO` can do is fail.
+ * (It named no recipient at all until 2026-09-17; see the send call for why
+ * that could not work.) The visitor's address rides as `replyTo`, never as
+ * `from` — the sender must be the onboarded sending domain or the send is
+ * refused (E_SENDER_NOT_VERIFIED), and forging a visitor into `from` would
+ * be a spoof besides.
  *
  *   200 { ok: true }              accepted and sent — and the same answer a
  *                                 honeypot submission gets, mailing nothing,
@@ -557,6 +559,10 @@ async function serveContact(request, env) {
     const from = env.CONTACT_FROM;
     if (typeof from !== 'string' || !CONTACT_EMAIL_RE.test(from)) {
         return json({ ok: false, reason: 'contact sender not configured' }, 500, NO_STORE);
+    }
+    const to = env.CONTACT_TO;
+    if (typeof to !== 'string' || !CONTACT_EMAIL_RE.test(to)) {
+        return json({ ok: false, reason: 'contact recipient not configured' }, 500, NO_STORE);
     }
     const limiter = env.CONTACT_LIMIT;
     if (!limiter || typeof limiter.limit !== 'function') {
@@ -632,8 +638,23 @@ async function serveContact(request, env) {
     try {
         await mailer.send({
             from,
-            // No `to`: the binding's `destination_address` is the recipient,
-            // and leaving it out of the code is what makes that a guarantee.
+            // The recipient is named here AND pinned on the binding, and the
+            // pin is the one that decides (2026-09-17).
+            //
+            // This route shipped naming no recipient at all, on the send-
+            // bindings doc's word that "if you call send() with `to` set to
+            // null or undefined, the configured address is used". The runtime
+            // does not do that: it validates recipients BEFORE applying the
+            // binding's default, so every send failed with
+            //   TypeError: Email must have at least one recipient in "to",
+            //   "cc", or "bcc".
+            // (measured on production, Worker bb9e6cae, the second deploy
+            // check). So `to` is configuration now — and wrangler.jsonc's
+            // `destination_address` still refuses anything but the one
+            // address, which is what keeps the guarantee: a wrong CONTACT_TO
+            // is refused by Email Service, not delivered to a stranger.
+            // `contact.spec.ts` pins the two to the same address.
+            to,
             replyTo: email.value,
             subject: `${CONTACT_SUBJECT_TAG} ${subject.value}`,
             text: contactBody({

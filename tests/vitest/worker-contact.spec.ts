@@ -32,6 +32,7 @@ function env(overrides: Env = {}): Env {
     return {
         ASSETS: { fetch: async () => new Response('asset') },
         CONTACT_FROM: 'contact@cleanplateva.test',
+        CONTACT_TO: 'maintainer@cleanplateva.test',
         CONTACT_EMAIL: {
             send: async (message: Sent) => {
                 if (sendError) throw sendError
@@ -82,7 +83,7 @@ beforeEach(() => {
     limitError = null
 })
 
-test('a valid message is sent: the visitor rides as replyTo, and the Worker names NO recipient', async () => {
+test('a valid message is sent: the visitor rides as replyTo, and the recipient is CONFIGURATION', async () => {
     const response = await post(DRAFT)
     assert.equal(response.status, 200)
     assert.equal(response.headers.get('Cache-Control'), 'no-store')
@@ -91,15 +92,38 @@ test('a valid message is sent: the visitor rides as replyTo, and the Worker name
 
     assert.equal(sent.length, 1)
     const message = sent[0]!
-    // The binding's destination_address is the recipient. If this Worker
-    // ever names one, the pin in wrangler.jsonc stops being a guarantee.
-    assert.equal('to' in message, false, 'the Worker must not name a recipient')
+    // The recipient comes from CONTACT_TO and NOWHERE else — never from the
+    // request. This route named no recipient at all until 2026-09-17, on the
+    // send-bindings doc's word that the binding would supply one; the
+    // runtime refuses a message with no recipient, so the address is config
+    // now and wrangler.jsonc's `destination_address` is what still refuses
+    // anything else (contact.spec.ts pins the two together).
+    assert.equal(message.to, 'maintainer@cleanplateva.test', 'the recipient is CONTACT_TO')
     assert.equal(message.from, 'contact@cleanplateva.test', 'the sender is the onboarded domain, never the visitor')
     assert.equal(message.replyTo, DRAFT.email, 'Reply goes to the visitor')
     assert.equal(message.subject, '[CleanPlateVA] A closed place is still listed')
     assert.ok(message.text?.startsWith(DRAFT.message), "the visitor's words come first")
     assert.match(message.text!, /^From: visitor@example\.test$/m, 'the address is repeated below the rule')
     assert.match(message.text!, /^Origin: /m)
+})
+
+test('the recipient can never come from the request — only from CONTACT_TO', async () => {
+    // The obvious attack on a form that mails somebody: get your own address
+    // into the recipient. Every field a request could smuggle one through.
+    await post({
+        ...DRAFT,
+        to: 'attacker@evil.test',
+        cc: 'attacker@evil.test',
+        bcc: 'attacker@evil.test',
+        CONTACT_TO: 'attacker@evil.test',
+        destination_address: 'attacker@evil.test',
+    })
+    assert.equal(sent.length, 1)
+    const message = sent[0]!
+    assert.equal(message.to, 'maintainer@cleanplateva.test')
+    assert.equal('cc' in message, false)
+    assert.equal('bcc' in message, false)
+    assert.doesNotMatch(JSON.stringify(message.to), /evil\.test/)
 })
 
 test('the fields are trimmed, and what validation measured is what is sent', async () => {
@@ -323,6 +347,8 @@ test('a missing binding is LOUD — a 500 naming which one, before the body is r
         [{ CONTACT_EMAIL: {} }, 'contact mailer not configured'],
         [{ CONTACT_FROM: undefined }, 'contact sender not configured'],
         [{ CONTACT_FROM: 'not-an-address' }, 'contact sender not configured'],
+        [{ CONTACT_TO: undefined }, 'contact recipient not configured'],
+        [{ CONTACT_TO: 'not-an-address' }, 'contact recipient not configured'],
         [{ CONTACT_LIMIT: undefined }, 'contact rate limit not configured'],
     ] as const) {
         const response = await post(DRAFT, { overrides: overrides as Env })

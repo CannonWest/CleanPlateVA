@@ -113,7 +113,15 @@
         "ACCESS_TEAM_DOMAIN": "https://cannonwest.cloudflareaccess.com",
         "ACCESS_AUD": "ceb3edb0a2a92bc1115a7569db031d6c27b1fd84d0f9d3b80f73e761bbb72360",
         "PROPOSAL_OPERATOR": "human:cannon",
-        "CONTACT_FROM": "contact@cleanplateva.com"
+        "CONTACT_FROM": "contact@cleanplateva.com",
+        // CONTACT_TO must equal the `destination_address` below, and
+        // `contact.spec.ts` fails if the two ever drift. It exists because
+        // the runtime validates recipients BEFORE applying the binding's
+        // default, so a send with no `to` is refused outright (measured
+        // 2026-09-17) — the send-bindings doc's null/undefined allowance
+        // does not hold. The pin is still what decides: a wrong value here
+        // is refused by Email Service rather than delivered.
+        "CONTACT_TO": "CleanPlateVA@gmail.com"
     },
     // The contact form's delivery (2026-09-17, design ref §6.7). The
     // `destination_address` pin is the security boundary, not a convenience:
