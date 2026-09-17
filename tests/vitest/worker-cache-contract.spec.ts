@@ -70,7 +70,7 @@ test('the full channel reads no Access header; the sign-in route and the private
     assert.equal(signin.status, 404)
 })
 
-test('exactly two prefixes invoke the worker — the full channel and the admin API; the public channel is static (CPH-M3, CPE-M1)', () => {
+test('exactly three paths invoke the worker — the full channel, the admin API and the contact form; the public channel is static (CPH-M3, CPE-M1, §6.7)', () => {
     // In array form, run_worker_first is THE set of paths that invoke the
     // worker; anything else is answered by the assets layer, SPA fallback
     // included. The full channel needs the worker because /data-full/* is
@@ -84,10 +84,17 @@ test('exactly two prefixes invoke the worker — the full channel and the admin 
     // committed public channel is plain static assets whose cache-control
     // rides in public/_headers. /admin itself is not listed either: the
     // session page is the SPA shell, an asset like any view path.
+    //   /api/contact (2026-09-17, design ref §6.7) is the About page's
+    // contact form — the one PUBLIC write route here, and an EXACT path
+    // rather than a prefix: nothing else under /api exists, and a splat
+    // would hand the worker every probe for one. A visitor pays this
+    // invocation only by pressing Send.
     const list = wrangler.match(/"run_worker_first"\s*:\s*\[([^\]]*)\]/)
     assert.ok(list, 'run_worker_first must be an explicit array')
     const patterns = [...list[1]!.matchAll(/"([^"]+)"/g)].map((m) => m[1])
-    assert.deepEqual(patterns, ['/data-full/*', '/admin/api/*'])
+    assert.deepEqual(patterns, ['/data-full/*', '/admin/api/*', '/api/contact'])
+    assert.equal(patterns.includes('/api/*'), false,
+        'the contact path is exact — a splat would meter every probe under /api')
     // The application's identifiers the admin API verifies against ride as
     // vars — configuration, so a test can point the check at its own keys.
     assert.match(wrangler, /"ACCESS_TEAM_DOMAIN"\s*:\s*"https:\/\/cannonwest\.cloudflareaccess\.com"/)

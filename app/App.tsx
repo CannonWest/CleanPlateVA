@@ -51,6 +51,9 @@ import type { LoadedRoster, RosterRow } from './data/types'
 // static asset — free on Workers, cached like the rest of the build — so
 // the request budget (C3) is untouched: zero Worker requests either way.
 const AboutView = lazy(() => import('./AboutView').then((m) => ({ default: m.AboutView })))
+// Reachable only from the About document, which is itself lazy — so the map's
+// boot never pays for the form or its validation (§8 Budgets).
+const ContactDialog = lazy(() => import('./ContactDialog').then((m) => ({ default: m.ContactDialog })))
 const ListView = lazy(() => import('./ListView').then((m) => ({ default: m.ListView })))
 // The About edit mode (CPE-M1, §6.6): its own lazy chunk, fetched the first
 // time a signed-in device enters it — a visitor's page never loads it.
@@ -139,6 +142,11 @@ function Shell({ forceLite, ack }: {
         // push: Back then returns to the document the visitor came from.
         if (thenMap) actions.setView('map')
     }
+
+    // The contact dialog (§6.7): opened from the box under About §05 and
+    // nowhere else. Its own state rather than a route, because a half-typed
+    // message is not something a shared link should carry (C6).
+    const [contactOpen, setContactOpen] = useState(false)
 
     // The theme (theme.ts): the visitor's three-way choice, resolved against
     // the device's appearance — 'system' (the default) re-resolves when
@@ -358,6 +366,7 @@ function Shell({ forceLite, ack }: {
             // for the selection-clearing it shares with the dialog.
             onSwitchToBasic={() => decide(ACK_DECLINED, { thenMap: true })}
             onReviewTerms={() => setTermsOpen('to-map')}
+            onContact={() => setContactOpen(true)}
             scrollToTerms={termsIntent}
             onTermsShown={() => setTermsIntent(false)}
         />
@@ -662,6 +671,14 @@ function Shell({ forceLite, ack }: {
                     onEscapeDecline={() => decide(ACK_DECLINED, { persist: false })}
                     onClose={() => setTermsOpen(null)}
                 />
+            )}
+
+            {/* Mounted only while it is open: unmounting IS the reset, and a
+                dialog nobody has asked for should cost nothing. */}
+            {contactOpen && (
+                <Suspense fallback={null}>
+                    <ContactDialog open onOpenChange={setContactOpen} />
+                </Suspense>
             )}
 
             <SettingsDialog
