@@ -275,6 +275,48 @@ test('a refused send is a 502 whose reason keeps Email Service internals out of 
     assert.doesNotMatch(answer.reason, /E_SENDER_NOT_VERIFIED|unverified/)
 })
 
+test('...but the code IS logged, or a 502 says nothing to whoever has to fix it', async () => {
+    // The first real failure (2026-09-17, the deploy check) answered 502 and
+    // left no way to tell an unverified sender from an unverified recipient
+    // without another deploy. The reason stays out of the BROWSER; it does
+    // not get to stay out of the log too.
+    const logged: unknown[][] = []
+    const realError = console.error
+    console.error = (...args: unknown[]) => { logged.push(args) }
+    try {
+        sendError = Object.assign(new Error('unverified sender'), { code: 'E_SENDER_NOT_VERIFIED' })
+        await post(DRAFT)
+    } finally {
+        console.error = realError
+    }
+    assert.equal(logged.length, 1, 'exactly one log line per failed send')
+    const [label, detail] = logged[0] as [string, Record<string, unknown>]
+    assert.match(label, /contact: send failed/)
+    assert.equal(detail.code, 'E_SENDER_NOT_VERIFIED', 'the code is what names the cause')
+    assert.equal(detail.message, 'unverified sender')
+    assert.equal(detail.from, 'contact@cleanplateva.test', 'which sender was refused')
+    // Nothing the visitor typed: a log is not a copy of their message.
+    const text = JSON.stringify(logged)
+    for (const secret of [DRAFT.email, DRAFT.subject, DRAFT.message]) {
+        assert.doesNotMatch(text, new RegExp(secret.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+            'the visitor\'s own words never reach the log')
+    }
+})
+
+test('a failing limiter logs as ITSELF — both answer 502, and they are different bugs', async () => {
+    const logged: unknown[][] = []
+    const realError = console.error
+    console.error = (...args: unknown[]) => { logged.push(args) }
+    try {
+        limitError = new Error('limiter down')
+        await post(DRAFT)
+    } finally {
+        console.error = realError
+    }
+    assert.equal(logged.length, 1)
+    assert.match((logged[0] as [string])[0], /contact: rate limiter failed/)
+})
+
 test('a missing binding is LOUD — a 500 naming which one, before the body is read', async () => {
     for (const [overrides, reason] of [
         [{ CONTACT_EMAIL: undefined }, 'contact mailer not configured'],

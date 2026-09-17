@@ -590,8 +590,14 @@ async function serveContact(request, env) {
     let allowed;
     try {
         allowed = await limiter.limit({ key: `contact:${ip}` });
-    } catch (_) {
-        // A limiter that cannot answer must not become an open door.
+    } catch (error) {
+        // A limiter that cannot answer must not become an open door — and
+        // must not be mistaken for a mail failure in the log either, since
+        // both answer 502.
+        console.error('contact: rate limiter failed', {
+            name: error?.name ?? null,
+            message: error?.message ?? String(error),
+        });
         return json({ ok: false, reason: 'the message could not be sent' }, 502, NO_STORE);
     }
     if (!allowed?.success) {
@@ -638,10 +644,22 @@ async function serveContact(request, env) {
                 receivedAt: new Date().toISOString(),
             }),
         });
-    } catch (_) {
+    } catch (error) {
         // The reason is Email Service's (an unverified sender, a quota, an
-        // outage) and is the site's problem, not the visitor's — logged by
-        // the platform, never handed to the browser.
+        // outage) and is the site's problem, not the visitor's — so it is
+        // LOGGED and never handed to the browser. The log is the whole point:
+        // without it a 502 says only "something", and the first real failure
+        // (2026-09-17, the deploy check) could not be told apart from a
+        // missing binding without one. Codes are Email Service's own
+        // (E_SENDER_NOT_VERIFIED, E_RECIPIENT_NOT_ALLOWED, E_RATE_LIMIT_
+        // EXCEEDED, …); read them with `npx wrangler tail cleanplateva`.
+        // Nothing the visitor typed is logged — only why the send failed.
+        console.error('contact: send failed', {
+            code: error?.code ?? null,
+            name: error?.name ?? null,
+            message: error?.message ?? String(error),
+            from,
+        });
         return json({ ok: false, reason: 'the message could not be sent' }, 502, NO_STORE);
     }
     return json({ ok: true }, 200, NO_STORE);
