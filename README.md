@@ -3,21 +3,19 @@
 ### [cleanplateva.com](https://cleanplateva.com)
 
 An independent map of health-inspection records for Virginia food
-establishments — 29,572 of them — with a letter grade computed for each from
+establishments with a letter grade computed for each from
 its own inspection history.
 
-Neither the Virginia Department of Health nor the Fairfax County Health
-Department issues grades. They publish inspections: violations, risk factors,
-corrections, repeats. What they do not publish is a way to compare two places
-at a glance, or to see whether one is getting better. This site derives that,
-and says on every screen that the derivation is its own and not the health
-department's. Every marker links back to the establishment's official record,
-which remains the authoritative source.
+Virginia Department of Health and the Fairfax County Health
+Department both run and publish publicly available inspections which include violations,
+risk factors, corrections, and repeats. What they do not publish is a way to compare establishments
+quantitatively and at a glance, or to see overall trends. CleanPlateVA derives these features,
+with every marker linking back to the establishment's official record.
 
 Built from Virginia Department of Health records and, for the Fairfax
-localities it serves, the Fairfax County Health Department's.
+localities, the Fairfax County Health Department's.
 
-![The map at statewide zoom: 26,867 establishments drawn as grade-coloured
+![The map at statewide zoom: Nearly 30,000 establishments drawn as grade-coloured
 markers across Virginia, with the A–F filter chips and the search bar above
 them](docs/screenshot.png)
 
@@ -28,8 +26,7 @@ npm ci
 npm run dev
 ```
 
-The suites — 453 unit and contract tests, plus a browser smoke that asks a
-real Chromium whether the map actually paints:
+Unit and contract tests, plus a browser smoke to test:
 
 ```bash
 npm test
