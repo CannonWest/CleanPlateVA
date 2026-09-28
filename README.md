@@ -181,13 +181,21 @@ back to R2 for that shard, the basic map reports "no data published yet".
 `run_worker_first` in [`wrangler.jsonc`](wrangler.jsonc) is, in its array
 form, *the* set of paths that invoke the worker at all — everything else,
 SPA fallback included, is answered by the assets layer without a Worker
-request. It names exactly two things. `/data-full/*` is the R2-backed full
-channel, which is not a static asset and therefore *is* the shell under the
-fallback unless the worker runs first (measured 2026-08-16: with it absent
-the full tier silently degraded to the basic map). `/admin/api/*` (since
-2026-09-08, CPE-M1) is the edit modes' server side — one operator's traffic,
-inside the Access application's `/admin` prefix; see the `/admin` section
-below. The public channel
+request. It names exactly three things, and
+`tests/vitest/worker-cache-contract.spec.ts` pins the list. `/data-full/*` is
+the R2-backed full channel, which is not a static asset and therefore *is* the
+shell under the fallback unless the worker runs first (measured 2026-08-16:
+with it absent the full tier silently degraded to the basic map).
+`/admin/api/*` (since 2026-09-08, CPE-M1) is the edit modes' server side — one
+operator's traffic, inside the Access application's `/admin` prefix; see the
+`/admin` section below. `/api/contact` (since 2026-09-17; design ref
+`docs/frontend-redesign.md` §6.7) is the About page's contact form and the one
+public write route. It is an exact path, not a prefix: nothing else under
+`/api` exists, and a splat would hand the Worker every probe for one. It reads
+no identity, is rate-limited to three requests a minute per client IP, and
+delivers through the Cloudflare Email Service send binding to the one
+recipient pinned in `wrangler.jsonc`. Only pressing Send invokes it, so the
+request budget below is unchanged. The public channel
 `/data/*` is static: its cache-control lives in
 [`public/_headers`](public/_headers) (the manifest revalidates in 60 s;
 content-addressed finder shards are immutable), and the client fetches the
@@ -285,7 +293,8 @@ Two locks, then a flag:
   `cleanplateva-proposals`, a bucket of its own, because the pipeline's
   publisher owns every object in `cleanplateva-data` and deletes strays —
   never overwriting; `GET` lists the drafts. That bucket is the Worker's
-  only write, anywhere.
+  only storage write, anywhere; the contact route sends mail and stores
+  nothing.
 - **The device flag** (`cleanplateva.admin.session`, `app/admin/session.ts`)
   is what the session page writes on a verified answer. The public views
   render their **Edit** controls only for a device holding it — a visitor's
@@ -350,9 +359,9 @@ on (design ref §6):
 }
 ```
 
-Each facility is a flat object with exactly thirteen fields: `permit_id,
+Each facility is a flat object with exactly fourteen fields: `permit_id,
 name, address, address2, city, zip, tenant, is_restaurant, mobile, pt, lat,
-lon, loc`. `lat`/`lon` are the effective point (an accepted permit-level
+lon, loc, ffx_oid`. `lat`/`lon` are the effective point (an accepted permit-level
 refinement when one exists, else the physical-site fallback) rounded to 6
 decimal places at export; `loc` classifies it — `0` rooftop-quality, `1`
 street-level (a road centreline, Census or VGIN), `2` ZIP centroid, `3`
@@ -364,7 +373,12 @@ a new class joins the end and never renumbers what is already published. `pt` is
 `vocab.permit_type` list (sorted, so codes are a pure function of the archive);
 `is_restaurant` and `mobile` are the exporter's booleans (`is_restaurant` also
 uses name patterns, so it can never be derived from `pt`). `permit_id` +
-`tenant` build the district-scoped VDH link. Nothing judgment-bearing rides
+`tenant` build the district-scoped VDH link; a `fairfax` row links to the
+county's records instead. `ffx_oid` (FFX-M4, 2026-09-05) is the Fairfax
+County layer's `OBJECTID`, the id the county's map selects a facility by: an
+integer on roster-joined Fairfax rows and `null` on every VDH row, so the row
+keeps one fixed shape. The clients build the county deep link from it and fall
+back to the county's search page when it is `null`. Nothing judgment-bearing rides
 here — no scores, grades, dates, status, or inspection content (P6). Same-point
 stacks are computed client-side from the coordinates.
 
@@ -478,7 +492,8 @@ publisher's `data/` copied verbatim from `public/`, and its `_headers`
 carried verbatim with the build's own rules appended (one `immutable` rule
 per content-hashed asset, by name, never a splat; `public/_headers` itself is
 never edited) — `tests/vitest/dist-contract.spec.ts` pins all of it — with
-the Worker in front of `/data-full/*` only. A push to any other branch runs **no build command**
+the Worker in front of `/data-full/*`, `/admin/api/*` and `/api/contact` only
+(the three `run_worker_first` entries above). A push to any other branch runs **no build command**
 (measured at the flip, design ref §3), so its Workers Builds check reads
 red now that `dist/` needs a build; the pre-merge proof of a PR is the
 GitHub Actions job below plus a local `npx wrangler deploy --dry-run`
