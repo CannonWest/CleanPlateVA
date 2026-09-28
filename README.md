@@ -293,7 +293,8 @@ Two locks, then a flag:
   `cleanplateva-proposals`, a bucket of its own, because the pipeline's
   publisher owns every object in `cleanplateva-data` and deletes strays —
   never overwriting; `GET` lists the drafts. That bucket is the Worker's
-  only write, anywhere.
+  only storage write, anywhere; the contact route sends mail and stores
+  nothing.
 - **The device flag** (`cleanplateva.admin.session`, `app/admin/session.ts`)
   is what the session page writes on a verified answer. The public views
   render their **Edit** controls only for a device holding it — a visitor's
