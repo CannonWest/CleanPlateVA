@@ -21,13 +21,13 @@ import logoLight from './logo-light.png'
  * requested; a live theme change re-renders through the observer below.
  *
  * Each variant carries its OWN intrinsic size — the two files differ
- * (1855x897 vs 1972x954) — so the box is reserved correctly either way and
+ * (1854x886 vs 1977x932) — so the box is reserved correctly either way and
  * swapping themes costs no layout shift.
  */
 
 const ART = {
-    dark: { src: logoDark, width: 1855, height: 897 },
-    light: { src: logoLight, width: 1972, height: 954 },
+    dark: { src: logoDark, width: 1854, height: 886 },
+    light: { src: logoLight, width: 1977, height: 932 },
 } as const
 
 /** `.theme-light` on <html> is the light hook; its absence IS the dark base. */
