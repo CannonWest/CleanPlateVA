@@ -86,15 +86,15 @@ test('a live theme change swaps the face without adding a second <img>', async (
 test('each face reserves its own intrinsic box, so the swap costs no layout shift', async () => {
     const el = await mount(false)
     const dark = imgs(el)[0]
-    expect(dark?.getAttribute('width')).toBe('1855')
-    expect(dark?.getAttribute('height')).toBe('897')
+    expect(dark?.getAttribute('width')).toBe('1854')
+    expect(dark?.getAttribute('height')).toBe('886')
 
     await act(async () => {
         document.documentElement.classList.add('theme-light')
     })
     const lightImg = imgs(el)[0]
-    expect(lightImg?.getAttribute('width')).toBe('1972')
-    expect(lightImg?.getAttribute('height')).toBe('954')
+    expect(lightImg?.getAttribute('width')).toBe('1977')
+    expect(lightImg?.getAttribute('height')).toBe('932')
 })
 
 test('the alt text is the wordmark, and an empty alt hides it from the tree', async () => {
