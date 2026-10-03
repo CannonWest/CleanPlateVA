@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<!-- Ethylene oxide (EtO) sources around Richmond, on OpenStreetMap.
+
+     Dev-only, like everything in tools/ — not part of the site, not built,
+     not deployed. One self-contained page: Leaflet from jsDelivr (pinned,
+     SRI-checked), OSM's standard tiles, and the facility list inline below.
+
+         python3 -m http.server 5630 -d tools/eto-map   # then open http://127.0.0.1:5630/
+
+     Opening the file directly works too, except OSM's tile servers want a
+     Referer, which file:// does not send — serve it if the tiles come up gray.
+
+     Click anywhere to drop a pin and read its straight-line distance to each
+     site. ?pin=LAT,LON drops one on load (nothing personal is stored here).
+
+     The rings are ILLUSTRATIVE radii, not exposure modeling. Only the
+     Eastport rings rest on anything said in public (the 2–3 mile figure);
+     the rest are a flat 1 mile around sites nobody has measured. -->
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Richmond EtO Map</title>
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+    <style>
+        :root {
+            --panel-bg: #ffffff;
+            --panel-fg: #1f2328;
+            --panel-muted: #57606a;
+            --panel-border: #d0d7de;
+            --page-bg: #e5e3df;
+            --high: #c81e1e;
+            --confirmed: #e8590c;
+            --low: #b7791f;
+            --potential: #5b6472;
+            --pin: #1d4ed8;
+        }
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --panel-bg: #161b22;
+                --panel-fg: #e6edf3;
+                --panel-muted: #9da7b3;
+                --panel-border: #30363d;
+                --page-bg: #0d1117;
+            }
+        }
+        * { box-sizing: border-box; }
+        html, body { height: 100%; margin: 0; }
+        body {
+            background: var(--page-bg);
+            color: var(--panel-fg);
+            font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        }
+        #map { position: absolute; inset: 0; }
+
+        .panel {
+            position: absolute;
+            z-index: 1000;
+            top: 12px;
+            left: 12px;
+            width: 330px;
+            max-width: calc(100vw - 24px);
+            max-height: calc(100vh - 24px);
+            overflow: auto;
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 10px;
+            box-shadow: 0 4px 18px rgba(0, 0, 0, 0.18);
+            padding: 14px 16px;
+        }
+        .panel h1 { font-size: 16px; margin: 0 0 2px; }
+        .panel .sub { color: var(--panel-muted); font-size: 12.5px; margin: 0 0 10px; }
+        .panel h2 {
+            font-size: 11px;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: var(--panel-muted);
+            margin: 12px 0 6px;
+        }
+        .legend { list-style: none; margin: 0; padding: 0; }
+        .legend li { margin: 0 0 8px; }
+        .legend label { display: grid; grid-template-columns: 18px 22px 1fr; gap: 6px; align-items: start; cursor: pointer; }
+        .legend input { margin: 2px 0 0; }
+        .swatch {
+            width: 18px; height: 18px; margin-top: 1px;
+            border-radius: 50%;
+            border: 2px solid var(--c);
+            background: color-mix(in srgb, var(--c) 22%, transparent);
+        }
+        .swatch.dashed { border-style: dashed; }
+        .legend b { display: block; font-weight: 600; }
+        .legend small { color: var(--panel-muted); display: block; font-size: 12px; }
+
+        .note {
+            font-size: 12px;
+            color: var(--panel-muted);
+            border-left: 3px solid var(--high);
+            padding: 2px 0 2px 8px;
+            margin: 10px 0 0;
+        }
+        #distances { margin: 0; padding: 0; list-style: none; font-size: 13px; }
+        #distances li { display: flex; justify-content: space-between; gap: 8px; padding: 3px 0; border-bottom: 1px dotted var(--panel-border); }
+        #distances li.inside { font-weight: 600; }
+        #distances .mi { font-variant-numeric: tabular-nums; white-space: nowrap; }
+        #distances-empty { color: var(--panel-muted); font-size: 12.5px; margin: 0; }
+        .panel a { color: inherit; }
+        .sources { font-size: 12px; color: var(--panel-muted); margin: 0; padding-left: 16px; }
+
+        #toggle {
+            display: none;
+            position: absolute;
+            z-index: 1001;
+            top: 12px;
+            left: 12px;
+            border: 1px solid var(--panel-border);
+            background: var(--panel-bg);
+            color: var(--panel-fg);
+            border-radius: 8px;
+            padding: 8px 12px;
+            font: inherit;
+            font-weight: 600;
+        }
+        @media (max-width: 640px) {
+            .panel { top: 56px; left: 8px; right: 8px; width: auto; max-height: 55vh; }
+            .panel.collapsed { display: none; }
+            #toggle { display: block; left: 8px; }
+        }
+
+        .leaflet-popup-content { font-size: 13px; line-height: 1.45; }
+        .leaflet-popup-content h3 { font-size: 14px; margin: 0 0 4px; }
+        .leaflet-popup-content .addr { color: #57606a; margin: 0 0 6px; }
+        .leaflet-popup-content p { margin: 0 0 6px; }
+        .tag {
+            display: inline-block;
+            font-size: 11px;
+            font-weight: 600;
+            color: #fff;
+            background: var(--c);
+            border-radius: 4px;
+            padding: 1px 6px;
+            margin-bottom: 6px;
+        }
+        .ring-label {
+            background: transparent;
+            border: 0;
+            box-shadow: none;
+            color: #3b3b3b;
+            font-size: 11px;
+            font-weight: 600;
+            text-shadow: 0 0 3px #fff, 0 0 3px #fff, 0 0 3px #fff;
+            padding: 0;
+        }
+        .ring-label::before { display: none; }
+    </style>
+</head>
+<body>
+    <div id="map" role="region" aria-label="Map of ethylene oxide sources around Richmond"></div>
+    <button id="toggle" type="button" aria-controls="panel" aria-expanded="false">Legend</button>
+
+    <aside class="panel collapsed" id="panel">
+        <h1>Ethylene oxide around Richmond</h1>
+        <p class="sub">Sterilizers and the warehouses that handle sterilized goods. Rings are rough “danger zones,” not modeled exposure.</p>
+
+        <h2>Layers</h2>
+        <ul class="legend" id="legend"></ul>
+
+        <p class="note">Only the Eastport rings rest on a public figure: Henrico’s health director (2022) put long-term concern from SSV within 2–3 miles. Every 1-mile ring is arbitrary. Sudden releases don’t respect rings: the April 9 spill reportedly drifted northwest across the region.</p>
+
+        <h2>Distances from your pin</h2>
+        <p id="distances-empty">Click the map to drop a pin.</p>
+        <ul id="distances"></ul>
+
+        <h2>Sources</h2>
+        <ul class="sources">
+            <li><a href="https://github.com/Grist-Data-Desk/eto-warehouses" target="_blank" rel="noopener">Grist eto-warehouses</a> (warehouse points)</li>
+            <li><a href="https://hntrbrk.com/breaking-news/ethylene-oxide-virginia" target="_blank" rel="noopener">Hunterbrook</a> · <a href="https://www.vpm.org/news/2026-06-18/ethylene-oxide-leak-sterilization-services-henrico-industrial-chemicals-selc-epa" target="_blank" rel="noopener">VPM</a> · <a href="https://www.wric.com/news/local-news/henrico-county/henrico-facility-flagged-for-harmful-chemical-emissions-health-experts-say-not-to-worry/" target="_blank" rel="noopener">WRIC (2022)</a></li>
+            <li>Sterilizer points geocoded with OSM Nominatim / Census</li>
+        </ul>
+    </aside>
+
+    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script>
+    'use strict';
+
+    const MILE = 1609.344; // metres
+
+    // One entry per ring style. `rings` are radii in miles, innermost first;
+    // each ring is labelled at its northern edge.
+    const CATEGORIES = {
+        high: {
+            label: 'High-risk sterilizer',
+            detail: 'EPA-flagged (2022). Rings at 1, 2 and 3 mi.',
+            color: 'var(--high)', hex: '#c81e1e', rings: [1, 2, 3], dashed: false,
+        },
+        confirmed: {
+            label: 'Confirmed warehouse source',
+            detail: 'In EPA records. 1 mi ring.',
+            color: 'var(--confirmed)', hex: '#e8590c', rings: [1], dashed: false,
+        },
+        low: {
+            label: 'Smaller sterilizer',
+            detail: 'Not flagged by EPA’s screening. 1 mi ring.',
+            color: 'var(--low)', hex: '#b7791f', rings: [1], dashed: false,
+        },
+        potential: {
+            label: 'Potential warehouse',
+            detail: 'Distributes EtO-sterilized goods. Unmeasured. 1 mi ring.',
+            color: 'var(--potential)', hex: '#5b6472', rings: [1], dashed: true,
+        },
+    };
+
+    const FACILITIES = [
+        {
+            id: 'ssv',
+            name: 'Sterilization Services of Virginia',
+            short: 'SSV plant (Eastport)',
+            address: '5674 Eastport Blvd, Henrico, VA 23231',
+            lat: 37.504612, lon: -77.356446,
+            category: 'high',
+            notes: [
+                'Opened 1990; 76,000 sq ft of processing and warehouse space.',
+                'EPA (2022): one of 23 high-risk sterilizers nationally; ~100-in-a-million lifetime cancer risk in nearby neighborhoods.',
+                'April 9, 2026: a failed check valve released 580 lb of EtO in about two hours — more than the 400 lb/yr permit limit. DEQ settled for ~$54K.',
+            ],
+        },
+        {
+            id: 'ssv-warehouse',
+            name: 'Sterilization Services (warehouse)',
+            short: 'SSV warehouse (Eastport)',
+            address: '5601 Eastport Blvd, Richmond, VA 23231',
+            lat: 37.505428, lon: -77.353651,
+            category: 'confirmed',
+            // 250 m from the plant: its "1 mi" would print over the plant's.
+            ringLabels: false,
+            notes: [
+                'Virginia’s only confirmed warehouse source in Grist’s dataset, via EPA Information Collection Request records.',
+                'Across the street from the plant, so it is part of the same Eastport site.',
+            ],
+        },
+        {
+            id: 'cvhn',
+            name: 'Central Virginia Health Network / Bon Secours',
+            short: 'Lakeside sterilizer',
+            address: '2521 Brittons Hill Rd, Richmond, VA 23230',
+            lat: 37.592568, lon: -77.487878,
+            category: 'low',
+            notes: [
+                'A smaller sterilizer. EPA’s 2022 screening did not flag it as a major contributor to local cancer risk.',
+            ],
+        },
+        {
+            id: 'om-mechanicsville',
+            name: 'Owens & Minor',
+            short: 'Owens & Minor, Mechanicsville',
+            address: '9120 Lockwood Blvd, Mechanicsville, VA 23116',
+            lat: 37.645575, lon: -77.408569,
+            category: 'potential',
+            notes: [
+                '“Potential” only means the company distributes EtO-sterilized products. No one has measured or modeled emissions here.',
+            ],
+        },
+        {
+            id: 'om-ashland',
+            name: 'Owens & Minor — Richmond Distribution Center',
+            short: 'Owens & Minor, Ashland',
+            address: '11900 N Lakeridge Pkwy, Ashland, VA 23005',
+            lat: 37.728528, lon: -77.460049,
+            category: 'potential',
+            notes: [
+                '“Potential” only means the company distributes EtO-sterilized products. No one has measured or modeled emissions here.',
+            ],
+        },
+        {
+            id: 'medline-chester',
+            name: 'Medline',
+            short: 'Medline, Chester',
+            address: '1900 Meadowville Technology Pkwy, Chester, VA 23836',
+            lat: 37.361033, lon: -77.340613,
+            category: 'potential',
+            notes: [
+                '“Potential” only means the company distributes EtO-sterilized products. No one has measured or modeled emissions here.',
+            ],
+        },
+        {
+            id: 'medline-south-chesterfield',
+            name: 'Medline Industries',
+            short: 'Medline, South Chesterfield',
+            address: '1962 Ruffin Mill Rd, South Chesterfield, VA 23834',
+            lat: 37.311855, lon: -77.386353,
+            category: 'potential',
+            notes: [
+                '“Potential” only means the company distributes EtO-sterilized products. No one has measured or modeled emissions here.',
+            ],
+        },
+    ];
+
+    // The legend panel owns the top-left corner, so zoom moves right.
+    const map = L.map('map', { zoomSnap: 0.25, zoomControl: false });
+    L.control.zoom({ position: 'topright' }).addTo(map);
+    L.control.scale({ position: 'bottomright', imperial: true, metric: false }).addTo(map);
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    }).addTo(map);
+
+    // Rings sit under the markers in their own pane so a click on a ring
+    // still reaches the map (drops the pin) rather than opening a popup.
+    map.createPane('rings');
+    map.getPane('rings').style.zIndex = 390;
+    map.getPane('rings').style.pointerEvents = 'none';
+
+    const layers = {};
+    for (const key of Object.keys(CATEGORIES)) layers[key] = L.layerGroup().addTo(map);
+
+    function escapeHtml(s) {
+        return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+
+    for (const f of FACILITIES) {
+        const cat = CATEGORIES[f.category];
+        const group = layers[f.category];
+
+        cat.rings.forEach((mi, i) => {
+            L.circle([f.lat, f.lon], {
+                pane: 'rings',
+                radius: mi * MILE,
+                color: cat.hex,
+                weight: i === cat.rings.length - 1 ? 2 : 1.25,
+                opacity: 0.9,
+                dashArray: cat.dashed ? '6 6' : (i === cat.rings.length - 1 && cat.rings.length > 1 ? '8 5' : null),
+                fillColor: cat.hex,
+                // Nested rings stack their fill, so the core reads darkest.
+                fillOpacity: cat.rings.length > 1 ? 0.07 : (cat.dashed ? 0.06 : 0.12),
+                interactive: false,
+            }).addTo(group);
+
+            if (f.ringLabels === false) return;
+            const north =L.latLng(f.lat + (mi * MILE) / 111320, f.lon);
+            L.tooltip({ permanent: true, direction: 'center', className: 'ring-label', interactive: false })
+                .setLatLng(north)
+                .setContent(`${mi} mi`)
+                .addTo(group);
+        });
+
+        const popup =
+            `<span class="tag" style="--c:${cat.hex}">${escapeHtml(cat.label)}</span>` +
+            `<h3>${escapeHtml(f.name)}</h3>` +
+            `<p class="addr">${escapeHtml(f.address)}</p>` +
+            f.notes.map((n) => `<p>${escapeHtml(n)}</p>`).join('') +
+            `<p class="addr">Ring: ${cat.rings.join(' / ')} mi</p>`;
+
+        L.circleMarker([f.lat, f.lon], {
+            radius: f.category === 'high' ? 9 : 7,
+            color: '#ffffff',
+            weight: 2,
+            fillColor: cat.hex,
+            fillOpacity: 1,
+            // A dot click opens its popup; it should not also move the pin.
+            bubblingMouseEvents: false,
+        })
+            .bindPopup(popup, { maxWidth: 300 })
+            .bindTooltip(escapeHtml(f.short), { direction: 'top', offset: [0, -8] })
+            .addTo(group);
+    }
+
+    // Legend with per-category toggles.
+    const legend = document.getElementById('legend');
+    for (const [key, cat] of Object.entries(CATEGORIES)) {
+        const count = FACILITIES.filter((f) => f.category === key).length;
+        const li = document.createElement('li');
+        li.innerHTML =
+            `<label><input type="checkbox" checked data-key="${key}">` +
+            `<span class="swatch${cat.dashed ? ' dashed' : ''}" style="--c:${cat.color}"></span>` +
+            `<span><b>${escapeHtml(cat.label)} (${count})</b><small>${escapeHtml(cat.detail)}</small></span></label>`;
+        legend.appendChild(li);
+    }
+    legend.addEventListener('change', (e) => {
+        const key = e.target.dataset.key;
+        if (!key) return;
+        if (e.target.checked) layers[key].addTo(map);
+        else layers[key].remove();
+    });
+
+    // Pin + distance readout.
+    let pin = null;
+    const list = document.getElementById('distances');
+    const empty = document.getElementById('distances-empty');
+
+    function miles(a, b) {
+        return map.distance(a, b) / MILE;
+    }
+
+    function dropPin(latlng) {
+        if (pin) pin.remove();
+        pin = L.marker(latlng, { title: 'Your pin', keyboard: false }).addTo(map);
+
+        const rows = FACILITIES.map((f) => {
+            const d = miles(latlng, [f.lat, f.lon]);
+            const outer = CATEGORIES[f.category].rings.at(-1);
+            return { f, d, inside: d <= outer };
+        }).sort((a, b) => a.d - b.d);
+
+        list.innerHTML = rows.map(({ f, d, inside }) =>
+            `<li class="${inside ? 'inside' : ''}"><span>${escapeHtml(f.short)}${inside ? ' — inside ring' : ''}</span>` +
+            `<span class="mi">${d.toFixed(1)} mi</span></li>`).join('');
+        empty.hidden = true;
+
+        const inside = rows.filter((r) => r.inside).map((r) => r.f.short);
+        pin.bindPopup(inside.length
+            ? `<b>Inside:</b> ${inside.map(escapeHtml).join(', ')}`
+            : `Outside every ring. Nearest: ${escapeHtml(rows[0].f.short)}, ${rows[0].d.toFixed(1)} mi.`);
+    }
+    map.on('click', (e) => dropPin(e.latlng));
+
+    const bounds = L.latLngBounds(FACILITIES.map((f) => [f.lat, f.lon]));
+
+    const param = new URLSearchParams(location.search).get('pin');
+    const m = param && param.match(/^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/);
+    if (m) {
+        const at = L.latLng(Number(m[1]), Number(m[2]));
+        bounds.extend(at);
+        dropPin(at);
+    }
+    // Mobile: the legend folds behind a button. On desktop it stays open, and
+    // the fit leaves room for it on the left.
+    const panel = document.getElementById('panel');
+    const toggle = document.getElementById('toggle');
+    const wide = window.matchMedia('(min-width: 641px)').matches;
+    if (wide) panel.classList.remove('collapsed');
+    map.fitBounds(bounds, {
+        paddingTopLeft: wide ? [panel.offsetWidth + 36, 30] : [20, 70],
+        paddingBottomRight: [30, 30],
+    });
+
+    toggle.addEventListener('click', () => {
+        const open = panel.classList.toggle('collapsed') === false;
+        toggle.setAttribute('aria-expanded', String(open));
+        toggle.textContent = open ? 'Hide legend' : 'Legend';
+    });
+    </script>
+</body>
+</html>

@@ -539,7 +539,10 @@ on a throwaway port, and `tools/make_favicon.py` renders `public/favicon.ico`
 and `public/apple-touch-icon.png` from the brand mark. The icons are
 COMMITTED and ship from `public/`, under stable names a bare `/favicon.ico`
 probe can find; nothing regenerates them, so re-run the tool after any edit
-to `app/clean-plate-va-logo.png` and commit what changes. The
+to `app/clean-plate-va-logo.png` and commit what changes.
+`tools/eto-map/` is a standalone page, unrelated to the site, that maps
+ethylene-oxide sources around Richmond on OpenStreetMap with illustrative
+rings; serve it with `python3 -m http.server 5630 -d tools/eto-map`. The
 exporter/renderer parity proof behind design ref
 D-DATA-13 is `tests/vitest/visits-parity.spec.ts`; the archive-wide
 crosscheck tool that established it at CPH-M0/M1 retired with the old
