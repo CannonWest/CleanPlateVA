@@ -41,6 +41,12 @@ export const AGGREGATE_TENANT = 'virginia'
 // (below); per-report links come baked on each inspection.
 export const FAIRFAX_TENANT = 'fairfax'
 export const FAIRFAX_RECORDS_URL = 'https://www.fairfaxcounty.gov/health/food/inspection-reports'
+// The build's third-party software notices (vite.config.ts
+// thirdPartyNotices, 2026-10-05), emitted beside index.html. Relative on
+// purpose: it resolves against <base href>, so the link works at / on
+// cleanplateva.com and at /cleanplate/ in the host's Food-tab embed.
+// dist-contract.spec.ts checks that the build emits this exact name.
+export const THIRD_PARTY_NOTICES_PATH = 'third-party-notices.txt'
 // The county's own per-facility page: its ArcGIS Experience map selects a
 // permitted establishment by the layer's OBJECTID (`#data_s=id:<source>:<oid>`),
 // which the exporter publishes as the finder row's `ffx_oid` (an integer on

@@ -21,6 +21,18 @@ copyright holder's to relicense, and remains subject to the terms of the
 publishing department. Anyone redistributing it is responsible for satisfying
 those terms directly.
 
+## Third-party software
+
+The application bundle incorporates third-party open-source software, such as
+MapLibre GL JS (BSD-3-Clause), React (MIT), Radix UI (MIT), and Lucide (ISC).
+[LICENSE](LICENSE) does not cover that software; each component remains
+subject to its own license.
+
+The build generates `third-party-notices.txt`, published at the root of the
+site. It lists every third-party package included in the bundle, including
+packages compiled into another package's published files, and reproduces the
+license text distributed with each.
+
 ## Inspection records
 
 Records originate from two agencies:

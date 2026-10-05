@@ -12,6 +12,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, test } from 'vitest'
+import { THIRD_PARTY_NOTICES_PATH } from '../../app/constants'
 
 const ROOT = resolve(import.meta.dirname, '..', '..')
 const DIST = resolve(ROOT, 'dist')
@@ -114,6 +115,86 @@ describe.skipIf(!built)('dist/ ships the app shell complete', () => {
         const logo = assets.filter((name) => /^clean-plate-va-logo-.*\.png$/.test(name))
         expect(logo.length, `expected a hashed logo in dist/assets, saw: ${assets.join(', ')}`)
             .toBe(1)
+    })
+})
+
+// The third-party notices (vite.config.ts thirdPartyNotices, 2026-10-05):
+// minification strips every dependency's license banner, so the build ships
+// their license texts beside index.html instead. The plugin derives its list
+// from the chunks' module ids and maplibre's own source maps; these pins
+// re-derive what they can from node_modules rather than trusting that list.
+describe.skipIf(!built)('dist/ carries the third-party notices', () => {
+    // The name the About terms link to (TermsBody) — the build must emit it.
+    const NOTICES = resolve(DIST, THIRD_PARTY_NOTICES_PATH)
+    const MAPLIBRE = resolve(ROOT, 'node_modules', 'maplibre-gl')
+    const normalized = (text: string) => text.replaceAll('\r\n', '\n').trim()
+    const sections = () => readFileSync(NOTICES, 'utf8')
+        .split(/^={78}$/m).slice(1)
+        .map((section) => {
+            const [head = '', body = ''] = section.split(/^-{78}$/m)
+            return { title: head.trim().split('\n')[0]!, head, body: body.trim() }
+        })
+
+    test('ships at the root, outside assets/ and its immutable rules', () => {
+        expect(existsSync(NOTICES)).toBe(true)
+        expect(readFileSync(resolve(DIST, '_headers'), 'utf8')).not.toContain('third-party-notices')
+    })
+
+    test('leads with a UTF-8 BOM, so a host sending bare text/plain still decodes it as UTF-8', () => {
+        // Measured on `vite preview` (no charset): without the BOM the
+        // browser read it as windows-1252 and every typographic dash and
+        // quote in the license texts came out as mojibake.
+        expect([...readFileSync(NOTICES).subarray(0, 3)]).toEqual([0xef, 0xbb, 0xbf])
+    })
+
+    test('every section names its license and carries a license text', () => {
+        const all = sections()
+        expect(all.length).toBeGreaterThan(0)
+        for (const { title, head, body } of all) {
+            expect(head, title).toMatch(/^License: .+$/m)
+            expect(body.length, `${title} has no license text`).toBeGreaterThan(100)
+        }
+    })
+
+    test('the app\'s direct runtime packages are listed', () => {
+        const titles = sections().map((section) => section.title)
+        for (const name of ['maplibre-gl', 'react', 'react-dom', 'lucide-react']) {
+            const { version } = JSON.parse(readFileSync(resolve(ROOT, 'node_modules', name, 'package.json'), 'utf8'))
+            expect(titles).toContain(`${name} ${version}`)
+        }
+    })
+
+    test('maplibre-gl\'s own LICENSE.txt is reproduced whole (BSD-3-Clause, incl. the Mapbox notice)', () => {
+        const license = normalized(readFileSync(resolve(MAPLIBRE, 'LICENSE.txt'), 'utf8'))
+        expect(license).toContain('Mapbox')
+        expect(readFileSync(NOTICES, 'utf8')).toContain(license)
+    })
+
+    test('every package maplibre compiles into its shipped files is listed within it', () => {
+        const { version } = JSON.parse(readFileSync(resolve(MAPLIBRE, 'package.json'), 'utf8'))
+        const inlined = new Set<string>()
+        for (const file of ['maplibre-gl.mjs', 'maplibre-gl-shared.mjs', 'maplibre-gl-worker.mjs']) {
+            const map = JSON.parse(readFileSync(resolve(MAPLIBRE, 'dist', `${file}.map`), 'utf8')) as { sources: string[] }
+            for (const source of map.sources) {
+                const match = /node_modules\/((?:@[^/]+\/)?[^/]+)\//.exec(source.replaceAll('\\', '/'))
+                if (match && match[1] !== 'maplibre-gl') inlined.add(match[1]!)
+            }
+        }
+        expect(inlined.size).toBeGreaterThan(0)
+        const titles = sections().map((section) => section.title)
+        for (const name of inlined) expect(titles).toContain(`${name} (included within maplibre-gl ${version})`)
+    })
+
+    test('every vendored fallback license text is in use', () => {
+        // A fallback is read only when the installed package has no license
+        // file of its own. One that no longer reaches the notices means the
+        // package now ships its text (or left the bundle): delete the file
+        // and its LICENSE_FALLBACKS entry.
+        const dir = resolve(ROOT, 'tools', 'third-party-licenses')
+        const notices = readFileSync(NOTICES, 'utf8')
+        for (const name of readdirSync(dir)) {
+            expect(notices, name).toContain(normalized(readFileSync(resolve(dir, name), 'utf8')))
+        }
     })
 })
 
