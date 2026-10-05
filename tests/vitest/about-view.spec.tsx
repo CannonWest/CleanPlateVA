@@ -215,6 +215,12 @@ test('§05 carries the verbatim single-source terms with the real attribution hr
     ]) {
         expect(hrefs).toContain(url)
     }
+    // Third-party software (2026-10-05): the notices the build emits beside
+    // index.html, linked base-relative so the embed mount resolves it too.
+    expect(body?.textContent).toContain('each used under its own license')
+    const notices = Array.from(body?.querySelectorAll('a') ?? [])
+        .find((a) => a.textContent === 'Third-Party Software Notices')
+    expect(notices?.getAttribute('href')).toBe('third-party-notices.txt')
     // The status panel sits OUTSIDE the cloned body (C2).
     expect(body?.textContent).not.toContain('Switch to the basic map')
     expect(el.textContent).toContain('Switch to the basic map')

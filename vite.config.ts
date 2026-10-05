@@ -28,11 +28,12 @@
 // D-CRX-1) — so C5 reads "publisher block verbatim + build block appended";
 // public/_headers itself is never touched.
 /// <reference types="vitest/config" />
-import { cp, readFile, writeFile } from 'node:fs/promises'
+import { cp, readFile, readdir, writeFile } from 'node:fs/promises'
 import { relative, resolve } from 'node:path'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
+import { THIRD_PARTY_NOTICES_PATH } from './app/constants'
 
 const PUBLIC_COPY_EXCLUDED = ['data-full']
 
@@ -144,8 +145,200 @@ function buildAssetHeaders() {
     }
 }
 
+// Third-party notices (2026-10-05). The build redistributes its npm
+// dependencies in minified form, and minification drops their license
+// banners: measured on the 2026-10 production bundle, maplibre's chunk
+// carried no notice at all — only the worker pair copied verbatim kept
+// MapLibre's one-line banner. MapLibre's BSD-3-Clause requires a binary
+// redistribution to reproduce its copyright notice, conditions and disclaimer
+// in materials provided with it; MIT and ISC require the notice in all copies.
+// So the build emits third-party-notices.txt (THIRD_PARTY_NOTICES_PATH, the
+// name the About terms link to) beside index.html — root-level, unhashed,
+// outside the immutable assets/ rules — with one section per npm package
+// whose code ships, each carrying the package's own license file verbatim.
+// Nothing here is a hand list, so it cannot drift from what ships:
+//
+//   · a package is IN when a chunk's module ids reach into it, or when it is
+//     the source of a file copied beside the chunks (the maplibre worker pair);
+//   · a package is INLINED when a shipped file is itself a pre-built bundle
+//     whose own source map names it under node_modules/ — maplibre-gl's dist
+//     compiles in earcut, pbf, gl-matrix and a dozen more, which no module id
+//     of ours ever reaches. Those are listed as included within their host,
+//     without a version: the map names the package, not the release the
+//     host was built against.
+//
+// A shipped package with no license text — neither a file in its install nor
+// an entry in LICENSE_FALLBACKS — fails the build rather than shipping without
+// it. Pinned by tests/vitest/dist-contract.spec.ts; NOTICE.md and the About
+// terms point here.
+const LICENSE_FILE = /^(licen[cs]e|copying)([.-].*)?$/i
+const NOTICES_RULE = '='.repeat(78)
+const NOTICES_HEAD_RULE = '-'.repeat(78)
+// Shipped packages whose npm tarball carries no license file, each with the
+// text kept verbatim under tools/third-party-licenses/. Used only when the
+// installed package has no file of its own, so an upstream fix wins.
+//   · react-remove-scroll-bar (via radix-ui): package.json declares MIT, and
+//     its `files` list publishes only dist/ and constants/. 2.3.8 shipped
+//     2024-12-15, before the repo had any LICENSE; the text is the author's
+//     own, added upstream 2025-05-21 (theKashey/react-remove-scroll-bar
+//     LICENSE @ 7301c160fda44cb8cf2b9fdfde61efad35736196).
+//   · murmurhash-js (compiled into maplibre-gl): package.json declares MIT and
+//     the 1.0.0 tarball has no LICENSE; neither upstream repo has one either
+//     (mikolalysenko/ and garycourt/murmurhash-js). The text is the package's
+//     own README "License (MIT)" section, verbatim from its notice line on.
+const LICENSE_FALLBACKS: Record<string, string> = {
+    'murmurhash-js': 'tools/third-party-licenses/murmurhash-js.txt',
+    'react-remove-scroll-bar': 'tools/third-party-licenses/react-remove-scroll-bar.txt',
+}
+
+type PackageJson = {
+    name: string, version: string, license?: string, homepage?: string,
+    repository?: string | { url?: string },
+}
+
+/** `<...>/node_modules/<name>` for a path inside an installed package. */
+function packageNameAt(path: string): { root: string, name: string } | null {
+    const posix = path.replace(/^\0/, '').replaceAll('\\', '/').split('?')[0]!
+    const at = posix.lastIndexOf('node_modules/')
+    if (at < 0) return null
+    const parts = posix.slice(at + 'node_modules/'.length).split('/')
+    const name = parts[0]!.startsWith('@') ? `${parts[0]}/${parts[1]}` : parts[0]!
+    return { root: posix.slice(0, at), name }
+}
+
+/** Packages a pre-built file compiled in, by its own source map's `sources`. */
+async function inlinedPackages(file: string): Promise<string[]> {
+    let map: { sources?: string[] }
+    try {
+        map = JSON.parse(await readFile(`${file}.map`, 'utf8'))
+    } catch {
+        return []
+    }
+    const names = new Set<string>()
+    for (const source of map.sources ?? []) {
+        const found = packageNameAt(source)
+        if (found) names.add(found.name)
+    }
+    return [...names]
+}
+
+/** Where an inlined package is installed: the host's own node_modules, then the project's. */
+async function installedDir(name: string, hostDir: string): Promise<string | null> {
+    for (const dir of [`${hostDir}/node_modules/${name}`, resolve(import.meta.dirname, 'node_modules', name)]) {
+        try {
+            await readFile(`${dir}/package.json`)
+            return dir.replaceAll('\\', '/')
+        } catch { /* not here */ }
+    }
+    return null
+}
+
+async function licenseTexts(dir: string, pkg: PackageJson): Promise<string[] | null> {
+    const files = (await readdir(dir)).filter((name) => LICENSE_FILE.test(name)).sort()
+        .map((name) => `${dir}/${name}`)
+    const fallback = LICENSE_FALLBACKS[pkg.name]
+    if (!files.length && fallback) files.push(resolve(import.meta.dirname, fallback))
+    if (!files.length) return null
+    return Promise.all(files.map(async (file) =>
+        (await readFile(file, 'utf8')).replaceAll('\r\n', '\n').trim()))
+}
+
+function thirdPartyNotices() {
+    return {
+        name: 'third-party-notices',
+        apply: 'build' as const,
+        async generateBundle(
+            this: { emitFile(file: { type: 'asset', fileName: string, source: string }): string },
+            _options: unknown,
+            bundle: Record<string, { moduleIds?: string[] }>,
+        ) {
+            // Every shipped file inside node_modules: the chunks' modules, plus
+            // the worker pair maplibreWorkerCopy copies in after the bundle.
+            const shipped = new Set<string>()
+            for (const output of Object.values(bundle)) {
+                for (const id of output.moduleIds ?? []) {
+                    if (packageNameAt(id)) shipped.add(id.replace(/^\0/, '').replaceAll('\\', '/').split('?')[0]!)
+                }
+            }
+            for (const name of MAPLIBRE_WORKER_FILES) {
+                shipped.add(resolve(import.meta.dirname, 'node_modules/maplibre-gl/dist', name).replaceAll('\\', '/'))
+            }
+
+            const direct = new Map<string, string>()      // package dir → host-less
+            const inlined = new Map<string, string>()     // package dir → host label
+            for (const file of shipped) {
+                const { root, name } = packageNameAt(file)!
+                const dir = `${root}node_modules/${name}`
+                direct.set(dir, name)
+                for (const inner of await inlinedPackages(file)) {
+                    if (inner === name) continue
+                    const innerDir = await installedDir(inner, dir)
+                    if (!innerDir) throw new Error(`third-party-notices: ${name} compiles in ${inner}, which is not installed — its license text cannot be read`)
+                    const host = JSON.parse(await readFile(`${dir}/package.json`, 'utf8')) as PackageJson
+                    inlined.set(innerDir, `${host.name} ${host.version}`)
+                }
+            }
+
+            const sections: { sort: string, text: string }[] = []
+            const unlicensed: string[] = []
+            const seen = new Set<string>()
+            for (const [dir, host] of [...[...direct.keys()].map((d) => [d, null] as const), ...inlined]) {
+                const pkg = JSON.parse(await readFile(`${dir}/package.json`, 'utf8')) as PackageJson
+                if (seen.has(pkg.name)) continue
+                seen.add(pkg.name)
+                const texts = await licenseTexts(dir, pkg)
+                if (!texts) {
+                    unlicensed.push(`${pkg.name}@${pkg.version}`)
+                    continue
+                }
+                const repository = typeof pkg.repository === 'string' ? pkg.repository : pkg.repository?.url
+                const source = (pkg.homepage ?? repository ?? '').replace(/^git\+/, '').replace(/\.git$/, '')
+                const head = [
+                    host ? `${pkg.name} (included within ${host})` : `${pkg.name} ${pkg.version}`,
+                    `License: ${pkg.license ?? 'see the text below'}`,
+                ]
+                if (source) head.push(`Source: ${source}`)
+                sections.push({
+                    sort: pkg.name,
+                    text: [NOTICES_RULE, ...head, NOTICES_HEAD_RULE, texts.join('\n\n'), ''].join('\n'),
+                })
+            }
+            if (unlicensed.length) {
+                throw new Error(
+                    'third-party-notices: these packages ship but carry no license file — add their text '
+                    + `to LICENSE_FALLBACKS rather than ship without it: ${unlicensed.sort().join(', ')}`,
+                )
+            }
+            if (!sections.length) throw new Error('third-party-notices: no shipped package found')
+            sections.sort((a, b) => (a.sort < b.sort ? -1 : a.sort > b.sort ? 1 : 0))
+            this.emitFile({
+                type: 'asset',
+                fileName: THIRD_PARTY_NOTICES_PATH,
+                // Led by a UTF-8 byte-order mark: the license texts carry
+                // typographic quotes, and a host that answers bare
+                // `text/plain` (measured: `vite preview`) gets the file
+                // decoded as windows-1252 — "â€”" for every dash. A BOM
+                // outranks any header in the browser's decoding, so the text
+                // reads right on every host that serves it.
+                source: '﻿' + [
+                    'CleanPlateVA — Third-Party Software Notices',
+                    '',
+                    'The CleanPlateVA web application includes the third-party software listed',
+                    'below. Each package is identified by name, version, and declared license,',
+                    'followed by the license text distributed with it. A package marked as',
+                    'included within another is compiled into that package\'s published files.',
+                    '',
+                    sections.map((section) => section.text).join('\n'),
+                ].join('\n'),
+            })
+        },
+    }
+}
+
 export default defineConfig({
-    plugins: [react(), tailwindcss(), cpPublicCopy(), maplibreWorkerCopy(), buildAssetHeaders()],
+    plugins: [
+        react(), tailwindcss(), cpPublicCopy(), maplibreWorkerCopy(), buildAssetHeaders(), thirdPartyNotices(),
+    ],
     // Base-relative asset URLs (D-CR-EMBED-1, C7): the host's Food tab
     // serves this build under /cleanplate/ behind a rewritten <base href>,
     // so the built entry must reference ./assets/* and let index.html's

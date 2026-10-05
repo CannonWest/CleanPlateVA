@@ -7,7 +7,7 @@
  * the dialog cannot drift (the React form of the old DOM clone).
  */
 
-import { AGGREGATE_TENANT, FAIRFAX_RECORDS_URL, PORTAL_BASE } from './constants'
+import { AGGREGATE_TENANT, FAIRFAX_RECORDS_URL, PORTAL_BASE, THIRD_PARTY_NOTICES_PATH } from './constants'
 
 const PORTAL_URL = `${PORTAL_BASE}/${AGGREGATE_TENANT}`
 
@@ -52,6 +52,8 @@ export function TermsBody() {
             <p>The Foursquare OS Places dataset (the “Data”) is licensed under the <a href="https://www.apache.org/licenses/LICENSE-2.0" target="_blank" rel="noopener">Apache License, Version 2.0</a> (the “License”). The Data distributed under the License is distributed on an “AS IS” BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License. The complete notice is published by Foursquare at <a href="https://opensource.foursquare.com/places-notice-txt/" target="_blank" rel="noopener">opensource.foursquare.com</a>.</p>
             <p>CleanPlateVA does not redistribute the Data. Coordinates from selected Foursquare OS Places records are used to position markers for the corresponding establishments, and those coordinates appear in data published by CleanPlateVA. No other field of the Data is published, and the Data itself is not modified.</p>
             <p>CleanPlateVA’s independently calculated scores, grades, classifications, and presentation may be cited with credit to CleanPlateVA. No additional license to CleanPlateVA-created material is granted by these terms.</p>
+            <h3>Third-Party Software</h3>
+            <p>The CleanPlateVA application incorporates third-party open-source software, such as MapLibre GL JS, React, Radix UI, and Lucide, each used under its own license. The complete list of incorporated software, together with the copyright notices and license terms that accompany it, is published in the <a href={THIRD_PARTY_NOTICES_PATH} target="_blank" rel="noopener">Third-Party Software Notices</a>.</p>
             <h3>Acknowledgment</h3>
             <p>By selecting “Agree and View Grades”, you acknowledge that you have read and understood these terms and that CleanPlateVA’s scores and grades are independent calculations rather than official ratings issued by any health department.</p>
             <p>If you do not agree, you may continue using the basic map without CleanPlateVA inspection grades.</p>
