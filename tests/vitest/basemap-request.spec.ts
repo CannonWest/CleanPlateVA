@@ -16,7 +16,7 @@ test('a local host sends the local key; every other host the site key', () => {
     // CARTO keeps local hosts off a public key, so there are two (constants.ts).
     expect(CARTO_BASEMAP_LOCAL_KEY).not.toBe(CARTO_BASEMAP_KEY)
     for (const host of ['localhost', '127.0.0.1']) expect(basemapKeyFor(host), host).toBe(CARTO_BASEMAP_LOCAL_KEY)
-    for (const host of ['cleanplateva.com', 'www.cleanplateva.com', 'cannonai.djsweetheartclubmix.com', '[::1]', 'localhost.example.com']) {
+    for (const host of ['cleanplateva.com', 'www.cleanplateva.com', 'embed.example.org', '[::1]', 'localhost.example.com']) {
         expect(basemapKeyFor(host), host).toBe(CARTO_BASEMAP_KEY)
     }
 })
