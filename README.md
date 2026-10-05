@@ -491,9 +491,21 @@ and deploys the result (design ref `docs/frontend-redesign.md` §3):
 publisher's `data/` copied verbatim from `public/`, and its `_headers`
 carried verbatim with the build's own rules appended (one `immutable` rule
 per content-hashed asset, by name, never a splat; `public/_headers` itself is
-never edited) — `tests/vitest/dist-contract.spec.ts` pins all of it — with
+never edited), and `third-party-notices.txt`, the build's list of every npm
+package that ships in the bundle with that package's own license text —
+`tests/vitest/dist-contract.spec.ts` pins all of it — with
 the Worker in front of `/data-full/*`, `/admin/api/*` and `/api/contact` only
-(the three `run_worker_first` entries above). A push to any other branch runs **no build command**
+(the three `run_worker_first` entries above).
+
+The CARTO basemap is requested with one of two browser keys, chosen by the
+page's own hostname (`app/basemapRequest.ts`): the local key on `localhost`
+and `127.0.0.1`, the site key everywhere else. Each key only answers for the
+hosts on its Referer allowlist in CARTO's dashboard, so a new host that serves
+the map — another domain, another embed — must be added to the site key's
+list. Until it is, the map there falls back to keyless requests and logs
+"CARTO refused the basemap key" in the console; it never goes blank.
+
+A push to any other branch runs **no build command**
 (measured at the flip, design ref §3), so its Workers Builds check reads
 red now that `dist/` needs a build; the pre-merge proof of a PR is the
 GitHub Actions job below plus a local `npx wrangler deploy --dry-run`
@@ -529,7 +541,9 @@ both themes and with "Group nearby places" on. Every Vitest map spec runs
 against a fake; this is the one that asks the running map, and the only test
 that exercises the worker file the build copies beside the main chunk. It
 needs the Playwright Chromium once (`npx playwright install chromium`) and
-CARTO's basemap live. CI runs `npm ci`, `npx vite build`, `npx vitest run`,
+CARTO's basemap live; `tests/e2e/basemap-key.spec.ts` checks that every CARTO
+request carries the local key and is answered, and that a refused key falls
+back to keyless with the map still painted. CI runs `npm ci`, `npx vite build`, `npx vitest run`,
 then the smoke, on every PR and push; the smoke's report is uploaded as an
 artifact when it fails.
 
