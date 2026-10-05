@@ -112,6 +112,29 @@ export const CLOSED_OPACITY = 0.42
 // CARTO vector basemaps (attribution rides in the style's sources).
 export const STYLE_LIGHT = 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json'
 export const STYLE_DARK = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json'
+// The site's CARTO Basemaps API keys (2026-10-05). CARTO's basemap terms
+// (rev. 2026-09-29) require every request to carry the customer's own key;
+// keyless raster tiles already come back watermarked, and CARTO has said
+// vector may follow. BROWSER keys — public by nature, they ship in the bundle
+// — so their protection is the Referer allowlist each carries on CARTO's
+// dashboard: a keyed request from a host not on that list is a 403, where a
+// keyless one is a 200 (measured). The keys do NOT propagate from the style
+// URL: style.json, tiles.json, the tiles, sprites and glyphs all name keyless
+// URLs on two hosts (measured), so basemapRequest.ts adds one to each request.
+//
+// Two keys, because CARTO will not put a local host on a public key ("Local
+// hosts must be on a key of their own"). One build serves every host, so the
+// page picks by its own hostname (basemapRequest.ts basemapKeyFor):
+//   · the site key — cleanplateva.com, *.cleanplateva.com, and the host's
+//     public Food-tab domain;
+//   · the local key — localhost and 127.0.0.1 on any port (measured): the
+//     dev server, the Playwright preview, the local Food-tab embed.
+export const CARTO_BASEMAP_KEY = 'cb1_4a5c_1_a33a585b373e119e1c9c69a4'
+export const CARTO_BASEMAP_LOCAL_KEY = 'cb1_4a5c_2_db4c6553ad47421f1231eed3'
+// Exactly the hosts on the local key's allowlist. `[::1]` is not one (CARTO
+// refuses it, measured): a page opened there takes the site key, is refused,
+// and falls back keyless like any other unlisted host.
+export const CARTO_LOCAL_HOSTS: readonly string[] = ['localhost', '127.0.0.1']
 
 // ── the aerial basemap (VBMP orthoimagery) ─────────────────────────────
 // The visitor's basemap choice (the layers control): 'map' is the CARTO
