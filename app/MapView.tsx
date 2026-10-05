@@ -80,6 +80,7 @@ import { HoverCard } from './HoverCard'
 import { StackPopover } from './StackPopover'
 import type { RowDragHandler } from './StackPopover'
 import type { Basemap } from './basemap'
+import { basemapKeyFor, isBasemapKeyRejection, transformBasemapRequest } from './basemapRequest'
 import type { GradePalette } from './constants'
 import { coordsOf } from './data/presentation'
 import type { RosterRow } from './data/types'
@@ -149,6 +150,9 @@ export function MapView({
     dataRef.current = data
     const darkRef = useRef(dark)
     darkRef.current = dark
+    // Set once CARTO refuses the basemap key: from then on, this session's
+    // basemap requests go keyless (the map's `error` listener).
+    const keylessRef = useRef(false)
     const byPid = useMemo(
         () => new Map(facilities.map((f) => [String(f.permit_id), f])),
         [facilities],
@@ -179,11 +183,19 @@ export function MapView({
 
     useEffect(() => {
         if (!container.current || mapRef.current) return
+        const basemapKey = basemapKeyFor(window.location.hostname)
         let map: maplibregl.Map
         try {
             map = new maplibregl.Map({
                 container: container.current,
                 style: darkRef.current ? STYLE_DARK : STYLE_LIGHT,
+                // The CARTO key on every basemap request — style, TileJSON,
+                // tiles, sprites, glyphs (basemapRequest.ts), the local key on
+                // a local host and the site key elsewhere; it survives
+                // setStyle, so the theme swap below is keyed too. Until the
+                // key is refused: then keyless for the rest of the session
+                // (the `error` listener below).
+                transformRequest: (url) => (keylessRef.current ? undefined : transformBasemapRequest(url, basemapKey)),
                 bounds: VA_BOUNDS,
                 fitBoundsOptions: VA_FIT,
                 maxZoom: 19,
@@ -228,6 +240,25 @@ export function MapView({
         // right sheet (M2) opens above these on the z axis, not over them.
         map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right')
         geolocate.install(map)
+
+        // CARTO refused the key (basemapRequest.ts isBasemapKeyRejection): a
+        // Referer the key's allowlist lacks, a browser that strips it, a
+        // revoked or throttled key. A refused style would leave the map
+        // empty — no basemap, so no style.load, so no dots — where a keyless
+        // request still succeeds, so reload the theme's style keyless, once,
+        // for the rest of the session: the map as it was before the key.
+        // Listening for `error` silences MapLibre's own console report of
+        // EVERY map error, so anything that is not this refusal is reported
+        // exactly as it was before the listener existed.
+        map.on('error', (event) => {
+            if (keylessRef.current || !isBasemapKeyRejection(event.error)) {
+                console.error(event.error)
+                return
+            }
+            keylessRef.current = true
+            console.warn('CleanPlateVA: CARTO refused the basemap key; continuing without it.', event.error)
+            map.setStyle(styleDarkRef.current ? STYLE_DARK : STYLE_LIGHT)
+        })
 
         // Fires on the initial style AND after every setStyle (theme swap) —
         // custom sources/layers/images don't survive a swap.
